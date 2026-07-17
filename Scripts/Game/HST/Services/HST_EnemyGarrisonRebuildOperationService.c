@@ -1347,13 +1347,19 @@ class HST_EnemyGarrisonRebuildOperationService
 		order.m_bOutcomeApplied = true;
 		order.m_bAbstractResolved = true;
 		order.m_sResolutionKind = "exact_garrison_rebuild_delivered";
-		order.m_sRuntimeStatus = "resolved_exact_rebuild_on_station";
 		order.m_sFailureReason = "";
 		if (operation.m_eMaterializationState
 			== HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_PHYSICAL)
+		{
+			order.m_sRuntimeStatus = "resolved_exact_rebuild_on_station";
 			group.m_sRuntimeStatus = "enemy_garrison_rebuild_physical_on_station";
+		}
 		else
+		{
+			order.m_sRuntimeStatus
+				= "resolved_exact_rebuild_virtual_on_station";
 			group.m_sRuntimeStatus = "enemy_garrison_rebuild_virtual_on_station";
+		}
 		return true;
 	}
 
@@ -2392,20 +2398,40 @@ class HST_EnemyGarrisonRebuildOperationService
 				changed = QuarantineRuntimeAuthority(order, failure) || changed;
 				continue;
 			}
+			bool rowChanged;
 			if (batch.m_bStrategicProjectionHeld)
 			{
-				SyncGroupRoster(group, m_SpawnQueue.CountStrategicLivingMemberSlots(batch));
-				group.m_bSpawnedEntity = false;
-				group.m_sRuntimeEntityId = "";
-				group.m_iSpawnedAgentCount = 0;
+				int living = m_SpawnQueue.CountStrategicLivingMemberSlots(batch);
+				int boundedLiving = Math.Max(0, Math.Min(
+					group.m_iOriginalInfantryCount,
+					living));
+				if (group.m_iInfantryCount != boundedLiving
+					|| group.m_iDurableLivingInfantryCount != boundedLiving
+					|| group.m_iLastSeenAliveCount != boundedLiving
+					|| group.m_iSurvivorInfantryCount != boundedLiving)
+				{
+					SyncGroupRoster(group, living);
+					rowChanged = true;
+				}
+				if (group.m_bSpawnedEntity || !group.m_sRuntimeEntityId.IsEmpty()
+					|| group.m_iSpawnedAgentCount != 0)
+				{
+					group.m_bSpawnedEntity = false;
+					group.m_sRuntimeEntityId = "";
+					group.m_iSpawnedAgentCount = 0;
+					rowChanged = true;
+				}
 				if (operation.m_eMaterializationState
-					!= HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_VIRTUAL)
+						!= HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_VIRTUAL
+					|| operation.m_ePositionAuthority
+						!= HST_EOperationPositionAuthority.HST_OPERATION_POSITION_STRATEGIC)
 				{
 					operation.m_eMaterializationState
 						= HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_VIRTUAL;
 					operation.m_ePositionAuthority
 						= HST_EOperationPositionAuthority.HST_OPERATION_POSITION_STRATEGIC;
 					operation.m_iRevision++;
+					rowChanged = true;
 				}
 			}
 			if (IsDelivered(order))
@@ -2423,16 +2449,40 @@ class HST_EnemyGarrisonRebuildOperationService
 					changed = QuarantineRuntimeAuthority(order, ownershipFailure) || changed;
 					continue;
 				}
-				group.m_sGarrisonZoneId = order.m_sTargetZoneId;
-				order.m_sRuntimeStatus = "resolved_exact_rebuild_virtual_on_station";
-				group.m_sRuntimeStatus = "enemy_garrison_rebuild_virtual_on_station";
+				if (group.m_sGarrisonZoneId != order.m_sTargetZoneId)
+				{
+					group.m_sGarrisonZoneId = order.m_sTargetZoneId;
+					rowChanged = true;
+				}
+				if (order.m_sRuntimeStatus
+					!= "resolved_exact_rebuild_virtual_on_station")
+				{
+					order.m_sRuntimeStatus
+						= "resolved_exact_rebuild_virtual_on_station";
+					rowChanged = true;
+				}
+				if (group.m_sRuntimeStatus
+					!= "enemy_garrison_rebuild_virtual_on_station")
+				{
+					group.m_sRuntimeStatus
+						= "enemy_garrison_rebuild_virtual_on_station";
+					rowChanged = true;
+				}
 			}
 			else
 			{
-				order.m_sRuntimeStatus = "exact_rebuild_restore_virtual";
-				group.m_sRuntimeStatus = "enemy_garrison_rebuild_virtual";
+				if (order.m_sRuntimeStatus != "exact_rebuild_restore_virtual")
+				{
+					order.m_sRuntimeStatus = "exact_rebuild_restore_virtual";
+					rowChanged = true;
+				}
+				if (group.m_sRuntimeStatus != "enemy_garrison_rebuild_virtual")
+				{
+					group.m_sRuntimeStatus = "enemy_garrison_rebuild_virtual";
+					rowChanged = true;
+				}
 			}
-			changed = true;
+			changed = rowChanged || changed;
 		}
 		return changed;
 	}

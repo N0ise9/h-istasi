@@ -142,6 +142,16 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	static const string EXACT_QRF_RESTART_CLI_STAGE_PARAM = "hstExactQRFRestartStage";
 	static const string EXACT_QRF_RESTART_CLI_RUN_ID_PARAM = "hstExactQRFRestartRunId";
 	static const string EXACT_QRF_RESTART_CLI_CUT_PARAM = "hstExactQRFRestartCut";
+	static const string EXACT_GARRISON_REBUILD_RESTART_CLI_PROOF_PARAM
+		= "hstExactGarrisonRebuildRestartProof";
+	static const string EXACT_GARRISON_REBUILD_RESTART_CLI_STAGE_PARAM
+		= "hstExactGarrisonRebuildRestartStage";
+	static const string EXACT_GARRISON_REBUILD_RESTART_CLI_RUN_ID_PARAM
+		= "hstExactGarrisonRebuildRestartRunId";
+	static const string EXACT_GARRISON_REBUILD_RESTART_CLI_SESSION_NONCE_PARAM
+		= "hstExactGarrisonRebuildRestartSessionNonce";
+	static const string EXACT_GARRISON_REBUILD_RESTART_CLI_STAGE_NONCE_PARAM
+		= "hstExactGarrisonRebuildRestartStageNonce";
 	static const string EXACT_COUNTERATTACK_RESTART_CLI_STAGE_PARAM = "hstExactCounterattackRestartStage";
 	static const string EXACT_COUNTERATTACK_RESTART_CLI_RUN_ID_PARAM = "hstExactCounterattackRestartRunId";
 	static const string EXACT_COUNTERATTACK_RESTART_CLI_CUT_PARAM = "hstExactCounterattackRestartCut";
@@ -327,6 +337,21 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	protected string m_sExactQRFRestartExpectedTerminalFingerprint;
 	protected string m_sExactQRFRestartSourceEvidence;
 	protected ref HST_EnemyQRFExternalRestartCarrier m_ExactQRFRestartCarrier;
+	protected bool m_bExactGarrisonRebuildRestartCLIRequested;
+	protected bool m_bExactGarrisonRebuildRestartCLIFinalized;
+	protected bool m_bExactGarrisonRebuildRestartGuardExact;
+	protected bool m_bExactGarrisonRebuildRestartSourceExact;
+	protected bool m_bExactGarrisonRebuildRestartStartupReconcileChanged;
+	protected string m_sExactGarrisonRebuildRestartCLIStage;
+	protected string m_sExactGarrisonRebuildRestartCLIRunId;
+	protected string m_sExactGarrisonRebuildRestartCLISessionNonce;
+	protected string m_sExactGarrisonRebuildRestartCLIStageNonce;
+	protected string m_sExactGarrisonRebuildRestartCLISetupFailure;
+	protected string m_sExactGarrisonRebuildRestartSourceFingerprint;
+	protected string m_sExactGarrisonRebuildRestartExpectedDeliveredFingerprint;
+	protected string m_sExactGarrisonRebuildRestartSourceEvidence;
+	protected ref HST_EnemyGarrisonRebuildExternalRestartCarrier
+		m_ExactGarrisonRebuildRestartCarrier;
 	protected bool m_bExactCounterattackRestartCLIRequested;
 	protected bool m_bExactCounterattackRestartCLIFinalized;
 	protected bool m_bExactCounterattackRestartGuardExact;
@@ -652,6 +677,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		ConfigureAdminCampaignResetPersistenceCLI();
 		ConfigureOrdinaryCampaignPersistenceCLI();
 		ConfigureExactQRFRestartCLI();
+		ConfigureExactGarrisonRebuildRestartCLI();
 		ConfigureExactCounterattackRestartCLI();
 		if (m_bAdminCampaignResetPersistenceCLIRequested)
 		{
@@ -702,6 +728,24 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				return;
 			}
 		}
+		if (m_bExactGarrisonRebuildRestartCLIRequested)
+		{
+			bool requireGarrisonRebuildCarrierAtBoot
+				= m_sExactGarrisonRebuildRestartCLIStage
+					!= HST_EnemyGarrisonRebuildExternalRestartProofService
+						.STAGE_PREPARE;
+			if (!LoadExactGarrisonRebuildRestartAuthority(
+				requireGarrisonRebuildCarrierAtBoot))
+			{
+				PublishExactGarrisonRebuildRestartStartupFailure();
+				Print(
+					"Partisan exact garrison rebuild external restart | startup rejected before profile migration, settings, or campaign restore: "
+						+ m_sExactGarrisonRebuildRestartCLISetupFailure,
+					LogLevel.WARNING);
+				GetGame().RequestClose();
+				return;
+			}
+		}
 		if (m_bExactCounterattackRestartCLIRequested)
 		{
 			bool requireCounterattackCarrierAtBoot
@@ -720,6 +764,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		}
 		Print("Partisan boot | authority build " + HST_BuildInfo.BuildRuntimeSummary() + " | server coordinator loaded");
 		if (!m_bExactCounterattackRestartCLIRequested
+			&& !m_bExactGarrisonRebuildRestartCLIRequested
 			&& !m_bAdminCampaignResetPersistenceCLIRequested
 			&& !m_bOrdinaryCampaignPersistenceCLIRequested)
 		{
@@ -1082,6 +1127,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			sourceResolution.BuildSourceLabel(),
 			sourceResolution.m_sEvidence));
 		ObserveExactQRFExternalRestartSource();
+		ObserveExactGarrisonRebuildExternalRestartSource();
 		ObserveExactCounterattackExternalRestartSource();
 		ObserveAdminCampaignResetPersistenceSource(sourceResolution);
 		ObserveOrdinaryCampaignPersistenceSource(sourceResolution);
@@ -1173,7 +1219,12 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (m_EnemyPatrolOperations && m_EnemyDirector)
 			m_EnemyPatrolOperations.ReconcileAfterRestore(m_State, m_EnemyDirector);
 		if (m_EnemyGarrisonRebuildOperations && m_EnemyDirector)
-			m_EnemyGarrisonRebuildOperations.ReconcileAfterRestore(m_State, m_EnemyDirector);
+		{
+			m_bExactGarrisonRebuildRestartStartupReconcileChanged
+				= m_EnemyGarrisonRebuildOperations.ReconcileAfterRestore(
+					m_State,
+					m_EnemyDirector);
+		}
 		if (m_GarrisonPatrolOperations)
 			m_GarrisonPatrolOperations.ReconcileAfterRestore(m_State);
 		if (m_MissionGuardOperations)
@@ -1393,6 +1444,11 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (m_bExactQRFRestartCLIRequested)
 		{
 			FinalizeExactQRFExternalRestartStage();
+			return;
+		}
+		if (m_bExactGarrisonRebuildRestartCLIRequested)
+		{
+			FinalizeExactGarrisonRebuildExternalRestartStage();
 			return;
 		}
 		if (m_bExactCounterattackRestartCLIRequested)
@@ -7276,6 +7332,702 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		GetGame().RequestClose();
 	}
 
+	protected void SetExactGarrisonRebuildRestartSetupFailure(string failure)
+	{
+		if (failure.IsEmpty()
+			|| !m_sExactGarrisonRebuildRestartCLISetupFailure.IsEmpty())
+			return;
+		m_sExactGarrisonRebuildRestartCLISetupFailure = failure;
+	}
+
+	protected void ConfigureExactGarrisonRebuildRestartCLI()
+	{
+		string requestedProof;
+		if (!System.GetCLIParam(
+			EXACT_GARRISON_REBUILD_RESTART_CLI_PROOF_PARAM,
+			requestedProof))
+			return;
+
+		m_bExactGarrisonRebuildRestartCLIRequested = true;
+		requestedProof = requestedProof.Trim();
+		requestedProof.ToLower();
+		if (requestedProof != "true")
+		{
+			SetExactGarrisonRebuildRestartSetupFailure(
+				"proof flag must be exactly true");
+		}
+		if (!System.GetCLIParam(
+			EXACT_GARRISON_REBUILD_RESTART_CLI_STAGE_PARAM,
+			m_sExactGarrisonRebuildRestartCLIStage))
+		{
+			SetExactGarrisonRebuildRestartSetupFailure(
+				"stage parameter is missing");
+		}
+		else
+		{
+			m_sExactGarrisonRebuildRestartCLIStage
+				= m_sExactGarrisonRebuildRestartCLIStage.Trim();
+			m_sExactGarrisonRebuildRestartCLIStage.ToLower();
+		}
+		if (!System.GetCLIParam(
+			EXACT_GARRISON_REBUILD_RESTART_CLI_RUN_ID_PARAM,
+			m_sExactGarrisonRebuildRestartCLIRunId))
+		{
+			SetExactGarrisonRebuildRestartSetupFailure(
+				"run id parameter is missing");
+		}
+		else
+		{
+			m_sExactGarrisonRebuildRestartCLIRunId
+				= m_sExactGarrisonRebuildRestartCLIRunId.Trim();
+		}
+		if (!System.GetCLIParam(
+			EXACT_GARRISON_REBUILD_RESTART_CLI_SESSION_NONCE_PARAM,
+			m_sExactGarrisonRebuildRestartCLISessionNonce))
+		{
+			SetExactGarrisonRebuildRestartSetupFailure(
+				"session nonce parameter is missing");
+		}
+		else
+		{
+			m_sExactGarrisonRebuildRestartCLISessionNonce
+				= m_sExactGarrisonRebuildRestartCLISessionNonce.Trim();
+		}
+		if (!System.GetCLIParam(
+			EXACT_GARRISON_REBUILD_RESTART_CLI_STAGE_NONCE_PARAM,
+			m_sExactGarrisonRebuildRestartCLIStageNonce))
+		{
+			SetExactGarrisonRebuildRestartSetupFailure(
+				"stage nonce parameter is missing");
+		}
+		else
+		{
+			m_sExactGarrisonRebuildRestartCLIStageNonce
+				= m_sExactGarrisonRebuildRestartCLIStageNonce.Trim();
+		}
+
+		if (!HST_EnemyGarrisonRebuildExternalRestartProofService.ValidateStage(
+			m_sExactGarrisonRebuildRestartCLIStage))
+		{
+			SetExactGarrisonRebuildRestartSetupFailure(
+				"stage must be prepare, recover, or replay");
+		}
+		if (!HST_EnemyGarrisonRebuildExternalRestartProofService.ValidateRunId(
+			m_sExactGarrisonRebuildRestartCLIRunId))
+		{
+			SetExactGarrisonRebuildRestartSetupFailure(
+				"run id failed the bounded filename-safe gate");
+		}
+		if (!HST_EnemyGarrisonRebuildExternalRestartProofService.ValidateNonce(
+			m_sExactGarrisonRebuildRestartCLISessionNonce)
+			|| !HST_EnemyGarrisonRebuildExternalRestartProofService.ValidateNonce(
+				m_sExactGarrisonRebuildRestartCLIStageNonce))
+		{
+			SetExactGarrisonRebuildRestartSetupFailure(
+				"proof nonce failed the exact lowercase-hex gate");
+		}
+		if (HST_EnemyGarrisonRebuildExternalRestartProofService
+			.NormalizeWorldIdentity(GetGame().GetWorldFile()).IsEmpty())
+		{
+			SetExactGarrisonRebuildRestartSetupFailure(
+				"proof requires the exact disposable HST_Dev world");
+		}
+
+		string conflictingValue;
+		if (System.GetCLIParam(CAMPAIGN_DEBUG_CLI_PROFILE_PARAM, conflictingValue)
+			|| System.GetCLIParam(
+				EXACT_QRF_RESTART_CLI_STAGE_PARAM,
+				conflictingValue)
+			|| System.GetCLIParam(
+				EXACT_COUNTERATTACK_RESTART_CLI_STAGE_PARAM,
+				conflictingValue)
+			|| System.GetCLIParam(
+				ORDINARY_CAMPAIGN_PERSISTENCE_PROOF_CLI_PARAM,
+				conflictingValue)
+			|| System.GetCLIParam(
+				ADMIN_CAMPAIGN_RESET_PERSISTENCE_PROOF_CLI_PARAM,
+				conflictingValue))
+		{
+			SetExactGarrisonRebuildRestartSetupFailure(
+				"exact garrison rebuild proof cannot share a process with another proof runner");
+		}
+
+		if (m_sExactGarrisonRebuildRestartCLISetupFailure.IsEmpty())
+		{
+			Print(string.Format(
+				"Partisan exact garrison rebuild external restart | armed stage %1 | run %2 | cut %3",
+				m_sExactGarrisonRebuildRestartCLIStage,
+				m_sExactGarrisonRebuildRestartCLIRunId,
+				HST_EnemyGarrisonRebuildExternalRestartProofService
+					.CUT_DELIVERY_PENDING));
+		}
+		else
+		{
+			Print(
+				"Partisan exact garrison rebuild external restart | rejected: "
+					+ m_sExactGarrisonRebuildRestartCLISetupFailure,
+				LogLevel.WARNING);
+		}
+	}
+
+	protected bool LoadExactGarrisonRebuildRestartAuthority(bool requireCarrier)
+	{
+		if (!m_bExactGarrisonRebuildRestartCLIRequested
+			|| !m_sExactGarrisonRebuildRestartCLISetupFailure.IsEmpty())
+			return false;
+		if (m_bExactGarrisonRebuildRestartGuardExact
+			&& (!requireCarrier || m_ExactGarrisonRebuildRestartCarrier))
+			return true;
+
+		string world = GetGame().GetWorldFile();
+		string cutName
+			= HST_EnemyGarrisonRebuildExternalRestartProofService
+				.CUT_DELIVERY_PENDING;
+		if (!HST_EnemyGarrisonRebuildExternalRestartProofService.ValidateRunId(
+			m_sExactGarrisonRebuildRestartCLIRunId)
+			|| !HST_EnemyGarrisonRebuildExternalRestartProofService.ValidateNonce(
+				m_sExactGarrisonRebuildRestartCLISessionNonce)
+			|| !HST_EnemyGarrisonRebuildExternalRestartProofService.ValidateNonce(
+				m_sExactGarrisonRebuildRestartCLIStageNonce)
+			|| !HST_EnemyGarrisonRebuildExternalRestartProofService.ValidateStage(
+				m_sExactGarrisonRebuildRestartCLIStage)
+			|| HST_EnemyGarrisonRebuildExternalRestartProofService
+				.NormalizeWorldIdentity(world).IsEmpty())
+		{
+			SetExactGarrisonRebuildRestartSetupFailure(
+				"external restart proof identity failed its exact gate");
+			return false;
+		}
+
+		HST_EnemyGarrisonRebuildExternalRestartOwner profileOwner;
+		string ownerEvidence;
+		if (!HST_EnemyGarrisonRebuildExternalRestartProofService
+			.LoadAndValidateOwner(
+				m_sExactGarrisonRebuildRestartCLISessionNonce,
+				m_sExactGarrisonRebuildRestartCLIRunId,
+				cutName,
+				world,
+				profileOwner,
+				ownerEvidence))
+		{
+			SetExactGarrisonRebuildRestartSetupFailure(
+				"host-owned disposable profile owner failed: " + ownerEvidence);
+			return false;
+		}
+		string shapeEvidence;
+		if (!HST_EnemyGarrisonRebuildExternalRestartProofService
+			.ValidateDisposableProfileShape(
+				m_sExactGarrisonRebuildRestartCLISessionNonce,
+				m_sExactGarrisonRebuildRestartCLIRunId,
+				cutName,
+				m_sExactGarrisonRebuildRestartCLIStage,
+				world,
+				shapeEvidence))
+		{
+			SetExactGarrisonRebuildRestartSetupFailure(
+				"disposable profile shape failed: " + shapeEvidence);
+			return false;
+		}
+
+		HST_EnemyGarrisonRebuildExternalRestartGuard stageLease;
+		string leaseEvidence;
+		m_bExactGarrisonRebuildRestartGuardExact
+			= HST_EnemyGarrisonRebuildExternalRestartProofService
+				.ConsumeStageLease(
+					m_sExactGarrisonRebuildRestartCLISessionNonce,
+					m_sExactGarrisonRebuildRestartCLIStageNonce,
+					m_sExactGarrisonRebuildRestartCLIRunId,
+					cutName,
+					m_sExactGarrisonRebuildRestartCLIStage,
+					world,
+					stageLease,
+					leaseEvidence);
+		if (!m_bExactGarrisonRebuildRestartGuardExact)
+		{
+			SetExactGarrisonRebuildRestartSetupFailure(
+				"one-use stage lease failed: " + leaseEvidence);
+			return false;
+		}
+		if (!requireCarrier)
+			return true;
+
+		string carrierEvidence;
+		if (!HST_EnemyGarrisonRebuildExternalRestartProofService.LoadCarrier(
+			m_sExactGarrisonRebuildRestartCLISessionNonce,
+			m_sExactGarrisonRebuildRestartCLIRunId,
+			cutName,
+			world,
+			m_ExactGarrisonRebuildRestartCarrier,
+			carrierEvidence))
+		{
+			SetExactGarrisonRebuildRestartSetupFailure(
+				"external restart carrier failed: " + carrierEvidence);
+			return false;
+		}
+		return true;
+	}
+
+	protected HST_EnemyGarrisonRebuildExternalRestartResult CreateExactGarrisonRebuildRestartResult()
+	{
+		HST_EnemyGarrisonRebuildExternalRestartResult result
+			= new HST_EnemyGarrisonRebuildExternalRestartResult();
+		result.m_sMagic
+			= HST_EnemyGarrisonRebuildExternalRestartProofService.RESULT_MAGIC;
+		result.m_sSessionNonce = m_sExactGarrisonRebuildRestartCLISessionNonce;
+		result.m_sStageNonce = m_sExactGarrisonRebuildRestartCLIStageNonce;
+		result.m_sRunId = m_sExactGarrisonRebuildRestartCLIRunId;
+		result.m_sStage = m_sExactGarrisonRebuildRestartCLIStage;
+		result.m_sBuildSha = HST_BuildInfo.BUILD_SHA;
+		result.m_sBuildUtc = HST_BuildInfo.BUILD_UTC;
+		result.m_sBuildLabel = HST_BuildInfo.BUILD_LABEL;
+		result.m_iCampaignSchemaVersion = HST_CampaignState.SCHEMA_VERSION;
+		result.m_iSettingsSchemaVersion = HST_RuntimeSettings.SCHEMA_VERSION;
+		result.m_sWorld
+			= HST_EnemyGarrisonRebuildExternalRestartProofService.CANONICAL_WORLD;
+		result.m_sCutName
+			= HST_EnemyGarrisonRebuildExternalRestartProofService
+				.CUT_DELIVERY_PENDING;
+		result.m_iCut
+			= HST_EnemyGarrisonRebuildExternalRestartProofService.ResolveCut(
+				result.m_sCutName);
+		result.m_bRestored = m_State && m_State.m_bRestoredFromPersistence;
+		result.m_bStartupReconcileChanged
+			= m_bExactGarrisonRebuildRestartStartupReconcileChanged;
+		result.m_bSourceExact = m_bExactGarrisonRebuildRestartSourceExact;
+		return result;
+	}
+
+	protected bool SaveExactGarrisonRebuildRestartResult(
+		HST_EnemyGarrisonRebuildExternalRestartResult result)
+	{
+		if (!result)
+			return false;
+		string saveEvidence;
+		if (HST_EnemyGarrisonRebuildExternalRestartProofService.SaveResult(
+			result,
+			saveEvidence))
+		{
+			Print(string.Format(
+				"Partisan exact garrison rebuild external restart | stage %1 result %2 | %3",
+				result.m_sStage,
+				result.m_bSuccess,
+				result.m_sEvidence));
+			return true;
+		}
+		Print(
+			"Partisan exact garrison rebuild external restart | result write failed: "
+				+ saveEvidence,
+			LogLevel.WARNING);
+		return false;
+	}
+
+	protected void PublishExactGarrisonRebuildRestartStartupFailure()
+	{
+		if (!m_bExactGarrisonRebuildRestartGuardExact
+			|| m_sExactGarrisonRebuildRestartCLISetupFailure.IsEmpty())
+			return;
+		HST_EnemyGarrisonRebuildExternalRestartResult failedResult
+			= CreateExactGarrisonRebuildRestartResult();
+		failedResult.m_sEvidence
+			= m_sExactGarrisonRebuildRestartCLISetupFailure;
+		SaveExactGarrisonRebuildRestartResult(failedResult);
+	}
+
+	protected void ObserveExactGarrisonRebuildExternalRestartSource()
+	{
+		if (!m_bExactGarrisonRebuildRestartCLIRequested)
+			return;
+		bool requireCarrier
+			= m_sExactGarrisonRebuildRestartCLIStage
+				!= HST_EnemyGarrisonRebuildExternalRestartProofService.STAGE_PREPARE;
+		if (!LoadExactGarrisonRebuildRestartAuthority(requireCarrier))
+			return;
+		if (m_sExactGarrisonRebuildRestartCLIStage
+			== HST_EnemyGarrisonRebuildExternalRestartProofService.STAGE_PREPARE)
+		{
+			if (m_State && m_State.m_bRestoredFromPersistence)
+			{
+				SetExactGarrisonRebuildRestartSetupFailure(
+					"prepare requires a fresh disposable profile with no restored campaign");
+			}
+			return;
+		}
+		if (!m_State || !m_State.m_bRestoredFromPersistence)
+		{
+			SetExactGarrisonRebuildRestartSetupFailure(
+				"recover and replay require a canonical restored campaign snapshot");
+			return;
+		}
+
+		HST_CampaignState sourceState;
+		string readEvidence;
+		if (!m_Persistence.ReadProfileFallbackProofSnapshot(
+			sourceState,
+			readEvidence))
+		{
+			SetExactGarrisonRebuildRestartSetupFailure(
+				"canonical source readback failed: " + readEvidence);
+			return;
+		}
+		HST_EnemyGarrisonRebuildOperationProofService proof
+			= new HST_EnemyGarrisonRebuildOperationProofService();
+		string validationEvidence;
+		if (m_sExactGarrisonRebuildRestartCLIStage
+			== HST_EnemyGarrisonRebuildExternalRestartProofService.STAGE_RECOVER)
+		{
+			m_bExactGarrisonRebuildRestartSourceExact
+				= proof.ValidateExternalDeliveryPendingState(
+					sourceState,
+					m_ExactGarrisonRebuildRestartCarrier,
+					m_sExactGarrisonRebuildRestartSourceFingerprint,
+					validationEvidence);
+		}
+		else
+		{
+			m_bExactGarrisonRebuildRestartSourceExact
+				= proof.ValidateExternalDeliveredState(
+					sourceState,
+					m_ExactGarrisonRebuildRestartCarrier,
+					m_sExactGarrisonRebuildRestartSourceFingerprint,
+					validationEvidence);
+			m_sExactGarrisonRebuildRestartExpectedDeliveredFingerprint
+				= m_sExactGarrisonRebuildRestartSourceFingerprint;
+		}
+		m_sExactGarrisonRebuildRestartSourceEvidence
+			= readEvidence + " | " + validationEvidence;
+		if (m_bExactGarrisonRebuildRestartSourceExact)
+		{
+			sourceState.m_iPersistenceRestoreSequence
+				= Math.Max(0, sourceState.m_iPersistenceRestoreSequence) + 1;
+			sourceState.m_bRestoredFromPersistence = true;
+			sourceState.m_iLastRestoreSecond = sourceState.m_iElapsedSeconds;
+			sourceState.m_sLastPersistenceStatus
+				= "external exact garrison rebuild canonical restart source adopted";
+			m_State = sourceState;
+			m_Persistence.CaptureAndTrackState(
+				m_State,
+				m_State.m_sLastPersistenceStatus);
+		}
+		else
+		{
+			SetExactGarrisonRebuildRestartSetupFailure(
+				"external restart source failed exact validation: "
+					+ m_sExactGarrisonRebuildRestartSourceEvidence);
+		}
+	}
+
+	protected void FinalizeExactGarrisonRebuildExternalRestartPrepare()
+	{
+		HST_EnemyGarrisonRebuildExternalRestartResult result
+			= CreateExactGarrisonRebuildRestartResult();
+		HST_EnemyGarrisonRebuildOperationProofService proof
+			= new HST_EnemyGarrisonRebuildOperationProofService();
+		HST_CampaignState stagedState;
+		HST_EnemyGarrisonRebuildExternalRestartCarrier carrier;
+		string prepareEvidence;
+		bool prepared = proof.PrepareExternalDeliveryPendingRestartCarrier(
+			m_sExactGarrisonRebuildRestartCLISessionNonce,
+			m_sExactGarrisonRebuildRestartCLIRunId,
+			GetGame().GetWorldFile(),
+			stagedState,
+			carrier,
+			prepareEvidence);
+		string carrierEvidence;
+		bool carrierSaved = prepared
+			&& HST_EnemyGarrisonRebuildExternalRestartProofService.SaveCarrier(
+				carrier,
+				carrierEvidence);
+		HST_CampaignState readBackState;
+		string persistenceEvidence;
+		bool persisted = carrierSaved
+			&& m_Persistence.WriteProfileFallbackProofSnapshot(
+				stagedState,
+				"external exact garrison rebuild delivery-pending restart cut",
+				readBackState,
+				persistenceEvidence);
+		string readBackFingerprint;
+		string readBackEvidence;
+		bool readBackExact = persisted
+			&& proof.ValidateExternalDeliveryPendingState(
+				readBackState,
+				carrier,
+				readBackFingerprint,
+				readBackEvidence)
+			&& readBackFingerprint == carrier.m_sPreparedSemanticFingerprint;
+		string runtimeEvidence;
+		bool runtimeExact = readBackExact
+			&& proof.ValidateExternalRuntimeClaimantsZero(
+				readBackState,
+				carrier,
+				m_ForceSpawnAdapter,
+				m_PhysicalWar,
+				runtimeEvidence);
+		if (readBackExact)
+		{
+			m_State = readBackState;
+			m_Persistence.CaptureAndTrackState(
+				m_State,
+				"external exact garrison rebuild delivery-pending carrier armed");
+		}
+
+		m_ExactGarrisonRebuildRestartCarrier = carrier;
+		m_bExactGarrisonRebuildRestartSourceExact = readBackExact;
+		m_sExactGarrisonRebuildRestartSourceFingerprint = readBackFingerprint;
+		result.m_bSourceExact = readBackExact;
+		result.m_bRuntimeClaimantsZero = runtimeExact;
+		result.m_bPersistedReadBackExact = readBackExact;
+		result.m_bPreparedCutExact = readBackExact;
+		result.m_bCasualtyContinuityExact = readBackExact;
+		result.m_iPhysicalAdapterHandleCount = 0;
+		result.m_iPhysicalRuntimeMemberCount = 0;
+		if (carrier)
+		{
+			result.m_fProgressBeforeMeters
+				= carrier.m_fPreparedRouteProgressMeters;
+			result.m_fProgressAfterMeters
+				= carrier.m_fPreparedRouteProgressMeters;
+		}
+		result.m_sSourceSemanticFingerprint = readBackFingerprint;
+		result.m_sFinalSemanticFingerprint = readBackFingerprint;
+		result.m_bSuccess = prepared && carrierSaved && persisted
+			&& readBackExact && runtimeExact;
+		result.m_sEvidence = prepareEvidence
+			+ " | carrier " + carrierEvidence
+			+ " | persistence " + persistenceEvidence
+			+ " | readback " + readBackEvidence
+			+ " | runtime " + runtimeEvidence;
+		SaveExactGarrisonRebuildRestartResult(result);
+	}
+
+	protected void FinalizeExactGarrisonRebuildExternalRestartRecover()
+	{
+		HST_EnemyGarrisonRebuildExternalRestartResult result
+			= CreateExactGarrisonRebuildRestartResult();
+		HST_EnemyGarrisonRebuildOperationProofService proof
+			= new HST_EnemyGarrisonRebuildOperationProofService();
+		string sourceFingerprint;
+		string deliveredFingerprint;
+		string continuationEvidence;
+		bool continued = m_bExactGarrisonRebuildRestartSourceExact
+			&& proof.AdvanceExternalDeliveryPendingState(
+				m_State,
+				m_ExactGarrisonRebuildRestartCarrier,
+				sourceFingerprint,
+				deliveredFingerprint,
+				continuationEvidence)
+			&& sourceFingerprint
+				== m_sExactGarrisonRebuildRestartSourceFingerprint;
+		bool reconcileAvailable = continued
+			&& m_EnemyGarrisonRebuildOperations && m_EnemyDirector;
+		bool reconcileChanged;
+		if (reconcileAvailable)
+		{
+			reconcileChanged
+				= m_EnemyGarrisonRebuildOperations.ReconcileAfterRestore(
+					m_State,
+					m_EnemyDirector);
+		}
+		bool reconcileNoOp = reconcileAvailable && !reconcileChanged;
+		string validatedFingerprint;
+		string deliveredEvidence;
+		bool deliveredExact = continued
+			&& proof.ValidateExternalDeliveredState(
+				m_State,
+				m_ExactGarrisonRebuildRestartCarrier,
+				validatedFingerprint,
+				deliveredEvidence)
+			&& validatedFingerprint == deliveredFingerprint;
+		string runtimeEvidence;
+		bool runtimeExact = reconcileNoOp && deliveredExact
+			&& proof.ValidateExternalRuntimeClaimantsZero(
+				m_State,
+				m_ExactGarrisonRebuildRestartCarrier,
+				m_ForceSpawnAdapter,
+				m_PhysicalWar,
+				runtimeEvidence);
+
+		HST_CampaignState readBackState;
+		string persistenceEvidence;
+		bool persisted = runtimeExact
+			&& m_Persistence.WriteProfileFallbackProofSnapshot(
+				m_State,
+				"external exact garrison rebuild delivered restart state",
+				readBackState,
+				persistenceEvidence);
+		string readBackFingerprint;
+		string readBackEvidence;
+		bool readBackExact = persisted
+			&& proof.ValidateExternalDeliveredState(
+				readBackState,
+				m_ExactGarrisonRebuildRestartCarrier,
+				readBackFingerprint,
+				readBackEvidence)
+			&& readBackFingerprint == deliveredFingerprint;
+		if (readBackExact)
+		{
+			m_State = readBackState;
+			m_Persistence.CaptureAndTrackState(
+				m_State,
+				"external exact garrison rebuild delivered carrier armed");
+		}
+
+		float progressBefore;
+		float progressAfter;
+		if (m_ExactGarrisonRebuildRestartCarrier)
+		{
+			progressBefore
+				= m_ExactGarrisonRebuildRestartCarrier
+					.m_fPreparedRouteProgressMeters;
+			HST_OperationRecordState operation = m_State.FindOperation(
+				m_ExactGarrisonRebuildRestartCarrier.m_Expectation.m_sOperationId);
+			if (operation)
+				progressAfter = operation.m_fRouteProgressMeters;
+		}
+		bool progressExact = progressAfter > progressBefore;
+		result.m_bSourceExact = m_bExactGarrisonRebuildRestartSourceExact;
+		result.m_bContinuationExact = continued && progressExact;
+		result.m_bRuntimeClaimantsZero = runtimeExact;
+		result.m_bPersistedReadBackExact = readBackExact;
+		result.m_bPreparedCutExact = sourceFingerprint
+			== m_ExactGarrisonRebuildRestartCarrier.m_sPreparedSemanticFingerprint;
+		result.m_bCasualtyContinuityExact = deliveredExact;
+		result.m_bDeliveryReceiptExact = deliveredExact;
+		result.m_bHeldGarrisonExact = deliveredExact;
+		result.m_bAggregateNotDoubleCounted = deliveredExact;
+		result.m_bResourceExactlyOnce = deliveredExact;
+		result.m_iPhysicalAdapterHandleCount = 0;
+		result.m_iPhysicalRuntimeMemberCount = 0;
+		result.m_fProgressBeforeMeters = progressBefore;
+		result.m_fProgressAfterMeters = progressAfter;
+		result.m_sSourceSemanticFingerprint = sourceFingerprint;
+		result.m_sFinalSemanticFingerprint = deliveredFingerprint;
+		result.m_bSuccess = result.m_bSourceExact
+			&& result.m_bContinuationExact && reconcileNoOp
+			&& runtimeExact && readBackExact && deliveredExact
+			&& result.m_bPreparedCutExact;
+		result.m_sEvidence = m_sExactGarrisonRebuildRestartSourceEvidence
+			+ " | continuation " + continuationEvidence
+			+ string.Format(
+				" | reconcile available/changed/no-op %1/%2/%3",
+				reconcileAvailable,
+				reconcileChanged,
+				reconcileNoOp)
+			+ " | delivered " + deliveredEvidence
+			+ " | runtime " + runtimeEvidence
+			+ " | persistence " + persistenceEvidence
+			+ " | readback " + readBackEvidence;
+		SaveExactGarrisonRebuildRestartResult(result);
+	}
+
+	protected void FinalizeExactGarrisonRebuildExternalRestartReplay()
+	{
+		HST_EnemyGarrisonRebuildExternalRestartResult result
+			= CreateExactGarrisonRebuildRestartResult();
+		HST_EnemyGarrisonRebuildOperationProofService proof
+			= new HST_EnemyGarrisonRebuildOperationProofService();
+		bool reconcileNoOp = m_bExactGarrisonRebuildRestartSourceExact
+			&& m_EnemyGarrisonRebuildOperations && m_EnemyDirector
+			&& !m_EnemyGarrisonRebuildOperations.ReconcileAfterRestore(
+				m_State,
+				m_EnemyDirector);
+		string replayFingerprint;
+		string replayEvidence;
+		bool replayExact = reconcileNoOp
+			&& proof.ValidateExternalDeliveredState(
+				m_State,
+				m_ExactGarrisonRebuildRestartCarrier,
+				replayFingerprint,
+				replayEvidence)
+			&& replayFingerprint
+				== m_sExactGarrisonRebuildRestartSourceFingerprint
+			&& replayFingerprint
+				== m_sExactGarrisonRebuildRestartExpectedDeliveredFingerprint;
+		string runtimeEvidence;
+		bool runtimeExact = replayExact
+			&& proof.ValidateExternalRuntimeClaimantsZero(
+				m_State,
+				m_ExactGarrisonRebuildRestartCarrier,
+				m_ForceSpawnAdapter,
+				m_PhysicalWar,
+				runtimeEvidence);
+		float progress;
+		if (m_ExactGarrisonRebuildRestartCarrier)
+		{
+			HST_OperationRecordState operation = m_State.FindOperation(
+				m_ExactGarrisonRebuildRestartCarrier.m_Expectation.m_sOperationId);
+			if (operation)
+				progress = operation.m_fRouteProgressMeters;
+		}
+		result.m_bSourceExact = m_bExactGarrisonRebuildRestartSourceExact;
+		result.m_bSameStateSemanticNoOp = replayExact;
+		result.m_bRuntimeClaimantsZero = runtimeExact;
+		result.m_bPersistedReadBackExact = m_bExactGarrisonRebuildRestartSourceExact;
+		result.m_bPreparedCutExact = replayExact;
+		result.m_bCasualtyContinuityExact = replayExact;
+		result.m_bDeliveryReceiptExact = replayExact;
+		result.m_bHeldGarrisonExact = replayExact;
+		result.m_bAggregateNotDoubleCounted = replayExact;
+		result.m_bResourceExactlyOnce = replayExact;
+		result.m_iPhysicalAdapterHandleCount = 0;
+		result.m_iPhysicalRuntimeMemberCount = 0;
+		result.m_fProgressBeforeMeters = progress;
+		result.m_fProgressAfterMeters = progress;
+		result.m_sSourceSemanticFingerprint
+			= m_sExactGarrisonRebuildRestartSourceFingerprint;
+		result.m_sFinalSemanticFingerprint = replayFingerprint;
+		result.m_bSuccess = result.m_bSourceExact
+			&& !m_bExactGarrisonRebuildRestartStartupReconcileChanged
+			&& replayExact && runtimeExact;
+		result.m_sEvidence = m_sExactGarrisonRebuildRestartSourceEvidence
+			+ string.Format(
+				" | startup reconcile changed %1 | replay reconcile no-op %2",
+				m_bExactGarrisonRebuildRestartStartupReconcileChanged,
+				reconcileNoOp)
+			+ " | replay " + replayEvidence
+			+ " | runtime " + runtimeEvidence;
+		SaveExactGarrisonRebuildRestartResult(result);
+	}
+
+	protected void FinalizeExactGarrisonRebuildExternalRestartStage()
+	{
+		if (m_bExactGarrisonRebuildRestartCLIFinalized)
+			return;
+		m_bExactGarrisonRebuildRestartCLIFinalized = true;
+		if (!m_sExactGarrisonRebuildRestartCLISetupFailure.IsEmpty())
+		{
+			if (m_bExactGarrisonRebuildRestartGuardExact)
+			{
+				HST_EnemyGarrisonRebuildExternalRestartResult failedResult
+					= CreateExactGarrisonRebuildRestartResult();
+				failedResult.m_sEvidence
+					= m_sExactGarrisonRebuildRestartCLISetupFailure;
+				SaveExactGarrisonRebuildRestartResult(failedResult);
+			}
+			Print(
+				"Partisan exact garrison rebuild external restart | stage rejected: "
+					+ m_sExactGarrisonRebuildRestartCLISetupFailure,
+				LogLevel.WARNING);
+			GetGame().RequestClose();
+			return;
+		}
+
+		if (m_sExactGarrisonRebuildRestartCLIStage
+			== HST_EnemyGarrisonRebuildExternalRestartProofService.STAGE_PREPARE)
+		{
+			FinalizeExactGarrisonRebuildExternalRestartPrepare();
+		}
+		else if (m_sExactGarrisonRebuildRestartCLIStage
+			== HST_EnemyGarrisonRebuildExternalRestartProofService.STAGE_RECOVER)
+		{
+			FinalizeExactGarrisonRebuildExternalRestartRecover();
+		}
+		else
+		{
+			FinalizeExactGarrisonRebuildExternalRestartReplay();
+		}
+		GetGame().RequestClose();
+	}
+
 	protected void SetAdminCampaignResetPersistenceSetupFailure(string failure)
 	{
 		if (failure.IsEmpty()
@@ -7381,6 +8133,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (System.GetCLIParam(CAMPAIGN_DEBUG_CLI_PROFILE_PARAM, conflictingValue)
 			|| System.GetCLIParam(
 				EXACT_QRF_RESTART_CLI_STAGE_PARAM,
+				conflictingValue)
+			|| System.GetCLIParam(
+				EXACT_GARRISON_REBUILD_RESTART_CLI_PROOF_PARAM,
 				conflictingValue)
 			|| System.GetCLIParam(
 				EXACT_COUNTERATTACK_RESTART_CLI_STAGE_PARAM,
@@ -7749,6 +8504,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			conflictingValue)
 			|| System.GetCLIParam(
 				EXACT_QRF_RESTART_CLI_STAGE_PARAM,
+				conflictingValue)
+			|| System.GetCLIParam(
+				EXACT_GARRISON_REBUILD_RESTART_CLI_PROOF_PARAM,
 				conflictingValue)
 			|| System.GetCLIParam(
 				EXACT_COUNTERATTACK_RESTART_CLI_STAGE_PARAM,
@@ -10733,6 +11491,14 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		{
 			m_sExactQRFRestartCLISetupFailure
 				= "exact QRF and exact counterattack restart proofs cannot share a process";
+		}
+		string garrisonRebuildRestartProof;
+		if (System.GetCLIParam(
+			EXACT_GARRISON_REBUILD_RESTART_CLI_PROOF_PARAM,
+			garrisonRebuildRestartProof))
+		{
+			m_sExactQRFRestartCLISetupFailure
+				= "exact QRF and exact garrison rebuild restart proofs cannot share a process";
 		}
 		if (!IsDisposableCampaignDebugWorld())
 		{
@@ -13843,6 +14609,14 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			m_sExactCounterattackRestartCLISetupFailure
 				= "exact QRF and exact counterattack restart proofs cannot share a process";
 		}
+		string garrisonRebuildRestartProof;
+		if (System.GetCLIParam(
+			EXACT_GARRISON_REBUILD_RESTART_CLI_PROOF_PARAM,
+			garrisonRebuildRestartProof))
+		{
+			m_sExactCounterattackRestartCLISetupFailure
+				= "exact garrison rebuild and exact counterattack restart proofs cannot share a process";
+		}
 		if (!IsDisposableCampaignDebugWorld())
 		{
 			m_sExactCounterattackRestartCLISetupFailure
@@ -13882,6 +14656,17 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			if (!System.GetCLIParam(CAMPAIGN_DEBUG_CLI_PROFILE_PARAM, requestedProfile))
 			{
 				m_bCampaignDebugCLIFinished = true;
+				return;
+			}
+			string garrisonRebuildRestartProof;
+			if (System.GetCLIParam(
+				EXACT_GARRISON_REBUILD_RESTART_CLI_PROOF_PARAM,
+				garrisonRebuildRestartProof))
+			{
+				m_bCampaignDebugCLIFinished = true;
+				Print(
+					"Partisan campaign debug CLI | rejected because an exact garrison rebuild restart proof owns this process",
+					LogLevel.WARNING);
 				return;
 			}
 

@@ -1046,7 +1046,8 @@ class HST_EnemyGarrisonRebuildSaveValidationService
 		order.m_bPhysicalized = false;
 		if (order.m_sResourceSettlementKind
 			== HST_OperationService.EXACT_ENEMY_GARRISON_REBUILD_DELIVERY_SETTLEMENT_KIND)
-			order.m_sRuntimeStatus = "resolved_exact_rebuild_restore_virtual";
+			order.m_sRuntimeStatus
+				= "resolved_exact_rebuild_virtual_on_station";
 		else
 			order.m_sRuntimeStatus = "exact_rebuild_restore_virtual";
 	}

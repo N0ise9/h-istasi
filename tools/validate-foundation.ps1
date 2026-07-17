@@ -36147,7 +36147,7 @@ if ($exactCounterRestartConfigureIndex -lt 0 -or $exactCounterRestartBootGuardIn
 	$exactCounterRestartBootGuardIndex -ge $exactCounterRestartMigrationIndex -or
 	$exactCounterRestartRestoreIndex -ge $exactCounterRestartObserveIndex -or
 	$exactCounterRestartObserveIndex -ge $exactCounterRestartReconcileIndex -or
-	$exactCounterRestartPostInit -notmatch 'if\s*\(\s*!m_bExactCounterattackRestartCLIRequested\s*\r?\n\s*&&\s*!m_bAdminCampaignResetPersistenceCLIRequested\s*\r?\n\s*&&\s*!m_bOrdinaryCampaignPersistenceCLIRequested\s*\)' -or
+	$exactCounterRestartPostInit -notmatch 'if\s*\(\s*!m_bExactCounterattackRestartCLIRequested\s*\r?\n\s*&&\s*!m_bExactGarrisonRebuildRestartCLIRequested\s*\r?\n\s*&&\s*!m_bAdminCampaignResetPersistenceCLIRequested\s*\r?\n\s*&&\s*!m_bOrdinaryCampaignPersistenceCLIRequested\s*\)' -or
 	$exactCounterRestartPostInit.IndexOf(
 		'HST_ProfilePathService.HasUnresolvedLegacyCampaignAuthority()') -lt 0 -or
 	$exactCounterRestartBootstrap -notmatch 'm_bExactCounterattackRestartStartupReconcileChanged\s*=\s*m_EnemyCounterattackOperations\.ReconcileAfterRestore\s*\(') {
@@ -43803,6 +43803,776 @@ foreach ($fieldVehicleFinalSummaryEntry in @(
 		throw "Ordinary runner final summary omits: $fieldVehicleFinalSummaryEntry"
 	}
 }
+
+# The exact garrison-rebuild restart proof is intentionally independent from
+# the broader counterattack restart matrix. Keep its smaller three-process
+# contract explicit here: one disposable authority, one delivery-pending cut,
+# one production continuation, and one byte-read-only replay.
+$exactRebuildRestartSources = @(
+	'Scripts/Game/HST/Data/HST_EnemyGarrisonRebuildExternalRestartProof.c',
+	'Scripts/Game/HST/Services/HST_EnemyGarrisonRebuildExternalRestartProofService.c',
+	'Scripts/Game/HST/Services/HST_EnemyGarrisonRebuildOperationProofService.c',
+	'Scripts/Game/HST/Components/HST_CampaignCoordinatorComponent.c',
+	'tools/run-exact-garrison-rebuild-restart-proof.ps1'
+)
+foreach ($exactRebuildRestartSource in $exactRebuildRestartSources) {
+	if (-not (Test-Path -LiteralPath $exactRebuildRestartSource -PathType Leaf)) {
+		throw "Exact garrison-rebuild restart proof source is missing: $exactRebuildRestartSource"
+	}
+}
+
+$exactRebuildRestartDataText = Get-Content -Raw `
+	'Scripts/Game/HST/Data/HST_EnemyGarrisonRebuildExternalRestartProof.c'
+$exactRebuildRestartArtifactText = Get-Content -Raw `
+	'Scripts/Game/HST/Services/HST_EnemyGarrisonRebuildExternalRestartProofService.c'
+$exactRebuildRestartProofText = Get-Content -Raw `
+	'Scripts/Game/HST/Services/HST_EnemyGarrisonRebuildOperationProofService.c'
+$exactRebuildRestartCoordinatorText = Get-Content -Raw `
+	'Scripts/Game/HST/Components/HST_CampaignCoordinatorComponent.c'
+$exactRebuildRestartRunnerText = Get-Content -Raw `
+	'tools/run-exact-garrison-rebuild-restart-proof.ps1'
+
+$exactRebuildRestartExpectationDto = Get-ScriptMethodBlock `
+	$exactRebuildRestartDataText `
+	'class HST_EnemyGarrisonRebuildExternalRestartExpectation'
+$exactRebuildRestartOwnerDto = Get-ScriptMethodBlock `
+	$exactRebuildRestartDataText `
+	'class HST_EnemyGarrisonRebuildExternalRestartOwner'
+$exactRebuildRestartGuardDto = Get-ScriptMethodBlock `
+	$exactRebuildRestartDataText `
+	'class HST_EnemyGarrisonRebuildExternalRestartGuard'
+$exactRebuildRestartCarrierDto = Get-ScriptMethodBlock `
+	$exactRebuildRestartDataText `
+	'class HST_EnemyGarrisonRebuildExternalRestartCarrier'
+$exactRebuildRestartResultDto = Get-ScriptMethodBlock `
+	$exactRebuildRestartDataText `
+	'class HST_EnemyGarrisonRebuildExternalRestartResult'
+$exactRebuildRestartDtoContracts = @(
+	@('expectation', $exactRebuildRestartExpectationDto, @(
+		'string m_sOrderId;', 'string m_sOperationId;',
+		'string m_sManifestId;', 'string m_sManifestHash;',
+		'string m_sBatchId;', 'string m_sGroupId;',
+		'string m_sProjectionId;', 'string m_sForceId;',
+		'string m_sFactionKey;', 'string m_sSourceZoneId;',
+		'string m_sTargetZoneId;',
+		'string m_sExpectedSourceOwnerFactionKey;',
+		'int m_iExpectedSourceOwnershipRevision;',
+		'string m_sExpectedTargetOwnerFactionKey;',
+		'int m_iExpectedTargetOwnershipRevision;',
+		'string m_sDebitMutationId;',
+		'string m_sDeliverySettlementKind;',
+		'string m_sDeliverySettlementId;', 'string m_sRefundMutationId;',
+		'int m_iAttackCost;', 'int m_iSupportCost;',
+		'int m_iExpectedAttackPool;', 'int m_iExpectedSupportPool;',
+		'int m_iExpectedPendingPoolRevision;',
+		'int m_iExpectedPendingPoolOperationalMutationCount;',
+		'int m_iAcceptedMemberCount;', 'int m_iLivingMemberCount;',
+		'string m_sLivingSlotFingerprint;',
+		'string m_sConfirmedCasualtySlotId;',
+		'string m_sCasualtyTombstoneFingerprint;',
+		'int m_iExpectedAggregateInfantry;',
+		'int m_iExpectedAuthoritativePendingInfantry;',
+		'int m_iExpectedAuthoritativeDeliveredInfantry;')),
+	@('owner', $exactRebuildRestartOwnerDto, @(
+		'string m_sMagic;', 'int m_iVersion;', 'string m_sPurpose;',
+		'string m_sSessionNonce;', 'string m_sRunId;',
+		'string m_sRequestedCut;', 'string m_sBuildSha;',
+		'string m_sBuildUtc;', 'string m_sBuildLabel;',
+		'int m_iCampaignSchemaVersion;', 'int m_iSettingsSchemaVersion;',
+		'string m_sWorld;', 'bool m_bDisposableProfile;')),
+	@('guard', $exactRebuildRestartGuardDto, @(
+		'string m_sMagic;', 'int m_iVersion;', 'string m_sSessionNonce;',
+		'string m_sStageNonce;', 'string m_sRunId;',
+		'string m_sRequestedCut;', 'string m_sRequestedStage;',
+		'int m_iStageOrdinal;', 'string m_sBuildSha;',
+		'string m_sBuildUtc;', 'string m_sBuildLabel;',
+		'int m_iCampaignSchemaVersion;', 'int m_iSettingsSchemaVersion;',
+		'string m_sWorld;', 'bool m_bAllowCanonicalCampaignOverwrite;')),
+	@('carrier', $exactRebuildRestartCarrierDto, @(
+		'string m_sMagic;', 'string m_sSessionNonce;', 'string m_sRunId;',
+		'string m_sBuildSha;', 'string m_sBuildUtc;',
+		'string m_sBuildLabel;', 'int m_iCampaignSchemaVersion;',
+		'int m_iSettingsSchemaVersion;', 'string m_sWorld;',
+		'string m_sCutName;', 'int m_iCut;',
+		'ref HST_EnemyGarrisonRebuildExternalRestartExpectation m_Expectation;',
+		'int m_iPreparedElapsedSecond;',
+		'float m_fPreparedRouteProgressMeters;',
+		'float m_fPreparedRouteTotalDistanceMeters;',
+		'vector m_vPreparedStrategicPosition;',
+		'int m_iExpectedPhysicalAdapterHandleCount;',
+		'int m_iExpectedPhysicalRuntimeMemberCount;',
+		'string m_sPreparedSemanticFingerprint;')),
+	@('result', $exactRebuildRestartResultDto, @(
+		'string m_sMagic;', 'string m_sSessionNonce;',
+		'string m_sStageNonce;', 'string m_sRunId;', 'string m_sStage;',
+		'bool m_bSuccess;', 'string m_sBuildSha;', 'string m_sBuildUtc;',
+		'string m_sBuildLabel;', 'int m_iCampaignSchemaVersion;',
+		'int m_iSettingsSchemaVersion;', 'string m_sWorld;',
+		'string m_sCutName;', 'int m_iCut;', 'bool m_bRestored;',
+		'bool m_bStartupReconcileChanged;', 'bool m_bSourceExact;',
+		'bool m_bContinuationExact;', 'bool m_bSameStateSemanticNoOp;',
+		'bool m_bRuntimeClaimantsZero;', 'bool m_bPersistedReadBackExact;',
+		'bool m_bPreparedCutExact;', 'bool m_bCasualtyContinuityExact;',
+		'bool m_bDeliveryReceiptExact;', 'bool m_bHeldGarrisonExact;',
+		'bool m_bAggregateNotDoubleCounted;',
+		'bool m_bResourceExactlyOnce;',
+		'int m_iPhysicalAdapterHandleCount;',
+		'int m_iPhysicalRuntimeMemberCount;',
+		'float m_fProgressBeforeMeters;', 'float m_fProgressAfterMeters;',
+		'string m_sSourceSemanticFingerprint;',
+		'string m_sFinalSemanticFingerprint;', 'string m_sEvidence;'))
+)
+foreach ($exactRebuildRestartDtoContract in $exactRebuildRestartDtoContracts) {
+	if ([string]::IsNullOrEmpty($exactRebuildRestartDtoContract[1])) {
+		throw "Exact garrison-rebuild restart $($exactRebuildRestartDtoContract[0]) DTO is missing"
+	}
+	foreach ($exactRebuildRestartDtoField in $exactRebuildRestartDtoContract[2]) {
+		if ($exactRebuildRestartDtoContract[1].IndexOf(
+			$exactRebuildRestartDtoField) -lt 0) {
+			throw "Exact garrison-rebuild restart $($exactRebuildRestartDtoContract[0]) DTO omits: $exactRebuildRestartDtoField"
+		}
+	}
+}
+
+foreach ($exactRebuildRestartArtifactConstant in @(
+		'partisan_exact_garrison_rebuild_restart_owner_v1',
+		'partisan_exact_garrison_rebuild_restart_guard_v1',
+		'partisan_exact_garrison_rebuild_restart_carrier_v1',
+		'partisan_exact_garrison_rebuild_restart_result_v1',
+		'exact_garrison_rebuild_external_restart',
+		'static const string CUT_DELIVERY_PENDING = "delivery_pending";',
+		'static const string STAGE_PREPARE = "prepare";',
+		'static const string STAGE_RECOVER = "recover";',
+		'static const string STAGE_REPLAY = "replay";',
+		'static const string CANONICAL_WORLD = "Worlds/HST_Dev/HST_Dev.ent";',
+		'static const int NONCE_CHARACTERS = 32;'
+	)) {
+	if ($exactRebuildRestartArtifactText.IndexOf(
+		$exactRebuildRestartArtifactConstant) -lt 0) {
+		throw "Exact garrison-rebuild restart artifact constant is missing: $exactRebuildRestartArtifactConstant"
+	}
+}
+
+$exactRebuildRestartStageValidator = Get-ScriptMethodBlock `
+	$exactRebuildRestartArtifactText 'static bool ValidateStage('
+$exactRebuildRestartStageOrdinal = Get-ScriptMethodBlock `
+	$exactRebuildRestartArtifactText 'static int ResolveStageOrdinal('
+$exactRebuildRestartStageSavePolicy = Get-ScriptMethodBlock `
+	$exactRebuildRestartArtifactText 'static bool StageCreatesSavePoint('
+foreach ($exactRebuildRestartStageContract in @(
+		@('STAGE_PREPARE', 'return 0;'),
+		@('STAGE_RECOVER', 'return 1;'),
+		@('STAGE_REPLAY', 'return 2;')
+	)) {
+	if ($exactRebuildRestartStageValidator.IndexOf(
+		$exactRebuildRestartStageContract[0]) -lt 0 -or
+		$exactRebuildRestartStageOrdinal.IndexOf(
+			$exactRebuildRestartStageContract[0]) -lt 0 -or
+		$exactRebuildRestartStageOrdinal.IndexOf(
+			$exactRebuildRestartStageContract[1],
+			$exactRebuildRestartStageOrdinal.IndexOf(
+				$exactRebuildRestartStageContract[0])) -lt 0) {
+		throw "Exact garrison-rebuild restart stage contract is incomplete: $($exactRebuildRestartStageContract[0])"
+	}
+}
+if ([string]::IsNullOrEmpty($exactRebuildRestartStageSavePolicy) -or
+	$exactRebuildRestartStageSavePolicy.IndexOf(
+		'return stage == STAGE_PREPARE || stage == STAGE_RECOVER;') -lt 0 -or
+	$exactRebuildRestartStageSavePolicy.IndexOf('STAGE_REPLAY') -ge 0) {
+	throw 'Exact garrison-rebuild restart must write only prepare/recover and keep replay read-only'
+}
+
+$exactRebuildRestartOwnerValidation = Get-ScriptMethodBlock `
+	$exactRebuildRestartArtifactText 'static bool ValidateOwner('
+$exactRebuildRestartGuardValidation = Get-ScriptMethodBlock `
+	$exactRebuildRestartArtifactText 'static bool ValidateGuard('
+$exactRebuildRestartLeaseConsumption = Get-ScriptMethodBlock `
+	$exactRebuildRestartArtifactText 'static bool ConsumeStageLease('
+$exactRebuildRestartCarrierValidation = Get-ScriptMethodBlock `
+	$exactRebuildRestartArtifactText 'static bool ValidateCarrier('
+$exactRebuildRestartResultValidation = Get-ScriptMethodBlock `
+	$exactRebuildRestartArtifactText 'static bool ValidateResult('
+$exactRebuildRestartProfileShape = Get-ScriptMethodBlock `
+	$exactRebuildRestartArtifactText 'static bool ValidateDisposableProfileShape('
+$exactRebuildRestartArtifactContracts = @(
+	@('owner authority', $exactRebuildRestartOwnerValidation, @(
+		'OWNER_MAGIC', 'AUTHORITY_VERSION', 'OWNER_PURPOSE',
+		'm_sSessionNonce', 'm_sRunId', 'm_sRequestedCut',
+		'm_bDisposableProfile', 'HST_BuildInfo.BUILD_SHA',
+		'HST_BuildInfo.BUILD_UTC', 'HST_BuildInfo.BUILD_LABEL',
+		'HST_CampaignState.SCHEMA_VERSION', 'HST_RuntimeSettings.SCHEMA_VERSION',
+		'ValidateWorldIdentity(')),
+	@('one-use guard authority', $exactRebuildRestartGuardValidation, @(
+		'GUARD_MAGIC', 'm_sSessionNonce', 'm_sStageNonce', 'm_sRunId',
+		'm_sRequestedCut', 'm_sRequestedStage', 'm_iStageOrdinal',
+		'ResolveStageOrdinal(', 'StageCreatesSavePoint(expectedStage)',
+		'HST_BuildInfo.BUILD_SHA', 'HST_CampaignState.SCHEMA_VERSION',
+		'HST_RuntimeSettings.SCHEMA_VERSION', 'ValidateWorldIdentity(')),
+	@('carrier authority', $exactRebuildRestartCarrierValidation, @(
+		'CARRIER_MAGIC', 'ResolveCut(expectedCut)', 'm_Expectation',
+		'HST_BuildInfo.BUILD_SHA', 'HST_CampaignState.SCHEMA_VERSION',
+		'HST_RuntimeSettings.SCHEMA_VERSION', 'ValidateWorldIdentity(',
+		'm_fPreparedRouteProgressMeters > 0',
+		'< carrier.m_fPreparedRouteTotalDistanceMeters',
+		'm_iExpectedPhysicalAdapterHandleCount == 0',
+		'm_iExpectedPhysicalRuntimeMemberCount == 0',
+		'm_sPreparedSemanticFingerprint.IsEmpty()',
+		'm_iExpectedPendingPoolOperationalMutationCount == 1',
+		'm_iLivingMemberCount', 'm_iAcceptedMemberCount - 1',
+		'm_iExpectedAuthoritativePendingInfantry',
+		'm_iExpectedAuthoritativeDeliveredInfantry')),
+	@('result authority', $exactRebuildRestartResultValidation, @(
+		'RESULT_MAGIC', 'm_sStageNonce', 'HST_BuildInfo.BUILD_SHA',
+		'HST_CampaignState.SCHEMA_VERSION', 'HST_RuntimeSettings.SCHEMA_VERSION',
+		'm_bSourceExact', 'm_bRuntimeClaimantsZero',
+		'm_bPersistedReadBackExact', 'm_bPreparedCutExact',
+		'm_bCasualtyContinuityExact',
+		'expectedStage == STAGE_PREPARE', 'expectedStage == STAGE_RECOVER',
+		'expectedStage == STAGE_REPLAY', 'm_bContinuationExact',
+		'm_bSameStateSemanticNoOp', 'm_bDeliveryReceiptExact',
+		'm_bHeldGarrisonExact', 'm_bAggregateNotDoubleCounted',
+		'm_bResourceExactlyOnce', 'm_fProgressAfterMeters',
+		'm_fProgressBeforeMeters')),
+	@('disposable profile shape', $exactRebuildRestartProfileShape, @(
+		'LoadAndValidateOwner(', 'BuildGuardPath(runId)',
+		'BuildCarrierPath(runId)', 'BuildResultPath(runId, STAGE_PREPARE)',
+		'BuildResultPath(runId, STAGE_RECOVER)',
+		'BuildResultPath(runId, STAGE_REPLAY)',
+		'HST_ProfilePathService.LEGACY_PROFILE_DIRECTORY',
+		'HST_ProfilePathService.MIGRATION_STAGING_DIRECTORY',
+		'HST_ProfilePathService.VISUAL_SETTINGS_FILE',
+		'HST_ProfilePathService.LOADOUT_DIRECTORY',
+		'HST_ProfilePathService.CAMPAIGN_SAVE_FILE',
+		'stage == STAGE_PREPARE', 'stage == STAGE_RECOVER'))
+)
+foreach ($exactRebuildRestartArtifactContract in
+	$exactRebuildRestartArtifactContracts) {
+	if ([string]::IsNullOrEmpty($exactRebuildRestartArtifactContract[1])) {
+		throw "Exact garrison-rebuild restart $($exactRebuildRestartArtifactContract[0]) block is missing"
+	}
+	foreach ($exactRebuildRestartArtifactEntry in
+		$exactRebuildRestartArtifactContract[2]) {
+		if ($exactRebuildRestartArtifactContract[1].IndexOf(
+			$exactRebuildRestartArtifactEntry) -lt 0) {
+			throw "Exact garrison-rebuild restart $($exactRebuildRestartArtifactContract[0]) is incomplete: $exactRebuildRestartArtifactEntry"
+		}
+	}
+}
+foreach ($exactRebuildRestartLeaseEntry in @(
+		'LoadAndValidateGuard(', 'BuildGuardPath(runId)',
+		'FileIO.FileExists(path)', 'FileIO.DeleteFile(path)',
+		'external exact rebuild stage lease could not be consumed'
+	)) {
+	if ([string]::IsNullOrEmpty($exactRebuildRestartLeaseConsumption) -or
+		$exactRebuildRestartLeaseConsumption.IndexOf(
+			$exactRebuildRestartLeaseEntry) -lt 0) {
+		throw "Exact garrison-rebuild restart one-use lease consumption is incomplete: $exactRebuildRestartLeaseEntry"
+	}
+}
+
+$exactRebuildRestartPrepareSeam = Get-ScriptMethodBlock `
+	$exactRebuildRestartProofText `
+	'bool PrepareExternalDeliveryPendingRestartCarrier('
+$exactRebuildRestartAdvanceSeam = Get-ScriptMethodBlock `
+	$exactRebuildRestartProofText 'bool AdvanceExternalDeliveryPendingState('
+$exactRebuildRestartLifecycleValidator = Get-ScriptMethodBlock `
+	$exactRebuildRestartProofText `
+	'protected bool ValidateExternalDeliveryLifecycleState('
+$exactRebuildRestartRuntimeValidator = Get-ScriptMethodBlock `
+	$exactRebuildRestartProofText 'bool ValidateExternalRuntimeClaimantsZero('
+$exactRebuildRestartProofContracts = @(
+	@('prepare seam', $exactRebuildRestartPrepareSeam, @(
+		'ConfirmOneStrategicCasualty(', 'StageExternalDeliveryPendingCursor(',
+		'canonical.Capture(fixture.m_State);', 'canonical.Restore();',
+		'BuildExternalDeliveryPendingExpectation(',
+		'HST_EnemyGarrisonRebuildExternalRestartProofService.CARRIER_MAGIC',
+		'm_iExpectedPhysicalAdapterHandleCount = 0;',
+		'm_iExpectedPhysicalRuntimeMemberCount = 0;',
+		'BuildExternalGarrisonRebuildSemanticFingerprint(',
+		'ValidateExternalDeliveryPendingState(')),
+	@('production continuation seam', $exactRebuildRestartAdvanceSeam, @(
+		'ValidateExternalDeliveryPendingState(',
+		'UseDeterministicVirtualProjectionForProof();',
+		'owner.SetRuntimeServices(', 'owner.SetEnemyDirectorService(',
+		'HST_StrategicMovementService.MAX_CATCHUP_SECONDS_PER_TICK',
+		'owner.TickOrder(', 'ValidateExternalDeliveredState(',
+		'sourceFingerprint == carrier.m_sPreparedSemanticFingerprint',
+		'deliveredFingerprint != sourceFingerprint')),
+	@('semantic lifecycle validator', $exactRebuildRestartLifecycleValidator, @(
+		'HST_EnemyGarrisonRebuildExternalRestartProofService.ValidateCarrier(',
+		'CountEnemyOrderId(state, expected.m_sOrderId) == 1',
+		'CountOperationId(state, expected.m_sOperationId) == 1',
+		'CountManifestId(state, expected.m_sManifestId) == 1',
+		'CountBatchId(state, expected.m_sBatchId) == 1',
+		'CountGroupId(state, expected.m_sGroupId) == 1',
+		'ValidateExternalGarrisonRebuildEndpoints(',
+		'ValidateExternalGarrisonRebuildOrder(',
+		'ValidateExternalGarrisonRebuildOperation(',
+		'ValidateExternalGarrisonRebuildManifest(',
+		'ValidateExternalGarrisonRebuildProjection(',
+		'ValidateExternalGarrisonRebuildResources(',
+		'ValidateExternalGarrisonRebuildGarrison(',
+		'BuildExternalGarrisonRebuildSemanticFingerprint(')),
+	@('zero runtime claimant validator', $exactRebuildRestartRuntimeValidator, @(
+		'CountHandlesForProjection(', 'CountHandlesForResultId(',
+		'CountForceSpawnRuntimeMembers(group)', 'GetForceSpawnGroupRoot(group)',
+		'projectionHandles == 0', 'resultHandles == 0', 'runtimeMembers == 0'))
+)
+foreach ($exactRebuildRestartProofContract in $exactRebuildRestartProofContracts) {
+	if ([string]::IsNullOrEmpty($exactRebuildRestartProofContract[1])) {
+		throw "Exact garrison-rebuild restart $($exactRebuildRestartProofContract[0]) is missing"
+	}
+	foreach ($exactRebuildRestartProofEntry in $exactRebuildRestartProofContract[2]) {
+		if ($exactRebuildRestartProofContract[1].IndexOf(
+			$exactRebuildRestartProofEntry) -lt 0) {
+			throw "Exact garrison-rebuild restart $($exactRebuildRestartProofContract[0]) is incomplete: $exactRebuildRestartProofEntry"
+		}
+	}
+}
+
+$exactRebuildRestartPostInit = Get-ScriptMethodBlock `
+	$exactRebuildRestartCoordinatorText 'override void OnPostInit(IEntity owner)'
+$exactRebuildRestartBootstrap = Get-ScriptMethodBlock `
+	$exactRebuildRestartCoordinatorText `
+	'protected bool TryCompleteCampaignPersistenceBootstrap('
+$exactRebuildRestartConfigure = Get-ScriptMethodBlock `
+	$exactRebuildRestartCoordinatorText `
+	'protected void ConfigureExactGarrisonRebuildRestartCLI()'
+$exactRebuildRestartAuthority = Get-ScriptMethodBlock `
+	$exactRebuildRestartCoordinatorText `
+	'protected bool LoadExactGarrisonRebuildRestartAuthority('
+$exactRebuildRestartSourceObservation = Get-ScriptMethodBlock `
+	$exactRebuildRestartCoordinatorText `
+	'protected void ObserveExactGarrisonRebuildExternalRestartSource()'
+$exactRebuildRestartPrepare = Get-ScriptMethodBlock `
+	$exactRebuildRestartCoordinatorText `
+	'protected void FinalizeExactGarrisonRebuildExternalRestartPrepare()'
+$exactRebuildRestartRecover = Get-ScriptMethodBlock `
+	$exactRebuildRestartCoordinatorText `
+	'protected void FinalizeExactGarrisonRebuildExternalRestartRecover()'
+$exactRebuildRestartReplay = Get-ScriptMethodBlock `
+	$exactRebuildRestartCoordinatorText `
+	'protected void FinalizeExactGarrisonRebuildExternalRestartReplay()'
+$exactRebuildRestartDispatch = Get-ScriptMethodBlock `
+	$exactRebuildRestartCoordinatorText `
+	'protected void FinalizeExactGarrisonRebuildExternalRestartStage()'
+$exactRebuildRestartFrame = Get-ScriptMethodBlock `
+	$exactRebuildRestartCoordinatorText 'override void EOnFrame(IEntity owner, float timeSlice)'
+
+foreach ($exactRebuildRestartCliLiteral in @(
+		'hstExactGarrisonRebuildRestartProof',
+		'hstExactGarrisonRebuildRestartStage',
+		'hstExactGarrisonRebuildRestartRunId',
+		'hstExactGarrisonRebuildRestartSessionNonce',
+		'hstExactGarrisonRebuildRestartStageNonce'
+	)) {
+	if ($exactRebuildRestartCoordinatorText.IndexOf(
+		$exactRebuildRestartCliLiteral) -lt 0) {
+		throw "Exact garrison-rebuild restart CLI literal is missing: $exactRebuildRestartCliLiteral"
+	}
+}
+$exactRebuildRestartConfigureIndex = $exactRebuildRestartPostInit.IndexOf(
+	'ConfigureExactGarrisonRebuildRestartCLI();')
+$exactRebuildRestartAuthorityIndex = $exactRebuildRestartPostInit.IndexOf(
+	'LoadExactGarrisonRebuildRestartAuthority(')
+$exactRebuildRestartMigrationIndex = $exactRebuildRestartPostInit.IndexOf(
+	'HST_ProfilePathService.MigrateLegacyProfileTree();')
+if ([string]::IsNullOrEmpty($exactRebuildRestartPostInit) -or
+	$exactRebuildRestartConfigureIndex -lt 0 -or
+	$exactRebuildRestartAuthorityIndex -le $exactRebuildRestartConfigureIndex -or
+	$exactRebuildRestartMigrationIndex -le $exactRebuildRestartAuthorityIndex -or
+	$exactRebuildRestartPostInit -notmatch
+		'if\s*\(m_bExactGarrisonRebuildRestartCLIRequested\)[\s\S]*?LoadExactGarrisonRebuildRestartAuthority\(' -or
+	$exactRebuildRestartPostInit -notmatch
+		'if\s*\(\s*!m_bExactCounterattackRestartCLIRequested\s*\r?\n\s*&&\s*!m_bExactGarrisonRebuildRestartCLIRequested') {
+	throw 'Exact garrison-rebuild restart owner, shape, and lease authority must load before the isolated profile-migration gate'
+}
+
+$exactRebuildRestartObserveIndex = $exactRebuildRestartBootstrap.IndexOf(
+	'ObserveExactGarrisonRebuildExternalRestartSource();')
+$exactRebuildRestartValidationIndex = $exactRebuildRestartBootstrap.IndexOf(
+	'schema67StrategicResourceValidation.ValidateRestoredFactionRoles(')
+$exactRebuildRestartReconcileIndex = $exactRebuildRestartBootstrap.IndexOf(
+	'm_bExactGarrisonRebuildRestartStartupReconcileChanged')
+if ([string]::IsNullOrEmpty($exactRebuildRestartBootstrap) -or
+	$exactRebuildRestartObserveIndex -lt 0 -or
+	$exactRebuildRestartValidationIndex -le $exactRebuildRestartObserveIndex -or
+	$exactRebuildRestartReconcileIndex -le $exactRebuildRestartValidationIndex -or
+	$exactRebuildRestartBootstrap.IndexOf(
+		'm_EnemyGarrisonRebuildOperations.ReconcileAfterRestore(') -le
+		$exactRebuildRestartObserveIndex) {
+	throw 'Exact garrison-rebuild restart source adoption must precede startup validators and operation reconcilers'
+}
+
+foreach ($exactRebuildRestartConfigureEntry in @(
+		'ValidateStage(', 'ValidateRunId(', 'ValidateNonce(',
+		'NormalizeWorldIdentity(GetGame().GetWorldFile())',
+		'CAMPAIGN_DEBUG_CLI_PROFILE_PARAM', 'EXACT_QRF_RESTART_CLI_STAGE_PARAM',
+		'EXACT_COUNTERATTACK_RESTART_CLI_STAGE_PARAM',
+		'ORDINARY_CAMPAIGN_PERSISTENCE_PROOF_CLI_PARAM',
+		'ADMIN_CAMPAIGN_RESET_PERSISTENCE_PROOF_CLI_PARAM'
+	)) {
+	if ([string]::IsNullOrEmpty($exactRebuildRestartConfigure) -or
+		$exactRebuildRestartConfigure.IndexOf($exactRebuildRestartConfigureEntry) -lt 0) {
+		throw "Exact garrison-rebuild restart CLI isolation is incomplete: $exactRebuildRestartConfigureEntry"
+	}
+}
+$exactRebuildRestartOwnerIndex = $exactRebuildRestartAuthority.IndexOf(
+	'LoadAndValidateOwner(')
+$exactRebuildRestartShapeIndex = $exactRebuildRestartAuthority.IndexOf(
+	'ValidateDisposableProfileShape(')
+$exactRebuildRestartLeaseIndex = $exactRebuildRestartAuthority.IndexOf(
+	'ConsumeStageLease(')
+$exactRebuildRestartCarrierIndex = $exactRebuildRestartAuthority.IndexOf(
+	'LoadCarrier(')
+if ([string]::IsNullOrEmpty($exactRebuildRestartAuthority) -or
+	$exactRebuildRestartOwnerIndex -lt 0 -or
+	$exactRebuildRestartShapeIndex -le $exactRebuildRestartOwnerIndex -or
+	$exactRebuildRestartLeaseIndex -le $exactRebuildRestartShapeIndex -or
+	$exactRebuildRestartCarrierIndex -le $exactRebuildRestartLeaseIndex -or
+	$exactRebuildRestartAuthority.IndexOf(
+		'm_bExactGarrisonRebuildRestartGuardExact') -lt 0) {
+	throw 'Exact garrison-rebuild restart boot authority must validate owner, profile shape, consume the lease, then load the carrier'
+}
+
+$exactRebuildRestartReadIndex = $exactRebuildRestartSourceObservation.IndexOf(
+	'ReadProfileFallbackProofSnapshot(')
+$exactRebuildRestartPendingIndex = $exactRebuildRestartSourceObservation.IndexOf(
+	'ValidateExternalDeliveryPendingState(')
+$exactRebuildRestartDeliveredIndex = $exactRebuildRestartSourceObservation.IndexOf(
+	'ValidateExternalDeliveredState(')
+$exactRebuildRestartAdoptIndex = $exactRebuildRestartSourceObservation.IndexOf(
+	'm_State = sourceState;')
+if ([string]::IsNullOrEmpty($exactRebuildRestartSourceObservation) -or
+	$exactRebuildRestartReadIndex -lt 0 -or
+	$exactRebuildRestartPendingIndex -le $exactRebuildRestartReadIndex -or
+	$exactRebuildRestartDeliveredIndex -le $exactRebuildRestartPendingIndex -or
+	$exactRebuildRestartAdoptIndex -le $exactRebuildRestartDeliveredIndex -or
+	$exactRebuildRestartSourceObservation.IndexOf(
+		'm_State.m_sLastPersistenceStatus') -lt 0 -or
+	$exactRebuildRestartSourceObservation.IndexOf('CaptureAndTrackState(') -le
+		$exactRebuildRestartAdoptIndex) {
+	throw 'Exact garrison-rebuild restart must validate the canonical pending/delivered source before adopting and tracking it'
+}
+
+$exactRebuildRestartPrepareCarrierIndex = $exactRebuildRestartPrepare.IndexOf(
+	'SaveCarrier(')
+$exactRebuildRestartPreparePersistIndex = $exactRebuildRestartPrepare.IndexOf(
+	'WriteProfileFallbackProofSnapshot(')
+$exactRebuildRestartPrepareReadBackIndex = $exactRebuildRestartPrepare.IndexOf(
+	'ValidateExternalDeliveryPendingState(')
+$exactRebuildRestartPrepareRuntimeIndex = $exactRebuildRestartPrepare.IndexOf(
+	'ValidateExternalRuntimeClaimantsZero(')
+if ([string]::IsNullOrEmpty($exactRebuildRestartPrepare) -or
+	$exactRebuildRestartPrepare.IndexOf(
+		'PrepareExternalDeliveryPendingRestartCarrier(') -lt 0 -or
+	$exactRebuildRestartPrepareCarrierIndex -lt 0 -or
+	$exactRebuildRestartPreparePersistIndex -le
+		$exactRebuildRestartPrepareCarrierIndex -or
+	$exactRebuildRestartPrepareReadBackIndex -le
+		$exactRebuildRestartPreparePersistIndex -or
+	$exactRebuildRestartPrepareRuntimeIndex -le
+		$exactRebuildRestartPrepareReadBackIndex -or
+	$exactRebuildRestartPrepare.IndexOf('m_bPersistedReadBackExact') -lt 0 -or
+	$exactRebuildRestartPrepare.IndexOf('m_bPreparedCutExact') -lt 0) {
+	throw 'Exact garrison-rebuild prepare must seal its carrier, journal, semantic readback, and zero-runtime receipt in order'
+}
+
+$exactRebuildRestartRecoverAdvanceIndex = $exactRebuildRestartRecover.IndexOf(
+	'AdvanceExternalDeliveryPendingState(')
+$exactRebuildRestartRecoverReconcileIndex = $exactRebuildRestartRecover.IndexOf(
+	'm_EnemyGarrisonRebuildOperations.ReconcileAfterRestore(')
+$exactRebuildRestartRecoverDeliveredIndex = $exactRebuildRestartRecover.IndexOf(
+	'ValidateExternalDeliveredState(')
+$exactRebuildRestartRecoverRuntimeIndex = $exactRebuildRestartRecover.IndexOf(
+	'ValidateExternalRuntimeClaimantsZero(')
+$exactRebuildRestartRecoverPersistIndex = $exactRebuildRestartRecover.IndexOf(
+	'WriteProfileFallbackProofSnapshot(')
+$exactRebuildRestartRecoverReadBackIndex = $exactRebuildRestartRecover.IndexOf(
+	'ValidateExternalDeliveredState(',
+	[Math]::Max(0, $exactRebuildRestartRecoverDeliveredIndex + 1))
+if ([string]::IsNullOrEmpty($exactRebuildRestartRecover) -or
+	$exactRebuildRestartRecoverAdvanceIndex -lt 0 -or
+	$exactRebuildRestartRecoverReconcileIndex -le
+		$exactRebuildRestartRecoverAdvanceIndex -or
+	$exactRebuildRestartRecoverDeliveredIndex -le
+		$exactRebuildRestartRecoverReconcileIndex -or
+	$exactRebuildRestartRecoverRuntimeIndex -le
+		$exactRebuildRestartRecoverDeliveredIndex -or
+	$exactRebuildRestartRecoverPersistIndex -le
+		$exactRebuildRestartRecoverRuntimeIndex -or
+	$exactRebuildRestartRecoverReadBackIndex -le
+		$exactRebuildRestartRecoverPersistIndex -or
+	$exactRebuildRestartRecover.IndexOf(
+		'bool reconcileNoOp = reconcileAvailable && !reconcileChanged;') -lt 0 -or
+	$exactRebuildRestartRecover.IndexOf('m_bDeliveryReceiptExact') -lt 0 -or
+	$exactRebuildRestartRecover.IndexOf('m_bHeldGarrisonExact') -lt 0 -or
+	$exactRebuildRestartRecover.IndexOf('m_bAggregateNotDoubleCounted') -lt 0 -or
+	$exactRebuildRestartRecover.IndexOf('m_bResourceExactlyOnce') -lt 0) {
+	throw 'Exact garrison-rebuild recover must continue once, reconcile as a no-op, validate delivery, persist, and validate readback in order'
+}
+
+foreach ($exactRebuildRestartReplayEntry in @(
+		'!m_EnemyGarrisonRebuildOperations.ReconcileAfterRestore(',
+		'ValidateExternalDeliveredState(',
+		'ValidateExternalRuntimeClaimantsZero(',
+		'!m_bExactGarrisonRebuildRestartStartupReconcileChanged',
+		'm_bSameStateSemanticNoOp',
+		'm_sSourceSemanticFingerprint', 'm_sFinalSemanticFingerprint'
+	)) {
+	if ([string]::IsNullOrEmpty($exactRebuildRestartReplay) -or
+		$exactRebuildRestartReplay.IndexOf($exactRebuildRestartReplayEntry) -lt 0) {
+		throw "Exact garrison-rebuild replay semantic no-op is incomplete: $exactRebuildRestartReplayEntry"
+	}
+}
+if ($exactRebuildRestartReplay.IndexOf('WriteProfileFallbackProofSnapshot(') -ge 0 -or
+	$exactRebuildRestartReplay.IndexOf('SaveCarrier(') -ge 0 -or
+	$exactRebuildRestartReplay.IndexOf('AdvanceExternalDeliveryPendingState(') -ge 0) {
+	throw 'Exact garrison-rebuild replay must not write, replace its carrier, or advance delivery again'
+}
+foreach ($exactRebuildRestartDispatchEntry in @(
+		'STAGE_PREPARE', 'FinalizeExactGarrisonRebuildExternalRestartPrepare();',
+		'STAGE_RECOVER', 'FinalizeExactGarrisonRebuildExternalRestartRecover();',
+		'FinalizeExactGarrisonRebuildExternalRestartReplay();',
+		'GetGame().RequestClose();'
+	)) {
+	if ([string]::IsNullOrEmpty($exactRebuildRestartDispatch) -or
+		$exactRebuildRestartDispatch.IndexOf($exactRebuildRestartDispatchEntry) -lt 0) {
+		throw "Exact garrison-rebuild restart dispatch is incomplete: $exactRebuildRestartDispatchEntry"
+	}
+}
+if ([string]::IsNullOrEmpty($exactRebuildRestartFrame) -or
+	$exactRebuildRestartFrame.IndexOf(
+		'if (m_bExactGarrisonRebuildRestartCLIRequested)') -lt 0 -or
+	$exactRebuildRestartFrame.IndexOf(
+		'FinalizeExactGarrisonRebuildExternalRestartStage();') -lt 0) {
+	throw 'Exact garrison-rebuild restart stage must own one isolated coordinator frame branch'
+}
+
+$exactRebuildRestartRunnerTokens = $null
+$exactRebuildRestartRunnerParseErrors = $null
+$exactRebuildRestartRunnerAst = `
+	[System.Management.Automation.Language.Parser]::ParseInput(
+		$exactRebuildRestartRunnerText,
+		[ref]$exactRebuildRestartRunnerTokens,
+		[ref]$exactRebuildRestartRunnerParseErrors)
+if ($exactRebuildRestartRunnerParseErrors.Count -ne 0) {
+	throw 'Exact garrison-rebuild restart runner must parse without errors'
+}
+foreach ($exactRebuildRestartRunnerLiteral in @(
+		'$script:Stages = @("prepare", "recover", "replay")',
+		'prepare = 0', 'recover = 1', 'replay = 2',
+		'$script:CutName = "delivery_pending"',
+		'$script:ExpectedStageCount = 3',
+		'$script:OwnerMagic =', '$script:GuardMagic =',
+		'$script:CarrierMagic =', '$script:ResultMagic =',
+		'-LibraryOnly', '$script:MutexName =',
+		'Invoke-RebuildContractSelfTests',
+		'CampaignWritingStages = @("prepare", "recover")',
+		'ReadOnlyReplay = $true'
+	)) {
+	if ($exactRebuildRestartRunnerText.IndexOf(
+		$exactRebuildRestartRunnerLiteral) -lt 0) {
+		throw "Exact garrison-rebuild restart runner contract is incomplete: $exactRebuildRestartRunnerLiteral"
+	}
+}
+
+$exactRebuildRestartRunnerOwner = Get-ScriptMethodBlock `
+	$exactRebuildRestartRunnerText 'function Assert-RebuildOwner'
+$exactRebuildRestartRunnerGuard = Get-ScriptMethodBlock `
+	$exactRebuildRestartRunnerText 'function Assert-RebuildGuard'
+$exactRebuildRestartRunnerExpectation = Get-ScriptMethodBlock `
+	$exactRebuildRestartRunnerText 'function Assert-RebuildExpectation'
+$exactRebuildRestartRunnerCarrier = Get-ScriptMethodBlock `
+	$exactRebuildRestartRunnerText 'function Assert-RebuildCarrier'
+$exactRebuildRestartRunnerResult = Get-ScriptMethodBlock `
+	$exactRebuildRestartRunnerText 'function Assert-RebuildResult'
+$exactRebuildRestartRunnerArguments = Get-ScriptMethodBlock `
+	$exactRebuildRestartRunnerText 'function Get-RebuildStageArgumentVector'
+$exactRebuildRestartRunnerStage = Get-ScriptMethodBlock `
+	$exactRebuildRestartRunnerText 'function Invoke-RebuildRestartStage'
+$exactRebuildRestartRunnerJournal = Get-ScriptMethodBlock `
+	$exactRebuildRestartRunnerText 'function Read-RebuildJournalEnvelope'
+$exactRebuildRestartRunnerArtifactGates = @(
+	@('owner gate', $exactRebuildRestartRunnerOwner, @(
+		'm_sMagic', 'm_iVersion', 'm_sPurpose', 'm_sSessionNonce',
+		'm_sRunId', 'm_sRequestedCut', 'm_sBuildSha',
+		'm_iCampaignSchemaVersion', 'm_iSettingsSchemaVersion',
+		'm_sWorld', 'm_bDisposableProfile', 'Assert-LowerHexNonce',
+		'Assert-BuildIdentity')),
+	@('guard gate', $exactRebuildRestartRunnerGuard, @(
+		'm_sStageNonce', 'm_sRequestedStage', 'm_iStageOrdinal',
+		'm_bAllowCanonicalCampaignOverwrite', '$Stage -cne "replay"',
+		'Assert-BuildIdentity')),
+	@('expectation gate', $exactRebuildRestartRunnerExpectation, @(
+		'm_sOrderId', 'm_sOperationId', 'm_sManifestId', 'm_sBatchId',
+		'm_sGroupId', 'm_sProjectionId', 'm_sForceId',
+		'm_sConfirmedCasualtySlotId', 'm_sCasualtyTombstoneFingerprint',
+		'm_iExpectedPendingPoolOperationalMutationCount -ne 1',
+		'$living -ne ($accepted - 1)',
+		'm_iExpectedAuthoritativePendingInfantry',
+		'm_iExpectedAuthoritativeDeliveredInfantry')),
+	@('carrier gate', $exactRebuildRestartRunnerCarrier, @(
+		'm_fPreparedRouteProgressMeters', 'm_fPreparedRouteTotalDistanceMeters',
+		'Test-ProofVectorNonZero', 'm_iExpectedPhysicalAdapterHandleCount',
+		'm_iExpectedPhysicalRuntimeMemberCount',
+		'm_sPreparedSemanticFingerprint', 'Assert-RebuildExpectation',
+		'Assert-BuildIdentity')),
+	@('result gate', $exactRebuildRestartRunnerResult, @(
+		'm_sStageNonce', 'm_bSuccess', 'm_bSourceExact',
+		'm_bStartupReconcileChanged', 'm_bContinuationExact',
+		'm_bSameStateSemanticNoOp', 'm_bRuntimeClaimantsZero',
+		'm_bPersistedReadBackExact', 'm_bDeliveryReceiptExact',
+		'm_bHeldGarrisonExact', 'm_bAggregateNotDoubleCounted',
+		'm_bResourceExactlyOnce', 'm_sEvidence',
+		'$Stage -ceq "prepare"', '$Stage -ceq "recover"',
+		'ExpectedDeliveredFingerprint', '$after -le $before'))
+)
+foreach ($exactRebuildRestartRunnerArtifactGate in
+	$exactRebuildRestartRunnerArtifactGates) {
+	if ([string]::IsNullOrEmpty($exactRebuildRestartRunnerArtifactGate[1])) {
+		throw "Exact garrison-rebuild runner $($exactRebuildRestartRunnerArtifactGate[0]) is missing"
+	}
+	foreach ($exactRebuildRestartRunnerArtifactEntry in
+		$exactRebuildRestartRunnerArtifactGate[2]) {
+		if ($exactRebuildRestartRunnerArtifactGate[1].IndexOf(
+			$exactRebuildRestartRunnerArtifactEntry) -lt 0) {
+			throw "Exact garrison-rebuild runner $($exactRebuildRestartRunnerArtifactGate[0]) is incomplete: $exactRebuildRestartRunnerArtifactEntry"
+		}
+	}
+}
+
+foreach ($exactRebuildRestartArgumentEntry in @(
+		'-backendLocalStorage', '-hstExactGarrisonRebuildRestartProof',
+		'-hstExactGarrisonRebuildRestartStage',
+		'-hstExactGarrisonRebuildRestartRunId',
+		'-hstExactGarrisonRebuildRestartSessionNonce',
+		'-hstExactGarrisonRebuildRestartStageNonce',
+		'"-keepSessionSave", "-loadSessionSave"'
+	)) {
+	if ([string]::IsNullOrEmpty($exactRebuildRestartRunnerArguments) -or
+		$exactRebuildRestartRunnerArguments.IndexOf(
+			$exactRebuildRestartArgumentEntry) -lt 0) {
+		throw "Exact garrison-rebuild runner argument vector is incomplete: $exactRebuildRestartArgumentEntry"
+	}
+}
+if ($exactRebuildRestartRunnerArguments.IndexOf('-autoshutdown') -lt 0 -or
+	$exactRebuildRestartRunnerArguments.IndexOf(
+		'if ($arguments -ccontains $forbidden)') -lt 0) {
+	throw 'Exact garrison-rebuild runner must reject native session overrides and automatic shutdown'
+}
+
+$exactRebuildRestartStageJournalBeforeIndex =
+	$exactRebuildRestartRunnerStage.IndexOf(
+		'$journalBefore = Get-CampaignJournalFileState')
+$exactRebuildRestartStageProcessIndex = $exactRebuildRestartRunnerStage.IndexOf(
+	'Invoke-GuardedProcess')
+$exactRebuildRestartStageGuardConsumedIndex =
+	$exactRebuildRestartRunnerStage.IndexOf(
+		'$Stage did not consume its one-use engine guard.')
+$exactRebuildRestartStageJournalAfterIndex =
+	$exactRebuildRestartRunnerStage.IndexOf(
+		'$journalAfter = Get-CampaignJournalFileState')
+$exactRebuildRestartStageJournalCompareIndex =
+	$exactRebuildRestartRunnerStage.IndexOf(
+		'Test-CampaignJournalFileStateExact')
+if ([string]::IsNullOrEmpty($exactRebuildRestartRunnerStage) -or
+	$exactRebuildRestartRunnerStage.IndexOf(
+		'$allowCanonicalWrite = $Stage -cne "replay"') -lt 0 -or
+	$exactRebuildRestartRunnerStage.IndexOf(
+		'$Stage requires both profile journal generations.') -lt 0 -or
+	$exactRebuildRestartStageJournalBeforeIndex -lt 0 -or
+	$exactRebuildRestartStageProcessIndex -le
+		$exactRebuildRestartStageJournalBeforeIndex -or
+	$exactRebuildRestartStageGuardConsumedIndex -le
+		$exactRebuildRestartStageProcessIndex -or
+	$exactRebuildRestartStageJournalAfterIndex -le
+		$exactRebuildRestartStageGuardConsumedIndex -or
+	$exactRebuildRestartStageJournalCompareIndex -le
+		$exactRebuildRestartStageJournalAfterIndex -or
+	$exactRebuildRestartRunnerStage.IndexOf(
+		'changed the byte-hashed prepared carrier') -lt 0) {
+	throw 'Exact garrison-rebuild replay must hash both journals and its carrier around one guarded process'
+}
+foreach ($exactRebuildRestartJournalEntry in @(
+		'$script:EnvelopeMagic',
+		'm_iGeneration', 'm_iSnapshotSchemaVersion',
+		'm_sSnapshotFingerprint', 'm_iPreviousGeneration',
+		'm_sPreviousSnapshotFingerprint', 'm_sSnapshotPayload',
+		'uuidv8-sha256-v1:', '$payloadLength'
+	)) {
+	if ([string]::IsNullOrEmpty($exactRebuildRestartRunnerJournal) -or
+		$exactRebuildRestartRunnerJournal.IndexOf(
+			$exactRebuildRestartJournalEntry) -lt 0) {
+		throw "Exact garrison-rebuild journal envelope gate is incomplete: $exactRebuildRestartJournalEntry"
+	}
+}
+
+$exactRebuildRestartPrepareRunIndex = $exactRebuildRestartRunnerText.IndexOf(
+	'$prepare = Invoke-RebuildRestartStage')
+$exactRebuildRestartRecoverRunIndex = $exactRebuildRestartRunnerText.IndexOf(
+	'$recover = Invoke-RebuildRestartStage')
+$exactRebuildRestartReplayRunIndex = $exactRebuildRestartRunnerText.IndexOf(
+	'$replay = Invoke-RebuildRestartStage')
+$exactRebuildRestartMainChain = ''
+if ($exactRebuildRestartPrepareRunIndex -ge 0) {
+	$exactRebuildRestartMainChain = $exactRebuildRestartRunnerText.Substring(
+		$exactRebuildRestartPrepareRunIndex)
+}
+if ($exactRebuildRestartPrepareRunIndex -lt 0 -or
+	$exactRebuildRestartRecoverRunIndex -le $exactRebuildRestartPrepareRunIndex -or
+	$exactRebuildRestartReplayRunIndex -le $exactRebuildRestartRecoverRunIndex -or
+	([regex]::Matches(
+		$exactRebuildRestartMainChain,
+		[regex]::Escape('-Stage "prepare"'))).Count -ne 1 -or
+	([regex]::Matches(
+		$exactRebuildRestartMainChain,
+		[regex]::Escape('-Stage "recover"'))).Count -ne 1 -or
+	([regex]::Matches(
+		$exactRebuildRestartMainChain,
+		[regex]::Escape('-Stage "replay"'))).Count -ne 1) {
+	throw 'Exact garrison-rebuild runner must launch exactly three ordered fresh stage processes'
+}
+foreach ($exactRebuildRestartRotationEntry in @(
+		'Prepare did not create one canonical journal generation.',
+		'-ExpectedGeneration 1', '-ExpectedPreviousGeneration 0',
+		'Recover did not create the exact rotating two-generation journal.',
+		'Recover did not advance the automatic checkpoint beyond prepare.',
+		'Recover changed the retained prepare journal slot.',
+		'-ExpectedGeneration 2', '-ExpectedPreviousGeneration 1',
+		'[string]$prepareEnvelope.m_sSnapshotFingerprint',
+		'Replay changed its canonical journal, recovery journal, or carrier.',
+		'Test-CampaignJournalFileStateExact',
+		'$stageOutcomes.Count -ne $script:ExpectedStageCount',
+		'$unclaimedEngineProcessesObserved.Count -ne 0'
+	)) {
+	if ($exactRebuildRestartRunnerText.IndexOf(
+		$exactRebuildRestartRotationEntry) -lt 0) {
+		throw "Exact garrison-rebuild journal rotation/semantic chain is incomplete: $exactRebuildRestartRotationEntry"
+	}
+}
+
+foreach ($exactRebuildRestartIsolationEntry in @(
+		'$mutex.WaitOne(0)',
+		'Another guarded persistence proof wrapper is active.',
+		'@(Get-EngineProcessRows).Count -ne 0',
+		'Refusing launch while an engine or Workbench process is active.',
+		'Invoke-GuardedProcess', 'UnclaimedEngineProcessesObserved',
+		'Remove-WorkspacePackScratch', 'Remove-ExactOwnedGuard',
+		'Get-RootSnapshotDelta', 'WorkspacePackScratchRemaining',
+		'GuardRemaining', 'GuardBaseRemaining', 'EngineProcessesRemaining',
+		'NewWatchedEntries', 'ModifiedWatchedFiles', 'DeletedWatchedEntries',
+		'NewSpillEntries', 'ModifiedSpillFiles', 'DeletedSpillEntries',
+		'CleanupPhaseErrorCount',
+		'cleanup did not return every boundary to zero'
+	)) {
+	if ($exactRebuildRestartRunnerText.IndexOf(
+		$exactRebuildRestartIsolationEntry) -lt 0) {
+		throw "Exact garrison-rebuild process isolation/cleanup is incomplete: $exactRebuildRestartIsolationEntry"
+	}
+}
+
+Write-Host 'Exact enemy garrison-rebuild owner/profile/lease, delivery-pending continuation, two-generation journal, read-only replay, and three-process cleanup contract OK'
 
 Write-Host 'Durable field-vehicle sole native authority, exact restore, capture, destruction, three-sample, DTO, and ordinary five-process runner contract OK'
 
