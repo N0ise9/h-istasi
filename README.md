@@ -157,10 +157,11 @@ serialized payload string and fingerprints those bytes before parsing them on
 load. Existing Schema-70 version-1 native rows are validated against their
 reconstructed legacy layout and normalized before source comparison. Native and
 journal snapshots are ordered by checkpoint sequence, then restore sequence,
-then save second; equal order requires equal normalized fingerprints. An administrative
-new-campaign reset retains the prior checkpoint/restore order, preflights the
-journal and checkpoint path, and queues an immediate checkpoint so an older
-journal cannot outrank a durably accepted reset campaign.
+then save second; equal order requires equal normalized fingerprints. An
+administrative new-campaign reset retains the prior checkpoint/restore order,
+exact-clones its prospective campaign, and commits that DTO to the verified
+journal before old runtime cleanup or native staging. That JSON write-ahead
+generation remains recoverable if native replication subsequently fails.
 
 ### Automatic Legacy Migration
 
@@ -246,11 +247,11 @@ network behavior. Test identities and run evidence belong in the Campaign
 Debug verification audit rather than this project overview.
 
 The sealed campaign-persistence implementation stamp is
-`85572fca9340074c3c198c758f857c4f57b600d9`, UTC
-`2026-07-17T09:37:00Z`, label
-`schema71-settings24-campaign-recovery-journal`. Foundation validation passes
-851 references. Stamped Workbench validation loads 5,842 files and 11,862
-classes at CRC `c4bc4b3d` with zero hard errors and zero owned cleanup residue.
+`3714e9c6d9e1d5dc802db5f8ededf4505acf256b`, UTC
+`2026-07-17T15:18:07Z`, label
+`schema71-settings24-admin-reset-write-ahead`. Foundation validation passes
+859 references. Stamped Workbench validation loads 5,844 files and 11,870
+classes at CRC `2b350976` with zero hard errors and zero owned cleanup residue.
 The focused authority testcase passes 1/1 with 41/41 exact conditions, an empty
 failed list, and exact native-v1/native-v2/invalid-fingerprint/future-envelope
 classification at 1/1/1/1.
@@ -264,8 +265,10 @@ and destruction-tombstone state through both recovery sources. All five
 processes pass with every owned cleanup counter at zero. A separate three-stage
 native-over-stale-journal proof passes 3/3, selects native authority, preserves
 both journal files byte-for-byte with an exact chain, and also leaves cleanup at
-zero. Administrative-reset ordering and preflight are source/static-gated only;
-there is no focused runtime reset proof yet.
+zero. The administrative-reset stale-native proof also passes 3/3: it selects
+the newer generation-3 JSON reset over deliberately stale native authority in a
+read-only final process, preserves the exact two-slot chain and proof carrier,
+rejects overlap without mutation, and leaves cleanup at zero.
 
 This proves the scoped fixture, not full fuel, partial-damage, attachment, or
 physical-trunk parity. Arbitrary vehicle breadth, Workshop server/client,

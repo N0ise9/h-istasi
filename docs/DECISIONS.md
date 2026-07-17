@@ -3025,7 +3025,8 @@ only the absence of both sources admits a new campaign.
 
 Consequences:
 
-- Campaign Schema 71 and runtime-settings Schema 24 are current. Implementation
+- At the CRI-051 checkpoint, Campaign Schema 71 and runtime-settings Schema 24
+  were current. Implementation
   `85572fca9340074c3c198c758f857c4f57b600d9`, UTC
   `2026-07-17T09:37:00Z`, label
   `schema71-settings24-campaign-recovery-journal`, is the sealed source; CRI-050
@@ -3046,8 +3047,8 @@ Consequences:
   selects a newer native checkpoint over a deliberately stale complete journal,
   preserves both journal slots and their exact chain, and leaves cleanup at zero.
 - CRI-052 supersedes this decision only for administrative-reset commit ordering.
-  Its write-ahead source and Workbench gate are complete, while focused runtime
-  reset proof remains pending.
+  Its write-ahead source, Workbench gate, and focused stale-native runtime proof
+  are complete.
 - Two generations protect against a damaged latest slot or interrupted inactive-
   slot update, but not simultaneous writers, corruption of both slots, profile
   loss, storage-device failure, or malicious replacement. Long-lived alpha
@@ -3055,8 +3056,8 @@ Consequences:
 
 ## CRI-052 - Commit Administrative Reset Before Native Replication
 
-- Status: Accepted in source; guarded Workbench complete, three-process
-  stale-native proof pending
+- Status: Accepted; final implementation, guarded Workbench, and three-process
+  stale-native proof complete
 - Date: 2026-07-17
 
 Context: CRI-051 keeps ordinary checkpoints native-first: native success mirrors
@@ -3086,12 +3087,21 @@ not resurrect the old campaign.
 
 Consequences:
 
-- Guarded Workbench validation loads 5,844 files and 11,870 classes at CRC
-  `b94fd51c`, with zero HST, script, or hard errors and zero owned cleanup
-  residue.
-- This is compiler/cleanup evidence only. The dedicated three-process
+- Campaign Schema 71 and runtime-settings Schema 24 remain current. Final
+  implementation `3714e9c6d9e1d5dc802db5f8ededf4505acf256b`, UTC
+  `2026-07-17T15:18:07Z`, label
+  `schema71-settings24-admin-reset-write-ahead`, is the sealed source.
+- Foundation passes 859 references. Guarded Workbench validation loads 5,844
+  files and 11,870 classes at CRC `2b350976`, with zero HST, script, or hard
+  errors and zero owned cleanup residue.
+- The dedicated three-process
   `prepare_old_checkpoint -> reset_commit -> stale_native_no_save_verify` proof
-  remains pending and is not claimed as passed.
-- The pending final process must load deliberately stale valid native authority,
-  select the newer reset journal, emit no save, and leave the journal and proof
-  carrier unchanged.
+  passes 3/3. Journal generations advance 1 -> 2 -> 3. The old checkpoint is
+  `cp2/r0`, the deliberately stale native blocker is `cp4/r1`, the committed
+  reset is `cp5/r1`, and final recovered live authority is `cp6/r2`.
+- The final process deliberately loads stale valid native authority, selects the
+  newer profile fallback, enters degraded newer-journal recovery, performs no
+  save, and preserves canonical generation 3 plus recovery generation 2 as an
+  exact chain. Journal and proof-carrier bytes remain unchanged, the old
+  sentinel stays absent, player/commander identity remains exact, an overlapping
+  reset is rejected without mutation, and cleanup is zero.

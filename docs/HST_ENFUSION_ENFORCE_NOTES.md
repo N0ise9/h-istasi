@@ -2,8 +2,8 @@
 
 Campaign Schema 71 and runtime-settings Schema 24 are current. Current
 implementation/source identity is
-`85572fca9340074c3c198c758f857c4f57b600d9`, UTC `2026-07-17T09:37:00Z`, label
-`schema71-settings24-campaign-recovery-journal`.
+`3714e9c6d9e1d5dc802db5f8ededf4505acf256b`, UTC `2026-07-17T15:18:07Z`, label
+`schema71-settings24-admin-reset-write-ahead`.
 
 ## Current Campaign Recovery Journal Mechanics
 
@@ -104,8 +104,8 @@ implementation/source identity is
   deltas. Never expand that boundary to broad `.gitignore` patterns. Spill
   snapshots remain unchanged and continue to observe every cleanup artifact.
 
-Current sealed evidence is Foundation at 851 references and stamped Workbench
-validation at 5,842 files/11,862 classes, CRC `c4bc4b3d`, with zero hard errors
+Current sealed evidence is Foundation at 859 references and stamped Workbench
+validation at 5,844 files/11,870 classes, CRC `2b350976`, with zero hard errors
 and zero owned cleanup residue. The focused journal testcase passes 1/1 with
 zero failures/errors/skips, an empty failed list, 41/41 exact authority
 conditions, and native-v1/native-v2/invalid-fingerprint/future-envelope cases at
@@ -116,12 +116,18 @@ exact field-vehicle state, and leaves cleanup at zero. The native-over-stale-
 journal counterattack chain passes 3/3, selects native, leaves both journal files
 and their exact chain unchanged, and also leaves cleanup at zero.
 
-The current admin-reset source passes guarded Workbench compilation at 5,844
-files/11,870 classes, CRC `b94fd51c`, with zero hard errors and zero owned cleanup
-residue. Its dedicated three-process stale-native proof remains pending and is
-not claimed as passed. The unrelated stock filter diagnostic may still appear
-after the focused testcase succeeds; it is not evidence that an HST assertion
-failed.
+The dedicated three-process `prepare_old_checkpoint -> reset_commit ->
+stale_native_no_save_verify` proof passes 3/3. Journal generations advance
+1 -> 2 -> 3. The old checkpoint is `cp2/r0`, the deliberately stale native
+blocker is `cp4/r1`, the committed reset is `cp5/r1`, and final recovered live
+authority is `cp6/r2`. The last process deliberately loads stale valid native
+authority, selects the newer profile fallback, enters degraded newer-journal
+recovery, performs no save, and preserves canonical generation 3 plus recovery
+generation 2 as an exact chain. Journal and proof-carrier bytes remain
+unchanged, the old sentinel stays absent, player/commander identity remains
+exact, an overlapping reset is rejected without mutation, and cleanup is zero.
+The unrelated stock filter diagnostic may still appear after the focused
+testcase succeeds; it is not evidence that an HST assertion failed.
 
 ## Preceding Durable Field-Vehicle Restart Mechanics
 

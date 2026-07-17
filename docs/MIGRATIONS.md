@@ -1,8 +1,8 @@
 # Campaign Save Migrations
 
 Current implementation/source identity is
-`85572fca9340074c3c198c758f857c4f57b600d9`, UTC `2026-07-17T09:37:00Z`, label
-`schema71-settings24-campaign-recovery-journal`. Campaign Schema 71 and
+`3714e9c6d9e1d5dc802db5f8ededf4505acf256b`, UTC `2026-07-17T15:18:07Z`, label
+`schema71-settings24-admin-reset-write-ahead`. Campaign Schema 71 and
 runtime-settings Schema 24 are current.
 
 ## Schema 71 - Current Campaign Recovery Journal Boundary
@@ -65,8 +65,15 @@ with, but not simultaneous to, the native commit. A failed native callback leave
 both journal slots unchanged and rearms retry. Native-unavailable and explicitly
 profile-only checkpoints write the journal synchronously.
 
-The sealed checkpoint passes Foundation at 851 references and stamped Workbench
-validation at 5,842 files/11,862 classes, CRC `c4bc4b3d`, with zero hard errors
+Administrative reset is the intentional ordering exception. It exact-clones
+the complete prospective campaign and commits that DTO synchronously to the
+verified rotating journal before old runtime roots are retired and before
+native staging. Once that write-ahead generation verifies, it remains the
+newer recovery authority; later native failure is degraded replica repair and
+cannot restore the pre-reset campaign.
+
+The sealed checkpoint passes Foundation at 859 references and stamped Workbench
+validation at 5,844 files/11,870 classes, CRC `2b350976`, with zero hard errors
 and zero owned cleanup residue. The focused authority proof passes 1/1 with an empty failed list,
 41/41 exact cases, and native-v1/native-v2/invalid-fingerprint/future-envelope
 classification at 1/1/1/1. The strict five-process chain passes 5/5 across
@@ -76,9 +83,11 @@ slots and an exact parent chain, keeps both restore stages read-only, preserves
 exact field-vehicle state, and leaves cleanup at zero. The guarded native
 counterattack chain passes 3/3 and proves that a newer valid native checkpoint
 beats a stale complete journal while recover and replay leave both journal slots
-and their exact chain unchanged; cleanup is zero. Administrative-reset preflight
-and retained ordering are source/static-gated only, with no focused runtime reset
-claim. This is current-shape recovery evidence; broad arbitrary older-save,
+and their exact chain unchanged; cleanup is zero. The administrative-reset chain
+passes 3/3, advances generations 1 -> 2 -> 3, selects the newer generation-3
+journal over deliberately stale native authority in a read-only final process,
+preserves the exact chain and proof carrier, rejects overlap without mutation,
+and leaves cleanup at zero. This is current-shape recovery evidence; broad arbitrary older-save,
 package/client, multiplayer, storage-failure, and soak matrices remain open.
 
 ## Preceding Durable Field-Vehicle Schema-Neutral Boundary

@@ -2,8 +2,8 @@
 
 Campaign Schema 71 and runtime-settings Schema 24 are current. Current
 implementation/source identity is
-`85572fca9340074c3c198c758f857c4f57b600d9`, UTC `2026-07-17T09:37:00Z`, label
-`schema71-settings24-campaign-recovery-journal`.
+`3714e9c6d9e1d5dc802db5f8ededf4505acf256b`, UTC `2026-07-17T15:18:07Z`, label
+`schema71-settings24-admin-reset-write-ahead`.
 
 ## Current Campaign Recovery Journal Parity Boundary
 
@@ -37,15 +37,16 @@ valid generations, and equal-order conflicts fail closed.
 Native envelope version 2 stores the exact serialized payload string and
 validates its fingerprint before DTO parsing. Structured Schema-70 version-1
 native rows reconstruct and validate the legacy fingerprint before normalization.
-Admin reset preserves monotonic checkpoint/restore order and requests an
-immediate preflighted checkpoint so stale pre-reset JSON
-cannot resurrect the replaced campaign. With native persistence active, the
-journal advances only after the matching successful native callback. Fallback-
-only writes remain synchronous; failed native completion writes no JSON. The
-admin-reset path remains source/static-gated and needs focused runtime proof.
+Admin reset preserves monotonic checkpoint/restore order, exact-clones the
+prospective campaign, and commits that DTO to the verified journal before old
+runtime roots are retired or native state is staged. The journal write-ahead
+generation is authoritative even if later native replication fails. Ordinary
+native-active checkpoints still advance the journal only after the matching
+successful native callback. Fallback-only ordinary writes remain synchronous;
+failed ordinary native completion writes no JSON.
 
-Final stamped evidence passes Foundation at 851 references and Workbench at
-5,842 files/11,862 classes and CRC `c4bc4b3d`, with zero hard errors and cleanup
+Final stamped evidence passes Foundation at 859 references and Workbench at
+5,844 files/11,870 classes and CRC `2b350976`, with zero hard errors and cleanup
 residue. The focused journal-authority testcase passes 1/1 with 41/41 exact
 booleans, zero failures/errors/skips, an empty failed list, and native-load
 v1/v2/bad/future classification at 1/1/1/1. The ordinary five-process chain
@@ -55,6 +56,11 @@ fallback restores remain read-only, exact field-vehicle continuity is retained,
 and cleanup is zero. The native-versus-stale-journal counterattack chain passes
 3/3 with native selected, both journal files unchanged, an exact chain, and zero
 cleanup.
+
+The admin-reset stale-native chain passes 3/3. It advances generations
+1 -> 2 -> 3, selects generation-3 JSON over the deliberately stale native
+blocker in a read-only final process, preserves the exact two-slot chain and
+proof carrier, rejects overlap without mutation, and leaves cleanup at zero.
 
 Arbitrary-save migration breadth, multi-writer and off-device recovery,
 Workshop/live clients, multiplayer/JIP/reconnect, broader active-world parity,
@@ -1603,18 +1609,21 @@ Debug and packaged-runtime gates remain open.
 ## Current Verification Boundary
 
 - Campaign Schema 71/runtime-settings 24 is the current contract. Final stamped
-  implementation/source `85572fca9340074c3c198c758f857c4f57b600d9`, UTC
-  `2026-07-17T09:37:00Z`, label
-  `schema71-settings24-campaign-recovery-journal`, implements the two-generation
-  recovery journal and monotonic native/journal order. Foundation passes 851;
-  Workbench passes 5,842/11,862 at CRC `c4bc4b3d` with zero hard errors and
+  implementation/source `3714e9c6d9e1d5dc802db5f8ededf4505acf256b`, UTC
+  `2026-07-17T15:18:07Z`, label
+  `schema71-settings24-admin-reset-write-ahead`, implements the two-generation
+  recovery journal, monotonic native/journal order, and journal-authoritative
+  administrative reset. Foundation passes 859;
+  Workbench passes 5,844/11,870 at CRC `2b350976` with zero hard errors and
   cleanup; the focused journal testcase passes 1/1, 41/41 exact booleans, an
   empty failed list, and native-load v1/v2/bad/future at 1/1/1/1; the
   ordinary five-process chain passes generations 1 -> 2 -> 3, canonical
   generation 3, two valid slots, an exact chain, read-only native/profile-
   fallback restores, exact field vehicles, and zero cleanup; and the stale-
   journal/native chain passes 3/3 with native selected, both journal files
-  unchanged, an exact chain, and zero cleanup. Fuel, partial damage, attachments,
+  unchanged, an exact chain, and zero cleanup; and the admin-reset stale-native
+  chain passes 3/3 with the newer JSON selected, no final save, exact journal
+  and carrier preservation, overlap rejection, and zero cleanup. Fuel, partial damage, attachments,
   physical trunk contents, abrupt termination beyond the last completed
   checkpoint, arbitrary migration, broader active-world and Workshop/live
   server-client execution, multi-writer/off-device recovery,
