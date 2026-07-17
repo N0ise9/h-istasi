@@ -2581,8 +2581,8 @@ Consequences:
   implementation for canonical correlation, resume/terminal handling, and
   quarantine of an orphan or pending counterattack-owned ownership transition.
   This checkpoint proves absence and tamper rejection; it does not fix that
-  production case. Durable endpoint ABA snapshots are a separate Schema-71/
-  contract-2 decision.
+  production case. Durable endpoint ABA snapshots remain a future contract-2
+  schema decision whose schema number is not yet assigned.
 
 ## CRI-045 - Fence Counterattack Ownership Before Runtime Reconciliation
 
@@ -2642,7 +2642,8 @@ Consequences:
 - CRI-046 closes the guarded owner-applied-incomplete fresh-process gate. Native
   persistence-source selection, package/live server-client execution,
   networking/JIP, rendered markers, performance, and soak remain open. Durable
-  endpoint ABA remains a separate Schema-71/contract-2 decision.
+  endpoint ABA remains a future contract-2 schema decision whose schema number
+  is not yet assigned.
 
 ## CRI-046 - Prove Owner-Applied Counterattack Recovery Across Fresh Processes
 
@@ -2944,7 +2945,109 @@ Consequences:
   trunk contents, or arbitrary vehicle breadth. The proof duplicate census is
   limited to expected fixture positions. Workshop/live clients, multiplayer/
   JIP/reconnect, performance, and soak remain open.
-- The profile fallback remains one directly overwritten JSON file. The next
-  persistence-hardening decision should introduce atomic verified two-
-  generation promotion, preserve a previous known-good generation, and define
-  explicit degraded recovery selection.
+- At this checkpoint the profile fallback remained one directly overwritten
+  JSON file. CRI-051 closes that limitation with a verified two-slot recovery
+  journal while explicitly retaining the engine file API's non-atomic limits.
+
+## CRI-051 - Give Native and Profile Campaign Saves One Monotonic Recovery Order
+
+- Status: Accepted; implementation, focused authority proof, and scoped
+  fresh-process restart proof complete
+- Date: 2026-07-17
+
+Context: Native persistence and the directly overwritten JSON fallback carried
+the same campaign DTO but did not share a durable ordering identity. Native-first
+selection could hide a later valid recovery snapshot, while writing one JSON
+file in place could destroy the only script-readable recovery copy during an
+interrupted or damaged write. A game/runtime change that made native authority
+unavailable also needed an explicit degraded path rather than an inferred fresh
+campaign. The engine file API exposes neither atomic rename nor an exclusive
+writer lock, so the solution must preserve a known-good generation without
+claiming filesystem atomicity.
+
+Decision: Advance the persisted campaign contract to Schema 71 while keeping
+runtime-settings Schema 24. Add `m_iPersistenceCheckpointSequence` to the
+campaign DTO and advance it before every accepted full-state capture. Compare
+native and profile snapshots by checkpoint sequence, then restore sequence, then
+save second. Equal order is valid only when normalized full-payload fingerprints
+match; disagreement is conflicting authority and fails closed. Sequence
+exhaustion rejects capture. Administrative new-campaign reset retains the prior
+checkpoint and restore order so its next capture is newer than every pre-reset
+campaign save.
+
+Replace the one-file fallback writer with a two-slot profile recovery journal.
+The canonical and recovery slots carry a versioned envelope containing the exact
+nested `HST_CampaignSaveData` payload, generation, parent generation, current
+fingerprint, and parent fingerprint. Fingerprints use
+`uuidv8-sha256-v1:<serialized-length>:<UUID>`, derived through the native
+SHA-256-based UUID v8 generator. Treat that value as an accidental-corruption
+integrity check, not authentication or proof against a malicious writer.
+
+Write only the inactive slot. Read it back and rerun full selection before it can
+supersede the previous valid slot. Select an exact same-generation duplicate
+deterministically from canonical, but reject differing same-generation payload
+or metadata, nonadjacent generations, broken parent identity, unsupported future
+formats, and any other ambiguous history. Preserve those artifacts and fence
+later journal writes. This is a crash-tolerant single-writer journal, not an
+atomic rename transaction, an exclusive-lock protocol, or an off-device backup.
+
+When native persistence is active, advance the journal from the same staged
+snapshot only after the post-commit `SaveGameManager` completion callback
+succeeds. A failed callback writes no journal generation and rearms checkpoint
+retry. When native persistence is unavailable, or the session has explicitly
+entered degraded profile-only recovery after unusable native authority, complete
+the journal checkpoint synchronously.
+
+Write new native rows with native envelope version 2, storing the exact
+serialized payload string and fingerprinting those bytes. Validate the exact
+fingerprint before parsing the DTO so a later added field cannot invalidate an
+intact row through reserialization. Continue to read Schema-70 native envelope
+version 1 by reconstructing and validating its legacy length/hash identity, then
+normalizing the snapshot before source comparison. Preserve and reject unknown or future native envelopes or campaign
+schemas before journal fallback is considered.
+
+Treat a valid raw Schema-70-or-earlier canonical campaign JSON as journal
+generation zero. On its first Schema-71 checkpoint, write recovery generation
+one linked to that legacy authority and leave the raw canonical bytes intact.
+During profile-tree migration, compare both campaign slots exactly. Retain and
+fail on any difference between retired and canonical campaign authority instead
+of choosing one or deleting the old tree.
+
+At startup, select the newer valid native or journal snapshot by the Schema-71
+durable order. A missing native row may recover from a valid journal. Explicitly
+unusable native authority may select a journal in degraded profile-only mode for
+the rest of the session. A valid native row may continue despite damaged or
+future journal artifacts. Source selection preserves them; a later verified
+native checkpoint may repair ordinary invalid inactive data, while
+unsupported-future or ambiguous/conflicting history remains write-fenced.
+Present invalid journal artifacts without usable native authority are fatal;
+only the absence of both sources admits a new campaign.
+
+Consequences:
+
+- Campaign Schema 71 and runtime-settings Schema 24 are current. Implementation
+  `85572fca9340074c3c198c758f857c4f57b600d9`, UTC
+  `2026-07-17T09:37:00Z`, label
+  `schema71-settings24-campaign-recovery-journal`, is the sealed source; CRI-050
+  remains the preceding field-vehicle checkpoint.
+- Foundation passes 851 references. Stamped Workbench validation loads 5,842
+  files/11,862 classes at CRC `c4bc4b3d` with zero hard errors and zero owned
+  cleanup residue.
+- The focused journal authority autotest passes 1/1 with an empty failed list,
+  41/41 exact conditions, and native-v1/native-v2/invalid-fingerprint/future-
+  envelope classification at 1/1/1/1. The cases include generation-zero
+  promotion, damaged-latest recovery, replacement after damage, split-brain and
+  broken-chain fencing, future-format rejection, and production source routing.
+- The strict five-process chain passes 5/5 across automatic, manual, controlled
+  shutdown, native restart, and profile-journal restart. It advances generations
+  1 -> 2 -> 3, ends at canonical generation 3 with two valid slots and an exact
+  chain, keeps both restore stages read-only, preserves exact field-vehicle state,
+  and leaves cleanup at zero. The guarded native counterattack chain passes 3/3,
+  selects a newer native checkpoint over a deliberately stale complete journal,
+  preserves both journal slots and their exact chain, and leaves cleanup at zero.
+- Administrative-reset preflight and retained ordering are source/static-gated
+  only; this checkpoint does not claim a focused runtime reset proof.
+- Two generations protect against a damaged latest slot or interrupted inactive-
+  slot update, but not simultaneous writers, corruption of both slots, profile
+  loss, storage-device failure, or malicious replacement. Long-lived alpha
+  campaigns still need external backups.

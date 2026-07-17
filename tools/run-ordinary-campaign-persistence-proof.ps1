@@ -991,6 +991,31 @@ function New-RootSnapshot {
     }
 }
 
+function Get-CheckoutWatchExclusions {
+	param(
+		[Parameter(Mandatory = $true)][string]$RepositoryRoot,
+		[Parameter(Mandatory = $true)][string]$WatchRoot
+	)
+
+	$repositoryFull = [IO.Path]::GetFullPath($RepositoryRoot)
+	$watchFull = [IO.Path]::GetFullPath($WatchRoot)
+	if (-not (Test-ContainedPath `
+		-Root $watchFull `
+		-Candidate $repositoryFull `
+		-AllowEqual)) {
+		return @()
+	}
+
+	# The IDE may refresh Git metadata while Workbench refreshes these two
+	# ignored root caches during a native pack. They are neither mod source nor
+	# retained proof output. Keep this list exact rather than honoring every
+	# ignored path, so all real checkout files remain under the cleanup guard.
+	return @(
+		(Join-Path $repositoryFull ".git"),
+		(Join-Path $repositoryFull "UserMaps.desc"),
+		(Join-Path $repositoryFull "resourceDatabase.rdb"))
+}
+
 function Get-RootSnapshotDelta {
     param([Parameter(Mandatory = $true)]$Snapshot)
 
@@ -3493,9 +3518,15 @@ try {
         throw "Refusing launch while an engine or Workbench process is active."
     }
 
-    foreach ($root in $normalizedWatchedRoots) {
-        $watchSnapshots.Add((New-RootSnapshot -Root $root))
-    }
+	foreach ($root in $normalizedWatchedRoots) {
+		$watchRoot = Resolve-ExistingPath -Path $root -Kind Container
+		$watchExclusions = @(Get-CheckoutWatchExclusions `
+			-RepositoryRoot $repositoryRoot `
+			-WatchRoot $watchRoot)
+		$watchSnapshots.Add((New-RootSnapshot `
+			-Root $watchRoot `
+			-ExcludedRoots $watchExclusions))
+	}
     $spillExclusions = New-Object Collections.Generic.List[string]
     $spillExclusions.Add((Split-Path -Parent $projectFile))
     $spillExclusions.Add($guardBase)

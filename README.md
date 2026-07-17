@@ -5,7 +5,7 @@ Reforger. Players build a resistance movement on Everon while an occupying
 force and an invading force pursue their own campaign objectives.
 
 The project is in broad alpha. Its campaign foundation is substantial, but it
-is still under active development. Campaign Schema 70 and runtime-settings
+is still under active development. Campaign Schema 71 and runtime-settings
 Schema 24 are the current persisted contracts.
 
 > [!WARNING]
@@ -111,7 +111,8 @@ stores generated data under `$profile:Partisan`:
 | Purpose | Path |
 | --- | --- |
 | Runtime settings | `$profile:Partisan/HST_Settings.json` |
-| Script fallback campaign save | `$profile:Partisan/HST_CampaignSaveData.json` |
+| Campaign recovery journal, canonical slot | `$profile:Partisan/HST_CampaignSaveData.json` |
+| Campaign recovery journal, recovery slot | `$profile:Partisan/HST_CampaignSaveData.recovery.json` |
 | Loadout editor preferences | `$profile:Partisan/HST_LoadoutEditorSettings.json` |
 | Personal loadouts | `$profile:Partisan/loadouts/v2` |
 | Campaign Debug artifacts | `$profile:Partisan/debug` |
@@ -127,12 +128,39 @@ Notable feature switches include Game Master budget policy, infinite stamina,
 and resistance support-group map tracking. Prefer the generated comments over
 copying settings from an older schema by hand.
 
-The script fallback campaign save is written from the same staged snapshot only
-after a successful native checkpoint (or synchronously when native persistence
-is unavailable). It is useful recovery redundancy, but it is currently one
-directly overwritten JSON file rather than an atomic multi-generation journal.
-An atomic two-generation JSON recovery path is the next persistence-hardening
-goal; keep external backups for long-lived alpha campaigns in the meantime.
+Campaign Schema 71 keeps a two-slot, crash-tolerant JSON recovery journal beside
+native persistence. When native persistence is active, the exact staged campaign
+snapshot advances the journal only after the native checkpoint completion
+callback reports success; the two copies are therefore coordinated, not written
+literally at the same instant. When native persistence is unavailable or the
+session has explicitly entered degraded profile-only recovery, the journal
+checkpoint is written synchronously.
+
+Each journal generation stores the exact serialized snapshot payload, its
+generation and parent identity, and an integrity fingerprint formatted as
+`uuidv8-sha256-v1:<serialized-length>:<UUID>`. The writer changes only the
+inactive slot, reads it back, and verifies the selected chain before the new
+generation can supersede the prior known-good slot. This detects accidental
+damage; it is not a cryptographic authentication or tamper-proofing mechanism.
+The engine file API provides neither atomic rename nor an exclusive writer lock,
+so only one server or Workbench process may write a profile at a time. Future
+native authority is preserved and startup fails closed. Invalid journal data is
+preserved during source selection, and a valid native save may still start; a
+later verified native checkpoint may repair an ordinary invalid inactive slot.
+Unsupported-future or ambiguous/conflicting history is write-fenced instead.
+Without usable native authority, present invalid journal artifacts make startup
+fail closed. Keep off-device backups for long-lived alpha campaigns because the
+two slots share one profile and one storage device.
+
+New native checkpoints use a version-2 native envelope that stores the exact
+serialized payload string and fingerprints those bytes before parsing them on
+load. Existing Schema-70 version-1 native rows are validated against their
+reconstructed legacy layout and normalized before source comparison. Native and
+journal snapshots are ordered by checkpoint sequence, then restore sequence,
+then save second; equal order requires equal normalized fingerprints. An administrative
+new-campaign reset retains the prior checkpoint/restore order, preflights the
+journal and checkpoint path, and queues an immediate checkpoint so an older
+journal cannot outrank a durably accepted reset campaign.
 
 ### Automatic Legacy Migration
 
@@ -140,9 +168,15 @@ Partisan uses `$profile:Partisan` as the only canonical generated-data root.
 On first startup after upgrading, it automatically transfers the retired
 profile tree, including nested and otherwise unrecognized files. Existing
 canonical files take precedence, and conflicting older files are retained in a
-legacy archive rather than overwritten. The retired directory is removed only
-after every file has been safely transferred or archived; incomplete work is
-left in place for a later retry.
+legacy archive rather than overwritten. Campaign authority is stricter: a
+difference between retired and canonical campaign files in either journal slot
+is retained and startup fails until an operator resolves the conflict. The
+retired directory is removed only after every file has been safely transferred
+or archived; incomplete work is left in place for a later retry.
+
+A valid raw Schema-70-or-earlier canonical campaign JSON is adopted as journal
+generation zero. Its bytes remain untouched while the first Schema-71
+checkpoint writes recovery generation one linked to that legacy authority.
 
 Before the first migration, stop every server, client, and Workbench instance
 that shares the profile, back up long-lived alpha data, and let one process
@@ -211,30 +245,32 @@ Full Campaign Debug, world integration, persistence, restart, packaging, or
 network behavior. Test identities and run evidence belong in the Campaign
 Debug verification audit rather than this project overview.
 
-The current campaign-persistence implementation stamp is
-`34fcb8e77726beb61dfb10cf650183b5ef99542c`, UTC
-`2026-07-17T04:33:16Z`, label
-`schema70-settings24-field-vehicle-restart`. Campaign Schema 70 and
-runtime-settings Schema 24 remain unchanged.
+The sealed campaign-persistence implementation stamp is
+`85572fca9340074c3c198c758f857c4f57b600d9`, UTC
+`2026-07-17T09:37:00Z`, label
+`schema71-settings24-campaign-recovery-journal`. Foundation validation passes
+851 references. Stamped Workbench validation loads 5,842 files and 11,862
+classes at CRC `c4bc4b3d` with zero hard errors and zero owned cleanup residue.
+The focused authority testcase passes 1/1 with 41/41 exact conditions, an empty
+failed list, and exact native-v1/native-v2/invalid-fingerprint/future-envelope
+classification at 1/1/1/1.
 
-The final strict five-process fresh-start proof passes periodic `AUTO` at tick
-1,802/60.018852233886719 seconds (with the repeat dirty mark held at
-30.016357421875 seconds), `MANUAL`, blocking `SHUTDOWN`, native no-save
-verification, and profile-fallback no-save verification. Its field fixture
-starts with two durable S1203 rows and distinct abstract cargo, restores both
-in the next process, moves one, destroys the other through engine damage, then
-reproduces exactly one live vehicle plus one destruction tombstone through both
-recovery sources. Every later restore spawns only the expected roots, adopts no
-unowned root, retires no legacy native root, and leaves zero native-tracked
-durable roots. Shutdown keeps its one live root controller/physics-quiesced
-through commit. All five processes exit `0` with zero owned cleanup residue.
+The final strict five-process fresh-start proof passes periodic `AUTO`, typed
+`MANUAL`, blocking `SHUTDOWN`, native no-save restore, and profile-fallback
+no-save restore. The journal advances generations 1 -> 2 -> 3 and finishes with
+canonical generation 3, two valid slots, and an exact parent chain; both restore
+stages keep it read-only. Its field fixture reproduces the exact live-vehicle
+and destruction-tombstone state through both recovery sources. All five
+processes pass with every owned cleanup counter at zero. A separate three-stage
+native-over-stale-journal proof passes 3/3, selects native authority, preserves
+both journal files byte-for-byte with an exact chain, and also leaves cleanup at
+zero. Administrative-reset ordering and preflight are source/static-gated only;
+there is no focused runtime reset proof yet.
 
-Foundation validation passes 839 references. The stamped Workbench compile
-passes 5,837 files and 11,850 classes at CRC `37604e5a` with zero
-script errors and zero residue. This proves the scoped fixture, not full fuel,
-partial-damage, attachment, or physical-trunk parity. Arbitrary vehicle breadth,
-Workshop server/client, multiplayer, reconnect, JIP, migration, markers,
-performance, and soak gates remain open.
+This proves the scoped fixture, not full fuel, partial-damage, attachment, or
+physical-trunk parity. Arbitrary vehicle breadth, Workshop server/client,
+multiplayer, reconnect, JIP, migration breadth, markers, performance, and soak
+gates remain open.
 
 Do not promote a narrower validation rung to broader runtime proof. When testing
 a packaged build, capture the build identity, server/client logs, debug

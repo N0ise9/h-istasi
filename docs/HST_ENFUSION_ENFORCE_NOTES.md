@@ -1,11 +1,117 @@
 # Partisan Enfusion / Enforce Notes
 
-Current implementation/source identity:
-`34fcb8e77726beb61dfb10cf650183b5ef99542c`, UTC `2026-07-17T04:33:16Z`, label
-`schema70-settings24-field-vehicle-restart`. Campaign Schema 70 and
-runtime-settings Schema 24 remain unchanged.
+Campaign Schema 71 and runtime-settings Schema 24 are current. Current
+implementation/source identity is
+`85572fca9340074c3c198c758f857c4f57b600d9`, UTC `2026-07-17T09:37:00Z`, label
+`schema71-settings24-campaign-recovery-journal`.
 
-## Current Durable Field-Vehicle Restart Mechanics
+## Current Campaign Recovery Journal Mechanics
+
+- Keep exactly two profile campaign slots: canonical and recovery. Each current
+  slot contains a versioned envelope and the exact serialized campaign DTO
+  payload string. The envelope owns payload schema, generation, parent
+  generation, parent fingerprint, and current payload fingerprint.
+- Build the payload fingerprint as
+  `uuidv8-sha256-v1:<serialized-length>:<UUID>` from UUID v8 over the exact
+  payload. Compare both prefix/length and UUID. This is an integrity and identity
+  check, not authentication; a writer able to replace both payload and envelope
+  can recompute it.
+- On write, inspect both slots first and require one unambiguous write-permitted
+  authority. An ordinary invalid/truncated inactive slot may be replaced after a
+  verified checkpoint; unsupported-future or ambiguous/conflicting history may
+  not. Write only the inactive slot, read the full envelope back, validate it,
+  and re-run selection. Do not overwrite the previously selected valid slot
+  until the replacement generation is selected. This is a two-generation
+  crash-tolerant journal, not an atomic rename or transaction.
+- A raw pre-journal canonical campaign file remains readable as generation 0.
+  The first current write targets recovery generation 1, links it to generation
+  0 when possible, and preserves the raw canonical bytes. Compare an equal-order
+  native snapshot against this raw generation through the normalized campaign-
+  snapshot fingerprint, not the envelope fingerprint that the raw file lacks.
+  Generation 1 may name parent generation 0; it must reject a nonzero parent
+  generation. A generation-0 parent fingerprint may be nonempty.
+- A later envelope must link exactly to the selected previous generation and
+  fingerprint. Accept a damaged latest slot by selecting the older valid slot,
+  but report that the chain is not exact. Its replacement may advance from the
+  selected older generation while preserving that selected slot until readback
+  succeeds.
+- Treat same-generation, byte-equivalent payload/schema/parent metadata as a
+  deterministic duplicate and select canonical, but do not report its chain as
+  exact. Same-generation payload or metadata disagreement is split brain and
+  fatal. A broken link between two otherwise valid generations, unknown
+  nonempty magic, future envelope/schema/payload versions, and other ambiguous
+  histories are also fatal and write-fenced. Never guess the intended
+  generation. One ordinary damaged, truncated, or ordering-invalid slot may
+  still leave the other generation selectable with `chainExact=false`; a later
+  verified native checkpoint may replace ordinary invalid inactive data.
+- Campaign Schema 71 persists one comparison order: checkpoint sequence first,
+  restore sequence second, and last-save second third. Equal order is legal only
+  when the comparable normalized snapshot fingerprints match. Centralize
+  checkpoint-sequence advancement and reject exhaustion instead of wrapping.
+- A valid newer journal may recover past stale valid native state. A valid newer
+  native snapshot wins over a stale journal. With no native authority, use the
+  journal. When the engine exposes unusable native data, require explicit
+  degraded journal recovery and keep that session profile-only. Do not silently
+  resume native checkpoints after adopting fallback authority.
+- Unsupported-future native authority is a distinct fatal result and must be
+  rejected before terminal-state or profile routing. With no valid native row,
+  any present invalid journal artifact is fatal; only no native row plus no
+  journal artifacts is a new campaign. A valid current native row may proceed
+  through read-only startup when journal artifacts are invalid or future. A
+  later verified native checkpoint may repair an ordinary invalid/truncated
+  inactive slot. Preserve and write-fence unsupported-future or ambiguous/
+  conflicting histories so a recoverable engine save is not sacrificed and a
+  destructive downgrade is not performed.
+- Native persistent-state envelope version 2 stores the exact serialized payload
+  string under its current fingerprint. Validate those bytes before parsing the
+  DTO; never reserialize the loaded DTO to decide whether an intact v2 row is
+  valid. Structured Schema-70 version-1 native envelopes remain compatible:
+  reconstruct the layout without the Schema-71 checkpoint field, validate the
+  legacy `<serialized-length>:<payload.Hash()>` value, then normalize before
+  native/journal equality or ordering decisions. Never use the legacy hash for
+  a newly written envelope.
+- Keep the pending checkpoint DTO detached from the live campaign. Reject
+  ordinary/debug capture and admin reset while a checkpoint is in flight. On a
+  successful native callback, journal that exact pending DTO; on native failure,
+  write no JSON and re-arm the request. Fallback-only saves may journal
+  synchronously.
+- An admin new-campaign reset must retain the prior checkpoint and restore
+  sequence floors, preflight the journal, civilian capture authority, and native
+  checkpoint readiness before any reset side effect, then request an immediate
+  checkpoint. Reject Campaign Debug isolation. If the post-mutation request is
+  still rejected, re-arm persistence and return failure instead of claiming a
+  durable reset. Resetting the counters to zero can allow a stale pre-reset
+  profile generation to outrank the new campaign.
+- Profile migration treats both canonical and recovery campaign slots as
+  authority. Byte-identical old/new copies may converge. Differing retired and
+  canonical copies stay in place and startup fails so neither side is silently
+  discarded.
+- Assume one campaign writer. There is no journal lock, atomic filesystem
+  replace, authenticated storage, or off-device backup. The journal protects the
+  last two verified local generations; abrupt termination cannot recover work
+  newer than the last completed checkpoint.
+- Guarded restart runners exclude only the checkout `.git` directory plus the
+  root `UserMaps.desc` and `resourceDatabase.rdb` files from watched-source
+  deltas. Never expand that boundary to broad `.gitignore` patterns. Spill
+  snapshots remain unchanged and continue to observe every cleanup artifact.
+
+Current sealed evidence is Foundation at 851 references and stamped Workbench
+validation at 5,842 files/11,862 classes, CRC `c4bc4b3d`, with zero hard errors
+and zero owned cleanup residue. The focused journal testcase passes 1/1 with
+zero failures/errors/skips, an empty failed list, 41/41 exact authority
+conditions, and native-v1/native-v2/invalid-fingerprint/future-envelope cases at
+1/1/1/1. The ordinary persistence chain passes 5/5, advances generations
+1 -> 2 -> 3, finishes at canonical generation 3 with two valid slots and an
+exact chain, keeps native and profile-fallback restores read-only, preserves
+exact field-vehicle state, and leaves cleanup at zero. The native-over-stale-
+journal counterattack chain passes 3/3, selects native, leaves both journal files
+and their exact chain unchanged, and also leaves cleanup at zero. Admin-reset
+preflight and retained ordering are source/static-gated only; no focused runtime
+reset proof is claimed. The unrelated stock filter diagnostic may still appear
+after the focused testcase succeeds; it is not evidence that an HST assertion
+failed.
+
+## Preceding Durable Field-Vehicle Restart Mechanics
 
 - Treat the HST runtime-vehicle row as the only durable authority for supported
   `loot_vehicle`, `field_vehicle`, and `garage_redeploy` roots. The entity is a
@@ -69,10 +175,8 @@ residue.
 Keep the proof boundary literal. Fuel, partial damage, attachments, and physical
 trunk inventory are not yet round-tripped. The duplicate scan proves only the
 expected fixture positions; arbitrary vehicle breadth, Workshop/live clients,
-multiplayer, and soak remain open. The JSON recovery mirror is still a single
-direct overwrite. Next, add an atomic verified pending-to-current promotion,
-retain a previous known-good generation, and select the newest valid generation
-without letting corrupt native state silently become a new campaign.
+multiplayer, and soak remain open. The current recovery-journal mechanics above
+replace the former direct-overwrite mirror without claiming atomic promotion.
 
 ## Preceding Periodic Autosave Scheduler Mechanics
 
@@ -381,7 +485,8 @@ this as cross-family native proof or uniform resource-ledger parity. The current
 mechanics above now implement the lifecycle-aware pre-reconcile correlation and
 quarantine policy that was open here. This preceding proof required claimant
 absence and did not repair production correlation. Durable
-endpoint ABA snapshots are a separate Schema-71/contract-2 decision. Native
+endpoint ABA snapshots are a separate future contract-2 schema decision whose
+schema number is not yet assigned. Native
 persistence-source selection, world scope, package/live server-client,
 networking, broader migration, multiplayer/JIP/reconnect, marker runtime,
 performance, and soak certification remain open.
@@ -632,8 +737,8 @@ stable and parseable, script/HST/crash errors are zero, and session/owned-
 process/new-engine-process/default-entry cleanup counts are all zero. This closes
 the preceding proof-ordering rerun, not the remaining suite or package gates.
 
-The active sealed tree uses Campaign Schema 70 while runtime settings
-remain on Schema 24. Newly admitted exact enemy garrison rebuilds use contract
+At that sealed checkpoint, the tree used Campaign Schema 70 while runtime
+settings remained on Schema 24. Newly admitted exact enemy garrison rebuilds use contract
 `1`, spend 10 support resources and zero attack resources, and freeze and
 preflight the roster plus selected-zone ownership capability before debit. After
 debit, admission builds the reciprocal operation/manifest/held-batch/group graph
@@ -1201,8 +1306,11 @@ This file is for practical engine/script behavior, not project planning. Keep en
     destination before promotion, then delete the source only after the final
     destination is byte-identical. If any stage fails, retain the source for
     retry and never delete the canonical destination during cleanup.
-  - Canonical content wins conflicts, but different retired content must move to
-    a deterministic archive path rather than be overwritten or discarded.
+  - Canonical content wins ordinary conflicts, but different retired content
+    must move to a deterministic archive path rather than be overwritten or
+    discarded. Campaign canonical/recovery slots are stricter: differing or
+    missing canonical authority leaves the retired campaign file in place and
+    makes startup fail until an operator resolves it.
   - A canonical directory path can conflict with a file. Mirror that directory
     under a dedicated archive subtree; if even that directory cannot be created,
     retain the source directory so root removal cannot falsely report success.

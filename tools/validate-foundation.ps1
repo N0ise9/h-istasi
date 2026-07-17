@@ -41304,6 +41304,43 @@ $ordinaryPersistenceProofText = Get-Content -Raw `
 	'Scripts/Game/HST/Services/HST_OrdinaryCampaignPersistenceProofService.c'
 $ordinaryPersistenceRunnerText = Get-Content -Raw `
 	'tools/run-ordinary-campaign-persistence-proof.ps1'
+$nativeCheckoutWatchExclusionBlock = Get-ScriptMethodBlock `
+	$nativeRestartRunnerText 'function Get-CheckoutWatchExclusions {'
+$ordinaryCheckoutWatchExclusionBlock = Get-ScriptMethodBlock `
+	$ordinaryPersistenceRunnerText 'function Get-CheckoutWatchExclusions {'
+foreach ($watchExclusionContract in @(
+		[pscustomobject]@{
+			Name = 'native counterattack restart'
+			Runner = $nativeRestartRunnerText
+			Helper = $nativeCheckoutWatchExclusionBlock
+		},
+		[pscustomobject]@{
+			Name = 'ordinary campaign persistence'
+			Runner = $ordinaryPersistenceRunnerText
+			Helper = $ordinaryCheckoutWatchExclusionBlock
+		})) {
+	foreach ($watchExclusionEntry in @(
+			'-Root $watchFull',
+			'-Candidate $repositoryFull',
+			'-AllowEqual',
+			'return @()',
+			'Join-Path $repositoryFull ".git"',
+			'Join-Path $repositoryFull "UserMaps.desc"',
+			'Join-Path $repositoryFull "resourceDatabase.rdb"')) {
+		if ($watchExclusionContract.Helper.IndexOf(
+			$watchExclusionEntry) -lt 0) {
+			throw "$($watchExclusionContract.Name) cleanup watcher does not exclude exact non-source metadata: $watchExclusionEntry"
+		}
+	}
+	if ($watchExclusionContract.Helper.IndexOf('.gitignore') -ge 0 -or
+		$watchExclusionContract.Helper.IndexOf('check-ignore') -ge 0 -or
+		$watchExclusionContract.Runner.IndexOf(
+			'-ExcludedRoots $watchExclusions') -lt 0 -or
+		$watchExclusionContract.Runner.IndexOf(
+			'-ExcludedRoots $spillExclusions.ToArray()') -lt 0) {
+		throw "$($watchExclusionContract.Name) cleanup watcher exclusions are broad or not wired"
+	}
+}
 $ordinaryTypedCheckpointBlock = Get-ScriptMethodBlock `
 	$nativePersistenceServiceText `
 	'HST_PersistenceCheckpointRequest RequestTypedCheckpointDetailed('

@@ -1,13 +1,84 @@
 # Partisan Feature Checklist
 
-Current build identity: implementation/source
-`34fcb8e77726beb61dfb10cf650183b5ef99542c`, UTC
-`2026-07-17T04:33:16Z`, label
-`schema70-settings24-field-vehicle-restart`. The build stamp names that source,
-and its strict five-process fresh-start verification passes.
-Campaign Schema 70 and runtime-settings Schema 24 remain unchanged.
+Campaign Schema 71 and runtime-settings Schema 24 are current. Current
+implementation/source identity is
+`85572fca9340074c3c198c758f857c4f57b600d9`, UTC
+`2026-07-17T09:37:00Z`, label
+`schema71-settings24-campaign-recovery-journal`.
 
-## Current Durable Field-Vehicle Restart Checkpoint
+## Current Campaign Recovery Journal Checkpoint
+
+- [x] Replace the single directly overwritten campaign JSON with alternating
+  canonical and recovery slots. Each envelope carries the exact serialized
+  payload plus generation, parent-generation, parent-fingerprint, schema, and
+  current-fingerprint metadata.
+- [x] Fingerprint every payload as
+  `uuidv8-sha256-v1:<serialized-length>:<UUID>`. This is a corruption and
+  identity check, not authentication against a malicious writer.
+- [x] Write only the inactive slot, read it back, and re-run journal selection
+  before considering the new generation committed. Do not overwrite the
+  previously selected valid slot until the replacement has verified.
+- [x] Treat a raw Schema-70-or-earlier canonical file as generation 0. Its first
+  Schema-71 checkpoint writes recovery generation 1 and preserves the raw
+  canonical bytes.
+- [x] Select native versus journal authority by the persisted monotonic tuple:
+  checkpoint sequence, restore sequence, then last-save second. Equal-order
+  candidates must have the same comparable normalized payload fingerprint.
+- [x] Recover from the journal when native persistence is unavailable. When a
+  native save is present but unusable, enter explicit degraded journal recovery
+  and keep that session profile-only instead of silently restoring native
+  authority.
+- [x] Fail closed on split brain, broken parent chains between otherwise valid
+  generations, future envelopes or
+  payloads, conflicting duplicate metadata, equal-order fingerprint conflict,
+  or differing retired/canonical campaign-save authorities. With no valid
+  native source, present invalid journal artifacts are fatal; only absence of
+  both sources creates a new campaign. Valid native startup remains read-only.
+  A later verified native checkpoint may repair an ordinary invalid/truncated
+  inactive slot, while unsupported-future or ambiguous/conflicting histories
+  fence journal writes and preserve the artifacts for diagnosis.
+- [x] Read the structured Schema-70 native envelope version 1 by reconstructing
+  its legacy layout and fingerprint, normalize it for comparison, and write
+  native envelope version 2 thereafter. Version 2 stores the exact serialized
+  payload string and validates its bytes before DTO parsing.
+- [x] Preserve checkpoint order across an admin new-campaign reset, preflight
+  journal/checkpoint readiness, and request an immediate checkpoint so an older
+  pre-reset JSON generation cannot outrank a durably accepted reset. This reset
+  path is source/static-gated and still needs a focused runtime proof.
+
+This is a crash-tolerant two-generation journal, not an atomic filesystem
+transaction. It assumes one campaign writer and does not provide a lock,
+atomic rename, authenticated storage, or off-device backup. With native
+persistence active, the JSON journal advances after the matching successful
+native completion callback, not literally at the same instant as the engine
+write. Fallback-only checkpoints write the journal synchronously. Abrupt
+termination can recover only the last completed native or journal generation.
+
+The final stamped proof evidence is clean. Foundation passes all 851
+script-symbol references. Workbench loads 5,842 files and 11,862 classes at CRC
+`c4bc4b3d` with no HST, script, or hard errors and zero cleanup residue. The
+exact `HST_TEST_CampaignProfileJournalAuthority` testcase passes 1/1 with zero
+failures, errors, or skips, an empty failed list, and all 41 exact assertions;
+native-envelope load classification covers v1/v2/bad/future at 1/1/1/1. The
+ordinary five-process persistence chain passes all five stages:
+journal generations advance 1 -> 2 -> 3, generation 3 is selected in the
+canonical slot, both slots are valid with an exact chain, native and profile-
+fallback restores are read-only, exact field-vehicle authority is preserved,
+and cleanup is zero. The separate native-versus-stale-journal counterattack
+chain passes 3/3 with native selected, both journal files unchanged, an exact
+chain, and zero cleanup.
+
+- [x] Repeat Workbench, Foundation, the focused journal-authority testcase, the
+  five-process ordinary persistence chain, and the native-versus-stale-journal
+  chain against the final Schema-71 build stamp.
+- [ ] Prove broader active-world families, Workshop/live clients, networking,
+  arbitrary migration, marker behavior, performance, and soak behavior.
+- [ ] Add multi-writer exclusion or an engine-supported atomic replacement
+  primitive if a future deployment permits more than one campaign writer.
+- [ ] Add independent/off-device backup and recovery tooling if disaster
+  recovery beyond the two local generations becomes a requirement.
+
+## Preceding Durable Field-Vehicle Restart Checkpoint
 
 - [x] Make the HST durable vehicle ledger the sole save authority for
   `loot_vehicle`, `field_vehicle`, and `garage_redeploy` rows.
@@ -53,9 +124,9 @@ with zero script errors and zero residue.
   positions and certify arbitrary supported vehicle instances.
 - [ ] Run Workshop/live-client, multiplayer/reconnect/JIP, performance, and soak
   coverage for durable field vehicles.
-- [ ] Replace the directly overwritten single JSON mirror with an atomic,
-  verified two-generation recovery journal and explicit degraded fallback
-  selection.
+- [x] Replace the directly overwritten single JSON mirror with the verified
+  two-generation recovery journal and explicit degraded fallback selection
+  described above. The journal is crash-tolerant, not an atomic rename.
 
 ## Preceding Periodic Autosave Scheduler Checkpoint
 
@@ -220,7 +291,8 @@ The subsequent owner-applied checkpoint implemented the lifecycle-aware pre-
 reconcile correlation and quarantine decision that was open here. This preceding
 checkpoint proved only the exact zero-claimant boundary and tamper rejection.
 Durable endpoint ABA
-snapshots remain a separate Schema-71/contract-2 decision. Native persistence-
+snapshots remain a separate future contract-2 schema decision; that schema is
+not yet assigned. Native persistence-
 source selection, world scope, package/live server-client behavior, networking,
 migration, marker runtime, performance, soak, and the broader restart and
 Campaign Debug gates remain open.
@@ -251,8 +323,8 @@ with 134 failed and 14 blocked.
 
 ## Persisted Schema 70 Capability Background
 
-The active development tree uses Campaign Schema 70 while runtime settings
-remain on Schema 24. Exact defensive-QRF terminal settlement now persists a
+At that checkpoint, the development tree used Campaign Schema 70 while runtime
+settings remained on Schema 24. Exact defensive-QRF terminal settlement now persists a
 durable `PREPARED` intent, stages the complete refund tuple with
 `m_bResourceSettlementApplied=false`, validates the original debit and reciprocal
 claimants plus durable survivor authority, applies or replays the canonical
@@ -976,8 +1048,19 @@ passed, all 18 state deltas were zero, and every guarded error and cleanup
 counter was zero. That historical source passed Foundation at 808 references
 and stamped PC Game validation at 5,830 files/11,822 classes and CRC `e836e3b4`.
 
-The current checkpoint has separate durable field-vehicle persistence evidence,
-not new integrated-suite totals. Its final stamped guarded run packs the addon
+The current Schema-71 checkpoint also has separate final stamped focused and
+fresh-process evidence rather than new integrated-suite totals: Foundation
+passes 851 references; Workbench passes 5,842/11,862 at CRC `c4bc4b3d`; the
+focused journal testcase passes 1/1, all 41 exact booleans, and the native-load
+v1/v2/bad/future matrix at 1/1/1/1 with an empty failed list; the ordinary
+chain passes all five processes with generations 1 -> 2 -> 3, canonical
+generation 3, two valid slots, an exact parent chain, read-only native and
+profile-fallback restores, exact field vehicles, and zero cleanup; and the
+three-stage stale-journal/native chain passes 3/3, selects native, preserves
+both journal files, retains an exact chain, and leaves zero cleanup residue.
+
+The preceding durable field-vehicle checkpoint has its own final stamped
+evidence, not new integrated-suite totals. Its guarded run packs the addon
 and passes production-tick periodic `AUTO`, direct `MANUAL`, real game-end
 `SHUTDOWN`, native restart, and profile-fallback restart in five fresh
 processes. The periodic request appears at tick 1,802/60.018852233886719 seconds
@@ -1019,8 +1102,8 @@ counterattack subgates, packed native-source proof, and passing stamped five-
 process controlled campaign checkpoint/restart proof. Broader active-world
 families, Workshop/live server-client use,
 network execution, migration, markers, performance, soak, and unrelated failure
-gates remain open. Durable endpoint ABA snapshots remain a separate Schema-71/
-contract-2 decision.
+gates remain open. Durable endpoint ABA snapshots remain a separate future
+contract-2 schema decision whose schema number is not yet assigned.
 
 ### Historical Contract Context
 
@@ -1216,8 +1299,10 @@ implementation `bab5748d817ba434dae701cfbb3b92805d463678`, stamp
 
 ### Active Gate Matrix
 
-Source work has entered Blueprint Phase 9 of 13 through Schema 70, whose scoped
-engine-proof checkpoint is sealed. This is sequence position, not nine
+Source work has entered Blueprint Phase 9 of 13. Schema 70 remains the sealed
+enemy-rebuild contract, while current Schema 71 adds campaign recovery ordering
+and journaling without advancing the Blueprint phase. This is sequence position,
+not nine
 completed or certified phases. Blueprint Phase 8 remains runtime-uncertified,
 and every earlier phase still has native/dedicated/restart or multiplayer exit
 gates. Native tests were deliberately deferred during source implementation and
@@ -1225,7 +1310,7 @@ must be backfilled; an active later source contract does not waive those gates.
 
 | Gate | Designed | Implemented | Verified | Certified | Current evidence / blocker |
 | --- | --- | --- | --- | --- | --- |
-| CRI-0 Truth and baseline | Campaign Schema 70/runtime-settings Schema 24 is current; earlier Schema-70 and counterattack restart checkpoints remain historical evidence | Implementation/source `34fcb8e77726beb61dfb10cf650183b5ef99542c`, UTC `2026-07-17T04:33:16Z`, label `schema70-settings24-field-vehicle-restart`, adds no schema/settings migration | The stamped five-process proof reaches production periodic `AUTO` at tick 1,802/60.018852233886719 seconds, holds the first-edge debounce across a repeat mark at 30.016357421875 seconds, then passes manual field-vehicle mutation, blocking shutdown, native and profile-fallback no-save restart. The exact serialized one-live/one-tombstone position/yaw/cargo graph survives both sources with tolerance-verified physical placement, zero native overlap, and zero residue. | No | Add the verified two-generation JSON journal, then prove broader active-world families, Workshop/live clients, migration, markers, network/JIP/reconnect, performance, soak, and unrelated Campaign Debug failures. |
+| CRI-0 Truth and baseline | Campaign Schema 71/runtime-settings Schema 24 is current; earlier Schema-70 and counterattack restart checkpoints remain historical evidence | Final stamped implementation/source is `85572fca9340074c3c198c758f857c4f57b600d9`, UTC `2026-07-17T09:37:00Z`, label `schema71-settings24-campaign-recovery-journal`; it implements the two-generation recovery journal and monotonic native/journal order | Foundation passes 851. Workbench passes 5,842/11,862 at CRC `c4bc4b3d` with zero hard errors and cleanup. The focused journal testcase passes 1/1, 41/41 exact booleans, and native-load v1/v2/bad/future at 1/1/1/1 with an empty failed list. The ordinary five-process chain passes generations 1 -> 2 -> 3, exact canonical generation 3, two valid slots, an exact chain, read-only native/profile-fallback restores, and exact field vehicles. The stale-journal/native chain passes 3/3, selects native, and leaves both journal files unchanged with an exact chain and zero cleanup | No | Prove broader active-world families, Workshop/live clients, arbitrary migration, markers, network/JIP/reconnect, performance, soak, multi-writer/off-device recovery, abrupt termination beyond the last completed checkpoint, and unrelated Campaign Debug failures. |
 | CRI-1 Authority foundation | Complete | Prior vertical slices plus one exact durable radio-site owner and one concrete stock damage-authority resolver | R16 proves the fixture-only destroy/rebuild chain through normal engine callbacks, deterministic receipts, unchanged epoch, exact rewards, second-attempt rejection, fixture cleanup, and zero final diff | No | One site row per radio zone owns stable target binding, ONLINE/DESTROYED/REBUILDING state, ownership, mission lock, typed transition, revision, and receipts; each mission owns a distinct physical runtime identity. Stop-rebuild is once per tower-destruction epoch, and stopping its equipment does not advance that epoch. Packaged authored-content binding, restart/streaming, multiplayer, and soak proof remain. |
 | CRI-2 Force manifests | Complete for the sealed foundation and scoped Schema-70 engine proof | Durable SpawnQueue and exact infantry adapters retain the sealed consumers; the garrison-rebuild slice adds one capacity-bounded frozen infantry manifest without widening vehicle, asset, or multi-root admission | Foundation 790 plus focused deterministic admission/capacity, delivered-held, casualty-continuity, and restore assertions pass; native/package/restart behavior remains unproved | No | Package-prove that the roster remains frozen through live casualties, virtual/physical transfer, delivery, re-entry, and restart without refill or aggregate double count, while historical contract-zero rebuilds remain isolated. |
 | CRI-3 Force runtime | Complete for scoped source/engine proof; runtime certification open | Existing casualty/reprojection paths remain. Schema 70 adds exact garrison-rebuild strategic/physical transfer, casualty fold, delivered held-roster authority, and terminal survivor settlement over one durable roster | R10 passes all five Phase 18 cases plus bounded shared-clock and enemy-strategic fingerprint isolation. Production render-bubble behavior is unchanged | No | Package-prove live rebuild movement, casualties, fold/re-entry, held delivery, ownership invalidation, prearrival settlement, and restart alongside every earlier force family. |
@@ -1240,7 +1325,7 @@ must be backfilled; an active later source contract does not waive those gates.
 | CRI-9 Canonical enemy strategic resources | Source-complete sealed Schema-67 contract with later exact-QRF recovery hardening | Versioned per-enemy attack/support/aggression pools, cadence bucket checkpoints, and immutable receipts with a contiguous per-faction operational sequence. Zero-effect operations retain evidence; exact QRF/patrol orders, defense ledgers, town events, and ownership transitions are reciprocal restore backlinks. Operational history never compacts: 4,096 accepted rows per faction is a hard lifetime limit and later operational admission for only that faction fails closed | Historical exact-QRF and counterattack persistence gates pass. The controlled campaign proof now covers the production checkpoint/end/restart seam, but does not exercise each strategic-resource family | No | Execute the remaining adoption/replay/arithmetic/cadence/backlink/cap/quarantine fixtures and broader restart graph; unsupported orders remain legacy/deferred. |
 | CRI-9a Exact enemy defensive QRF refund authority | Schema-51 exact defensive-QRF authority with schema-neutral PREPARED terminal recovery | Terminal handling persists `PREPARED`, stages the complete tuple with applied false, validates the original debit, claimant graph, and durable survivor authority, applies or replays the refund, publishes applied true last, and finalizes tails. Restore revalidates current-provenance `SETTLED` rows after Schema-67 normalization. Support-only, dual-pool, and uncommitted full-refund shapes share this fail-closed boundary without weakening counterattack one-pool policy | Foundation 806, stamped PC Workbench, and focused exact-QRF proof pass. R26 remains the in-memory proof for `enemy_qrf.settlement`, `enemy_qrf.persistence`, all nine cut-point cases, replay/second-restore no-ops, fail-closed corruption/tamper checks, stable current-SETTLED pool-tail quarantine, historical mutationless compatibility, zero typed-cleanup residue, exact seeded capture/restore, and exact-zero final diff. Separately, `before_refund`, `after_refund`, and `after_receipt` each pass fresh-process `prepare`, `recover`, and `replay` with exit `0` | No | The exact defensive-QRF canonical-fallback external-restart subgate is closed and arbitrary old partial rows remain fail-closed. The controlled campaign proof covers the checkpoint/end/restart seam, not QRF world behavior; package/live-server behavior, multiplayer/JIP/reconnect, and soak remain open, so `persistence.real_restart` remains BLOCKED overall. |
 | CRI-9b Persisted enemy planning | Sealed Schema-68 commitment-aware source/Workbench contract with focused engine proof | One production factory supplies configured pools/planners; planning freezes inputs, filters commitment roots, revalidates admission before debit, and preserves fail-closed restore behavior. Campaign Debug holds only the ambient coordinator commander cadence while explicit production-path fixtures run | R10 passes held ambient cadence, all five Phase 18 cases, exact clock restoration, and unchanged enemy-strategic authority | No | Package-prove planning, exact recovery, near-miss quarantine, restart, dedicated-server networking, and soak without cadence-warning or incidental-order recurrence. |
-| CRI-9c Exact enemy counterattack | Schema-69 exact runtime plus schema-neutral lifecycle-aware ownership restore, guarded owner-applied recovery, and native-first source selection implemented | Contract-`1` rows retain the frozen one-pool aggregate. Restore validates counterattack ownership before runtime reconciliation. The eighth `owner_applied_pending` cut proves raw-to-normalized pending restore, exactly-once ownership completion, one production tick to raw/restored `RETURNING`, and replay with no ownership mutation, no tick, denied fallback authority, and unchanged conflicting fallback. The engine-owned campaign proxy and resolver now prove `new_campaign -> native -> native` source precedence across a packed-server chain | Final stamped Foundation passes 828; Workbench passes 5,834/11,839 at CRC `5fdd016f`. The final stamped native proof passes 3/3 with one recovery continuation, replay no-op, exact save UUID/callback evidence, and zero cleanup | No | Durable endpoint ABA remains a separate Schema-71/contract-2 decision. Package-prove ordinary campaign route combat, broader world/save families, live clients, networking/JIP/reconnect, migration, markers, performance, and soak. |
+| CRI-9c Exact enemy counterattack | Schema-69 exact runtime plus schema-neutral lifecycle-aware ownership restore, guarded owner-applied recovery, and Schema-71 monotonic source selection implemented | Contract-`1` rows retain the frozen one-pool aggregate. Restore validates counterattack ownership before runtime reconciliation. The eighth `owner_applied_pending` cut proves raw-to-normalized pending restore, exactly-once ownership completion, one production tick to raw/restored `RETURNING`, and replay with no ownership mutation or tick. The historical chain proves native source continuity; the final stamped Schema-71 chain proves a newer native snapshot wins over a complete but stale two-slot journal and leaves that journal unchanged | Historical stamped Foundation/Workbench and native proof pass. The current stale-journal/native proof passes 3/3 with native selected, both journal files unchanged, an exact chain, and zero cleanup | No | Durable endpoint ABA remains a separate future contract-2 schema decision whose schema number is not yet assigned. Package-prove ordinary campaign route combat, broader world/save families, live clients, networking/JIP/reconnect, arbitrary migration, markers, performance, and soak. |
 | CRI-9d Exact enemy garrison rebuild | Scoped Schema-70 Foundation/Workbench/focused-engine checkpoint sealed | New contract-`1` rows bind one capacity-bounded frozen infantry manifest, one prepaid support debit, and reciprocal order/operation/manifest/spawn/group authority. Casualties persist across strategic/physical transfer; delivery hands survivors to held garrison authority without aggregate double count. Historical contract-zero rebuilds stay isolated; malformed current graphs quarantine at `-70` | All five R10 Phase 18 cases pass. Campaign Debug cleanup routes every tracked exact or legacy order through its typed administrative settlement owner and leaves zero failures, open orders, or runtime claimants | No | Package-prove native movement/projection/fold/delivery, held-roster continuity, crash-window restore, ownership ABA rejection, quarantine idempotency, dedicated-server, networking/JIP/reconnect, and soak. |
 
 ## Implementation Contract
@@ -1279,9 +1364,9 @@ projections of campaign state and must be restorable, foldable, or disposable.
 
 | Feature | Target behavior | Current status | Gap / next work | Priority |
 | --- | --- | --- | --- | --- |
-| Versioned save state | Durable campaign facts survive restarts and schema migration. | Implemented Foundation / Guarded Periodic Scheduler And Checkpoint Proof Passed | One engine-owned proxy carries the campaign DTO. Native-first source selection remains fail-closed. Typed AUTO/MANUAL/SHUTDOWN requests use one bounded completion owner. Separate periodic and first-edge major-change clocks cannot starve one another; an accepted full-state checkpoint covers both. The five-process proof reaches the production periodic scheduler and crosses native and fallback restarts with exact UUID/flag evidence. Broader active-world serialization and migration remain open. | Highest |
+| Versioned save state | Durable campaign facts survive restarts and schema migration. | Schema-71 Recovery Journal Implemented / Final Stamped Proofs Passed | One engine-owned proxy carries the campaign DTO. Native envelope v2 and journal envelopes store exact serialized payload strings under UUID-v8/SHA-256 fingerprints and validate bytes before parsing; structured Schema-70 native v1 is reconstructed, validated, and normalized. Typed AUTO/MANUAL/SHUTDOWN requests use one bounded completion owner. Persisted checkpoint/restore/time order reconciles valid native and journal snapshots, with future/ambiguous authority failing closed. Foundation, Workbench, focused authority, ordinary five-process, and stale-journal/native proofs pass; broader active-world serialization and arbitrary migration remain open. | Highest |
 | Runtime settings migration | Generated profile settings migrate forward without keeping obsolete setup knobs. | Provisional Settings Schema 24 Source / Current Foundation And Compile Proven / Needs Migration Runtime Proof | The `23 -> 24` semantic migration remains unchanged. Before settings load, the entire retired tree moves into `$profile:Partisan`; each destination must match byte-for-byte before source deletion, and canonical conflicts archive without overwrite. The latest package had no retired tree, so actual migration/removal remains unproved. | Keep |
-| Profile fallback saves | Scripted saves work when native persistence is unavailable. | Implemented Foundation / Final Stamped Native And Fallback Restart Proof Passed | With native authority active, the profile file advances only after the matching native commit callback and mirrors that exact snapshot; native failure preserves the prior native/fallback pair. Without native authority, fallback persistence is synchronous. The guarded run restores both sources without creating a save during verification. Whole-tree retired-profile migration/removal remains unproved. | High |
+| Profile fallback saves | Scripted saves work when native persistence is unavailable. | Two-Generation Journal Implemented / Final Stamped Proofs Passed | Canonical and recovery slots alternate with verified readback and parent linkage. Native-active journaling occurs after the matching successful callback; native failure writes no generation. Fallback-only writes are synchronous, and unusable native recovery explicitly keeps the session profile-only. Raw canonical generation 0 migrates without destructive overwrite. Whole-tree retired-profile migration/removal, multi-writer exclusion, and off-device backup remain unproved. | High |
 | Active runtime restore | Active missions, support, enemy orders, groups, vehicles, garage records, and undercover state restore without duplication. | Broad Alpha / Needs Soak | Build one repeatable restart route that touches all active record types. | Highest |
 | Terminal campaign restore | Won/lost campaign state stays ended and does not resume normal services after load. | Broad Alpha | Continue proving terminal-frame HQ/runtime object behavior. | High |
 
@@ -1425,7 +1510,8 @@ projections of campaign state and must be restorable, foldable, or disposable.
    networking/JIP/reconnect. Abrupt termination remains
    last-completed-checkpoint recovery,
    not a callback-driven shutdown path. Durable endpoint ABA remains a separate
-   Schema-71/contract-2 decision; migration, markers, performance, soak, and the
+   future contract-2 schema decision whose schema number is not yet assigned;
+   migration, markers, performance, soak, and the
    wider suite remain uncertified.
 2. Runtime-prove the Schema-62 ownership boundary: every cause route, one
    revision increment, identical replay no-op, conflict/stale rejection,

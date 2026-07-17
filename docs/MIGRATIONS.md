@@ -1,14 +1,90 @@
 # Campaign Save Migrations
 
-Current implementation/source identity:
-`34fcb8e77726beb61dfb10cf650183b5ef99542c`, UTC `2026-07-17T04:33:16Z`, label
-`schema70-settings24-field-vehicle-restart`. The source stamp records that
-implementation, and its strict five-process fresh-start runtime proof passes.
+Current implementation/source identity is
+`85572fca9340074c3c198c758f857c4f57b600d9`, UTC `2026-07-17T09:37:00Z`, label
+`schema71-settings24-campaign-recovery-journal`. Campaign Schema 71 and
+runtime-settings Schema 24 are current.
 
-## Current Durable Field-Vehicle Schema-Neutral Boundary
+## Schema 71 - Current Campaign Recovery Journal Boundary
 
-This checkpoint adds no campaign-save or runtime-settings migration. Campaign
-Schema remains 70 and runtime-settings Schema remains 24. Durable field-vehicle
+Schema 71 adds `m_iPersistenceCheckpointSequence` to the campaign DTO and
+normalizes an absent or negative value from Schema 70 or earlier to zero. Every
+accepted full-state capture advances the sequence before serialization and
+rejects exhaustion. Native and profile snapshots are compared by checkpoint
+sequence, restore sequence, and save second, in that order; equal order requires
+matching normalized fingerprints. Administrative new-campaign reset retains the
+prior checkpoint and restore sequences, then advances the next capture, so a
+stale pre-reset save cannot outrank the reset campaign.
+
+The profile fallback format is now a two-slot recovery journal. The canonical
+and recovery files carry a version-1 envelope around the exact nested campaign
+DTO payload, plus generation, parent generation, snapshot fingerprint, and
+parent fingerprint. The fingerprint format is
+`uuidv8-sha256-v1:<serialized-length>:<UUID>`, derived from the native
+SHA-256-based UUID v8 generator. It detects accidental payload damage but is not
+authentication.
+
+The writer alternates slots, changes only the inactive candidate, reads that
+candidate back, and reruns selection before it can supersede the previous valid
+generation. Exact duplicate generations deterministically select canonical.
+Conflicting same-generation payload or metadata, broken or nonadjacent lineage,
+unknown or future envelope/payload formats, and other ambiguous authority are
+preserved and fail closed. The engine file API has no atomic rename or exclusive
+lock, so the journal is crash-tolerant for one writer rather than an atomic
+filesystem transaction. It is not an off-device backup.
+
+A valid raw Schema-70-or-earlier canonical campaign JSON becomes journal
+generation zero without being rewritten. The first Schema-71 checkpoint writes
+recovery generation one linked to that raw authority, preserving the legacy
+canonical bytes as the previous known-good generation. If retired and canonical
+campaign files differ, migration retains both sides and fails startup. This
+strict conflict rule applies independently to the canonical and recovery slots;
+the retired profile tree is not removed while either conflict remains.
+
+Native envelope version 2 stores the exact serialized payload string and
+fingerprints those bytes before parsing. Native Schema-70 version-1 rows remain
+compatible: restore reconstructs and validates their legacy serialized-
+length/string-hash fingerprint and normalizes the loaded snapshot before
+comparing it with the journal. Unknown or future native
+envelopes or campaign schemas remain preserved and fatal before profile recovery
+is attempted.
+
+With two valid sources, the newer Schema-71 durable order wins. A missing native
+row may select the journal. Explicitly unusable native authority may enter
+degraded journal recovery and remains profile-only for that session. A valid
+native row can continue when journal artifacts are invalid or future. Source
+selection preserves them; a later verified native checkpoint may repair
+ordinary invalid inactive data, while unsupported-future or
+ambiguous/conflicting history remains write-fenced. Present invalid journal
+artifacts without usable native authority are fatal; only an actual absence of
+both sources creates a new campaign.
+
+Native-active checkpoints advance the journal only after the post-commit
+`SaveGameManager` callback succeeds. The JSON write is therefore coordinated
+with, but not simultaneous to, the native commit. A failed native callback leaves
+both journal slots unchanged and rearms retry. Native-unavailable and explicitly
+profile-only checkpoints write the journal synchronously.
+
+The sealed checkpoint passes Foundation at 851 references and stamped Workbench
+validation at 5,842 files/11,862 classes, CRC `c4bc4b3d`, with zero hard errors
+and zero owned cleanup residue. The focused authority proof passes 1/1 with an empty failed list,
+41/41 exact cases, and native-v1/native-v2/invalid-fingerprint/future-envelope
+classification at 1/1/1/1. The strict five-process chain passes 5/5 across
+automatic, manual, controlled shutdown, native restart, and journal restart. It
+advances generations 1 -> 2 -> 3, ends at canonical generation 3 with two valid
+slots and an exact parent chain, keeps both restore stages read-only, preserves
+exact field-vehicle state, and leaves cleanup at zero. The guarded native
+counterattack chain passes 3/3 and proves that a newer valid native checkpoint
+beats a stale complete journal while recover and replay leave both journal slots
+and their exact chain unchanged; cleanup is zero. Administrative-reset preflight
+and retained ordering are source/static-gated only, with no focused runtime reset
+claim. This is current-shape recovery evidence; broad arbitrary older-save,
+package/client, multiplayer, storage-failure, and soak matrices remain open.
+
+## Preceding Durable Field-Vehicle Schema-Neutral Boundary
+
+This checkpoint added no campaign-save or runtime-settings migration. Campaign
+Schema remained 70 and runtime-settings Schema remained 24. Durable field-vehicle
 rows already persist stable runtime ID, runtime kind, normalized full prefab,
 position, angles, deleted/detached status, and abstract cargo relations. The
 current work changes authority, restore ordering, validation, native-tracking
@@ -30,7 +106,7 @@ and their physical wrecks are removed. A living player occupant prevents that
 destructive transition. Blocking shutdown's controller/brake/physics
 quiescence is process-local and introduces no persisted state.
 
-The strict five-process proof uses only current Schema-70 data. Prepare writes
+The strict five-process proof used only Schema-70 data. Prepare writes
 two S1203 durable rows with abstract cargo counts 3/7. Manual recovery moves A
 and destroys B through engine damage. Shutdown and both no-save verification
 processes retain A's exact serialized position/yaw/cargo, tolerance-verified
@@ -42,14 +118,14 @@ produce the same graph; all processes exit `0` and cleanup is zero.
 This is current-shape restart proof, not a broad older-save matrix. It does not
 establish fuel, partial-damage, attachment, or physical-trunk migration, and the
 proof duplicate census is limited to expected fixture positions. Arbitrary
-vehicles, Workshop/live clients, multiplayer, and soak remain open. The profile
-mirror is still one directly overwritten JSON file; atomic verified two-
-generation recovery is the next schema-neutral persistence goal.
+vehicles, Workshop/live clients, multiplayer, and soak remain open. The current
+Schema-71 boundary above closes that checkpoint's directly overwritten JSON
+mirror limitation with a verified two-slot journal.
 
 ## Preceding Periodic Autosave Scheduler Schema-Neutral Boundary
 
-This checkpoint adds no campaign-save or runtime-settings migration. Campaign
-Schema remains 70 and runtime-settings Schema remains 24. The typed `AUTO`,
+This checkpoint added no campaign-save or runtime-settings migration. Campaign
+Schema remained 70 and runtime-settings Schema remained 24. The typed `AUTO`,
 `MANUAL`, and `SHUTDOWN` request state, scheduler-origin receipts, attempt
 sequence, periodic/major-change clocks, threshold evidence, in-flight native
 completion ownership, game-mode drain/quiescence state, and retention decision
@@ -93,8 +169,8 @@ older-schema upgrade matrix.
 
 ## Preceding Native Persistence Source Migration Boundary
 
-This checkpoint adds no campaign-schema or runtime-settings migration. Campaign
-Schema remains 70 and runtime-settings Schema remains 24. The save DTO retains
+This checkpoint added no campaign-schema or runtime-settings migration. Campaign
+Schema remained 70 and runtime-settings Schema remained 24. The save DTO retains
 its current serialized shape; an engine-created scripted-state proxy now
 transports that DTO through native session saves.
 
@@ -128,12 +204,22 @@ migration certification.
 
 ## Current Schema
 
-`HST_CampaignState.SCHEMA_VERSION` remains `70` and
-`HST_RuntimeSettings.SCHEMA_VERSION` remains `24`. The durable field-vehicle
-restart slice adds no serialized field, enum ordinal, contract version, or
-migration step. Native-tracking detachment, exact restore receipts, bootstrap
-gating, legacy-claimant cleanup, and shutdown controller/physics quiescence are
-runtime authority rather than save-data shape.
+`HST_CampaignState.SCHEMA_VERSION` is `71` and
+`HST_RuntimeSettings.SCHEMA_VERSION` remains `24`. Schema 71 persists
+`m_iPersistenceCheckpointSequence` and uses it with restore sequence and save
+second as the monotonic native/journal recovery order. Schema-70-or-earlier
+snapshots normalize a missing checkpoint sequence to zero. Reset preserves the
+prior checkpoint/restore order, and the next accepted capture advances beyond
+it.
+
+The profile representation also changes from a raw directly overwritten DTO to
+a verified two-slot envelope journal. A valid raw canonical snapshot is retained
+as generation zero and gains recovery generation one only after the next
+successful checkpoint. Native envelope version 2 stores an exact JSON payload
+string under the current UUID-v8/SHA-256 fingerprint, while native version 1
+reconstructs and validates its historical Schema-70 identity and normalizes
+before comparison. These compatibility paths change representation
+and source selection without inventing campaign gameplay facts.
 
 Current exact counterattack ownership rows are normalized by the generic
 ownership validator and then correlated against their counterattack aggregate
@@ -150,7 +236,7 @@ current-shape validation, not promotion of legacy contract-zero history.
 Current-shape restore converts the staged raw pending receipt into normalized
 pending authority, completes it once through canonical ownership reconciliation,
 advances exactly once into returning, and normalizes the returning snapshot.
-This is current Schema-70 restart/normalization evidence, not an older-schema
+This is Schema-70-shaped restart/normalization evidence, not an older-schema
 upgrade. Replay cannot overwrite the canonical carrier and preserves its
 SHA-256, length, and UTC last-write identity. The preceding native checkpoint
 adds narrow source-precedence proof without changing the schema; the current
@@ -160,7 +246,7 @@ execution, package/live-server, network/JIP, performance, and soak remain open.
 
 ## Preceding Endpoint Restart Schema-Neutral Evidence
 
-`HST_CampaignState.SCHEMA_VERSION` is `70` and
+At that checkpoint, `HST_CampaignState.SCHEMA_VERSION` was `70` and
 `HST_RuntimeSettings.SCHEMA_VERSION` remains `24`. This checkpoint adds no
 serialized field, persisted enum ordinal, contract version, or legacy migration
 rule. The restart carriers now freeze source/target owner faction and ownership
@@ -223,7 +309,7 @@ The three PREPARED cuts stage current-schema one-pool N-1 survivor settlement
 before refund, after refund/before receipt, and after receipt/before terminal
 finalization. Recovery consumes each prefix exactly once, retains one debit and
 one refund, and removes terminal batch/group claimants; replay changes nothing.
-This proves current Schema-70 transaction recovery only and does not exercise an
+This proves Schema-70 transaction recovery only and does not exercise an
 older-schema upgrade.
 
 The final source makes movement and settlement carrier expectation families
@@ -235,8 +321,8 @@ independent census finds zero engine processes and guard roots with both proof
 mutexes free. Defensive-QRF and garrison-rebuild wrappers remain static-only
 coverage here. The current schema section above now records the lifecycle-aware
 pre-reconcile correlation and quarantine behavior that was open here; this
-preceding proof did not fix it. Durable endpoint ABA snapshots
-are a separate Schema-71/contract-2 decision. Actual schema migration, cross-
+preceding proof did not fix it. Durable endpoint ABA snapshots remain a future
+contract-2 schema decision whose schema number is not yet assigned. Actual schema migration, cross-
 family ledger parity, native source selection, world/package/live-server
 behavior, multiplayer, reconnect/JIP, performance, and soak remain open.
 
@@ -777,7 +863,8 @@ evidence remains open.
 This checkpoint changes proof coverage and enforces an existing production
 persistence boundary. It adds no serialized field, persisted enum ordinal,
 operation contract version, restore normalization, or legacy compatibility
-inference. Campaign Schema 70 and runtime-settings Schema 24 remain current.
+inference. At that checkpoint, Campaign Schema 70 and runtime-settings Schema 24
+were current.
 
 An open exact-infantry operation in `MATERIALIZING` is intentionally not a
 capturable save state. Strategic hold has been released, but the complete
@@ -955,7 +1042,7 @@ recover, and replay at each committed dual-pool cut. It verifies the source
 before reconciliation, requires the first recovery to change state exactly
 once, requires replay to be a no-op with the same terminal fingerprint, and
 reads the terminal state back from the canonical fallback. This adds no
-migration: it reuses the current Schema-70 JSON shape. Support-only,
+migration: it reuses the then-current Schema-70 JSON shape. Support-only,
 uncommitted-full-refund, malformed/quarantine, and historical-compatibility cuts
 remain in-process only, and native save-source precedence plus broader campaign
 restart certification remain open.
