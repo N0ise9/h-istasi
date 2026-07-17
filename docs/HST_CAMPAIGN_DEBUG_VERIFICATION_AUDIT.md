@@ -2,8 +2,82 @@
 
 Campaign Schema 71 and runtime-settings Schema 24 are current. Current
 implementation/source identity is
-`3714e9c6d9e1d5dc802db5f8ededf4505acf256b`, UTC `2026-07-17T15:18:07Z`, label
-`schema71-settings24-admin-reset-write-ahead`.
+`402b3531a5a150dba51f6063b6936c76dd6db682`, UTC `2026-07-17T18:26:37Z`, label
+`schema71-settings24-garrison-rebuild-restart`. The final stamped Workbench and
+focused-proof rerun for that identity is pending, so the prior certification
+CRC below remains the latest sealed CRC and is not promoted to this source
+identity.
+
+## Current Exact Garrison-Rebuild Fresh-Process Checkpoint
+
+The exact enemy garrison-rebuild proof now carries one delivery-pending virtual
+operation through three separate dedicated-server processes. Every process is
+bound to the same disposable profile owner, build/schema/world/run/cut identity,
+and immutable prepared carrier. Each stage receives a fresh lowercase-hex stage
+nonce in a one-use guard. Coordinator startup validates the profile owner and
+profile shape, consumes and deletes that guard, then loads the carrier before
+profile migration or campaign restore can mutate proof authority.
+
+For `recover` and `replay`, startup reads and validates the selected campaign
+JSON snapshot, validates its pending or delivered semantic fingerprint, adopts
+that exact state as `m_State`, and tracks it before any schema validator or
+operation `ReconcileAfterRestore()` call. The `recover` stage advances the
+remaining virtual route through production `TickOrder()` and
+`CompleteDelivery()`. It proves one continuous casualty ledger, one exact
+delivery receipt, one held-garrison manifest link, no aggregate double count,
+one original support debit plus its exact zero-refund delivery mutation, and
+zero adapter handles, physical roots, or runtime members. The carrier remains
+unchanged.
+
+A virtual delivered row must use the same durable statuses at all three
+boundaries: `CompleteDelivery()`, save normalization, and
+`ReconcileAfterRestore()`. The order status is
+`resolved_exact_rebuild_virtual_on_station`; the group status is
+`enemy_garrison_rebuild_virtual_on_station`. Any spelling or lifecycle drift
+between those boundaries turns a valid restored row into a false mutation and
+breaks semantic replay. `ReconcileAfterRestore()` therefore accumulates
+`changed` only when it actually normalizes a field, resumes a settlement, or
+quarantines invalid authority. Merely visiting a valid exact row returns no
+change.
+
+The journal proof also corrects a filename assumption. `HST_CampaignSaveData.json`
+and `HST_CampaignSaveData.recovery.json` are alternating slots; neither filename
+means “newest.” A fresh `prepare` writes generation 1 to the first filename.
+`recover` retains those bytes and writes generation 2 to the recovery filename,
+whose parent generation and fingerprint point to generation 1. Selection must
+follow verified envelope generation/parent/fingerprint authority rather than a
+preferred filename. `replay` captures file signatures for both slots and the
+carrier before launch, requires both journal generations, and proves all three
+files are byte-identical afterward. It performs no checkpoint or carrier write.
+
+The implementation-time runner completed all three stages with zero cleanup
+counters. Its summary recorded prepared digest `6500277f9189140a`, delivered
+digest `37daf2da7242f82c`, generation `1 -> 2`, and an exact journal chain.
+Recover source, continuation, delivery receipt, held garrison, and resource
+exactly-once flags were all true. Replay semantic no-op, journal read-only, and
+carrier read-only flags were all true. That run reported the preceding
+`3714e9c6d9e1` BuildInfo because it preceded the final stamp. The final stamped
+three-process rerun reports `402b3531a5a1` and reproduces the exact prepared and
+delivered digests, generation chain, read-only replay, and zero cleanup.
+
+Failure reporting now preserves root cause ahead of cleanup. A failed stage
+front-loads compact source/restore/reconcile/continuation/receipt/resource/
+physical/progress flags and bounded sanitized stage evidence. The wrapper then
+runs its exact cleanup census; if cleanup also fails, it prints the earlier
+`RUN_ERROR` before the cleanup exit. Cleanup can no longer erase the invariant
+that caused it to run.
+
+The attempted current focused autotest reload did not produce a new JUnit
+result. The requested HST suite began, but the base-game autotest reload path
+then rejected its carried parameter as invalid after the two known base-game
+filter-constructor diagnostics. This is a focused harness/reload gap, not a
+passing or failing HST assertion result. The older focused JUnit below remains
+historical evidence only.
+
+This checkpoint proves only deterministic virtual delivery-pending continuation
+through the guarded JSON transport. It does not certify physical movement or
+materialization, native session-save selection, packaged live gameplay,
+multiplayer/JIP/reconnect, performance, or soak.
 
 ## Current Campaign Profile Journal Authority Checkpoint
 
@@ -20,7 +94,9 @@ same selection logic before accepting it. The previously selected valid slot is
 not overwritten until its replacement verifies. This gives two-generation
 crash tolerance but is not an atomic filesystem transaction: there is no lock,
 atomic rename, multi-writer guarantee, authenticated storage, or off-device
-backup. A raw Schema-70-or-earlier canonical file is generation 0; the first
+backup. The canonical/recovery names identify alternating files, not newest and
+backup roles; envelope generation and parent fingerprint establish ordering. A
+raw Schema-70-or-earlier canonical file is generation 0; the first
 Schema-71 checkpoint writes generation 1 into recovery while preserving the raw
 canonical bytes.
 
@@ -64,8 +140,8 @@ rolling live state back to the old campaign.
 
 Current sealed evidence:
 
-- Foundation validation passes 859 references. Stamped Workbench validation
-  loads 5,844 files and 11,870 classes at CRC `2b350976`, with zero hard errors
+- Foundation validation passes 865 references. Stamped Workbench validation
+  loads 5,846 files and 11,876 classes at CRC `57609980`, with zero hard errors
   and zero owned cleanup residue.
 - `HST_TEST_CampaignProfileJournalAuthority` passes 1/1 with zero failures,
   errors, or skips and an empty failed list. Its 41/41 exact booleans cover
@@ -1452,7 +1528,10 @@ proof proximity. That focused run predates the coordinator-only captive-follow
 clock correction and remains historical focused evidence. The focused
 environment still records the known recoverable
 base-game player-audit VM exception plus two filter-constructor diagnostics
-during harness setup, so it succeeds but is not exception-free.
+during harness setup, so it succeeds but is not exception-free. The current
+Schema-71 reload attempt reached suite setup but the base-game autotest reload
+path rejected its carried parameter and emitted no JUnit file. It therefore
+neither refreshes nor contradicts this historical result.
 
 The post-seal Full Campaign Debug wiring retains stable IDs for all created
 enemy orders without rewriting debit-backed or exact-operation identities.
@@ -1474,9 +1553,10 @@ authoritative resource pool, so the top-up was correctly rejected first. At that
 checkpoint another full run was required. R25b is the later coordinator rerun:
 it preserves the clean seeded/cleanup boundaries and removes the exact-QRF
 settlement blocker, but its unrelated failures do not promote the wider suite to
-certification. Packaged/native/live-server runtime, serialization and restart,
-migration runtime, multiplayer/network/JIP/reconnect, and soak gates remain
-open.
+certification. The current section at the top closes only the guarded virtual
+delivery-pending JSON restart slice. Physical/materialized continuation,
+native-session authority, packaged live gameplay, migration runtime,
+multiplayer/network/JIP/reconnect, and soak gates remain open.
 
 ## Preceding Schema 69 Exact Enemy Counterattack Engine-Proof Boundary
 
@@ -3551,7 +3631,7 @@ Unproven or incomplete against the pasted contract:
 | Markers/UI/native markers | Prior command/model/native-handle assertions plus the Schema-61 stream and Schema-62 protocol-2 source revision. The Schema-66 repair protects system markers. The owner-client probe mutates and deletes a tracked campaign marker, runs and retries final production repair, proves canonical system ownership/non-removability, stable registry/static count, exactly one instance, and isolated player-marker edit/removal/cleanup. | The probe compiles in current Workbench validation but has not executed. Run it, then republish and attempt campaign-marker delete/move/edit on host/client; prove bounded self-heal, player-marker isolation, host/two-client equality, atomicity, no duplicate set, map reopen, reconnect/late join, and cleanup. |
 | Background war/escalation/campaign end | Controlled commander tick, POI target assertions, resource spending, low/mid/high pressure windows, short repeated background-war commander/resource cycle, aggression decay, forced victory/loss terminal snapshots. | Extended autonomous occupier-vs-invader soak and heavier support eligibility across varied POIs remain open. |
 | Render bubbles | One clean zone far/near/leave activation and cleanup timeout through physical-war update, expired player-bound mission asset near/far/player-carrier bubble policy assertions, and expired convoy contact near/far preserve/delete cleanup policy assertions. Sealed Schema 63 uses activation radius for entry and the larger deactivation radius for exit. | The existing runtime artifact predates that hysteresis. Re-execute boundary crossings, rendered inspection, stutter profiling, and multiple zone-type windows. |
-| Persistence | Baseline typed persistence and seeded smoke roundtrip exist. R26 retains exact-QRF prepared recovery. Counterattack capture rejects unsafe transitions, preflights physical graphs transactionally, and normalizes compatible Schema-70 saves. Schema 71 adds a verified canonical/recovery journal, monotonic checkpoint/restore/time source order, native envelope-v2 exact-payload fingerprinting with v1 normalization, explicit degraded profile-only recovery, reset-order retention, and fail-closed future/split-brain/broken-chain handling. The sealed focused authority testcase passes 1/1 and 41/41 exact booleans, including native-v1/native-v2/invalid-fingerprint/future-envelope at 1/1/1/1. The stamped ordinary chain passes 5/5, advances generations 1 -> 2 -> 3, selects canonical generation 3 with two valid slots and an exact chain, keeps native/profile restores read-only, preserves exact field-vehicle state, and leaves cleanup at zero. The native-over-stale-journal chain passes 3/3 with native selected, both journal files and their exact chain unchanged, and zero cleanup. The administrative-reset stale-native chain passes 3/3, selects generation-3 JSON over the stale native blocker, remains read-only in the final process, preserves the exact two-slot chain and proof carrier, rejects overlap without mutation, and leaves cleanup at zero. The sealed source compiles at 5,844 files/11,870 classes, CRC `2b350976`, with zero errors and cleanup. Historical counterattack and stamped field-vehicle evidence remains valid for its scoped checkpoints. | Generic `persistence.real_restart` is still BLOCKED in the integrated one-button suite despite the separate guarded ordinary-checkpoint closure. A separate live `SCRIPTED`-at-debounce stage was not run. Broader Workshop package/live/network authority, arbitrary affected-save recovery and migration/conflict breadth, cadence/backlink continuity, multi-writer/off-device recovery, local-security/event/vehicle breadth, markers, performance, and soak remain open. The journal is crash-tolerant rather than atomic, and arbitrary old QRF partial rows remain fail-closed. |
+| Persistence | Baseline typed persistence and seeded smoke roundtrip exist. R26 retains exact-QRF prepared recovery. Counterattack capture rejects unsafe transitions, preflights physical graphs transactionally, and normalizes compatible Schema-70 saves. Schema 71 adds a verified canonical/recovery journal, monotonic checkpoint/restore/time source order, native envelope-v2 exact-payload fingerprinting with v1 normalization, explicit degraded profile-only recovery, reset-order retention, and fail-closed future/split-brain/broken-chain handling. The sealed focused journal-authority testcase passes 1/1 and 41/41 exact booleans, including native-v1/native-v2/invalid-fingerprint/future-envelope at 1/1/1/1. The stamped ordinary chain passes 5/5, advances generations 1 -> 2 -> 3, selects canonical generation 3 with two valid slots and an exact chain, keeps native/profile restores read-only, preserves exact field-vehicle state, and leaves cleanup at zero. The native-over-stale-journal chain passes 3/3 with native selected, both journal files and their exact chain unchanged, and zero cleanup. The administrative-reset stale-native chain passes 3/3, selects generation-3 JSON over the stale native blocker, remains read-only in the final process, preserves the exact two-slot chain and proof carrier, rejects an overlapping reset without mutation, and leaves cleanup at zero. The exact rebuild fresh-process chain passes prepare/recover/replay with one retained casualty, exactly one delivery, generation 1 -> 2, byte-read-only replay, and zero cleanup; its focused CLI invocation emits no JUnit result and is not a focused PASS. The sealed source compiles at 5,846 files/11,876 classes, CRC `57609980`, with zero errors and cleanup. Historical counterattack and stamped field-vehicle evidence remains valid for its scoped checkpoints. | Generic `persistence.real_restart` is still BLOCKED in the integrated one-button suite despite the separate guarded ordinary-checkpoint closure. A separate live `SCRIPTED`-at-debounce stage was not run. Broader Workshop package/live/network authority, arbitrary affected-save recovery and migration/conflict breadth, cadence/backlink continuity, multi-writer/off-device recovery, local-security/event/vehicle breadth, physical/live rebuild movement and native-world/entity handoff, markers, performance, and soak remain open. The journal is crash-tolerant rather than atomic, and arbitrary old QRF partial rows remain fail-closed. |
 | Cleanup/stalls | Prefixed persisted cleanup, tagged world cleanup, post-case leak probes, typed enemy-order settlement, and stall evidence for several physical categories. R23 remains the dated QRF-defect reproduction; R24 first restored clean typed cleanup while isolating the validator mismatch. R26 is the historical comparison: settled 0, failures 0, open tracked orders 0, runtime claimants 0, open-order leak 0 -> 0, and an exact-zero tracked-state diff. | World-scope restoration remains intentionally BLOCKED pending a disposable-session restart. Arbitrary untagged leftovers cannot be removed; stall evidence is not yet uniform for every physical category. |
 
 ## Implemented Evidence

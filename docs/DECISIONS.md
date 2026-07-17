@@ -3087,11 +3087,11 @@ not resurrect the old campaign.
 
 Consequences:
 
-- Campaign Schema 71 and runtime-settings Schema 24 remain current. Final
-  implementation `3714e9c6d9e1d5dc802db5f8ededf4505acf256b`, UTC
+- Campaign Schema 71 and runtime-settings Schema 24 remained current. At this
+  decision's acceptance, implementation `3714e9c6d9e1d5dc802db5f8ededf4505acf256b`, UTC
   `2026-07-17T15:18:07Z`, label
-  `schema71-settings24-admin-reset-write-ahead`, is the sealed source.
-- Foundation passes 859 references. Guarded Workbench validation loads 5,844
+  `schema71-settings24-admin-reset-write-ahead`, was the sealed source.
+- Its stamped Foundation proof passed 859 references. Guarded Workbench validation loaded 5,844
   files and 11,870 classes at CRC `2b350976`, with zero HST, script, or hard
   errors and zero owned cleanup residue.
 - The dedicated three-process
@@ -3105,3 +3105,55 @@ Consequences:
   exact chain. Journal and proof-carrier bytes remain unchanged, the old
   sentinel stays absent, player/commander identity remains exact, an overlapping
   reset is rejected without mutation, and cleanup is zero.
+
+## CRI-053 - Prove Exact Enemy Garrison Rebuild Across Fresh Processes
+
+- Status: Accepted; implementation and guarded three-process JSON-restart proof
+  complete
+- Date: 2026-07-17
+
+Context: The campaign already carried the authority needed to rebuild an enemy
+garrison from an accepted force manifest, and the in-process deterministic proof
+covered that transition. It did not prove that a current-shape
+`delivery_pending` rebuild survives a real process boundary, preserves a prior
+casualty and partial movement, applies delivery exactly once, and stays
+idempotent when a later process replays the delivered save.
+
+Decision: Add a narrow `prepare -> recover -> replay` dedicated-server runner
+over the production two-slot JSON journal. Bind every stage to the exact build,
+schema, world, campaign, operation, force, resource, and one-use stage lease.
+Prepare one contract-1 rebuild at 225 of 300 meters with nine accepted members,
+eight living members, one casualty, and no process-local runtime claimant.
+
+Recover from canonical journal generation 1, advance the remaining 75 meters
+through the production operation owner, and apply delivery once. Delivery must
+hold the exact eight-survivor manifest at the destination, keep the location's
+accepted-garrison aggregate unchanged, add eight only to authoritative living
+strength, retain the original debit, append exactly one zero-refund resource
+receipt, and leave the resource pools unchanged. Persist that delivered state as
+recovery generation 2 linked exactly to canonical generation 1. Replay must be
+a semantic no-op: it performs no save, leaves both journal slots byte-for-byte
+unchanged, creates no second receipt or aggregate increment, and leaves no
+runtime claimant. Every process must clean all proof-owned state to zero.
+
+Consequences:
+
+- Campaign Schema 71 and runtime-settings Schema 24 remain current. Final
+  implementation `402b3531a5a150dba51f6063b6936c76dd6db682`, UTC
+  `2026-07-17T18:26:37Z`, label
+  `schema71-settings24-garrison-rebuild-restart`, is the current source.
+- The guarded proof passes all three stages. Its prepare digest is
+  `6500277f9189140a`; its delivered/replay digest is `37daf2da7242f82c`.
+  Recover verifies source selection, continuation, receipt, held-garrison, and
+  resource invariants. Replay verifies semantic, journal, and proof-carrier
+  read-only behavior. The newest generation is 2, its parent is canonical
+  generation 1, and cleanup is zero.
+- The ordinary five-process campaign-recovery chain and the three-process
+  administrative-reset regression chain also pass after this change.
+- The stamped tree passes Foundation at 865 references and Workbench at 5,846
+  files/11,876 classes, CRC `57609980`, with zero hard errors and zero owned
+  cleanup residue.
+- This is exact virtual current-shape JSON-restart evidence. Physical/live
+  movement and native bindings, multiplayer/JIP/reconnect, performance, and soak
+  remain open. The focused autotest is presently blocked by a base-game
+  reload/JUnit harness gap, so no new focused-autotest pass is claimed.

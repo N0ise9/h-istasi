@@ -246,12 +246,12 @@ Full Campaign Debug, world integration, persistence, restart, packaging, or
 network behavior. Test identities and run evidence belong in the Campaign
 Debug verification audit rather than this project overview.
 
-The sealed campaign-persistence implementation stamp is
-`3714e9c6d9e1d5dc802db5f8ededf4505acf256b`, UTC
-`2026-07-17T15:18:07Z`, label
-`schema71-settings24-admin-reset-write-ahead`. Foundation validation passes
-859 references. Stamped Workbench validation loads 5,844 files and 11,870
-classes at CRC `2b350976` with zero hard errors and zero owned cleanup residue.
+The current implementation stamp is
+`402b3531a5a150dba51f6063b6936c76dd6db682`, UTC
+`2026-07-17T18:26:37Z`, label
+`schema71-settings24-garrison-rebuild-restart`. Foundation validation passes
+865 references. Stamped Workbench validation loads 5,846 files and 11,876
+classes at CRC `57609980` with zero hard errors and zero owned cleanup residue.
 The focused authority testcase passes 1/1 with 41/41 exact conditions, an empty
 failed list, and exact native-v1/native-v2/invalid-fingerprint/future-envelope
 classification at 1/1/1/1.
@@ -269,6 +269,22 @@ zero. The administrative-reset stale-native proof also passes 3/3: it selects
 the newer generation-3 JSON reset over deliberately stale native authority in a
 read-only final process, preserves the exact two-slot chain and proof carrier,
 rejects overlap without mutation, and leaves cleanup at zero.
+
+A separate guarded three-process exact enemy-garrison-rebuild proof now crosses
+the `delivery_pending` cut through the production JSON journal. Prepare freezes
+the route at 225/300 meters with 9 accepted members, 8 living members, and one
+confirmed casualty. Recover advances the final 75 meters and applies delivery
+once: the exact survivor manifest remains held by the destination garrison,
+aggregate infantry is not incremented a second time, and the original resource
+debit receives one zero-refund settlement receipt. Replay is a semantic no-op.
+The journal ends with canonical generation 1 and recovery generation 2; replay
+changes neither slot. Every owned process, profile, guard, temporary, and spill
+cleanup counter returns to zero.
+
+This closes the scoped virtual `delivery_pending` JSON-restart boundary only.
+Physical/live movement, multiplayer, and soak remain open. The focused
+garrison-rebuild autotest also retains a base-game reload/JUnit harness gap, so
+this checkpoint does not claim a fresh focused-test result from that harness.
 
 This proves the scoped fixture, not full fuel, partial-damage, attachment, or
 physical-trunk parity. Arbitrary vehicle breadth, Workshop server/client,

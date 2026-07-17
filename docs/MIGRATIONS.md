@@ -1,8 +1,8 @@
 # Campaign Save Migrations
 
 Current implementation/source identity is
-`3714e9c6d9e1d5dc802db5f8ededf4505acf256b`, UTC `2026-07-17T15:18:07Z`, label
-`schema71-settings24-admin-reset-write-ahead`. Campaign Schema 71 and
+`402b3531a5a150dba51f6063b6936c76dd6db682`, UTC `2026-07-17T18:26:37Z`, label
+`schema71-settings24-garrison-rebuild-restart`. Campaign Schema 71 and
 runtime-settings Schema 24 are current.
 
 ## Schema 71 - Current Campaign Recovery Journal Boundary
@@ -72,8 +72,8 @@ native staging. Once that write-ahead generation verifies, it remains the
 newer recovery authority; later native failure is degraded replica repair and
 cannot restore the pre-reset campaign.
 
-The sealed checkpoint passes Foundation at 859 references and stamped Workbench
-validation at 5,844 files/11,870 classes, CRC `2b350976`, with zero hard errors
+The sealed checkpoint passes Foundation at 865 references and stamped Workbench
+validation at 5,846 files/11,876 classes, CRC `57609980`, with zero hard errors
 and zero owned cleanup residue. The focused authority proof passes 1/1 with an empty failed list,
 41/41 exact cases, and native-v1/native-v2/invalid-fingerprint/future-envelope
 classification at 1/1/1/1. The strict five-process chain passes 5/5 across
@@ -89,6 +89,37 @@ journal over deliberately stale native authority in a read-only final process,
 preserves the exact chain and proof carrier, rejects overlap without mutation,
 and leaves cleanup at zero. This is current-shape recovery evidence; broad arbitrary older-save,
 package/client, multiplayer, storage-failure, and soak matrices remain open.
+
+## Current Exact Garrison-Rebuild Restart Proof - No Schema Change
+
+This checkpoint adds no campaign-save or runtime-settings migration. Campaign
+Schema remains 71 and runtime-settings Schema remains 24. It adds no serialized
+field, enum ordinal, or contract version. Existing coherent contract-1
+`delivery_pending` operation, accepted-force, location-authority, and strategic-
+resource rows already contain the state needed for exact restart continuation.
+
+The guarded three-process proof validates those current rows through the
+production two-slot JSON journal. Prepare cuts one rebuild at 225 of 300 meters
+with nine accepted members, eight living members, one casualty, and no
+process-local runtime claimant. Recover selects canonical generation 1, advances
+the final 75 meters, and applies delivery exactly once. The location holds the
+exact eight-survivor manifest; its accepted-garrison aggregate does not increase,
+while authoritative living strength increases by eight. The original resource
+debit remains, exactly one zero-refund receipt is appended, and resource pools do
+not change.
+
+Recover writes recovery generation 2 with an exact parent link to canonical
+generation 1. Replay is a semantic no-op, performs no save, and leaves both
+journal slots and the proof carrier byte-for-byte unchanged. It adds no second
+receipt, force, or aggregate increment, and every process leaves proof-owned
+cleanup at zero. The ordinary five-process recovery chain and three-process
+administrative-reset chain also pass as regressions.
+
+This evidence validates current-shape restart behavior; it does not broaden the
+older-save migration matrix. Physical/live movement and native bindings,
+multiplayer/JIP/reconnect, performance, and soak remain open. The focused
+autotest currently has a base-game reload/JUnit harness gap, so this checkpoint
+does not claim a new focused-autotest pass.
 
 ## Preceding Durable Field-Vehicle Schema-Neutral Boundary
 

@@ -2,8 +2,8 @@
 
 Campaign Schema 71 and runtime-settings Schema 24 are current. Current
 implementation/source identity is
-`3714e9c6d9e1d5dc802db5f8ededf4505acf256b`, UTC `2026-07-17T15:18:07Z`, label
-`schema71-settings24-admin-reset-write-ahead`.
+`402b3531a5a150dba51f6063b6936c76dd6db682`, UTC `2026-07-17T18:26:37Z`, label
+`schema71-settings24-garrison-rebuild-restart`.
 
 ## Current Campaign Recovery Journal Mechanics
 
@@ -104,8 +104,8 @@ implementation/source identity is
   deltas. Never expand that boundary to broad `.gitignore` patterns. Spill
   snapshots remain unchanged and continue to observe every cleanup artifact.
 
-Current sealed evidence is Foundation at 859 references and stamped Workbench
-validation at 5,844 files/11,870 classes, CRC `2b350976`, with zero hard errors
+Current sealed evidence is Foundation at 865 references and stamped Workbench
+validation at 5,846 files/11,876 classes, CRC `57609980`, with zero hard errors
 and zero owned cleanup residue. The focused journal testcase passes 1/1 with
 zero failures/errors/skips, an empty failed list, 41/41 exact authority
 conditions, and native-v1/native-v2/invalid-fingerprint/future-envelope cases at
@@ -6905,6 +6905,92 @@ This file is for practical engine/script behavior, not project planning. Keep en
   garrison policies plus the unsupported-policy failure, not the retired patrol-
   only branch.
 
+## Schema 71 Exact Garrison-Rebuild Fresh-Process Mechanics
+
+- The current implementation identity is
+  `402b3531a5a150dba51f6063b6936c76dd6db682`, UTC
+  `2026-07-17T18:26:37Z`, label
+  `schema71-settings24-garrison-rebuild-restart`. Its implementation-time
+  three-process proof ran before the final BuildInfo stamp and reported the
+  preceding identity; the final stamped Workbench and three-process reruns now
+  report `402b3531a5a1` and reproduce the same exact proof result. The separate
+  focused CLI reload still produces no JUnit record, so it is not a focused PASS.
+
+- Bind each external proof run to one disposable owner record and one immutable
+  delivery-pending carrier. The owner and every stage guard must match exact
+  build, campaign/settings schema, world, session nonce, run ID, and cut. Each
+  `prepare`, `recover`, or `replay` process gets a fresh stage nonce and exact
+  ordinal. Consume and delete the one-use guard before loading the carrier; a
+  missing, stale, reused, or wrong-stage guard fails closed. `prepare` must not
+  inherit a carrier, while later stages require the original carrier and may not
+  rewrite it.
+
+- Validate owner, disposable profile shape, and stage guard before profile
+  migration. For `recover` and `replay`, read the selected campaign JSON through
+  the production profile-fallback reader, validate the complete pending or
+  delivered semantic fingerprint, adopt that exact object as campaign state,
+  and capture it for tracking before schema validators or operation reconcilers
+  run. Otherwise a startup normalizer can mutate the evidence before the proof
+  establishes what actually crossed the process boundary.
+
+- Virtual delivered runtime status is durable authority, not presentation text.
+  `CompleteDelivery()`, save normalization, and `ReconcileAfterRestore()` must
+  all emit the same pair: order
+  `resolved_exact_rebuild_virtual_on_station` and group
+  `enemy_garrison_rebuild_virtual_on_station`. A mismatch makes a healthy replay
+  dirty and can hide a non-idempotent restore. Keep physical on-station strings
+  separate; normalization may choose the virtual pair only after authority is
+  folded to strategic hold.
+
+- `ReconcileAfterRestore()` must report whether it mutated state. Accumulate
+  `changed` from explicit roster/process/materialization/position/status repair,
+  settlement resume, or quarantine. Do not return true merely because a valid
+  exact row was visited. Recover verifies that reconciliation immediately after
+  delivery is a no-op, and replay requires both startup reconciliation and the
+  explicit same-state reconciliation to remain no-ops.
+
+- Treat `HST_CampaignSaveData.json` and
+  `HST_CampaignSaveData.recovery.json` as alternating slots, not fixed newest and
+  backup roles. In the fresh proof, `prepare` writes generation 1 to the first
+  filename. `recover` leaves it byte-stable and writes generation 2 to the
+  recovery filename with generation 1 and its fingerprint as parent. Resolve
+  newest authority from envelope generation, parent, and fingerprint. Never
+  infer it from the word `recovery` or a variable named `canonical`.
+
+- Replay is a read-only file-identity proof. Before launching it, require both
+  slots, hash each slot and the carrier with length/write-time/SHA-256 identity,
+  and capture the delivered semantic fingerprint. After every owned process has
+  exited, require both slot signatures, the carrier signature, route progress,
+  and source/final semantic fingerprints to be unchanged. Replay must not call a
+  checkpoint seam, advance delivery, or save a carrier.
+
+- The successful implementation-time proof used three fresh processes. Its
+  prepared and delivered fingerprint digests were `6500277f9189140a` and
+  `37daf2da7242f82c`. Recover source, production continuation, delivery receipt,
+  held-garrison link, and resource-exactly-once flags were all true. Replay
+  semantic no-op, journal read-only, and carrier read-only flags were all true.
+  The journal retained canonical generation 1 and recovery generation 2, marked
+  generation 2 newest, and validated the exact parent chain. Every cleanup
+  counter returned zero.
+
+- Preserve proof root cause before cleanup diagnostics. Stage-result rejection
+  should front-load compact source/restore/startup/continuation/no-op/claimant/
+  readback/casualty/receipt/garrison/resource/physical/progress flags before
+  bounded sanitized evidence. Always run the exact cleanup census afterward. If
+  cleanup also fails, print the earlier `RUN_ERROR` before the cleanup failure so
+  an exit-2 boundary cannot erase the original gameplay invariant.
+
+- A current focused `HST_TEST_EnemyGarrisonRebuildAuthority` attempt began suite
+  setup but the base-game autotest reload path rejected its carried parameter
+  after the known filter-constructor diagnostics; it produced no JUnit file.
+  Treat that as an open focused harness/reload gap, not as an HST pass or failure.
+  The older passing JUnit remains historical evidence only.
+
+- This fresh-process proof deliberately uses deterministic virtual delivery and
+  the guarded JSON transport. It does not prove physical route movement,
+  materialization or fold, native session-save selection, packaged live
+  gameplay, multiplayer/JIP/reconnect, performance, or soak.
+
 - Full Campaign Debug certification autostart is deliberately opt-in. Recognize
   only `-hstCampaignDebugProfile full_certification`; an absent parameter does
   nothing, while an empty or unsupported profile must be rejected without
@@ -7046,11 +7132,10 @@ This file is for practical engine/script behavior, not project planning. Keep en
   exception-free. Full Campaign Debug executed `early_mechanics.force_authority`
   and exposed the live-proximity proof trap. Phase 18 stopped before live rebuild
   admission because the captive-follow debug clock leak had already quarantined
-  its resource pool, so the top-up was correctly rejected. The exact current
-  garrison-rebuild source/Workbench checkpoint and completed R10 runtime
-  boundary are recorded at the top of this file. Package/native runtime,
-  serialization/restart,
-  multiplayer/network, and soak remain unproven.
+  its resource pool, so the top-up was correctly rejected. The Schema-71 section
+  above records the later exact virtual delivery-pending JSON process-restart
+  boundary. Physical/materialized continuation, native-session authority,
+  packaged live gameplay, multiplayer/network, and soak remain unproven.
 
 ## Full Campaign Debug Disposable Radio Lifecycle Fixture
 
