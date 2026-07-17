@@ -63,14 +63,28 @@ ambiguous/conflicting history remains write-fenced. Present invalid journal
 artifacts without usable native authority are fatal; only the complete absence
 of both authorities starts a new campaign.
 
-Native-active checkpoints mirror the exact staged snapshot into the journal only
-after the post-commit save completion callback succeeds. A failed native callback
-does not advance either journal slot and rearms checkpoint retry. When native
-persistence is unavailable or the session has explicitly entered profile-only
-recovery, journal writes complete synchronously. Capture, Campaign Debug
-isolation, tracked-state restoration, and administrative reset reject while a
-native checkpoint is in flight so the staged DTO cannot be mutated underneath
-the callback.
+Ordinary native-active checkpoints mirror the exact staged snapshot into the
+rotating journal only after the post-commit save completion callback succeeds.
+Every accepted ordinary checkpoint that completes natively therefore converges
+that native success into a readback-verified JSON generation. A failed native
+callback advances neither slot and re-arms retry; profile-only ordinary writes
+complete synchronously. Capture, Campaign Debug isolation, tracked-state
+restoration, and administrative reset reject while a native checkpoint is in
+flight so the staged DTO cannot mutate under the callback.
+
+Administrative reset is a separate write-ahead transaction. It retains durable
+ordering floors, builds all fallible radio/civilian/field-vehicle plans, and
+captures one complete prospective campaign into an exact detached DTO. After
+reversible radio restoration, the persistence service commits that DTO to the
+verified journal before native staging. Failure before this boundary rolls
+preparation back and leaves the old campaign live.
+
+The successful write-ahead callback is irreversible. In the same script call it
+finalizes old radio projections, consumes no-reject civilian and field-vehicle
+cleanup plans, removes old ambient roots, swaps live state, and rebuilds
+projections. Native staging then uses the detached DTO. Native absence, staging
+failure, callback failure, or timeout after the journal commit is degraded
+replica repair; it may not resurrect the old campaign.
 
 The sealed checkpoint passes Foundation at 851 references and stamped Workbench
 validation at 5,842 files/11,862 classes, CRC `c4bc4b3d`, with zero hard errors
@@ -88,8 +102,12 @@ valid slots, an exact chain, read-only restore stages, exact field-vehicle state
 and zero cleanup. The guarded native counterattack prepare/recover/replay proof
 passes 3/3, selects the newer valid native checkpoint over a deliberately stale
 complete journal, preserves both journal files with their exact chain, and also
-leaves cleanup at zero. Administrative-reset preflight and ordering are
-source/static-gated only; no focused runtime reset proof is claimed.
+leaves cleanup at zero.
+
+The current administrative-reset source passes guarded Workbench compilation at
+5,844 files/11,870 classes, CRC `b94fd51c`, with zero HST, script, or hard errors
+and zero owned cleanup residue. Its dedicated three-process stale-native proof
+remains pending; no fresh-process runtime closure is claimed yet.
 
 ## Preceding Durable Field-Vehicle Restart Boundary
 
@@ -2910,7 +2928,7 @@ balance or native-spawn evidence.
 | Controlled campaign persistence | Schema 71 gives typed automatic, manual, and shutdown requests one staged snapshot and one persisted checkpoint sequence. Native-active requests advance the verified two-slot profile journal only after the post-commit `SaveGameManager` callback; native-unavailable or explicitly profile-only sessions write it synchronously. Startup reconciles native and journal snapshots by checkpoint sequence, restore sequence, save second, and matching normalized fingerprint. Future or ambiguous authority is preserved and fenced. Controlled end drains pending work, uses a 270-second retry window, then requests blocking shutdown and preserves or purges native state according to the authority that committed. | The focused 41-case journal authority proof and strict automatic/manual/shutdown/native/journal five-process chain pass. This is crash-tolerant single-writer recovery, not atomic rename, authenticated storage, or an off-device backup. Broader active-world, client/network, abrupt-termination-beyond-last-checkpoint, marker, performance, and soak proof remain open. |
 | Campaign Debug isolation | The runner deep-clones campaign state, suspends normal persistence, and restores the live state. Bounded probes additionally capture/restore the shared clock and enemy-strategic fingerprint; the coordinator holds ambient commander cadence while the clone is active. It also holds ambient local-security progression whenever its matching worker is held. The separate restart harness is not a Campaign Debug clone: a strict startup guard authorizes one disposable source-selection carrier and one-use prepare/recover/replay lease. | Integrated run `seed1985_t0_p1_u1784134163` remains the latest broader Campaign Debug evidence. The guarded native restart branch now proves one packed dedicated-server source-precedence chain; it must not be generalized to arbitrary scenarios, client/network behavior, or the wider Campaign Debug suite. |
 | Workbench compiler shape | Large Campaign Debug methods use compact context/result objects and focused helpers. The render-bubble proof keeps clock state in `HST_CampaignDebugClockIsolationContext` rather than extending an already-large local frame. | Preserve this boundary and require a fresh Game compile plus bounded cold open for future large proof additions; repository text/static validation cannot exclude a native compiler heap failure. |
-| Certification | Campaign Schema 71 and runtime-settings Schema 24 are current. The sealed implementation/source identity is `85572fca9340074c3c198c758f857c4f57b600d9`, UTC `2026-07-17T09:37:00Z`, label `schema71-settings24-campaign-recovery-journal`. Foundation passes 851 references; stamped Workbench validation loads 5,842 files/11,862 classes at CRC `c4bc4b3d` with zero hard errors and zero owned cleanup residue. | The focused authority proof passes 1/1 and 41/41 exact, the ordinary persistence chain passes 5/5 with generations 1 -> 2 -> 3 and read-only native/profile restores, and the native-over-stale-journal chain passes 3/3 without changing either journal file. Admin reset remains source/static-gated only. Fuel, partial damage, attachments, physical trunk contents, arbitrary vehicle breadth, active-world/client/network behavior, abrupt termination beyond the last completed checkpoint, markers/UI, performance, and soak remain open. |
+| Certification | Campaign Schema 71 and runtime-settings Schema 24 are current. The sealed implementation/source identity is `85572fca9340074c3c198c758f857c4f57b600d9`, UTC `2026-07-17T09:37:00Z`, label `schema71-settings24-campaign-recovery-journal`. Foundation passes 851 references; stamped Workbench validation loads 5,842 files/11,862 classes at CRC `c4bc4b3d` with zero hard errors and zero owned cleanup residue. The current admin-reset source separately compiles at 5,844 files/11,870 classes, CRC `b94fd51c`, with zero errors and cleanup. | The focused authority proof passes 1/1 and 41/41 exact, the ordinary persistence chain passes 5/5 with generations 1 -> 2 -> 3 and read-only native/profile restores, and the native-over-stale-journal chain passes 3/3 without changing either journal file. The admin-reset three-process stale-native proof remains pending. Fuel, partial damage, attachments, physical trunk contents, arbitrary vehicle breadth, active-world/client/network behavior, abrupt termination beyond the last completed checkpoint, markers/UI, performance, and soak remain open. |
 
 The canonical ownership dependency and first shared crew-aware combat-presence/
 heat dependency remain sealed through Schema 63. Sealed Schema 64 adds the

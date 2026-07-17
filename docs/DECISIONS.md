@@ -3045,9 +3045,53 @@ Consequences:
   and leaves cleanup at zero. The guarded native counterattack chain passes 3/3,
   selects a newer native checkpoint over a deliberately stale complete journal,
   preserves both journal slots and their exact chain, and leaves cleanup at zero.
-- Administrative-reset preflight and retained ordering are source/static-gated
-  only; this checkpoint does not claim a focused runtime reset proof.
+- CRI-052 supersedes this decision only for administrative-reset commit ordering.
+  Its write-ahead source and Workbench gate are complete, while focused runtime
+  reset proof remains pending.
 - Two generations protect against a damaged latest slot or interrupted inactive-
   slot update, but not simultaneous writers, corruption of both slots, profile
   loss, storage-device failure, or malicious replacement. Long-lived alpha
   campaigns still need external backups.
+
+## CRI-052 - Commit Administrative Reset Before Native Replication
+
+- Status: Accepted in source; guarded Workbench complete, three-process
+  stale-native proof pending
+- Date: 2026-07-17
+
+Context: CRI-051 keeps ordinary checkpoints native-first: native success mirrors
+the same staged DTO into the rotating verified JSON journal. Reusing that order
+for admin new-campaign reset leaves no safe place to retire old runtime roots.
+Cleanup before any durable replacement risks loss, while waiting for native
+completion can capture stale roots. Rolling back after a newer reset JSON has
+already committed would also restore authority that startup must reject as old.
+
+Decision: Keep the ordinary contract unchanged. Every accepted native-active
+ordinary checkpoint mirrors its exact staged snapshot into the verified journal
+only after native success; profile-only ordinary checkpoints commit
+synchronously.
+
+Give admin reset a write-ahead transaction. Retain ordering floors, prepare every
+fallible radio/civilian/field-vehicle cleanup plan, exact-clone the complete
+prospective campaign, and apply only reversible radio restoration. Commit that
+detached DTO synchronously to the rotating verified journal before native
+staging. Journal failure rolls preparation back and leaves the old campaign.
+
+The successful journal callback synchronously retires old radio, civilian,
+ambient-vehicle, and non-retained field-vehicle roots, swaps campaign state, and
+rebuilds projections in the same script call. Native staging then uses the
+already-detached DTO. Once the write-ahead generation commits, native absence,
+staging failure, callback failure, or timeout is degraded replica repair and may
+not resurrect the old campaign.
+
+Consequences:
+
+- Guarded Workbench validation loads 5,844 files and 11,870 classes at CRC
+  `b94fd51c`, with zero HST, script, or hard errors and zero owned cleanup
+  residue.
+- This is compiler/cleanup evidence only. The dedicated three-process
+  `prepare_old_checkpoint -> reset_commit -> stale_native_no_save_verify` proof
+  remains pending and is not claimed as passed.
+- The pending final process must load deliberately stale valid native authority,
+  select the newer reset journal, emit no save, and leave the journal and proof
+  carrier unchanged.

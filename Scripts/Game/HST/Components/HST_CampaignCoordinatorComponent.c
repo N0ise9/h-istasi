@@ -64,6 +64,23 @@ class HST_CampaignDebugCivilianProbeRuntimeResult
 	}
 }
 
+// One administrative reset transaction remains process-local until the
+// prospective new-campaign snapshot is durably committed. The old live state
+// and every reversible/no-fail world plan stay owned here so a failed native or
+// journal checkpoint can restore the old world without a half-applied reset.
+class HST_AdminNewCampaignResetTransaction
+{
+	ref HST_CampaignState m_PreviousState;
+	ref HST_CampaignState m_ProspectiveState;
+	ref HST_CampaignSaveData m_PreparedSnapshot;
+	ref HST_RadioSiteNewCampaignResetPlan m_RadioPlan;
+	ref HST_PersistenceCheckpointRequest m_CheckpointRequest;
+	ref SaveGameOperationCallback m_ExternalCompletionObserver;
+	bool m_bRadioRestorationApplied;
+	bool m_bDurableCompletionReceived;
+	bool m_bDurableCompletionSucceeded;
+}
+
 class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 {
 	protected static HST_CampaignCoordinatorComponent s_Instance;
@@ -141,6 +158,16 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		= "hstOrdinaryCampaignPersistenceSessionNonce";
 	static const string ORDINARY_CAMPAIGN_PERSISTENCE_STAGE_NONCE_CLI_PARAM
 		= "hstOrdinaryCampaignPersistenceStageNonce";
+	static const string ADMIN_CAMPAIGN_RESET_PERSISTENCE_PROOF_CLI_PARAM
+		= "hstAdminCampaignResetPersistenceProof";
+	static const string ADMIN_CAMPAIGN_RESET_PERSISTENCE_STAGE_CLI_PARAM
+		= "hstAdminCampaignResetPersistenceStage";
+	static const string ADMIN_CAMPAIGN_RESET_PERSISTENCE_RUN_ID_CLI_PARAM
+		= "hstAdminCampaignResetPersistenceRunId";
+	static const string ADMIN_CAMPAIGN_RESET_PERSISTENCE_SESSION_NONCE_CLI_PARAM
+		= "hstAdminCampaignResetPersistenceSessionNonce";
+	static const string ADMIN_CAMPAIGN_RESET_PERSISTENCE_STAGE_NONCE_CLI_PARAM
+		= "hstAdminCampaignResetPersistenceStageNonce";
 	static const string CAMPAIGN_DEBUG_CANONICAL_WORLD = "worlds/hst_dev/hst_dev.ent";
 	static const int CAMPAIGN_DEBUG_CLI_RETRY_SECONDS = 5;
 	static const int CAMPAIGN_DEBUG_CLI_MAX_ATTEMPTS = 60;
@@ -177,6 +204,14 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		= 120.0;
 	static const float ORDINARY_CAMPAIGN_PERSISTENCE_SAVE_COMPLETION_TIMEOUT_SECONDS
 		= 150.0;
+	static const float ADMIN_CAMPAIGN_RESET_PERSISTENCE_SAVE_QUEUE_TIMEOUT_SECONDS
+		= 120.0;
+	static const float ADMIN_CAMPAIGN_RESET_PERSISTENCE_SAVE_COMPLETION_TIMEOUT_SECONDS
+		= 150.0;
+	static const int ADMIN_CAMPAIGN_RESET_PERSISTENCE_PHASE_INITIAL = 0;
+	static const int ADMIN_CAMPAIGN_RESET_PERSISTENCE_PHASE_BLOCKER_PENDING = 1;
+	static const int ADMIN_CAMPAIGN_RESET_PERSISTENCE_PHASE_RESET_QUEUE = 2;
+	static const int ADMIN_CAMPAIGN_RESET_PERSISTENCE_PHASE_RESET_PENDING = 3;
 
 	protected ref HST_CampaignState m_State;
 	protected ref HST_CampaignPreset m_Preset;
@@ -378,6 +413,69 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	protected ref HST_PersistenceCheckpointRequest m_OrdinaryCampaignPersistenceCheckpointRequest;
 	protected ref SaveGameOperationCallback m_OrdinaryCampaignPersistenceCompletionObserver;
 	protected ref HST_PersistenceSourceResolution m_OrdinaryCampaignPersistenceSourceResolution;
+	protected bool m_bAdminCampaignResetPersistenceCLIRequested;
+	protected bool m_bAdminCampaignResetPersistenceCLIFinalized;
+	protected bool m_bAdminCampaignResetPersistenceGuardExact;
+	protected bool m_bAdminCampaignResetPersistenceSourceExact;
+	protected bool m_bAdminCampaignResetPersistenceSavePending;
+	protected bool m_bAdminCampaignResetPersistenceSaveEventConnected;
+	protected bool m_bAdminCampaignResetPersistenceAfterSaveConnected;
+	protected bool m_bAdminCampaignResetPersistenceSaveCreated;
+	protected bool m_bAdminCampaignResetPersistenceCompletionObserved;
+	protected bool m_bAdminCampaignResetPersistenceCompletionSucceeded;
+	protected bool m_bAdminCampaignResetPersistenceAfterSaveObserved;
+	protected bool m_bAdminCampaignResetPersistenceAfterSaveSucceeded;
+	protected bool m_bAdminCampaignResetPersistenceNoSaveObservationActive;
+	protected bool m_bAdminCampaignResetPersistenceUnauthorizedRejected;
+	protected bool m_bAdminCampaignResetPersistenceUnauthorizedStateExact;
+	protected bool m_bAdminCampaignResetPersistenceInFlightObserved;
+	protected bool m_bAdminCampaignResetPersistenceInFlightRejected;
+	protected bool m_bAdminCampaignResetPersistenceRejectedNoRequest;
+	protected bool m_bAdminCampaignResetPersistenceRejectedStateExact;
+	protected bool m_bAdminCampaignResetPersistenceRejectedSentinelExact;
+	protected bool m_bAdminCampaignResetPersistenceRejectedIdentityExact;
+	protected bool m_bAdminCampaignResetPersistenceRejectedEpochExact;
+	protected bool m_bAdminCampaignResetPersistenceSavingDisabled;
+	protected ESaveGameType m_eAdminCampaignResetPersistenceExpectedSaveType;
+	protected ESaveGameType m_eAdminCampaignResetPersistenceCreatedSaveType;
+	protected ESaveGameType m_eAdminCampaignResetPersistenceAfterSaveType;
+	protected int m_iAdminCampaignResetPersistencePhase;
+	protected int m_iAdminCampaignResetPersistenceSaveQueueAttempts;
+	protected int m_iAdminCampaignResetPersistenceSaveCompletionAttempts;
+	protected float m_fAdminCampaignResetPersistenceSaveQueueElapsedSeconds;
+	protected float m_fAdminCampaignResetPersistenceSaveCompletionElapsedSeconds;
+	protected string m_sAdminCampaignResetPersistenceCLIStage;
+	protected string m_sAdminCampaignResetPersistenceCLIRunId;
+	protected string m_sAdminCampaignResetPersistenceCLISessionNonce;
+	protected string m_sAdminCampaignResetPersistenceCLIStageNonce;
+	protected string m_sAdminCampaignResetPersistenceCLISetupFailure;
+	protected string m_sAdminCampaignResetPersistenceRestoreSource;
+	protected string m_sAdminCampaignResetPersistenceSourceFingerprint;
+	protected string m_sAdminCampaignResetPersistencePriorActiveSaveId;
+	protected string m_sAdminCampaignResetPersistencePriorActiveSaveType;
+	protected string m_sAdminCampaignResetPersistencePriorActiveSaveName;
+	protected string m_sAdminCampaignResetPersistenceObservedPriorSaveId;
+	protected string m_sAdminCampaignResetPersistenceCreatedSaveId;
+	protected string m_sAdminCampaignResetPersistenceCreatedSaveName;
+	protected string m_sAdminCampaignResetPersistenceRejectedBeforeFingerprint;
+	protected string m_sAdminCampaignResetPersistenceRejectedAfterFingerprint;
+	protected string m_sAdminCampaignResetPersistenceSaveEvidence;
+	protected ref HST_AdminCampaignResetPersistenceProofOwner
+		m_AdminCampaignResetPersistenceOwner;
+	protected ref HST_AdminCampaignResetPersistenceProofGuard
+		m_AdminCampaignResetPersistenceGuard;
+	protected ref HST_AdminCampaignResetPersistenceProofCarrier
+		m_AdminCampaignResetPersistenceCarrier;
+	protected ref HST_AdminCampaignResetPersistenceProofResult
+		m_AdminCampaignResetPersistencePendingResult;
+	protected ref HST_PersistenceCheckpointRequest
+		m_AdminCampaignResetPersistenceCheckpointRequest;
+	protected ref SaveGameOperationCallback
+		m_AdminCampaignResetPersistenceCompletionObserver;
+	protected ref HST_PersistenceSourceResolution
+		m_AdminCampaignResetPersistenceSourceResolution;
+	protected ref HST_AdminNewCampaignResetTransaction
+		m_AdminNewCampaignResetTransaction;
 	protected bool m_bControlledCampaignEndDraining;
 	protected bool m_bControlledCampaignEndQuiescing;
 	protected bool m_bControlledCampaignEndMutationObserved;
@@ -551,9 +649,28 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return;
 
 		s_Instance = this;
+		ConfigureAdminCampaignResetPersistenceCLI();
 		ConfigureOrdinaryCampaignPersistenceCLI();
 		ConfigureExactQRFRestartCLI();
 		ConfigureExactCounterattackRestartCLI();
+		if (m_bAdminCampaignResetPersistenceCLIRequested)
+		{
+			bool requireAdminResetCarrierAtBoot
+				= m_sAdminCampaignResetPersistenceCLIStage
+					!= HST_AdminCampaignResetPersistenceProofService
+						.STAGE_PREPARE_OLD_CHECKPOINT;
+			if (!LoadAdminCampaignResetPersistenceAuthority(
+				requireAdminResetCarrierAtBoot))
+			{
+				PublishAdminCampaignResetPersistenceStartupFailure();
+				Print(
+					"Partisan admin reset persistence proof | startup rejected before profile migration, settings, or campaign restore: "
+						+ m_sAdminCampaignResetPersistenceCLISetupFailure,
+					LogLevel.WARNING);
+				GetGame().RequestClose();
+				return;
+			}
+		}
 		if (m_bOrdinaryCampaignPersistenceCLIRequested)
 		{
 			bool requireOrdinaryCarrierAtBoot
@@ -603,6 +720,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		}
 		Print("Partisan boot | authority build " + HST_BuildInfo.BuildRuntimeSummary() + " | server coordinator loaded");
 		if (!m_bExactCounterattackRestartCLIRequested
+			&& !m_bAdminCampaignResetPersistenceCLIRequested
 			&& !m_bOrdinaryCampaignPersistenceCLIRequested)
 		{
 			bool profileMigrationComplete
@@ -965,6 +1083,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			sourceResolution.m_sEvidence));
 		ObserveExactQRFExternalRestartSource();
 		ObserveExactCounterattackExternalRestartSource();
+		ObserveAdminCampaignResetPersistenceSource(sourceResolution);
 		ObserveOrdinaryCampaignPersistenceSource(sourceResolution);
 		// Repair only the exact Schema-68 fresh-bootstrap poison emitted by the
 		// previous startup ordering bug. This runs before validators so a genuinely
@@ -1113,6 +1232,12 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				"campaign persistence bootstrap failed: " + failure);
 			PublishOrdinaryCampaignPersistenceStartupFailure();
 		}
+		if (m_bAdminCampaignResetPersistenceCLIRequested)
+		{
+			SetAdminCampaignResetPersistenceSetupFailure(
+				"campaign persistence bootstrap failed: " + failure);
+			PublishAdminCampaignResetPersistenceStartupFailure();
+		}
 		Print(
 			"Partisan persistence | startup failed closed: " + failure,
 			LogLevel.ERROR);
@@ -1122,7 +1247,15 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	override void OnDelete(IEntity owner)
 	{
 		DisconnectExactCounterattackNativeSaveCreatedEvent();
+		DisconnectAdminCampaignResetPersistenceSaveEvents();
 		DisconnectOrdinaryCampaignPersistenceSaveEvents();
+		if (m_AdminNewCampaignResetTransaction)
+		{
+			CancelAdminNewCampaignResetTransaction(
+				m_AdminNewCampaignResetTransaction,
+				"coordinator teardown interrupted durable reset completion",
+				false);
+		}
 		if (m_Persistence)
 		{
 			m_Persistence.DetachCheckpointCompletionObserver();
@@ -1212,6 +1345,11 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		// converted into a stale campaign snapshot.
 		if (!EnsurePersistentFieldVehicleRestoreComplete(timeSlice))
 			return;
+		if (m_bAdminCampaignResetPersistenceCLIRequested)
+		{
+			FinalizeAdminCampaignResetPersistenceStage(timeSlice);
+			return;
+		}
 		if (m_bOrdinaryCampaignPersistenceCLIRequested)
 		{
 			bool controlledEndBridgeStage
@@ -1266,6 +1404,12 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				&& !AdvanceExactCounterattackExternalPhysicalPrepare())
 				return;
 			FinalizeExactCounterattackExternalRestartStage();
+			return;
+		}
+		if (m_AdminNewCampaignResetTransaction)
+		{
+			if (m_Persistence)
+				m_Persistence.TickPendingCheckpoint(timeSlice);
 			return;
 		}
 		if (m_bControlledCampaignEndQuiescing)
@@ -7132,6 +7276,368 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		GetGame().RequestClose();
 	}
 
+	protected void SetAdminCampaignResetPersistenceSetupFailure(string failure)
+	{
+		if (failure.IsEmpty()
+			|| !m_sAdminCampaignResetPersistenceCLISetupFailure.IsEmpty())
+			return;
+		m_sAdminCampaignResetPersistenceCLISetupFailure = failure;
+	}
+
+	protected void ConfigureAdminCampaignResetPersistenceCLI()
+	{
+		string requestedProof;
+		if (!System.GetCLIParam(
+			ADMIN_CAMPAIGN_RESET_PERSISTENCE_PROOF_CLI_PARAM,
+			requestedProof))
+			return;
+
+		m_bAdminCampaignResetPersistenceCLIRequested = true;
+		requestedProof = requestedProof.Trim();
+		requestedProof.ToLower();
+		if (requestedProof != "true")
+		{
+			SetAdminCampaignResetPersistenceSetupFailure(
+				"proof flag must be exactly true");
+		}
+		if (!System.GetCLIParam(
+			ADMIN_CAMPAIGN_RESET_PERSISTENCE_STAGE_CLI_PARAM,
+			m_sAdminCampaignResetPersistenceCLIStage))
+		{
+			SetAdminCampaignResetPersistenceSetupFailure(
+				"stage parameter is missing");
+		}
+		else
+		{
+			m_sAdminCampaignResetPersistenceCLIStage
+				= m_sAdminCampaignResetPersistenceCLIStage.Trim();
+			m_sAdminCampaignResetPersistenceCLIStage.ToLower();
+		}
+		if (!System.GetCLIParam(
+			ADMIN_CAMPAIGN_RESET_PERSISTENCE_RUN_ID_CLI_PARAM,
+			m_sAdminCampaignResetPersistenceCLIRunId))
+		{
+			SetAdminCampaignResetPersistenceSetupFailure(
+				"run id parameter is missing");
+		}
+		else
+		{
+			m_sAdminCampaignResetPersistenceCLIRunId
+				= m_sAdminCampaignResetPersistenceCLIRunId.Trim();
+		}
+		if (!System.GetCLIParam(
+			ADMIN_CAMPAIGN_RESET_PERSISTENCE_SESSION_NONCE_CLI_PARAM,
+			m_sAdminCampaignResetPersistenceCLISessionNonce))
+		{
+			SetAdminCampaignResetPersistenceSetupFailure(
+				"session nonce parameter is missing");
+		}
+		else
+		{
+			m_sAdminCampaignResetPersistenceCLISessionNonce
+				= m_sAdminCampaignResetPersistenceCLISessionNonce.Trim();
+		}
+		if (!System.GetCLIParam(
+			ADMIN_CAMPAIGN_RESET_PERSISTENCE_STAGE_NONCE_CLI_PARAM,
+			m_sAdminCampaignResetPersistenceCLIStageNonce))
+		{
+			SetAdminCampaignResetPersistenceSetupFailure(
+				"stage nonce parameter is missing");
+		}
+		else
+		{
+			m_sAdminCampaignResetPersistenceCLIStageNonce
+				= m_sAdminCampaignResetPersistenceCLIStageNonce.Trim();
+		}
+
+		if (!HST_AdminCampaignResetPersistenceProofService.ValidateStage(
+			m_sAdminCampaignResetPersistenceCLIStage))
+		{
+			SetAdminCampaignResetPersistenceSetupFailure(
+				"stage is unsupported");
+		}
+		if (!HST_AdminCampaignResetPersistenceProofService.ValidateRunId(
+			m_sAdminCampaignResetPersistenceCLIRunId))
+		{
+			SetAdminCampaignResetPersistenceSetupFailure(
+				"run id failed the bounded filename-safe gate");
+		}
+		if (!HST_AdminCampaignResetPersistenceProofService.ValidateNonce(
+			m_sAdminCampaignResetPersistenceCLISessionNonce)
+			|| !HST_AdminCampaignResetPersistenceProofService.ValidateNonce(
+				m_sAdminCampaignResetPersistenceCLIStageNonce))
+		{
+			SetAdminCampaignResetPersistenceSetupFailure(
+				"proof nonce failed the exact lowercase-hex gate");
+		}
+		if (HST_AdminCampaignResetPersistenceProofService
+			.NormalizeWorldIdentity(GetGame().GetWorldFile()).IsEmpty())
+		{
+			SetAdminCampaignResetPersistenceSetupFailure(
+				"proof requires the canonical Partisan campaign world");
+		}
+
+		string conflictingValue;
+		if (System.GetCLIParam(CAMPAIGN_DEBUG_CLI_PROFILE_PARAM, conflictingValue)
+			|| System.GetCLIParam(
+				EXACT_QRF_RESTART_CLI_STAGE_PARAM,
+				conflictingValue)
+			|| System.GetCLIParam(
+				EXACT_COUNTERATTACK_RESTART_CLI_STAGE_PARAM,
+				conflictingValue)
+			|| System.GetCLIParam(
+				ORDINARY_CAMPAIGN_PERSISTENCE_PROOF_CLI_PARAM,
+				conflictingValue))
+		{
+			SetAdminCampaignResetPersistenceSetupFailure(
+				"admin reset persistence proof cannot share a process with another proof runner");
+		}
+
+		if (m_sAdminCampaignResetPersistenceCLISetupFailure.IsEmpty())
+		{
+			Print(string.Format(
+				"Partisan admin reset persistence proof | armed stage %1 | run %2",
+				m_sAdminCampaignResetPersistenceCLIStage,
+				m_sAdminCampaignResetPersistenceCLIRunId));
+		}
+		else
+		{
+			Print(
+				"Partisan admin reset persistence proof | rejected: "
+					+ m_sAdminCampaignResetPersistenceCLISetupFailure,
+				LogLevel.WARNING);
+		}
+	}
+
+	protected bool LoadAdminCampaignResetPersistenceAuthority(
+		bool requireCarrier)
+	{
+		if (!m_bAdminCampaignResetPersistenceCLIRequested
+			|| !m_sAdminCampaignResetPersistenceCLISetupFailure.IsEmpty())
+			return false;
+		if (m_bAdminCampaignResetPersistenceGuardExact)
+			return !requireCarrier || m_AdminCampaignResetPersistenceCarrier;
+
+		string world = HST_AdminCampaignResetPersistenceProofService
+			.NormalizeWorldIdentity(GetGame().GetWorldFile());
+		string ownerEvidence;
+		if (!HST_AdminCampaignResetPersistenceProofService.LoadAndValidateOwner(
+			m_sAdminCampaignResetPersistenceCLISessionNonce,
+			m_sAdminCampaignResetPersistenceCLIRunId,
+			world,
+			m_AdminCampaignResetPersistenceOwner,
+			ownerEvidence))
+		{
+			SetAdminCampaignResetPersistenceSetupFailure(
+				"profile owner rejected: " + ownerEvidence);
+			return false;
+		}
+
+		string guardEvidence;
+		if (!HST_AdminCampaignResetPersistenceProofService
+			.LoadValidateAndConsumeGuard(
+				m_sAdminCampaignResetPersistenceCLISessionNonce,
+				m_sAdminCampaignResetPersistenceCLIStageNonce,
+				m_sAdminCampaignResetPersistenceCLIRunId,
+				m_AdminCampaignResetPersistenceOwner.m_sPayloadNonce,
+				m_sAdminCampaignResetPersistenceCLIStage,
+				world,
+				m_AdminCampaignResetPersistenceGuard,
+				guardEvidence))
+		{
+			SetAdminCampaignResetPersistenceSetupFailure(
+				"stage lease rejected: " + guardEvidence);
+			return false;
+		}
+
+		string carrierEvidence;
+		if (requireCarrier)
+		{
+			if (!HST_AdminCampaignResetPersistenceProofService
+				.LoadAndValidateCarrier(
+					m_sAdminCampaignResetPersistenceCLISessionNonce,
+					m_sAdminCampaignResetPersistenceCLIRunId,
+					m_AdminCampaignResetPersistenceOwner.m_sPayloadNonce,
+					m_sAdminCampaignResetPersistenceCLIStage,
+					world,
+					m_AdminCampaignResetPersistenceCarrier,
+					carrierEvidence))
+			{
+				SetAdminCampaignResetPersistenceSetupFailure(
+					"prior-stage carrier rejected: " + carrierEvidence);
+				return false;
+			}
+		}
+		else if (!HST_AdminCampaignResetPersistenceProofService
+			.CreateInitialCarrier(
+				m_AdminCampaignResetPersistenceOwner,
+				world,
+				m_AdminCampaignResetPersistenceCarrier,
+				carrierEvidence))
+		{
+			SetAdminCampaignResetPersistenceSetupFailure(
+				"initial carrier rejected: " + carrierEvidence);
+			return false;
+		}
+
+		string relationshipEvidence;
+		if (!HST_AdminCampaignResetPersistenceProofService
+			.ValidateGuardCarrierRelationship(
+				m_AdminCampaignResetPersistenceGuard,
+				m_AdminCampaignResetPersistenceCarrier,
+				relationshipEvidence))
+		{
+			SetAdminCampaignResetPersistenceSetupFailure(
+				"stage lease/carrier relationship rejected: "
+					+ relationshipEvidence);
+			return false;
+		}
+
+		m_bAdminCampaignResetPersistenceGuardExact = true;
+		Print(
+			"Partisan admin reset persistence proof | authority exact | "
+				+ ownerEvidence + " | " + guardEvidence + " | "
+				+ carrierEvidence + " | " + relationshipEvidence);
+		return true;
+	}
+
+	protected HST_AdminCampaignResetPersistenceProofResult CreateAdminCampaignResetPersistenceResult()
+	{
+		HST_AdminCampaignResetPersistenceProofResult result;
+		string createEvidence;
+		if (!HST_AdminCampaignResetPersistenceProofService.CreateStageResult(
+			m_AdminCampaignResetPersistenceOwner,
+			m_AdminCampaignResetPersistenceGuard,
+			result,
+			createEvidence))
+			return null;
+		if (m_AdminCampaignResetPersistenceSourceResolution)
+		{
+			string sourceEvidence;
+			HST_AdminCampaignResetPersistenceProofService
+				.PopulateSourceObservation(
+					result,
+					m_AdminCampaignResetPersistenceSourceResolution,
+					m_AdminCampaignResetPersistenceCarrier,
+					sourceEvidence);
+			result.m_sEvidence = sourceEvidence;
+		}
+		result.m_sExpectedPriorSavePointId
+			= m_AdminCampaignResetPersistenceGuard.m_sExpectedLoadSavePointId;
+		result.m_sObservedPriorSavePointId
+			= m_sAdminCampaignResetPersistencePriorActiveSaveId;
+		result.m_sActiveSavePointId
+			= m_sAdminCampaignResetPersistencePriorActiveSaveId;
+		return result;
+	}
+
+	protected void ObserveAdminCampaignResetPersistenceSource(
+		HST_PersistenceSourceResolution sourceResolution)
+	{
+		if (!m_bAdminCampaignResetPersistenceCLIRequested)
+			return;
+		m_AdminCampaignResetPersistenceSourceResolution = sourceResolution;
+		if (!sourceResolution)
+		{
+			SetAdminCampaignResetPersistenceSetupFailure(
+				"startup source observation is unavailable");
+			return;
+		}
+		m_sAdminCampaignResetPersistenceRestoreSource
+			= sourceResolution.BuildSourceLabel();
+		m_sAdminCampaignResetPersistenceSourceFingerprint
+			= sourceResolution.m_sSelectedSnapshotFingerprint;
+
+		SaveGameManager saveManager = SaveGameManager.Get();
+		SaveGame activeSave;
+		if (saveManager)
+			activeSave = saveManager.GetActiveSave();
+		m_sAdminCampaignResetPersistencePriorActiveSaveId = "";
+		m_sAdminCampaignResetPersistencePriorActiveSaveType = "";
+		m_sAdminCampaignResetPersistencePriorActiveSaveName = "";
+		if (activeSave)
+		{
+			m_sAdminCampaignResetPersistencePriorActiveSaveId
+				= activeSave.GetId();
+			m_sAdminCampaignResetPersistencePriorActiveSaveType
+				= HST_OrdinaryCampaignPersistenceProofService
+					.ResolveSaveTypeLabel(activeSave.GetType());
+			m_sAdminCampaignResetPersistencePriorActiveSaveName
+				= activeSave.GetSavePointName();
+		}
+
+		HST_AdminCampaignResetPersistenceProofResult observation
+			= CreateAdminCampaignResetPersistenceResult();
+		string sourceEvidence;
+		bool sourceExact = observation
+			&& HST_AdminCampaignResetPersistenceProofService
+				.PopulateSourceObservation(
+					observation,
+					sourceResolution,
+					m_AdminCampaignResetPersistenceCarrier,
+					sourceEvidence);
+		bool activeExact;
+		if (m_sAdminCampaignResetPersistenceCLIStage
+			== HST_AdminCampaignResetPersistenceProofService
+				.STAGE_PREPARE_OLD_CHECKPOINT)
+		{
+			activeExact = !activeSave
+				&& m_AdminCampaignResetPersistenceGuard
+					.m_sExpectedLoadSavePointId.IsEmpty();
+		}
+		else
+		{
+			activeExact = activeSave
+				&& m_sAdminCampaignResetPersistencePriorActiveSaveId
+					== m_AdminCampaignResetPersistenceGuard
+						.m_sExpectedLoadSavePointId
+				&& m_sAdminCampaignResetPersistencePriorActiveSaveType
+					== HST_AdminCampaignResetPersistenceProofService
+						.SAVE_TYPE_MANUAL
+				&& m_sAdminCampaignResetPersistencePriorActiveSaveName
+					== HST_AdminCampaignResetPersistenceProofService
+						.MANUAL_SAVE_NAME;
+		}
+		m_bAdminCampaignResetPersistenceSourceExact
+			= sourceExact && activeExact;
+		if (m_bAdminCampaignResetPersistenceSourceExact
+			&& m_sAdminCampaignResetPersistenceCLIStage
+				== HST_AdminCampaignResetPersistenceProofService
+					.STAGE_STALE_NATIVE_NO_SAVE_VERIFY)
+		{
+			m_bAdminCampaignResetPersistenceSavePending = false;
+			m_bAdminCampaignResetPersistenceSaveCreated = false;
+			m_bAdminCampaignResetPersistenceCompletionObserved = false;
+			m_bAdminCampaignResetPersistenceCompletionSucceeded = false;
+			m_bAdminCampaignResetPersistenceAfterSaveObserved = false;
+			m_bAdminCampaignResetPersistenceAfterSaveSucceeded = false;
+			m_sAdminCampaignResetPersistenceCreatedSaveId = "";
+			m_sAdminCampaignResetPersistenceCreatedSaveName = "";
+			string noSaveObserverEvidence;
+			if (!ConnectAdminCampaignResetPersistenceSaveEvents(
+				noSaveObserverEvidence))
+			{
+				m_bAdminCampaignResetPersistenceSourceExact = false;
+				SetAdminCampaignResetPersistenceSetupFailure(
+					"no-save observation could not be armed: "
+						+ noSaveObserverEvidence);
+			}
+			else
+			{
+				m_bAdminCampaignResetPersistenceNoSaveObservationActive
+					= true;
+				m_sAdminCampaignResetPersistenceSaveEvidence
+					= noSaveObserverEvidence;
+			}
+		}
+		if (!m_bAdminCampaignResetPersistenceSourceExact)
+		{
+			SetAdminCampaignResetPersistenceSetupFailure(
+				"startup source rejected | " + sourceEvidence
+					+ string.Format(" | active exact %1", activeExact));
+		}
+	}
+
 	protected void SetOrdinaryCampaignPersistenceSetupFailure(string failure)
 	{
 		if (failure.IsEmpty()
@@ -7246,6 +7752,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				conflictingValue)
 			|| System.GetCLIParam(
 				EXACT_COUNTERATTACK_RESTART_CLI_STAGE_PARAM,
+				conflictingValue)
+			|| System.GetCLIParam(
+				ADMIN_CAMPAIGN_RESET_PERSISTENCE_PROOF_CLI_PARAM,
 				conflictingValue))
 		{
 			SetOrdinaryCampaignPersistenceSetupFailure(
@@ -7660,6 +8169,1305 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			= CreateOrdinaryCampaignPersistenceResult();
 		result.m_sEvidence = m_sOrdinaryCampaignPersistenceCLISetupFailure;
 		SaveOrdinaryCampaignPersistenceResult(result);
+	}
+
+	protected bool SaveAdminCampaignResetPersistenceResult(
+		HST_AdminCampaignResetPersistenceProofResult result)
+	{
+		if (!result)
+			return false;
+		string evidence;
+		if (HST_AdminCampaignResetPersistenceProofService.SaveResult(
+			result,
+			evidence))
+		{
+			Print(string.Format(
+				"Partisan admin reset persistence proof | stage %1 result %2",
+				result.m_sStage,
+				result.m_bSuccess));
+			return true;
+		}
+		Print(
+			"Partisan admin reset persistence proof | result write failed: "
+				+ evidence,
+			LogLevel.WARNING);
+		return false;
+	}
+
+	protected void PublishAdminCampaignResetPersistenceStartupFailure()
+	{
+		if (!m_bAdminCampaignResetPersistenceGuardExact
+			|| m_sAdminCampaignResetPersistenceCLISetupFailure.IsEmpty())
+			return;
+		HST_AdminCampaignResetPersistenceProofResult result
+			= CreateAdminCampaignResetPersistenceResult();
+		if (!result)
+			return;
+		result.m_sEvidence
+			= m_sAdminCampaignResetPersistenceCLISetupFailure;
+		SaveAdminCampaignResetPersistenceResult(result);
+	}
+
+	protected void DisconnectAdminCampaignResetPersistenceSaveEvents()
+	{
+		m_bAdminCampaignResetPersistenceNoSaveObservationActive = false;
+		if (m_bAdminCampaignResetPersistenceSaveEventConnected)
+		{
+			SaveGameManager saveManager = SaveGameManager.Get();
+			if (saveManager)
+			{
+				EventProvider.DisconnectEvent(
+					saveManager.OnSaveCreated,
+					OnAdminCampaignResetPersistenceSaveCreated);
+			}
+			m_bAdminCampaignResetPersistenceSaveEventConnected = false;
+		}
+		if (m_bAdminCampaignResetPersistenceAfterSaveConnected)
+		{
+			SCR_PersistenceSystem persistence
+				= SCR_PersistenceSystem.GetScriptedInstance();
+			if (persistence)
+			{
+				persistence.GetOnAfterSave().Remove(
+					OnAdminCampaignResetPersistenceAfterSave);
+			}
+			m_bAdminCampaignResetPersistenceAfterSaveConnected = false;
+		}
+	}
+
+	protected bool ConnectAdminCampaignResetPersistenceSaveEvents(
+		out string evidence)
+	{
+		evidence = "admin reset persistence save events unavailable";
+		SaveGameManager saveManager = SaveGameManager.Get();
+		SCR_PersistenceSystem persistence
+			= SCR_PersistenceSystem.GetScriptedInstance();
+		if (!saveManager || !persistence)
+			return false;
+		EventProvider.ConnectEvent(
+			saveManager.OnSaveCreated,
+			OnAdminCampaignResetPersistenceSaveCreated);
+		m_bAdminCampaignResetPersistenceSaveEventConnected = true;
+		persistence.GetOnAfterSave().Insert(
+			OnAdminCampaignResetPersistenceAfterSave);
+		m_bAdminCampaignResetPersistenceAfterSaveConnected = true;
+		evidence
+			= "admin reset persistence save-created and after-save events armed";
+		return true;
+	}
+
+	[ReceiverAttribute()]
+	protected void OnAdminCampaignResetPersistenceSaveCreated(SaveGame save)
+	{
+		if ((!m_bAdminCampaignResetPersistenceSavePending
+				&& !m_bAdminCampaignResetPersistenceNoSaveObservationActive)
+			|| m_bAdminCampaignResetPersistenceSaveCreated || !save)
+			return;
+		if (m_bAdminCampaignResetPersistenceNoSaveObservationActive)
+		{
+			m_sAdminCampaignResetPersistenceCreatedSaveId = save.GetId();
+			m_sAdminCampaignResetPersistenceCreatedSaveName
+				= save.GetSavePointName();
+			m_eAdminCampaignResetPersistenceCreatedSaveType = save.GetType();
+			m_bAdminCampaignResetPersistenceSaveCreated = true;
+			return;
+		}
+		if (save.GetType() != ESaveGameType.MANUAL
+			|| save.GetSavePointName()
+				!= HST_AdminCampaignResetPersistenceProofService.MANUAL_SAVE_NAME)
+			return;
+		string savePointId = save.GetId();
+		if (!UUID.IsUUID(savePointId))
+			return;
+		m_sAdminCampaignResetPersistenceCreatedSaveId = savePointId;
+		m_sAdminCampaignResetPersistenceCreatedSaveName
+			= save.GetSavePointName();
+		m_eAdminCampaignResetPersistenceCreatedSaveType = save.GetType();
+		m_bAdminCampaignResetPersistenceSaveCreated = true;
+	}
+
+	protected void OnAdminCampaignResetPersistenceAfterSave(
+		ESaveGameType saveType,
+		bool success)
+	{
+		if (!m_bAdminCampaignResetPersistenceSavePending
+			&& !m_bAdminCampaignResetPersistenceNoSaveObservationActive)
+			return;
+		if (!m_bAdminCampaignResetPersistenceNoSaveObservationActive
+			&& saveType != ESaveGameType.MANUAL)
+			return;
+		m_bAdminCampaignResetPersistenceAfterSaveObserved = true;
+		m_eAdminCampaignResetPersistenceAfterSaveType = saveType;
+		if (success)
+			m_bAdminCampaignResetPersistenceAfterSaveSucceeded = true;
+	}
+
+	protected void OnAdminCampaignResetPersistenceCheckpointCompleted(
+		bool success,
+		Managed context = null)
+	{
+		if (!m_bAdminCampaignResetPersistenceSavePending)
+			return;
+		m_bAdminCampaignResetPersistenceCompletionObserved = true;
+		m_bAdminCampaignResetPersistenceCompletionSucceeded = success;
+	}
+
+	protected void DisableAdminCampaignResetPersistenceExitSave()
+	{
+		SaveGameManager saveManager = SaveGameManager.Get();
+		if (saveManager)
+		{
+			saveManager.SetSavingAllowed(false);
+			m_bAdminCampaignResetPersistenceSavingDisabled = true;
+		}
+	}
+
+	protected void FailAdminCampaignResetPersistenceStage(
+		HST_AdminCampaignResetPersistenceProofResult result,
+		string failure)
+	{
+		DisconnectAdminCampaignResetPersistenceSaveEvents();
+		m_bAdminCampaignResetPersistenceSavePending = false;
+		m_bAdminCampaignResetPersistenceCLIFinalized = true;
+		if (!result)
+			result = CreateAdminCampaignResetPersistenceResult();
+		if (result)
+		{
+			result.m_bSuccess = false;
+			if (result.m_sEvidence.IsEmpty())
+				result.m_sEvidence = failure;
+			else
+				result.m_sEvidence = failure + " | prior "
+					+ result.m_sEvidence;
+			SaveAdminCampaignResetPersistenceResult(result);
+		}
+		DisableAdminCampaignResetPersistenceExitSave();
+		Print(
+			"Partisan admin reset persistence proof | stage failed: "
+				+ failure,
+			LogLevel.WARNING);
+		GetGame().RequestClose();
+	}
+
+	protected bool BeginAdminCampaignResetPersistenceSaveObservation(
+		out string evidence)
+	{
+		DisconnectAdminCampaignResetPersistenceSaveEvents();
+		m_bAdminCampaignResetPersistenceSaveCreated = false;
+		m_bAdminCampaignResetPersistenceCompletionObserved = false;
+		m_bAdminCampaignResetPersistenceCompletionSucceeded = false;
+		m_bAdminCampaignResetPersistenceAfterSaveObserved = false;
+		m_bAdminCampaignResetPersistenceAfterSaveSucceeded = false;
+		m_sAdminCampaignResetPersistenceCreatedSaveId = "";
+		m_sAdminCampaignResetPersistenceCreatedSaveName = "";
+		m_sAdminCampaignResetPersistenceObservedPriorSaveId = "";
+		SaveGameManager saveManager = SaveGameManager.Get();
+		SaveGame activeSave;
+		if (saveManager)
+			activeSave = saveManager.GetActiveSave();
+		if (activeSave)
+			m_sAdminCampaignResetPersistenceObservedPriorSaveId
+				= activeSave.GetId();
+		m_iAdminCampaignResetPersistenceSaveCompletionAttempts = 0;
+		m_fAdminCampaignResetPersistenceSaveCompletionElapsedSeconds = 0;
+		m_eAdminCampaignResetPersistenceExpectedSaveType
+			= ESaveGameType.MANUAL;
+		m_AdminCampaignResetPersistenceCompletionObserver
+			= new SaveGameOperationCallback(
+				OnAdminCampaignResetPersistenceCheckpointCompleted);
+		m_bAdminCampaignResetPersistenceSavePending = true;
+		if (!ConnectAdminCampaignResetPersistenceSaveEvents(evidence))
+		{
+			m_bAdminCampaignResetPersistenceSavePending = false;
+			return false;
+		}
+		m_sAdminCampaignResetPersistenceSaveEvidence = evidence;
+		return true;
+	}
+
+	protected bool ConfigureAdminCampaignResetPersistenceCheckpointRequest(
+		HST_PersistenceCheckpointRequest checkpoint,
+		HST_AdminCampaignResetPersistenceProofResult result,
+		out string evidence)
+	{
+		evidence = "admin reset persistence checkpoint request rejected";
+		m_AdminCampaignResetPersistenceCheckpointRequest = checkpoint;
+		if (!result || !checkpoint || !checkpoint.m_bCampaignCaptured
+			|| !checkpoint.m_bTransientStateStaged
+			|| !checkpoint.m_bSavePointRequested
+			|| checkpoint.m_eSaveType != ESaveGameType.MANUAL
+			|| checkpoint.m_eRequestFlags != 0
+			|| checkpoint.m_sDisplayName
+				!= HST_AdminCampaignResetPersistenceProofService
+					.MANUAL_SAVE_NAME)
+		{
+			if (checkpoint && !checkpoint.m_sEvidence.IsEmpty())
+				evidence += " | " + checkpoint.m_sEvidence;
+			return false;
+		}
+		result.m_bCampaignCaptured = checkpoint.m_bCampaignCaptured;
+		result.m_bTransientStateStaged
+			= checkpoint.m_bTransientStateStaged;
+		result.m_bSavePointRequested = checkpoint.m_bSavePointRequested;
+		result.m_sEvidence += " | "
+			+ m_sAdminCampaignResetPersistenceSaveEvidence
+			+ " | " + checkpoint.m_sEvidence;
+		evidence = result.m_sEvidence;
+		return true;
+	}
+
+	protected bool IsAdminCampaignResetPersistenceCheckpointComplete()
+	{
+		HST_PersistenceCheckpointRequest checkpoint
+			= m_AdminCampaignResetPersistenceCheckpointRequest;
+		return checkpoint && checkpoint.m_bCompletionReceived
+			&& m_bAdminCampaignResetPersistenceCompletionObserved
+			&& m_bAdminCampaignResetPersistenceAfterSaveObserved
+			&& m_bAdminCampaignResetPersistenceSaveCreated;
+	}
+
+	protected bool PopulateAdminCampaignResetPersistenceCheckpointOutcome(
+		HST_AdminCampaignResetPersistenceProofResult result,
+		string expectedPriorSavePointId,
+		int expectedJournalGeneration,
+		out string snapshotFingerprint,
+		out HST_CampaignProfileSaveResolution journalResolution,
+		out string evidence)
+	{
+		snapshotFingerprint = "";
+		journalResolution = null;
+		evidence = "admin reset persistence checkpoint outcome rejected";
+		if (!result || !IsAdminCampaignResetPersistenceCheckpointComplete())
+			return false;
+		HST_PersistenceCheckpointRequest checkpoint
+			= m_AdminCampaignResetPersistenceCheckpointRequest;
+		DisconnectAdminCampaignResetPersistenceSaveEvents();
+		m_bAdminCampaignResetPersistenceSavePending = false;
+
+		SaveGameManager saveManager = SaveGameManager.Get();
+		SaveGame activeSave;
+		if (saveManager)
+			activeSave = saveManager.GetActiveSave();
+		string activeSaveId;
+		if (activeSave)
+			activeSaveId = activeSave.GetId();
+		string createdType
+			= HST_OrdinaryCampaignPersistenceProofService.ResolveSaveTypeLabel(
+				m_eAdminCampaignResetPersistenceCreatedSaveType);
+		bool commitExact = checkpoint.m_bNativeCommitSucceeded
+			&& checkpoint.m_bProfileFallbackSaved
+			&& m_bAdminCampaignResetPersistenceCompletionSucceeded
+			&& m_bAdminCampaignResetPersistenceAfterSaveSucceeded;
+		bool createdExact
+			= UUID.IsUUID(m_sAdminCampaignResetPersistenceCreatedSaveId)
+			&& createdType
+				== HST_AdminCampaignResetPersistenceProofService
+					.SAVE_TYPE_MANUAL
+			&& m_sAdminCampaignResetPersistenceCreatedSaveName
+				== HST_AdminCampaignResetPersistenceProofService
+					.MANUAL_SAVE_NAME
+			&& m_sAdminCampaignResetPersistenceCreatedSaveId
+				!= expectedPriorSavePointId;
+		bool activeExact = createdExact && activeSave
+			&& activeSaveId
+				== m_sAdminCampaignResetPersistenceCreatedSaveId
+			&& activeSave.GetType() == ESaveGameType.MANUAL
+			&& activeSave.GetSavePointName()
+				== HST_AdminCampaignResetPersistenceProofService
+					.MANUAL_SAVE_NAME;
+		bool priorExact
+			= m_sAdminCampaignResetPersistenceObservedPriorSaveId
+				== expectedPriorSavePointId;
+
+		HST_CampaignState readBackState;
+		string readBackEvidence;
+		bool fallbackExact
+			= m_Persistence.ReadCanonicalProfileFallbackSnapshot(
+				readBackState,
+				snapshotFingerprint,
+				readBackEvidence)
+			&& snapshotFingerprint
+				== m_Persistence.GetLastCapturedSnapshotFingerprint();
+		journalResolution = m_Persistence.GetLastProfileJournalResolution();
+		string journalEvidence;
+		bool journalExact = fallbackExact
+			&& HST_AdminCampaignResetPersistenceProofService
+				.ValidateJournalSelection(
+					journalResolution,
+					expectedJournalGeneration,
+					snapshotFingerprint,
+					journalEvidence);
+
+		result.m_sExpectedPriorSavePointId = expectedPriorSavePointId;
+		result.m_sObservedPriorSavePointId
+			= m_sAdminCampaignResetPersistenceObservedPriorSaveId;
+		result.m_sCreatedSavePointId
+			= m_sAdminCampaignResetPersistenceCreatedSaveId;
+		result.m_sActiveSavePointId = activeSaveId;
+		result.m_sCreatedSaveType = createdType;
+		result.m_sCreatedSaveName
+			= m_sAdminCampaignResetPersistenceCreatedSaveName;
+		result.m_bCompletionReceived = checkpoint.m_bCompletionReceived;
+		result.m_bNativeCommitSucceeded
+			= checkpoint.m_bNativeCommitSucceeded;
+		result.m_bProfileMirrorSaved = checkpoint.m_bProfileFallbackSaved;
+		result.m_bCompletionObserverSucceeded
+			= m_bAdminCampaignResetPersistenceCompletionObserved
+				&& m_bAdminCampaignResetPersistenceCompletionSucceeded;
+		result.m_bOnAfterSaveObserved
+			= m_bAdminCampaignResetPersistenceAfterSaveObserved;
+		result.m_bOnAfterSaveSucceeded
+			= m_bAdminCampaignResetPersistenceAfterSaveSucceeded;
+		result.m_bOnSaveCreatedObserved
+			= m_bAdminCampaignResetPersistenceSaveCreated;
+		result.m_bActiveSaveExact = activeExact;
+		result.m_sEvidence += " | " + readBackEvidence + " | "
+			+ journalEvidence;
+		evidence = string.Format(
+			"checkpoint callback/native/mirror/after/created/prior/active/fallback %1/%2/%3/%4/%5/%6/%7/%8",
+			m_bAdminCampaignResetPersistenceCompletionSucceeded,
+			checkpoint.m_bNativeCommitSucceeded,
+			checkpoint.m_bProfileFallbackSaved,
+			m_bAdminCampaignResetPersistenceAfterSaveSucceeded,
+			createdExact,
+			priorExact,
+			activeExact,
+			fallbackExact);
+		evidence += string.Format(
+			" | journal %1 | %2",
+			journalExact,
+			result.m_sEvidence);
+		return commitExact && createdExact && priorExact && activeExact
+			&& fallbackExact && journalExact;
+	}
+
+	protected bool PopulateAdminCampaignResetPersistenceLiveResult(
+		HST_AdminCampaignResetPersistenceProofResult result,
+		HST_CampaignProfileSaveResolution journalResolution,
+		bool requireResetBoundary,
+		out string evidence)
+	{
+		evidence = "admin reset persistence live result rejected";
+		string liveEvidence;
+		bool liveExact = HST_AdminCampaignResetPersistenceProofService
+			.PopulateLiveStateObservation(
+				result,
+				m_State,
+				m_AdminCampaignResetPersistenceCarrier,
+				liveEvidence);
+		string boundaryEvidence = "reset boundary not required";
+		bool boundaryExact = true;
+		if (requireResetBoundary)
+		{
+			boundaryExact = HST_AdminCampaignResetPersistenceProofService
+				.PopulateResetJournalBoundaryObservation(
+					result,
+					journalResolution,
+					m_AdminCampaignResetPersistenceCarrier,
+					boundaryEvidence);
+		}
+		result.m_sEvidence += " | " + liveEvidence + " | "
+			+ boundaryEvidence;
+		evidence = liveEvidence + " | " + boundaryEvidence;
+		return liveExact && boundaryExact;
+	}
+
+	protected bool BeginAdminCampaignResetPersistencePrepareStage(
+		out string evidence)
+	{
+		evidence = "admin reset old checkpoint preparation rejected";
+		if (!m_State || !m_AdminCampaignResetPersistenceCarrier
+			|| !m_bAdminCampaignResetPersistenceSourceExact)
+			return false;
+		string sentinelFingerprint;
+		string sentinelEvidence;
+		if (!HST_AdminCampaignResetPersistenceProofService.InstallOldSentinel(
+			m_State,
+			m_AdminCampaignResetPersistenceCarrier.m_sPayloadNonce,
+			sentinelFingerprint,
+			sentinelEvidence))
+			return false;
+		m_AdminCampaignResetPersistenceCarrier.m_sOldSentinelTaskId
+			= HST_AdminCampaignResetPersistenceProofService
+				.OLD_SENTINEL_TASK_ID;
+		m_AdminCampaignResetPersistenceCarrier.m_sOldSentinelFingerprint
+			= sentinelFingerprint;
+		m_AdminCampaignResetPersistenceCarrier.m_iOldMarkerProjectionEpoch
+			= m_State.m_iMarkerProjectionEpoch;
+		string identityEvidence;
+		if (!HST_AdminCampaignResetPersistenceProofService
+			.InstallPreservedIdentity(
+				m_State,
+				m_AdminCampaignResetPersistenceCarrier,
+				identityEvidence))
+			return false;
+
+		m_AdminCampaignResetPersistencePendingResult
+			= CreateAdminCampaignResetPersistenceResult();
+		if (!m_AdminCampaignResetPersistencePendingResult
+			|| !BeginAdminCampaignResetPersistenceSaveObservation(evidence))
+			return false;
+		m_AdminCampaignResetPersistenceCheckpointRequest
+			= RequestManualCheckpointDetailed(
+				m_AdminCampaignResetPersistenceCompletionObserver);
+		if (!ConfigureAdminCampaignResetPersistenceCheckpointRequest(
+			m_AdminCampaignResetPersistenceCheckpointRequest,
+			m_AdminCampaignResetPersistencePendingResult,
+			evidence))
+			return false;
+		m_iAdminCampaignResetPersistencePhase
+			= ADMIN_CAMPAIGN_RESET_PERSISTENCE_PHASE_BLOCKER_PENDING;
+		evidence = sentinelEvidence + " | " + identityEvidence + " | "
+			+ evidence;
+		return true;
+	}
+
+	protected bool FinalizeAdminCampaignResetPersistencePrepareStage()
+	{
+		HST_AdminCampaignResetPersistenceProofResult result
+			= m_AdminCampaignResetPersistencePendingResult;
+		if (!result)
+		{
+			FailAdminCampaignResetPersistenceStage(
+				null,
+				"old checkpoint result is unavailable");
+			return true;
+		}
+		if (!IsAdminCampaignResetPersistenceCheckpointComplete())
+			return false;
+
+		string snapshotFingerprint;
+		HST_CampaignProfileSaveResolution journalResolution;
+		string checkpointEvidence;
+		bool checkpointExact
+			= PopulateAdminCampaignResetPersistenceCheckpointOutcome(
+				result,
+				"",
+				1,
+				snapshotFingerprint,
+				journalResolution,
+				checkpointEvidence);
+		m_AdminCampaignResetPersistenceCarrier.m_sOldSavePointId
+			= result.m_sCreatedSavePointId;
+		m_AdminCampaignResetPersistenceCarrier.m_sOldSnapshotFingerprint
+			= snapshotFingerprint;
+		m_AdminCampaignResetPersistenceCarrier.m_iOldCheckpointSequence
+			= m_State.m_iPersistenceCheckpointSequence;
+		m_AdminCampaignResetPersistenceCarrier.m_iOldRestoreSequence
+			= m_State.m_iPersistenceRestoreSequence;
+		if (journalResolution && journalResolution.m_Selected)
+		{
+			m_AdminCampaignResetPersistenceCarrier.m_iOldJournalGeneration
+				= journalResolution.m_Selected.m_iGeneration;
+			m_AdminCampaignResetPersistenceCarrier.m_sOldJournalSlot
+				= journalResolution.m_Selected.m_sSlotLabel;
+			m_AdminCampaignResetPersistenceCarrier
+				.m_iOldJournalValidSlotCount
+				= journalResolution.m_iValidCandidateCount;
+			m_AdminCampaignResetPersistenceCarrier.m_bOldJournalChainExact
+				= journalResolution.m_bChainExact;
+		}
+		m_AdminCampaignResetPersistenceCarrier.m_iCompletedStageOrdinal = 0;
+
+		string committedEvidence;
+		bool committedExact = checkpointExact
+			&& HST_AdminCampaignResetPersistenceProofService
+				.PopulateCommittedJournalObservation(
+					result,
+					journalResolution,
+					snapshotFingerprint,
+					committedEvidence);
+		string liveEvidence;
+		bool liveExact = committedExact
+			&& PopulateAdminCampaignResetPersistenceLiveResult(
+				result,
+				journalResolution,
+				false,
+				liveEvidence);
+		string carrierEvidence;
+		bool carrierSaved = liveExact
+			&& HST_AdminCampaignResetPersistenceProofService.SaveCarrier(
+				m_AdminCampaignResetPersistenceCarrier,
+				carrierEvidence);
+		result.m_bSuccess = checkpointExact && committedExact
+			&& liveExact && carrierSaved;
+		result.m_sEvidence += " | " + checkpointEvidence + " | "
+			+ committedEvidence + " | " + liveEvidence + " | "
+			+ carrierEvidence;
+		bool resultSaved
+			= carrierSaved && SaveAdminCampaignResetPersistenceResult(result);
+		if (!result.m_bSuccess || !resultSaved)
+		{
+			FailAdminCampaignResetPersistenceStage(
+				result,
+				"old checkpoint did not satisfy the exact durable contract");
+			return true;
+		}
+		m_bAdminCampaignResetPersistenceCLIFinalized = true;
+		m_AdminCampaignResetPersistencePendingResult = null;
+		DisableAdminCampaignResetPersistenceExitSave();
+		GetGame().RequestClose();
+		return true;
+	}
+
+	protected bool ProbeAdminCampaignResetPersistenceInFlightRejection(
+		out string evidence)
+	{
+		evidence = "admin reset in-flight rejection proof failed";
+		if (!m_State || !m_Persistence
+			|| !m_AdminCampaignResetPersistenceCarrier
+			|| !m_Persistence.IsCheckpointSavePointInFlight())
+			return false;
+		m_bAdminCampaignResetPersistenceInFlightObserved = true;
+
+		string unauthorizedBefore;
+		string unauthorizedBeforeEvidence;
+		string unauthorizedAfter;
+		string unauthorizedAfterEvidence;
+		bool unauthorizedBeforeExact
+			= m_Persistence.BuildCampaignStabilityFingerprint(
+				m_State,
+				false,
+				unauthorizedBefore,
+				unauthorizedBeforeEvidence);
+		bool unauthorizedAccepted = RequestAdminNewCampaignReset(0);
+		bool unauthorizedAfterExact
+			= m_Persistence.BuildCampaignStabilityFingerprint(
+				m_State,
+				false,
+				unauthorizedAfter,
+				unauthorizedAfterEvidence);
+		m_bAdminCampaignResetPersistenceUnauthorizedRejected
+			= !unauthorizedAccepted;
+		m_bAdminCampaignResetPersistenceUnauthorizedStateExact
+			= unauthorizedBeforeExact && unauthorizedAfterExact
+				&& unauthorizedBefore == unauthorizedAfter;
+
+		string beforeEvidence;
+		bool beforeExact = m_Persistence.BuildCampaignStabilityFingerprint(
+			m_State,
+			false,
+			m_sAdminCampaignResetPersistenceRejectedBeforeFingerprint,
+			beforeEvidence);
+		HST_PersistenceCheckpointRequest rejectedCheckpoint;
+		bool resetAccepted = ApplyAuthorizedAdminNewCampaignReset(
+			rejectedCheckpoint);
+		string afterEvidence;
+		bool afterExact = m_Persistence.BuildCampaignStabilityFingerprint(
+			m_State,
+			false,
+			m_sAdminCampaignResetPersistenceRejectedAfterFingerprint,
+			afterEvidence);
+		m_bAdminCampaignResetPersistenceInFlightRejected = !resetAccepted;
+		m_bAdminCampaignResetPersistenceRejectedNoRequest
+			= rejectedCheckpoint == null;
+		m_bAdminCampaignResetPersistenceRejectedStateExact
+			= beforeExact && afterExact
+				&& m_sAdminCampaignResetPersistenceRejectedBeforeFingerprint
+					== m_sAdminCampaignResetPersistenceRejectedAfterFingerprint
+				&& m_bAdminCampaignResetPersistenceUnauthorizedRejected
+				&& m_bAdminCampaignResetPersistenceUnauthorizedStateExact;
+
+		int sentinelCount;
+		string sentinelFingerprint;
+		string sentinelEvidence;
+		m_bAdminCampaignResetPersistenceRejectedSentinelExact
+			= HST_AdminCampaignResetPersistenceProofService.ValidateOldSentinel(
+				m_State,
+				m_AdminCampaignResetPersistenceCarrier.m_sPayloadNonce,
+				sentinelCount,
+				sentinelFingerprint,
+				sentinelEvidence)
+			&& sentinelFingerprint
+				== m_AdminCampaignResetPersistenceCarrier
+					.m_sOldSentinelFingerprint;
+		string playerFingerprint;
+		string identityEvidence;
+		m_bAdminCampaignResetPersistenceRejectedIdentityExact
+			= HST_AdminCampaignResetPersistenceProofService
+				.ValidatePreservedIdentity(
+					m_State,
+					m_AdminCampaignResetPersistenceCarrier,
+					playerFingerprint,
+					identityEvidence);
+		m_bAdminCampaignResetPersistenceRejectedEpochExact
+			= m_State.m_iMarkerProjectionEpoch
+				== m_AdminCampaignResetPersistenceCarrier
+					.m_iOldMarkerProjectionEpoch;
+
+		m_AdminCampaignResetPersistenceCarrier
+			.m_bInFlightCheckpointObserved
+			= m_bAdminCampaignResetPersistenceInFlightObserved;
+		m_AdminCampaignResetPersistenceCarrier.m_bInFlightResetRejected
+			= m_bAdminCampaignResetPersistenceInFlightRejected;
+		m_AdminCampaignResetPersistenceCarrier
+			.m_bRejectedResetReturnedNoCheckpoint
+			= m_bAdminCampaignResetPersistenceRejectedNoRequest;
+		m_AdminCampaignResetPersistenceCarrier
+			.m_sRejectedResetBeforeFingerprint
+			= m_sAdminCampaignResetPersistenceRejectedBeforeFingerprint;
+		m_AdminCampaignResetPersistenceCarrier
+			.m_sRejectedResetAfterFingerprint
+			= m_sAdminCampaignResetPersistenceRejectedAfterFingerprint;
+		m_AdminCampaignResetPersistenceCarrier.m_bRejectedResetStateExact
+			= m_bAdminCampaignResetPersistenceRejectedStateExact;
+		m_AdminCampaignResetPersistenceCarrier
+			.m_bRejectedResetSentinelExact
+			= m_bAdminCampaignResetPersistenceRejectedSentinelExact;
+		m_AdminCampaignResetPersistenceCarrier
+			.m_bRejectedResetIdentityExact
+			= m_bAdminCampaignResetPersistenceRejectedIdentityExact;
+		m_AdminCampaignResetPersistenceCarrier.m_bRejectedResetEpochExact
+			= m_bAdminCampaignResetPersistenceRejectedEpochExact;
+
+		bool exact = m_bAdminCampaignResetPersistenceInFlightObserved
+			&& m_bAdminCampaignResetPersistenceInFlightRejected
+			&& m_bAdminCampaignResetPersistenceRejectedNoRequest
+			&& m_bAdminCampaignResetPersistenceRejectedStateExact
+			&& m_bAdminCampaignResetPersistenceRejectedSentinelExact
+			&& m_bAdminCampaignResetPersistenceRejectedIdentityExact
+			&& m_bAdminCampaignResetPersistenceRejectedEpochExact;
+		evidence = unauthorizedBeforeEvidence + " | "
+			+ unauthorizedAfterEvidence + " | " + beforeEvidence + " | "
+			+ afterEvidence + " | " + sentinelEvidence + " | "
+			+ identityEvidence
+			+ string.Format(
+				" | unauthorized/in-flight/no-request/state/sentinel/identity/epoch %1/%2/%3/%4/%5/%6/%7",
+				m_bAdminCampaignResetPersistenceUnauthorizedRejected,
+				m_bAdminCampaignResetPersistenceInFlightRejected,
+				m_bAdminCampaignResetPersistenceRejectedNoRequest,
+				m_bAdminCampaignResetPersistenceRejectedStateExact,
+				m_bAdminCampaignResetPersistenceRejectedSentinelExact,
+				m_bAdminCampaignResetPersistenceRejectedIdentityExact,
+				m_bAdminCampaignResetPersistenceRejectedEpochExact);
+		return exact;
+	}
+
+	protected bool BeginAdminCampaignResetPersistenceResetStage(
+		out string evidence)
+	{
+		evidence = "admin reset blocker checkpoint preparation rejected";
+		if (!m_State || !m_AdminCampaignResetPersistenceCarrier
+			|| !m_bAdminCampaignResetPersistenceSourceExact)
+			return false;
+		int sentinelCount;
+		string sentinelFingerprint;
+		string sentinelEvidence;
+		if (!HST_AdminCampaignResetPersistenceProofService.ValidateOldSentinel(
+			m_State,
+			m_AdminCampaignResetPersistenceCarrier.m_sPayloadNonce,
+			sentinelCount,
+			sentinelFingerprint,
+			sentinelEvidence)
+			|| sentinelFingerprint
+				!= m_AdminCampaignResetPersistenceCarrier
+					.m_sOldSentinelFingerprint)
+			return false;
+		string playerFingerprint;
+		string identityEvidence;
+		if (!HST_AdminCampaignResetPersistenceProofService
+			.ValidatePreservedIdentity(
+				m_State,
+				m_AdminCampaignResetPersistenceCarrier,
+				playerFingerprint,
+				identityEvidence)
+			|| m_State.m_iMarkerProjectionEpoch
+				!= m_AdminCampaignResetPersistenceCarrier
+					.m_iOldMarkerProjectionEpoch)
+			return false;
+
+		m_AdminCampaignResetPersistencePendingResult
+			= CreateAdminCampaignResetPersistenceResult();
+		if (!m_AdminCampaignResetPersistencePendingResult
+			|| !BeginAdminCampaignResetPersistenceSaveObservation(evidence))
+			return false;
+		m_AdminCampaignResetPersistenceCheckpointRequest
+			= RequestManualCheckpointDetailed(
+				m_AdminCampaignResetPersistenceCompletionObserver);
+		if (!ConfigureAdminCampaignResetPersistenceCheckpointRequest(
+			m_AdminCampaignResetPersistenceCheckpointRequest,
+			m_AdminCampaignResetPersistencePendingResult,
+			evidence))
+			return false;
+		string rejectionEvidence;
+		if (!ProbeAdminCampaignResetPersistenceInFlightRejection(
+			rejectionEvidence))
+		{
+			evidence += " | " + rejectionEvidence;
+			return false;
+		}
+		m_iAdminCampaignResetPersistencePhase
+			= ADMIN_CAMPAIGN_RESET_PERSISTENCE_PHASE_BLOCKER_PENDING;
+		evidence = sentinelEvidence + " | " + identityEvidence + " | "
+			+ rejectionEvidence + " | " + evidence;
+		return true;
+	}
+
+	protected bool BeginAdminCampaignResetPersistenceCommittedReset(
+		out string evidence)
+	{
+		evidence = "authorized admin reset checkpoint preparation rejected";
+		m_AdminCampaignResetPersistencePendingResult
+			= CreateAdminCampaignResetPersistenceResult();
+		HST_AdminCampaignResetPersistenceProofResult result
+			= m_AdminCampaignResetPersistencePendingResult;
+		if (!result)
+			return false;
+		result.m_sExpectedPriorSavePointId
+			= m_AdminCampaignResetPersistenceCarrier.m_sBlockerSavePointId;
+		if (!BeginAdminCampaignResetPersistenceSaveObservation(evidence))
+			return false;
+
+		HST_PersistenceCheckpointRequest resetCheckpoint;
+		bool resetAccepted = ApplyAuthorizedAdminNewCampaignReset(
+			resetCheckpoint,
+			m_AdminCampaignResetPersistenceCompletionObserver);
+		if (!resetAccepted || !resetCheckpoint)
+			return false;
+		bool preparedResetExact
+			= resetCheckpoint.m_bPreparedDetachedSnapshotAccepted
+			&& !resetCheckpoint.m_sPreparedSnapshotFingerprint.IsEmpty()
+			&& resetCheckpoint.m_iPreparedSnapshotCheckpointSequence
+				== m_AdminCampaignResetPersistenceCarrier
+					.m_iBlockerCheckpointSequence + 1
+			&& resetCheckpoint.m_iPreparedSnapshotRestoreSequence
+				== m_AdminCampaignResetPersistenceCarrier
+					.m_iBlockerRestoreSequence;
+		if (!preparedResetExact)
+		{
+			evidence = "authorized admin reset did not use the exact detached prepared-checkpoint seam";
+			if (!resetCheckpoint.m_sEvidence.IsEmpty())
+				evidence += " | " + resetCheckpoint.m_sEvidence;
+			return false;
+		}
+		if (!ConfigureAdminCampaignResetPersistenceCheckpointRequest(
+			resetCheckpoint,
+			result,
+			evidence))
+			return false;
+		m_AdminCampaignResetPersistenceCheckpointRequest = resetCheckpoint;
+		m_iAdminCampaignResetPersistencePhase
+			= ADMIN_CAMPAIGN_RESET_PERSISTENCE_PHASE_RESET_PENDING;
+		evidence += " | reset authority remains transactional until the completion observer reports native plus recovery-journal durability";
+		return true;
+	}
+
+	protected bool FinalizeAdminCampaignResetPersistenceBlockerCheckpoint()
+	{
+		HST_AdminCampaignResetPersistenceProofResult blockerResult
+			= m_AdminCampaignResetPersistencePendingResult;
+		if (!blockerResult)
+		{
+			FailAdminCampaignResetPersistenceStage(
+				null,
+				"blocker checkpoint result is unavailable");
+			return true;
+		}
+		if (!IsAdminCampaignResetPersistenceCheckpointComplete())
+			return false;
+
+		string blockerFingerprint;
+		HST_CampaignProfileSaveResolution journalResolution;
+		string blockerEvidence;
+		bool blockerExact
+			= PopulateAdminCampaignResetPersistenceCheckpointOutcome(
+				blockerResult,
+				m_AdminCampaignResetPersistenceCarrier.m_sOldSavePointId,
+				2,
+				blockerFingerprint,
+				journalResolution,
+				blockerEvidence);
+		m_AdminCampaignResetPersistenceCarrier.m_sBlockerSavePointId
+			= blockerResult.m_sCreatedSavePointId;
+		m_AdminCampaignResetPersistenceCarrier.m_sBlockerSnapshotFingerprint
+			= blockerFingerprint;
+		m_AdminCampaignResetPersistenceCarrier.m_iBlockerCheckpointSequence
+			= m_State.m_iPersistenceCheckpointSequence;
+		m_AdminCampaignResetPersistenceCarrier.m_iBlockerRestoreSequence
+			= m_State.m_iPersistenceRestoreSequence;
+		if (journalResolution && journalResolution.m_Selected)
+		{
+			m_AdminCampaignResetPersistenceCarrier
+				.m_iBlockerJournalGeneration
+				= journalResolution.m_Selected.m_iGeneration;
+			m_AdminCampaignResetPersistenceCarrier.m_sBlockerJournalSlot
+				= journalResolution.m_Selected.m_sSlotLabel;
+			m_AdminCampaignResetPersistenceCarrier
+				.m_iBlockerJournalValidSlotCount
+				= journalResolution.m_iValidCandidateCount;
+			m_AdminCampaignResetPersistenceCarrier
+				.m_bBlockerJournalChainExact
+				= journalResolution.m_bChainExact;
+		}
+		m_AdminCampaignResetPersistenceCarrier.m_bBlockerCompletionReceived
+			= blockerResult.m_bCompletionReceived;
+		m_AdminCampaignResetPersistenceCarrier
+			.m_bBlockerNativeCommitSucceeded
+			= blockerResult.m_bNativeCommitSucceeded;
+		m_AdminCampaignResetPersistenceCarrier.m_bBlockerProfileMirrorSaved
+			= blockerResult.m_bProfileMirrorSaved;
+		m_AdminCampaignResetPersistenceCarrier
+			.m_bBlockerOnAfterSaveSucceeded
+			= blockerResult.m_bOnAfterSaveSucceeded;
+		m_AdminCampaignResetPersistenceCarrier
+			.m_bBlockerOnSaveCreatedObserved
+			= blockerResult.m_bOnSaveCreatedObserved;
+		if (!blockerExact)
+		{
+			FailAdminCampaignResetPersistenceStage(
+				blockerResult,
+				"blocker checkpoint was not durably exact | "
+					+ blockerEvidence);
+			return true;
+		}
+		m_AdminCampaignResetPersistencePendingResult = null;
+		m_AdminCampaignResetPersistenceCheckpointRequest = null;
+		m_iAdminCampaignResetPersistencePhase
+			= ADMIN_CAMPAIGN_RESET_PERSISTENCE_PHASE_RESET_QUEUE;
+		m_iAdminCampaignResetPersistenceSaveQueueAttempts = 0;
+		m_fAdminCampaignResetPersistenceSaveQueueElapsedSeconds = 0;
+		return false;
+	}
+
+	protected void PopulateAdminCampaignResetPersistenceRejectionResult(
+		HST_AdminCampaignResetPersistenceProofResult result)
+	{
+		if (!result || !m_AdminCampaignResetPersistenceCarrier)
+			return;
+		result.m_bInFlightCheckpointObserved
+			= m_AdminCampaignResetPersistenceCarrier
+				.m_bInFlightCheckpointObserved;
+		result.m_bInFlightResetRejected
+			= m_AdminCampaignResetPersistenceCarrier.m_bInFlightResetRejected;
+		result.m_bRejectedResetReturnedNoCheckpoint
+			= m_AdminCampaignResetPersistenceCarrier
+				.m_bRejectedResetReturnedNoCheckpoint;
+		result.m_sRejectedResetBeforeFingerprint
+			= m_AdminCampaignResetPersistenceCarrier
+				.m_sRejectedResetBeforeFingerprint;
+		result.m_sRejectedResetAfterFingerprint
+			= m_AdminCampaignResetPersistenceCarrier
+				.m_sRejectedResetAfterFingerprint;
+		result.m_bRejectedResetStateExact
+			= m_AdminCampaignResetPersistenceCarrier.m_bRejectedResetStateExact;
+		result.m_bRejectedResetSentinelExact
+			= m_AdminCampaignResetPersistenceCarrier
+				.m_bRejectedResetSentinelExact;
+		result.m_bRejectedResetIdentityExact
+			= m_AdminCampaignResetPersistenceCarrier
+				.m_bRejectedResetIdentityExact;
+		result.m_bRejectedResetEpochExact
+			= m_AdminCampaignResetPersistenceCarrier.m_bRejectedResetEpochExact;
+	}
+
+	protected bool FinalizeAdminCampaignResetPersistenceResetCheckpoint()
+	{
+		HST_AdminCampaignResetPersistenceProofResult result
+			= m_AdminCampaignResetPersistencePendingResult;
+		if (!result)
+		{
+			FailAdminCampaignResetPersistenceStage(
+				null,
+				"reset checkpoint result is unavailable");
+			return true;
+		}
+		if (!IsAdminCampaignResetPersistenceCheckpointComplete())
+			return false;
+
+		// The production reset keeps the previous campaign authoritative while the
+		// prepared checkpoint is in flight. Validate the new authority only after
+		// the durability callback has finalized the transaction and swapped roots.
+		int sentinelCount;
+		string sentinelEvidence;
+		m_AdminCampaignResetPersistenceCarrier.m_bResetRemovedSentinel
+			= HST_AdminCampaignResetPersistenceProofService
+				.ValidateOldSentinelAbsent(
+					m_State,
+					sentinelCount,
+					sentinelEvidence);
+		string playerFingerprint;
+		string identityEvidence;
+		m_AdminCampaignResetPersistenceCarrier.m_bResetPreservedIdentity
+			= HST_AdminCampaignResetPersistenceProofService
+				.ValidatePreservedIdentity(
+					m_State,
+					m_AdminCampaignResetPersistenceCarrier,
+					playerFingerprint,
+					identityEvidence);
+		m_AdminCampaignResetPersistenceCarrier.m_iResetMarkerProjectionEpoch
+			= m_State.m_iMarkerProjectionEpoch;
+		m_AdminCampaignResetPersistenceCarrier.m_bResetAdvancedEpoch
+			= m_State.m_iMarkerProjectionEpoch
+				== m_AdminCampaignResetPersistenceCarrier
+					.m_iOldMarkerProjectionEpoch + 1;
+		m_AdminCampaignResetPersistenceCarrier
+			.m_bResetRetainedSequenceFloors
+			= m_State.m_iPersistenceCheckpointSequence
+				== m_AdminCampaignResetPersistenceCarrier
+					.m_iBlockerCheckpointSequence + 1
+			&& m_State.m_iPersistenceRestoreSequence
+				== m_AdminCampaignResetPersistenceCarrier
+					.m_iBlockerRestoreSequence;
+		bool resetAuthorityExact
+			= m_AdminCampaignResetPersistenceCarrier.m_bResetRemovedSentinel
+			&& m_AdminCampaignResetPersistenceCarrier
+				.m_bResetPreservedIdentity
+			&& m_AdminCampaignResetPersistenceCarrier.m_bResetAdvancedEpoch
+			&& m_AdminCampaignResetPersistenceCarrier
+				.m_bResetRetainedSequenceFloors;
+		if (!resetAuthorityExact)
+		{
+			FailAdminCampaignResetPersistenceStage(
+				result,
+				"durable reset callback did not finalize exact campaign authority | "
+					+ sentinelEvidence + " | " + identityEvidence);
+			return true;
+		}
+
+		string resetFingerprint;
+		HST_CampaignProfileSaveResolution journalResolution;
+		string checkpointEvidence;
+		bool checkpointExact
+			= PopulateAdminCampaignResetPersistenceCheckpointOutcome(
+				result,
+				m_AdminCampaignResetPersistenceCarrier.m_sBlockerSavePointId,
+				3,
+				resetFingerprint,
+				journalResolution,
+				checkpointEvidence);
+		m_AdminCampaignResetPersistenceCarrier.m_sResetSavePointId
+			= result.m_sCreatedSavePointId;
+		m_AdminCampaignResetPersistenceCarrier.m_sResetSnapshotFingerprint
+			= resetFingerprint;
+		m_AdminCampaignResetPersistenceCarrier.m_iResetCheckpointSequence
+			= m_State.m_iPersistenceCheckpointSequence;
+		m_AdminCampaignResetPersistenceCarrier.m_iResetRestoreSequence
+			= m_State.m_iPersistenceRestoreSequence;
+		if (journalResolution && journalResolution.m_Selected)
+		{
+			m_AdminCampaignResetPersistenceCarrier.m_iResetJournalGeneration
+				= journalResolution.m_Selected.m_iGeneration;
+			m_AdminCampaignResetPersistenceCarrier.m_sResetJournalSlot
+				= journalResolution.m_Selected.m_sSlotLabel;
+			m_AdminCampaignResetPersistenceCarrier
+				.m_iResetJournalValidSlotCount
+				= journalResolution.m_iValidCandidateCount;
+			m_AdminCampaignResetPersistenceCarrier.m_bResetJournalChainExact
+				= journalResolution.m_bChainExact;
+		}
+		m_AdminCampaignResetPersistenceCarrier.m_iCompletedStageOrdinal = 1;
+		PopulateAdminCampaignResetPersistenceRejectionResult(result);
+
+		string committedEvidence;
+		bool committedExact = checkpointExact
+			&& HST_AdminCampaignResetPersistenceProofService
+				.PopulateCommittedJournalObservation(
+					result,
+					journalResolution,
+					resetFingerprint,
+					committedEvidence);
+		string liveEvidence;
+		bool liveExact = committedExact
+			&& PopulateAdminCampaignResetPersistenceLiveResult(
+				result,
+				journalResolution,
+				true,
+				liveEvidence);
+		string carrierEvidence;
+		bool carrierSaved = liveExact
+			&& HST_AdminCampaignResetPersistenceProofService.SaveCarrier(
+				m_AdminCampaignResetPersistenceCarrier,
+				carrierEvidence);
+		result.m_bSuccess = checkpointExact && committedExact
+			&& liveExact && carrierSaved;
+		result.m_sEvidence += " | " + sentinelEvidence + " | "
+			+ identityEvidence + " | " + checkpointEvidence + " | "
+			+ committedEvidence + " | " + liveEvidence + " | "
+			+ carrierEvidence;
+		bool resultSaved
+			= carrierSaved && SaveAdminCampaignResetPersistenceResult(result);
+		if (!result.m_bSuccess || !resultSaved)
+		{
+			FailAdminCampaignResetPersistenceStage(
+				result,
+				"reset checkpoint did not satisfy the exact durable contract");
+			return true;
+		}
+		m_bAdminCampaignResetPersistenceCLIFinalized = true;
+		m_AdminCampaignResetPersistencePendingResult = null;
+		DisableAdminCampaignResetPersistenceExitSave();
+		GetGame().RequestClose();
+		return true;
+	}
+
+	protected void FinalizeAdminCampaignResetPersistenceVerification()
+	{
+		HST_AdminCampaignResetPersistenceProofResult result
+			= CreateAdminCampaignResetPersistenceResult();
+		if (!result || !m_bAdminCampaignResetPersistenceSourceExact)
+		{
+			FailAdminCampaignResetPersistenceStage(
+				result,
+				"stale-native verification source is not exact");
+			return;
+		}
+		HST_CampaignState selectedReadBack;
+		string selectedFingerprint;
+		string readEvidence;
+		bool readExact = m_Persistence.ReadCanonicalProfileFallbackSnapshot(
+			selectedReadBack,
+			selectedFingerprint,
+			readEvidence)
+			&& selectedFingerprint
+				== m_AdminCampaignResetPersistenceCarrier
+					.m_sResetSnapshotFingerprint;
+		HST_CampaignProfileSaveResolution journalResolution
+			= m_Persistence.GetLastProfileJournalResolution();
+		string liveEvidence;
+		bool liveExact = readExact
+			&& PopulateAdminCampaignResetPersistenceLiveResult(
+				result,
+				journalResolution,
+				true,
+				liveEvidence);
+
+		SaveGameManager saveManager = SaveGameManager.Get();
+		SaveGame activeSave;
+		if (saveManager)
+			activeSave = saveManager.GetActiveSave();
+		string activeSaveId;
+		if (activeSave)
+			activeSaveId = activeSave.GetId();
+		bool activeExact = activeSave
+			&& activeSaveId
+				== m_AdminCampaignResetPersistenceCarrier
+					.m_sBlockerSavePointId
+			&& activeSave.GetType() == ESaveGameType.MANUAL
+			&& activeSave.GetSavePointName()
+				== HST_AdminCampaignResetPersistenceProofService
+					.MANUAL_SAVE_NAME;
+		bool noSaveObserversArmed
+			= m_bAdminCampaignResetPersistenceNoSaveObservationActive
+			&& m_bAdminCampaignResetPersistenceSaveEventConnected
+			&& m_bAdminCampaignResetPersistenceAfterSaveConnected;
+		DisableAdminCampaignResetPersistenceExitSave();
+		result.m_sExpectedPriorSavePointId
+			= m_AdminCampaignResetPersistenceCarrier.m_sBlockerSavePointId;
+		result.m_sObservedPriorSavePointId = activeSaveId;
+		result.m_sActiveSavePointId = activeSaveId;
+		result.m_sCreatedSaveType
+			= HST_AdminCampaignResetPersistenceProofService.SAVE_TYPE_NONE;
+		result.m_bActiveSaveExact = activeExact;
+		result.m_bNoSaveStage = true;
+		result.m_bSavingDisabledBeforeClose
+			= m_bAdminCampaignResetPersistenceSavingDisabled;
+		result.m_bNoCheckpointRequested
+			= !m_Persistence.IsCheckpointSavePointInFlight()
+				&& m_AdminCampaignResetPersistenceCheckpointRequest == null;
+		result.m_bNoSaveEventsObserved
+			= noSaveObserversArmed
+				&& !m_bAdminCampaignResetPersistenceSaveCreated
+				&& !m_bAdminCampaignResetPersistenceCompletionObserved
+				&& !m_bAdminCampaignResetPersistenceAfterSaveObserved;
+		result.m_bActiveSaveUnchanged = activeExact;
+		result.m_bSuccess = liveExact && activeExact
+			&& result.m_bSavingDisabledBeforeClose
+			&& result.m_bNoCheckpointRequested
+			&& result.m_bNoSaveEventsObserved;
+		result.m_sEvidence += " | " + readEvidence + " | "
+			+ liveEvidence
+			+ string.Format(
+				" | no-save observers/disabled/no-request/no-events/active %1/%2/%3/%4/%5",
+				noSaveObserversArmed,
+				result.m_bSavingDisabledBeforeClose,
+				result.m_bNoCheckpointRequested,
+				result.m_bNoSaveEventsObserved,
+				activeExact);
+		DisconnectAdminCampaignResetPersistenceSaveEvents();
+		bool resultSaved = SaveAdminCampaignResetPersistenceResult(result);
+		if (!result.m_bSuccess || !resultSaved)
+		{
+			FailAdminCampaignResetPersistenceStage(
+				result,
+				"stale native save was not rejected by the newer reset journal");
+			return;
+		}
+		m_bAdminCampaignResetPersistenceCLIFinalized = true;
+		GetGame().RequestClose();
+	}
+
+	protected bool WaitForAdminCampaignResetPersistenceCheckpointReadiness(
+		float timeSlice,
+		out bool timedOut,
+		out string evidence)
+	{
+		timedOut = false;
+		evidence = "admin reset persistence checkpoint readiness unavailable";
+		if (m_Persistence
+			&& m_Persistence.CanAcceptImmediateCheckpoint(evidence))
+		{
+			m_iAdminCampaignResetPersistenceSaveQueueAttempts = 0;
+			m_fAdminCampaignResetPersistenceSaveQueueElapsedSeconds = 0;
+			return true;
+		}
+		m_iAdminCampaignResetPersistenceSaveQueueAttempts++;
+		m_fAdminCampaignResetPersistenceSaveQueueElapsedSeconds
+			+= Math.Max(0.0, timeSlice);
+		timedOut
+			= m_fAdminCampaignResetPersistenceSaveQueueElapsedSeconds
+				>= ADMIN_CAMPAIGN_RESET_PERSISTENCE_SAVE_QUEUE_TIMEOUT_SECONDS;
+		return false;
+	}
+
+	protected void FinalizeAdminCampaignResetPersistenceStage(float timeSlice)
+	{
+		if (m_bAdminCampaignResetPersistenceCLIFinalized)
+			return;
+		if (!m_sAdminCampaignResetPersistenceCLISetupFailure.IsEmpty())
+		{
+			FailAdminCampaignResetPersistenceStage(
+				m_AdminCampaignResetPersistencePendingResult,
+				m_sAdminCampaignResetPersistenceCLISetupFailure);
+			return;
+		}
+		if (m_sAdminCampaignResetPersistenceCLIStage
+			== HST_AdminCampaignResetPersistenceProofService
+				.STAGE_STALE_NATIVE_NO_SAVE_VERIFY)
+		{
+			FinalizeAdminCampaignResetPersistenceVerification();
+			return;
+		}
+
+		if (m_iAdminCampaignResetPersistencePhase
+			== ADMIN_CAMPAIGN_RESET_PERSISTENCE_PHASE_INITIAL)
+		{
+			bool queueTimedOut;
+			string readinessEvidence;
+			if (!WaitForAdminCampaignResetPersistenceCheckpointReadiness(
+				timeSlice,
+				queueTimedOut,
+				readinessEvidence))
+			{
+				if (queueTimedOut)
+				{
+					FailAdminCampaignResetPersistenceStage(
+						m_AdminCampaignResetPersistencePendingResult,
+						string.Format(
+							"checkpoint queue timed out after %1 seconds (%2 attempts) | %3",
+							m_fAdminCampaignResetPersistenceSaveQueueElapsedSeconds,
+							m_iAdminCampaignResetPersistenceSaveQueueAttempts,
+							readinessEvidence));
+				}
+				return;
+			}
+			string beginEvidence;
+			bool began;
+			if (m_sAdminCampaignResetPersistenceCLIStage
+				== HST_AdminCampaignResetPersistenceProofService
+					.STAGE_PREPARE_OLD_CHECKPOINT)
+			{
+				began = BeginAdminCampaignResetPersistencePrepareStage(
+					beginEvidence);
+			}
+			else
+			{
+				began = BeginAdminCampaignResetPersistenceResetStage(
+					beginEvidence);
+			}
+			if (!began)
+			{
+				FailAdminCampaignResetPersistenceStage(
+					m_AdminCampaignResetPersistencePendingResult,
+					beginEvidence);
+			}
+			return;
+		}
+		if (m_iAdminCampaignResetPersistencePhase
+			== ADMIN_CAMPAIGN_RESET_PERSISTENCE_PHASE_RESET_QUEUE)
+		{
+			bool resetQueueTimedOut;
+			string resetReadinessEvidence;
+			if (!WaitForAdminCampaignResetPersistenceCheckpointReadiness(
+				timeSlice,
+				resetQueueTimedOut,
+				resetReadinessEvidence))
+			{
+				if (resetQueueTimedOut)
+				{
+					FailAdminCampaignResetPersistenceStage(
+						m_AdminCampaignResetPersistencePendingResult,
+						string.Format(
+							"reset checkpoint queue timed out after %1 seconds (%2 attempts) | %3",
+							m_fAdminCampaignResetPersistenceSaveQueueElapsedSeconds,
+							m_iAdminCampaignResetPersistenceSaveQueueAttempts,
+							resetReadinessEvidence));
+				}
+				return;
+			}
+			string resetBeginEvidence;
+			if (!BeginAdminCampaignResetPersistenceCommittedReset(
+				resetBeginEvidence))
+			{
+				FailAdminCampaignResetPersistenceStage(
+					m_AdminCampaignResetPersistencePendingResult,
+					resetBeginEvidence);
+			}
+			return;
+		}
+
+		if (m_Persistence)
+			m_Persistence.TickPendingCheckpoint(timeSlice);
+		HST_PersistenceCheckpointRequest checkpoint
+			= m_AdminCampaignResetPersistenceCheckpointRequest;
+		if ((checkpoint && checkpoint.m_bCompletionReceived
+				&& (!checkpoint.m_bNativeCommitSucceeded
+					|| !checkpoint.m_bProfileFallbackSaved))
+			|| (m_bAdminCampaignResetPersistenceCompletionObserved
+				&& !m_bAdminCampaignResetPersistenceCompletionSucceeded)
+			|| (m_bAdminCampaignResetPersistenceAfterSaveObserved
+				&& !m_bAdminCampaignResetPersistenceAfterSaveSucceeded))
+		{
+			FailAdminCampaignResetPersistenceStage(
+				m_AdminCampaignResetPersistencePendingResult,
+				"native checkpoint completion or journal mirror reported failure");
+			return;
+		}
+
+		if (m_sAdminCampaignResetPersistenceCLIStage
+			== HST_AdminCampaignResetPersistenceProofService
+				.STAGE_PREPARE_OLD_CHECKPOINT)
+		{
+			if (FinalizeAdminCampaignResetPersistencePrepareStage())
+				return;
+		}
+		else if (m_iAdminCampaignResetPersistencePhase
+			== ADMIN_CAMPAIGN_RESET_PERSISTENCE_PHASE_BLOCKER_PENDING)
+		{
+			if (FinalizeAdminCampaignResetPersistenceBlockerCheckpoint())
+				return;
+		}
+		else if (m_iAdminCampaignResetPersistencePhase
+			== ADMIN_CAMPAIGN_RESET_PERSISTENCE_PHASE_RESET_PENDING)
+		{
+			if (FinalizeAdminCampaignResetPersistenceResetCheckpoint())
+				return;
+		}
+
+		m_iAdminCampaignResetPersistenceSaveCompletionAttempts++;
+		m_fAdminCampaignResetPersistenceSaveCompletionElapsedSeconds
+			+= Math.Max(0.0, timeSlice);
+		if (m_fAdminCampaignResetPersistenceSaveCompletionElapsedSeconds
+			< ADMIN_CAMPAIGN_RESET_PERSISTENCE_SAVE_COMPLETION_TIMEOUT_SECONDS)
+			return;
+		FailAdminCampaignResetPersistenceStage(
+			m_AdminCampaignResetPersistencePendingResult,
+			string.Format(
+				"checkpoint completion timed out after %1 seconds (%2 attempts) | callback/after-save/created %3/%4/%5",
+				m_fAdminCampaignResetPersistenceSaveCompletionElapsedSeconds,
+				m_iAdminCampaignResetPersistenceSaveCompletionAttempts,
+				m_bAdminCampaignResetPersistenceCompletionObserved,
+				m_bAdminCampaignResetPersistenceAfterSaveObserved,
+				m_bAdminCampaignResetPersistenceSaveCreated));
 	}
 
 	protected void DisconnectOrdinaryCampaignPersistenceSaveEvents()
@@ -49204,7 +51012,121 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	{
 		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
 			return false;
+		HST_PersistenceCheckpointRequest resetCheckpoint;
+		return ApplyAuthorizedAdminNewCampaignReset(resetCheckpoint);
+	}
+
+	protected void CancelAdminNewCampaignResetTransaction(
+		HST_AdminNewCampaignResetTransaction transaction,
+		string reason,
+		bool notifyObserver)
+	{
+		if (!transaction)
+			return;
+		bool rollbackExact = true;
+		string rollbackEvidence = "radio restoration was not applied";
+		if (transaction.m_bRadioRestorationApplied
+			&& transaction.m_RadioPlan && m_RadioSites)
+		{
+			rollbackExact = m_RadioSites.RollbackNewCampaignResetPlan(
+				transaction.m_RadioPlan,
+				rollbackEvidence);
+		}
+		if (m_Civilians)
+			m_Civilians.CancelNewCampaignResetPreparation();
+		if (transaction.m_PreviousState)
+		{
+			transaction.m_PreviousState.m_sLastPersistenceStatus
+				= "new campaign reset cancelled before world cleanup: "
+					+ reason + " | " + rollbackEvidence;
+			m_State = transaction.m_PreviousState;
+		}
+		ref SaveGameOperationCallback externalObserver
+			= transaction.m_ExternalCompletionObserver;
+		if (m_AdminNewCampaignResetTransaction == transaction)
+			m_AdminNewCampaignResetTransaction = null;
+		if (!rollbackExact)
+		{
+			Print(
+				"Partisan campaign reset | reversible radio rollback was not exact | "
+					+ rollbackEvidence,
+				LogLevel.ERROR);
+		}
+		if (notifyObserver && externalObserver)
+			externalObserver.InvokeDelegate(false);
+	}
+
+	protected void OnAdminNewCampaignResetCheckpointCompleted(
+		bool success,
+		Managed context = null)
+	{
+		HST_AdminNewCampaignResetTransaction transaction
+			= HST_AdminNewCampaignResetTransaction.Cast(context);
+		if (!transaction
+			|| transaction != m_AdminNewCampaignResetTransaction)
+			return;
+		transaction.m_bDurableCompletionReceived = true;
+		transaction.m_bDurableCompletionSucceeded = success;
+		if (!success)
+		{
+			CancelAdminNewCampaignResetTransaction(
+				transaction,
+				"verified recovery-journal write-ahead commit failed",
+				true);
+			return;
+		}
+
+		if (m_RadioSites && transaction.m_RadioPlan)
+			m_RadioSites.FinalizeNewCampaignResetPlan(
+				transaction.m_RadioPlan);
+		if (m_Civilians)
+			m_Civilians.CommitNewCampaignReset();
+		m_State = transaction.m_ProspectiveState;
+		if (m_Civilians)
+			m_Civilians.ClearResetPreservedPlayerVehicles();
+		if (m_RadioSites)
+			m_RadioSites.ReconcileAfterRestore(m_State);
+		EvaluateCampaignOutcomeNow();
+		if (m_Missions)
+			m_Missions.SyncNextInstanceIdFromState(m_State);
+		RefreshCampaignMarkers();
+		ArmPlayerSpawnSweep(4);
+		m_State.m_sLastPersistenceStatus
+			= "new campaign reset journal committed; live projections reconciled and native replication requested";
+		// The write-ahead reset baseline intentionally precedes live projection
+		// retirement/rebuild. Native staging follows synchronously in the same call;
+		// this later debounce covers any resulting projection metadata as well.
+		MarkMajorCampaignChange(false);
+
+		ref SaveGameOperationCallback externalObserver
+			= transaction.m_ExternalCompletionObserver;
+		m_AdminNewCampaignResetTransaction = null;
+		if (externalObserver)
+			externalObserver.InvokeDelegate(true);
+	}
+
+	// Shared post-authorization reset body. The public command above remains the
+	// only player-facing entry and retains its server/admin gate. A guarded,
+	// disposable restart proof may call this protected seam only after consuming
+	// its host-owned one-use lease so it can observe the exact checkpoint request
+	// and wait for native plus journal durability.
+	protected bool ApplyAuthorizedAdminNewCampaignReset(
+		out HST_PersistenceCheckpointRequest resetCheckpoint,
+		SaveGameOperationCallback completionObserver = null)
+	{
+		resetCheckpoint = null;
+		if (m_AdminNewCampaignResetTransaction)
+		{
+			if (m_State)
+			{
+				m_State.m_sLastPersistenceStatus
+					= "new campaign reset deferred: another reset checkpoint is in flight";
+			}
+			return false;
+		}
 		string resetCheckpointReadiness;
+		if (!m_State)
+			return false;
 		if (!m_Persistence)
 			resetCheckpointReadiness = "persistence service is unavailable";
 		if (!m_Persistence
@@ -49225,6 +51147,12 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		}
 		int retainedRestoreSequence
 			= Math.Max(0, m_State.m_iPersistenceRestoreSequence);
+		if (m_State.m_iMarkerProjectionEpoch >= int.MAX)
+		{
+			m_State.m_sLastPersistenceStatus
+				= "new campaign reset rejected: marker projection epoch exhausted";
+			return false;
+		}
 
 		array<ref HST_PlayerState> existingPlayers = {};
 		foreach (HST_PlayerState player : m_State.m_aPlayers)
@@ -49235,67 +51163,129 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		string commanderIdentityId = m_State.m_sCommanderIdentityId;
 		int nextMarkerProjectionEpoch = Math.Max(1, m_State.m_iMarkerProjectionEpoch + 1);
+		HST_RadioSiteNewCampaignResetPlan radioResetPlan;
 		if (m_RadioSites)
 		{
 			string radioResetFailure;
-			if (!m_RadioSites.PrepareForNewCampaignReset(m_State, radioResetFailure))
+			radioResetPlan = m_RadioSites.BuildNewCampaignResetPlan(
+				m_State,
+				radioResetFailure);
+			if (!radioResetPlan)
 			{
 				m_State.m_sLastPersistenceStatus = "new campaign reset blocked: " + radioResetFailure;
 				return false;
 			}
 		}
-		if (m_Civilians && !m_Civilians.ResetRuntimeSession(m_State))
+		string civilianResetFailure
+			= "civilian reset authority is unavailable";
+		if (!m_Civilians
+			|| !m_Civilians.PrepareNewCampaignReset(
+				m_State,
+				civilianResetFailure))
 		{
 			m_State.m_sLastPersistenceStatus
-				= "new campaign reset blocked: ambient vehicle authority could not be reconciled safely";
+				= "new campaign reset blocked: " + civilianResetFailure;
 			return false;
 		}
-		m_State = CreateInitialCampaignState();
-		// A reset replaces every gameplay row, but it must not reset the durable
-		// ordering clock. The following capture advances this retained checkpoint
-		// sequence so a stale pre-reset journal can never outrank the new campaign.
-		m_State.m_iPersistenceCheckpointSequence
-			= retainedCheckpointSequence;
-		m_State.m_iPersistenceRestoreSequence = retainedRestoreSequence;
-		if (m_Civilians)
-			m_Civilians.ApplyResetPreservedPlayerVehicles(m_State);
-		m_State.m_iMarkerProjectionEpoch = nextMarkerProjectionEpoch;
-		foreach (HST_PlayerState existingPlayer : existingPlayers)
-			m_State.m_aPlayers.Insert(existingPlayer);
-		m_State.m_sCommanderIdentityId = commanderIdentityId;
-		if (m_Authorization)
-			m_Authorization.AssignCommanderOnVacancy(m_State);
-		EnsureCampaignFoundation();
-		if (m_RadioSites)
-			m_RadioSites.ReconcileAfterRestore(m_State);
-		EvaluateCampaignOutcomeNow();
-		m_Missions.SyncNextInstanceIdFromState(m_State);
-		RefreshCampaignMarkers();
-		ArmPlayerSpawnSweep(4);
 
-		// Reset is destructive campaign authority, so do not acknowledge it from
-		// a detached capture alone. Queue an immediate native checkpoint (whose
-		// success callback mirrors the journal), or complete the journal write
-		// synchronously in profile-only operation. Debug isolation was rejected by
-		// the preflight because it cannot make this destructive reset durable.
-		HST_PersistenceCheckpointRequest resetCheckpoint
-			= m_Persistence.RequestManualCheckpointDetailed(m_State);
+		HST_CampaignState prospectiveState = CreateInitialCampaignState();
+		if (!prospectiveState)
+		{
+			m_Civilians.CancelNewCampaignResetPreparation();
+			m_State.m_sLastPersistenceStatus
+				= "new campaign reset blocked: prospective campaign state could not be created";
+			return false;
+		}
+		prospectiveState.m_iPersistenceCheckpointSequence
+			= retainedCheckpointSequence + 1;
+		prospectiveState.m_iPersistenceRestoreSequence
+			= retainedRestoreSequence;
+		prospectiveState.m_iMarkerProjectionEpoch
+			= nextMarkerProjectionEpoch;
+		foreach (HST_PlayerState existingPlayer : existingPlayers)
+			prospectiveState.m_aPlayers.Insert(existingPlayer);
+		prospectiveState.m_sCommanderIdentityId = commanderIdentityId;
+		if (m_Authorization)
+			m_Authorization.AssignCommanderOnVacancy(prospectiveState);
+		EnsureCampaignFoundationForState(prospectiveState);
+		if (!m_Civilians.CopyResetPreservedPlayerVehiclesToState(
+			prospectiveState))
+		{
+			m_Civilians.CancelNewCampaignResetPreparation();
+			m_State.m_sLastPersistenceStatus
+				= "new campaign reset blocked: preserved player vehicles could not be copied into the prospective campaign";
+			return false;
+		}
+		if (m_Missions)
+			m_Missions.SyncNextInstanceIdFromState(prospectiveState);
+		prospectiveState.m_sLastPersistenceStatus
+			= "new campaign reset prepared for durable commit";
+		HST_CampaignSaveData preparedSnapshot = new HST_CampaignSaveData();
+		preparedSnapshot.Capture(prospectiveState);
+		HST_CampaignState detachedProspectiveState
+			= preparedSnapshot.Restore();
+		if (!detachedProspectiveState
+			|| detachedProspectiveState.m_iPersistenceCheckpointSequence
+				!= retainedCheckpointSequence + 1
+			|| detachedProspectiveState.m_iPersistenceRestoreSequence
+				!= retainedRestoreSequence
+			|| detachedProspectiveState.m_iMarkerProjectionEpoch
+				!= nextMarkerProjectionEpoch)
+		{
+			m_Civilians.CancelNewCampaignResetPreparation();
+			m_State.m_sLastPersistenceStatus
+				= "new campaign reset blocked: prospective campaign snapshot did not restore exactly";
+			return false;
+		}
+
+		HST_AdminNewCampaignResetTransaction transaction
+			= new HST_AdminNewCampaignResetTransaction();
+		transaction.m_PreviousState = m_State;
+		transaction.m_ProspectiveState = detachedProspectiveState;
+		transaction.m_PreparedSnapshot = preparedSnapshot;
+		transaction.m_RadioPlan = radioResetPlan;
+		transaction.m_ExternalCompletionObserver = completionObserver;
+		if (m_RadioSites)
+		{
+			string radioApplyFailure;
+			if (!m_RadioSites.ApplyNewCampaignResetPlan(
+				radioResetPlan,
+				radioApplyFailure))
+			{
+				m_Civilians.CancelNewCampaignResetPreparation();
+				m_State.m_sLastPersistenceStatus
+					= "new campaign reset blocked: " + radioApplyFailure;
+				return false;
+			}
+			transaction.m_bRadioRestorationApplied = true;
+		}
+		m_AdminNewCampaignResetTransaction = transaction;
+		SaveGameOperationCallback transactionObserver
+			= new SaveGameOperationCallback(
+				OnAdminNewCampaignResetCheckpointCompleted,
+				transaction);
+		resetCheckpoint
+			= m_Persistence.RequestPreparedManualCheckpointDetailed(
+				preparedSnapshot,
+				detachedProspectiveState,
+				transactionObserver);
+		transaction.m_CheckpointRequest = resetCheckpoint;
 		if (!resetCheckpoint || !resetCheckpoint.WasAccepted())
 		{
-			m_State.m_sLastPersistenceStatus
-				= "new campaign reset applied; immediate durable checkpoint is pending";
+			string checkpointFailure
+				= "prepared reset checkpoint was not accepted";
 			if (resetCheckpoint && !resetCheckpoint.m_sEvidence.IsEmpty())
-				m_State.m_sLastPersistenceStatus += " | "
-					+ resetCheckpoint.m_sEvidence;
-			Print(
-				"Partisan campaign reset | "
-					+ m_State.m_sLastPersistenceStatus,
-				LogLevel.WARNING);
-			MarkMajorCampaignChange(false);
-			// The live reset has already been applied, but the command is not
-			// durably acknowledged. Report failure so callers do not mistake the
-			// pending retry for a committed reset.
+				checkpointFailure += " | " + resetCheckpoint.m_sEvidence;
+			CancelAdminNewCampaignResetTransaction(
+				transaction,
+				checkpointFailure,
+				false);
 			return false;
+		}
+		if (m_AdminNewCampaignResetTransaction == transaction)
+		{
+			m_State.m_sLastPersistenceStatus
+				= "new campaign reset accepted; durable completion pending before world cleanup";
 		}
 		return true;
 	}
@@ -49380,37 +51370,44 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 	protected void EnsureCampaignFoundation()
 	{
-		if (!m_State)
+		EnsureCampaignFoundationForState(m_State);
+	}
+
+	protected void EnsureCampaignFoundationForState(HST_CampaignState state)
+	{
+		if (!state)
 			return;
 
-		m_State.m_iSchemaVersion = HST_CampaignState.SCHEMA_VERSION;
+		state.m_iSchemaVersion = HST_CampaignState.SCHEMA_VERSION;
 		if (m_Preset)
-			m_State.m_sPresetId = m_Preset.m_sPresetId;
-		if (m_State.m_iCampaignSeed == 0 && m_Settings)
-			m_State.m_iCampaignSeed = m_Settings.m_Campaign.m_iCampaignSeed;
-		SanitizeFactionKeys(m_State);
+			state.m_sPresetId = m_Preset.m_sPresetId;
+		if (state.m_iCampaignSeed == 0 && m_Settings)
+			state.m_iCampaignSeed = m_Settings.m_Campaign.m_iCampaignSeed;
+		SanitizeFactionKeys(state);
 
-		if (m_State.m_aFactionPools.Count() == 0)
-			HST_DefaultCatalog.AddDefaultFactionPools(m_State, m_Balance, m_Preset);
-		if (m_State.m_aZones.Count() == 0)
-			HST_DefaultCatalog.AddDefaultZones(m_State, m_Preset);
-		if (m_State.m_aGarrisons.Count() == 0)
-			HST_DefaultCatalog.AddDefaultGarrisons(m_State, m_Preset);
+		if (state.m_aFactionPools.Count() == 0)
+			HST_DefaultCatalog.AddDefaultFactionPools(state, m_Balance, m_Preset);
+		if (state.m_aZones.Count() == 0)
+			HST_DefaultCatalog.AddDefaultZones(state, m_Preset);
+		if (state.m_aGarrisons.Count() == 0)
+			HST_DefaultCatalog.AddDefaultGarrisons(state, m_Preset);
 		if (m_Content)
-			m_Content.EnsureGeneratedContent(m_State, m_Preset);
+			m_Content.EnsureGeneratedContent(state, m_Preset);
 		if (m_RadioSites)
-			m_RadioSites.EnsureSites(m_State);
+			m_RadioSites.EnsureSites(state);
 		if (m_Civilians)
-			m_Civilians.EnsureCivilianZones(m_State);
+			m_Civilians.EnsureCivilianZones(state);
 		if (m_TownInfluence)
-			m_TownInfluence.EnsureRecords(m_State);
-		if (m_Arsenal && m_Arsenal.CleanupInvalidGarageRecords(m_State) > 0)
-			m_State.m_sLastVehicleTargetStatus = "removed invalid saved vehicle/cargo records";
+			m_TownInfluence.EnsureRecords(state);
+		if (m_Arsenal && m_Arsenal.CleanupInvalidGarageRecords(state) > 0)
+			state.m_sLastVehicleTargetStatus
+				= "removed invalid saved vehicle/cargo records";
 
-		if (m_State.m_ePhase == HST_ECampaignPhase.HST_CAMPAIGN_SETUP && m_State.m_bHQDeployed && m_HQ)
+		if (state.m_ePhase == HST_ECampaignPhase.HST_CAMPAIGN_SETUP
+			&& state.m_bHQDeployed && m_HQ)
 		{
-			m_HQ.ResetInitialHQSelection(m_State);
-			m_State.m_sLastPersistenceStatus = "setup HQ selection pending";
+			m_HQ.ResetInitialHQSelection(state);
+			state.m_sLastPersistenceStatus = "setup HQ selection pending";
 			Print("Partisan | setup campaign had a preselected HQ; reset to commander placement flow");
 		}
 	}

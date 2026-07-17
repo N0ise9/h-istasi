@@ -746,7 +746,7 @@ if ($coordinatorText -notmatch "RequestCommanderRebuildHQAssets" -or $coordinato
 if ($coordinatorText -match "BootstrapInitialHideout\(m_State, HST_DefaultCatalog\.GetDefaultHideoutId\(\)\)") {
 	throw "Coordinator must not bootstrap a starter HQ during setup; commander map placement owns initial HQ selection"
 }
-if ($coordinatorText -notmatch "ResetInitialHQSelection\(m_State\)") {
+if ($coordinatorText -notmatch "ResetInitialHQSelection\(state\)") {
 	throw "Coordinator must reset legacy setup saves with bootstrapped HQ state"
 }
 Write-Host "Dedicated Petros prefab OK"
@@ -18596,7 +18596,10 @@ if ([string]::IsNullOrEmpty($schema59DestroyTargetFrameBlock) -or
 	throw "Schema-59 permanent unconfigured ONLINE transmitters must remain dormant before the expensive witness scan"
 }
 
-$schema59NewCampaignResetBlock = Get-ScriptMethodBlock $schema59LifecycleText 'bool PrepareForNewCampaignReset('
+$schema59NewCampaignResetPlanBlock = Get-ScriptMethodBlock $schema59LifecycleText 'HST_RadioSiteNewCampaignResetPlan BuildNewCampaignResetPlan('
+$schema59NewCampaignResetApplyBlock = Get-ScriptMethodBlock $schema59LifecycleText 'bool ApplyNewCampaignResetPlan('
+$schema59NewCampaignResetRollbackBlock = Get-ScriptMethodBlock $schema59LifecycleText 'bool RollbackNewCampaignResetPlan('
+$schema59NewCampaignResetFinalizeBlock = Get-ScriptMethodBlock $schema59LifecycleText 'void FinalizeNewCampaignResetPlan('
 foreach ($schema59NewCampaignResetEntry in @(
 	'site.m_sAuthoredTargetPrefab.IsEmpty()',
 	'IsZeroVectorStatic(site.m_vAuthoredTargetPosition)',
@@ -18606,48 +18609,91 @@ foreach ($schema59NewCampaignResetEntry in @(
 	'HasCandidateClaimedByOtherSite(site.m_sSiteId)',
 	'm_aTransmitterCandidates.Count() != 1',
 	'FrozenAuthoredCandidateMatchesSite(site, authored)',
-	'authoredCandidates.Contains(authored)',
+	'plan.m_aAuthoredCandidates.Contains(authored)',
 	'ResolveDamageManager(authored)',
-	'authoredPriorHealth.Insert(damageManager.GetHealthScaled())',
-	'authoredPriorStates.Insert(damageManager.GetState())',
+	'plan.m_aAuthoredPriorHealth.Insert(damageManager.GetHealthScaled())',
+	'plan.m_aAuthoredPriorStates.Insert(damageManager.GetState())',
+	'plan.m_bPrepared = true'
+)) {
+	if ([string]::IsNullOrEmpty($schema59NewCampaignResetPlanBlock) -or
+		$schema59NewCampaignResetPlanBlock.IndexOf($schema59NewCampaignResetEntry) -lt 0) {
+		throw "Schema-59 new-campaign reset cannot freeze authored transmitter authority: $schema59NewCampaignResetEntry"
+	}
+}
+foreach ($schema59NewCampaignResetEntry in @(
+	'plan.m_bApplied = true',
 	'ApplyAuthoritativeHealth(damageManager, 1.0)',
 	'damageManager.GetState() == EDamageState.DESTROYED',
 	'float.AlmostEqual(damageManager.GetHealthScaled(), 1.0, 0.001)',
-	'rollbackManager,',
-	'authoredPriorHealth[restoreIndex]',
-	'rollbackManager.GetState() != authoredPriorStates[restoreIndex]',
-	'prior physical damage state rollback was not exact',
-	'ClearTrackedProjections(true)'
+	'RollbackNewCampaignResetPlan(',
+	'prior physical damage state rollback was not exact'
 )) {
-	if ([string]::IsNullOrEmpty($schema59NewCampaignResetBlock) -or
-		$schema59NewCampaignResetBlock.IndexOf($schema59NewCampaignResetEntry) -lt 0) {
-		throw "Schema-59 new-campaign reset cannot safely recover authored transmitter authority: $schema59NewCampaignResetEntry"
+	if ([string]::IsNullOrEmpty($schema59NewCampaignResetApplyBlock) -or
+		$schema59NewCampaignResetApplyBlock.IndexOf($schema59NewCampaignResetEntry) -lt 0) {
+		throw "Schema-59 new-campaign reset cannot reversibly apply authored transmitter recovery: $schema59NewCampaignResetEntry"
 	}
 }
-$schema59ResetSnapshotIndex = $schema59NewCampaignResetBlock.IndexOf('authoredPriorHealth.Insert(damageManager.GetHealthScaled())')
-$schema59ResetHealIndex = $schema59NewCampaignResetBlock.IndexOf('ApplyAuthoritativeHealth(damageManager, 1.0)')
-$schema59ResetVerifyIndex = $schema59NewCampaignResetBlock.IndexOf('damageManager.GetState() == EDamageState.DESTROYED')
-$schema59ResetRollbackIndex = $schema59NewCampaignResetBlock.IndexOf('ApplyAuthoritativeHealth(', $schema59ResetVerifyIndex)
-$schema59ResetClearIndex = $schema59NewCampaignResetBlock.LastIndexOf('ClearTrackedProjections(true)')
-if ($schema59ResetSnapshotIndex -lt 0 -or $schema59ResetHealIndex -lt 0 -or
-	$schema59ResetVerifyIndex -lt 0 -or $schema59ResetRollbackIndex -lt 0 -or
-	$schema59ResetClearIndex -lt 0 -or
-	$schema59ResetSnapshotIndex -gt $schema59ResetHealIndex -or
-	$schema59ResetHealIndex -gt $schema59ResetVerifyIndex -or
-	$schema59ResetVerifyIndex -gt $schema59ResetRollbackIndex -or
-	$schema59ResetRollbackIndex -gt $schema59ResetClearIndex) {
-	throw "Schema-59 new-campaign reset must snapshot, recover, verify, and rollback authored health before retiring old campaign-owned projections"
+foreach ($schema59NewCampaignResetEntry in @(
+	'rollbackManager,',
+	'plan.m_aAuthoredPriorHealth[restoreIndex]',
+	'rollbackManager.GetState()',
+	'!= plan.m_aAuthoredPriorStates[restoreIndex]',
+	'plan.m_bApplied = false',
+	'plan.m_bCancelled = true'
+)) {
+	if ([string]::IsNullOrEmpty($schema59NewCampaignResetRollbackBlock) -or
+		$schema59NewCampaignResetRollbackBlock.IndexOf($schema59NewCampaignResetEntry) -lt 0) {
+		throw "Schema-59 new-campaign reset cannot restore prior authored transmitter authority: $schema59NewCampaignResetEntry"
+	}
 }
-$schema59CoordinatorResetBlock = Get-ScriptMethodBlock $schema59CoordinatorText 'bool RequestAdminNewCampaignReset('
-$schema59CoordinatorResetPrepareIndex = $schema59CoordinatorResetBlock.IndexOf('m_RadioSites.PrepareForNewCampaignReset(m_State, radioResetFailure)')
-$schema59CoordinatorResetSwapIndex = $schema59CoordinatorResetBlock.IndexOf('m_State = CreateInitialCampaignState()')
-$schema59CoordinatorResetReconcileIndex = $schema59CoordinatorResetBlock.IndexOf('m_RadioSites.ReconcileAfterRestore(m_State)')
+$schema59ResetApplyMarkIndex = $schema59NewCampaignResetApplyBlock.IndexOf('plan.m_bApplied = true')
+$schema59ResetHealIndex = $schema59NewCampaignResetApplyBlock.IndexOf('ApplyAuthoritativeHealth(damageManager, 1.0)')
+$schema59ResetVerifyIndex = $schema59NewCampaignResetApplyBlock.IndexOf('damageManager.GetState() == EDamageState.DESTROYED')
+$schema59ResetApplyRollbackIndex = $schema59NewCampaignResetApplyBlock.IndexOf('RollbackNewCampaignResetPlan(')
+$schema59ResetClearIndex = $schema59NewCampaignResetFinalizeBlock.IndexOf('ClearTrackedProjections(true)')
+$schema59ResetCommittedIndex = $schema59NewCampaignResetFinalizeBlock.IndexOf('plan.m_bCommitted = true')
+if ($schema59ResetApplyMarkIndex -lt 0 -or $schema59ResetHealIndex -le $schema59ResetApplyMarkIndex -or
+	$schema59ResetVerifyIndex -le $schema59ResetHealIndex -or
+	$schema59ResetApplyRollbackIndex -le $schema59ResetVerifyIndex -or
+	[string]::IsNullOrEmpty($schema59NewCampaignResetFinalizeBlock) -or
+	$schema59ResetClearIndex -lt 0 -or $schema59ResetCommittedIndex -le $schema59ResetClearIndex) {
+	throw "Schema-59 new-campaign reset must mark reversible radio apply before health writes, roll back failures, and retire projections only during post-durability finalization"
+}
+$schema59CoordinatorResetBlock = Get-ScriptMethodBlock $schema59CoordinatorText 'protected bool ApplyAuthorizedAdminNewCampaignReset('
+$schema59CoordinatorResetSuccessBlock = Get-ScriptMethodBlock $schema59CoordinatorText 'protected void OnAdminNewCampaignResetCheckpointCompleted('
+$schema59CoordinatorResetCancelBlock = Get-ScriptMethodBlock $schema59CoordinatorText 'protected void CancelAdminNewCampaignResetTransaction('
+$schema59CoordinatorRadioPlanIndex = $schema59CoordinatorResetBlock.IndexOf('m_RadioSites.BuildNewCampaignResetPlan(')
+$schema59CoordinatorCivilianPlanIndex = $schema59CoordinatorResetBlock.IndexOf('m_Civilians.PrepareNewCampaignReset(')
+$schema59CoordinatorProspectiveIndex = $schema59CoordinatorResetBlock.IndexOf('HST_CampaignState prospectiveState = CreateInitialCampaignState()')
+$schema59CoordinatorRadioApplyIndex = $schema59CoordinatorResetBlock.IndexOf('m_RadioSites.ApplyNewCampaignResetPlan(')
+$schema59CoordinatorCheckpointIndex = $schema59CoordinatorResetBlock.IndexOf('m_Persistence.RequestPreparedManualCheckpointDetailed(')
+$schema59CoordinatorRadioFinalizeIndex = $schema59CoordinatorResetSuccessBlock.IndexOf('m_RadioSites.FinalizeNewCampaignResetPlan(')
+$schema59CoordinatorCivilianCommitIndex = $schema59CoordinatorResetSuccessBlock.IndexOf('m_Civilians.CommitNewCampaignReset()')
+$schema59CoordinatorResetSwapIndex = $schema59CoordinatorResetSuccessBlock.IndexOf('m_State = transaction.m_ProspectiveState')
+$schema59CoordinatorResetReconcileIndex = $schema59CoordinatorResetSuccessBlock.IndexOf('m_RadioSites.ReconcileAfterRestore(m_State)')
+$schema59CoordinatorRadioRollbackIndex = $schema59CoordinatorResetCancelBlock.IndexOf('m_RadioSites.RollbackNewCampaignResetPlan(')
+$schema59CoordinatorCivilianCancelIndex = $schema59CoordinatorResetCancelBlock.IndexOf('m_Civilians.CancelNewCampaignResetPreparation()')
+$schema59CoordinatorOldStateIndex = $schema59CoordinatorResetCancelBlock.IndexOf('m_State = transaction.m_PreviousState')
 if ([string]::IsNullOrEmpty($schema59CoordinatorResetBlock) -or
-	$schema59CoordinatorResetPrepareIndex -lt 0 -or $schema59CoordinatorResetSwapIndex -lt 0 -or
+	[string]::IsNullOrEmpty($schema59CoordinatorResetSuccessBlock) -or
+	[string]::IsNullOrEmpty($schema59CoordinatorResetCancelBlock) -or
+	$schema59CoordinatorRadioPlanIndex -lt 0 -or $schema59CoordinatorCivilianPlanIndex -lt 0 -or
+	$schema59CoordinatorProspectiveIndex -lt 0 -or $schema59CoordinatorRadioApplyIndex -lt 0 -or
+	$schema59CoordinatorCheckpointIndex -lt 0 -or $schema59CoordinatorRadioFinalizeIndex -lt 0 -or
+	$schema59CoordinatorCivilianCommitIndex -lt 0 -or $schema59CoordinatorResetSwapIndex -lt 0 -or
 	$schema59CoordinatorResetReconcileIndex -lt 0 -or
-	$schema59CoordinatorResetPrepareIndex -gt $schema59CoordinatorResetSwapIndex -or
-	$schema59CoordinatorResetSwapIndex -gt $schema59CoordinatorResetReconcileIndex) {
-	throw "Schema-59 admin reset must recover the old radio world before state replacement and reconcile the new campaign afterward"
+	$schema59CoordinatorRadioPlanIndex -gt $schema59CoordinatorCivilianPlanIndex -or
+	$schema59CoordinatorCivilianPlanIndex -gt $schema59CoordinatorProspectiveIndex -or
+	$schema59CoordinatorProspectiveIndex -gt $schema59CoordinatorRadioApplyIndex -or
+	$schema59CoordinatorRadioApplyIndex -gt $schema59CoordinatorCheckpointIndex -or
+	$schema59CoordinatorRadioFinalizeIndex -gt $schema59CoordinatorCivilianCommitIndex -or
+	$schema59CoordinatorCivilianCommitIndex -gt $schema59CoordinatorResetSwapIndex -or
+	$schema59CoordinatorResetSwapIndex -gt $schema59CoordinatorResetReconcileIndex -or
+	$schema59CoordinatorRadioRollbackIndex -lt 0 -or $schema59CoordinatorCivilianCancelIndex -lt 0 -or
+	$schema59CoordinatorOldStateIndex -lt 0 -or
+	$schema59CoordinatorRadioRollbackIndex -gt $schema59CoordinatorCivilianCancelIndex -or
+	$schema59CoordinatorCivilianCancelIndex -gt $schema59CoordinatorOldStateIndex) {
+	throw "Schema-59 admin reset must prepare both old-world authorities, request a prepared checkpoint, finalize cleanup only after success, and restore old authority on failure"
 }
 
 foreach ($schema59StartSignature in @('bool CanStart(', 'bool CanForceStart(')) {
@@ -24706,19 +24752,37 @@ if ([string]::IsNullOrEmpty($schema65ConsequenceResetBlock) -or
 	$schema65ConsequenceResetBlock.IndexOf('m_mMinorExactReceiptFingerprints.Clear()') -lt 0) {
 	throw "Schema-65 consequence reset must clear session-only minor-locality exact receipts"
 }
-$schema65CivilianResetBlock = Get-ScriptMethodBlock $schema65CivilianText 'bool ResetRuntimeSession('
+$schema65CivilianResetPrepareBlock = Get-ScriptMethodBlock $schema65CivilianText 'bool PrepareNewCampaignReset('
+$schema65CivilianResetCommitBlock = Get-ScriptMethodBlock $schema65CivilianText 'void CommitNewCampaignReset('
+$schema65CivilianResetBlock = $schema65CivilianResetPrepareBlock + "`n" + $schema65CivilianResetCommitBlock
 $schema65ResetPrepareIndex = $schema65CivilianResetBlock.IndexOf('PrepareAmbientVehiclePersistence(previousState)')
 $schema65ResetConsequenceIndex = $schema65CivilianResetBlock.IndexOf('m_CivilianConsequences.ResetRuntimeSession()')
 if ($schema65ResetPrepareIndex -lt 0 -or $schema65ResetConsequenceIndex -lt 0 -or
 	$schema65ResetPrepareIndex -gt $schema65ResetConsequenceIndex) {
 	throw "Schema-65 civilian reset must reconcile pending consequences before clearing the consequence session"
 }
-$schema65CoordinatorResetBlock = Get-ScriptMethodBlock $schema65CoordinatorText 'bool RequestAdminNewCampaignReset('
-$schema65CoordinatorCivilianResetIndex = $schema65CoordinatorResetBlock.IndexOf('m_Civilians.ResetRuntimeSession(m_State)')
-$schema65CoordinatorNewStateIndex = $schema65CoordinatorResetBlock.IndexOf('m_State = CreateInitialCampaignState()')
-if ($schema65CoordinatorCivilianResetIndex -lt 0 -or $schema65CoordinatorNewStateIndex -lt 0 -or
-	$schema65CoordinatorCivilianResetIndex -gt $schema65CoordinatorNewStateIndex) {
-	throw "Schema-65 new-campaign reset must clear the old civilian consequence session before replacing campaign state"
+$schema65CoordinatorResetBlock = Get-ScriptMethodBlock $schema65CoordinatorText 'protected bool ApplyAuthorizedAdminNewCampaignReset('
+$schema65CoordinatorResetSuccessBlock = Get-ScriptMethodBlock $schema65CoordinatorText 'protected void OnAdminNewCampaignResetCheckpointCompleted('
+$schema65CoordinatorResetCancelBlock = Get-ScriptMethodBlock $schema65CoordinatorText 'protected void CancelAdminNewCampaignResetTransaction('
+$schema65CoordinatorCivilianPrepareIndex = $schema65CoordinatorResetBlock.IndexOf('m_Civilians.PrepareNewCampaignReset(')
+$schema65CoordinatorCivilianCopyIndex = $schema65CoordinatorResetBlock.IndexOf('m_Civilians.CopyResetPreservedPlayerVehiclesToState(')
+$schema65CoordinatorCheckpointIndex = $schema65CoordinatorResetBlock.IndexOf('m_Persistence.RequestPreparedManualCheckpointDetailed(')
+$schema65CoordinatorCivilianResetIndex = $schema65CoordinatorResetSuccessBlock.IndexOf('m_Civilians.CommitNewCampaignReset()')
+$schema65CoordinatorNewStateIndex = $schema65CoordinatorResetSuccessBlock.IndexOf('m_State = transaction.m_ProspectiveState')
+$schema65CoordinatorClearPreservedIndex = $schema65CoordinatorResetSuccessBlock.IndexOf('m_Civilians.ClearResetPreservedPlayerVehicles()')
+$schema65CoordinatorCivilianCancelIndex = $schema65CoordinatorResetCancelBlock.IndexOf('m_Civilians.CancelNewCampaignResetPreparation()')
+
+if ($schema65CoordinatorCivilianPrepareIndex -lt 0 -or
+	$schema65CoordinatorCivilianCopyIndex -le $schema65CoordinatorCivilianPrepareIndex -or
+	$schema65CoordinatorCheckpointIndex -le $schema65CoordinatorCivilianCopyIndex -or
+	[string]::IsNullOrEmpty($schema65CoordinatorResetSuccessBlock) -or
+	$schema65CoordinatorCivilianResetIndex -lt 0 -or $schema65CoordinatorNewStateIndex -lt 0 -or
+	$schema65CoordinatorClearPreservedIndex -lt 0 -or
+	$schema65CoordinatorCivilianResetIndex -gt $schema65CoordinatorNewStateIndex -or
+	$schema65CoordinatorNewStateIndex -gt $schema65CoordinatorClearPreservedIndex -or
+	[string]::IsNullOrEmpty($schema65CoordinatorResetCancelBlock) -or
+	$schema65CoordinatorCivilianCancelIndex -lt 0) {
+	throw "Schema-65 new-campaign reset must freeze/copy civilian authority into the prospective checkpoint, commit old-world cleanup only after durability, and retain a cancellation path"
 }
 
 if ([string]::IsNullOrEmpty($schema65AmbientRecordBlock) -or
@@ -25143,14 +25207,17 @@ if ($ambientPromoteBlock.IndexOf('!IsLivingAmbientEntity(entity)') -lt 0 -or
 	$ambientPromoteBlock.IndexOf('m_PersistentFieldVehicles.Track(') -lt 0) {
 	throw "Phase-8 ambient vehicle promotion must reject destroyed roots and retain an exact live field binding"
 }
-$ambientResetBlock = Get-ScriptMethodBlock $ambientCivilianText 'bool ResetRuntimeSession('
+$ambientResetPrepareBlock = Get-ScriptMethodBlock $ambientCivilianText 'bool PrepareNewCampaignReset('
+$ambientResetCommitBlock = Get-ScriptMethodBlock $ambientCivilianText 'void CommitNewCampaignReset('
+$ambientResetBlock = $ambientResetPrepareBlock + "`n" + $ambientResetCommitBlock
 if ($ambientResetBlock.IndexOf('CollectPlayerOccupiedVehicleRoots(') -lt 0 -or
 	$ambientResetBlock.IndexOf('m_PersistentFieldVehicles.ResolveForEntity(') -lt 0 -or
-	$ambientResetBlock.IndexOf('m_PersistentFieldVehicles.CleanupForNewCampaignReset(') -lt 0 -or
+	$ambientResetBlock.IndexOf('BuildNewCampaignResetCleanupPlanAfterCapture(') -lt 0 -or
+	$ambientResetBlock.IndexOf('CommitNewCampaignResetCleanupPlan(') -lt 0 -or
 	$ambientResetBlock.IndexOf('vehicle.m_sRuntimeKind == "loot_vehicle"') -lt 0 -or
 	$ambientResetBlock.IndexOf('vehicle.m_sRuntimeKind == "field_vehicle"') -lt 0 -or
 	$ambientResetBlock.IndexOf('vehicle.m_sRuntimeKind == "garage_redeploy"') -lt 0 -or
-	$ambientResetBlock.IndexOf('vehicle.m_sRuntimeKind = "field_vehicle"') -lt 0 -or
+	$ambientResetBlock.IndexOf('preservedVehicle.m_sRuntimeKind = "field_vehicle"') -lt 0 -or
 	$ambientResetBlock.IndexOf('foreach (HST_RuntimeVehicleState existingFieldVehicle') -ge 0) {
 	throw "Phase-8 new-campaign reset must retain only occupied live tracked durable roots and normalize them to field_vehicle"
 }
@@ -25220,12 +25287,15 @@ if ($ambientPersistentCargoIndex -lt 0 -or $ambientPersistentDestroyedIndex -lt 
 	$ambientPersistentCargoIndex -gt $ambientPersistentDestroyedIndex) {
 	throw "Phase-8 destroyed field roots must snapshot cargo position before deletion handling"
 }
-$ambientPersistentResetBlock = Get-ScriptMethodBlock $ambientPersistentFieldText 'bool CleanupForNewCampaignReset('
+$ambientPersistentResetPlanBlock = Get-ScriptMethodBlock $ambientPersistentFieldText 'HST_PersistentFieldVehicleNewCampaignResetPlan BuildNewCampaignResetCleanupPlanAfterCapture('
+$ambientPersistentResetCommitBlock = Get-ScriptMethodBlock $ambientPersistentFieldText 'void CommitNewCampaignResetCleanupPlan('
+$ambientPersistentResetBlock = $ambientPersistentResetPlanBlock + "`n" + $ambientPersistentResetCommitBlock
 foreach ($ambientPersistentResetEntry in @(
-	'PrepareForCapture(state)',
 	'HasLivingPlayerOccupant(entity)',
+	'plan.m_aDeleteRuntimeIds.Insert(runtimeId)',
+	'plan.m_aDeleteEntities.Insert(entity)',
 	'SCR_EntityHelper.DeleteEntityAndChildren(entity)',
-	'RemoveAt(index)'
+	'RemoveAt(bindingIndex)'
 )) {
 	if ($ambientPersistentResetBlock.IndexOf($ambientPersistentResetEntry) -lt 0) {
 		throw "Phase-8 persistent field new-campaign cleanup is incomplete: $ambientPersistentResetEntry"
@@ -36077,7 +36147,7 @@ if ($exactCounterRestartConfigureIndex -lt 0 -or $exactCounterRestartBootGuardIn
 	$exactCounterRestartBootGuardIndex -ge $exactCounterRestartMigrationIndex -or
 	$exactCounterRestartRestoreIndex -ge $exactCounterRestartObserveIndex -or
 	$exactCounterRestartObserveIndex -ge $exactCounterRestartReconcileIndex -or
-	$exactCounterRestartPostInit -notmatch 'if\s*\(\s*!m_bExactCounterattackRestartCLIRequested\s*\r?\n\s*&&\s*!m_bOrdinaryCampaignPersistenceCLIRequested\s*\)' -or
+	$exactCounterRestartPostInit -notmatch 'if\s*\(\s*!m_bExactCounterattackRestartCLIRequested\s*\r?\n\s*&&\s*!m_bAdminCampaignResetPersistenceCLIRequested\s*\r?\n\s*&&\s*!m_bOrdinaryCampaignPersistenceCLIRequested\s*\)' -or
 	$exactCounterRestartPostInit.IndexOf(
 		'HST_ProfilePathService.HasUnresolvedLegacyCampaignAuthority()') -lt 0 -or
 	$exactCounterRestartBootstrap -notmatch 'm_bExactCounterattackRestartStartupReconcileChanged\s*=\s*m_EnemyCounterattackOperations\.ReconcileAfterRestore\s*\(') {
@@ -39324,6 +39394,12 @@ $nativeRestartDataPath = `
 $nativeRestartProofServicePath = `
 	'Scripts/Game/HST/Services/HST_EnemyCounterattackExternalRestartProofService.c'
 $nativeRestartRunnerPath = 'tools/run-exact-counterattack-restart-proof.ps1'
+$adminResetPersistenceProofDataPath = `
+	'Scripts/Game/HST/Data/HST_AdminCampaignResetPersistenceProof.c'
+$adminResetPersistenceProofServicePath = `
+	'Scripts/Game/HST/Services/HST_AdminCampaignResetPersistenceProofService.c'
+$adminResetPersistenceProofRunnerPath = `
+	'tools/run-admin-campaign-reset-persistence-proof.ps1'
 foreach ($nativePersistenceRequiredPath in @(
 		$nativeCampaignSaveDataPath,
 		$nativeCampaignPersistentStatePath,
@@ -39337,6 +39413,9 @@ foreach ($nativePersistenceRequiredPath in @(
 		$nativeRestartDataPath,
 		$nativeRestartProofServicePath,
 		$nativeRestartRunnerPath,
+		$adminResetPersistenceProofDataPath,
+		$adminResetPersistenceProofServicePath,
+		$adminResetPersistenceProofRunnerPath,
 		'Missions/HST_Dev.conf',
 		'Missions/HST_Everon.conf'
 	)) {
@@ -39360,6 +39439,12 @@ $nativeRestartDataText = Get-Content -Raw $nativeRestartDataPath
 $nativeRestartProofServiceText = `
 	Get-Content -Raw $nativeRestartProofServicePath
 $nativeRestartRunnerText = Get-Content -Raw $nativeRestartRunnerPath
+$adminResetPersistenceProofDataText = `
+	Get-Content -Raw $adminResetPersistenceProofDataPath
+$adminResetPersistenceProofServiceText = `
+	Get-Content -Raw $adminResetPersistenceProofServicePath
+$adminResetPersistenceProofRunnerText = `
+	Get-Content -Raw $adminResetPersistenceProofRunnerPath
 
 if ($campaignSchemaVersion -ne 71) {
 	throw 'The verified two-generation recovery journal and monotonic checkpoint ordering require Campaign Schema 71'
@@ -40446,10 +40531,28 @@ $nativeProductionCompletionBlock = Get-ScriptMethodBlock `
 	$nativePersistenceServiceText 'protected void OnCheckpointSavePointCompleted('
 $nativeCaptureAndTrackBlock = Get-ScriptMethodBlock `
 	$nativePersistenceServiceText 'HST_CampaignSaveData CaptureAndTrackState('
+$nativePreparedCheckpointBlock = Get-ScriptMethodBlock `
+	$nativePersistenceServiceText 'HST_PersistenceCheckpointRequest RequestPreparedManualCheckpointDetailed('
+$nativePreparedCheckpointCloneBlock = Get-ScriptMethodBlock `
+	$nativePersistenceServiceText 'protected bool CloneAndValidatePreparedCheckpointSnapshot('
+$nativePreparedCheckpointReadinessBlock = Get-ScriptMethodBlock `
+	$nativePersistenceServiceText 'protected bool ResolvePreparedCheckpointReadiness('
+$nativePreparedCheckpointReleaseBlock = Get-ScriptMethodBlock `
+	$nativePersistenceServiceText 'protected void ReleasePreparedCheckpointContext('
+$nativeCheckpointTimeoutBlock = Get-ScriptMethodBlock `
+	$nativePersistenceServiceText 'protected void TickCheckpointCommitTimeout('
+$nativeCheckpointCancelBlock = Get-ScriptMethodBlock `
+	$nativePersistenceServiceText 'void CancelPendingCheckpointRequest('
 $nativeImmediateCheckpointReadinessBlock = Get-ScriptMethodBlock `
 	$nativePersistenceServiceText 'bool CanAcceptImmediateCheckpoint('
-$nativeAdminResetBlock = Get-ScriptMethodBlock `
+$nativeAdminResetPublicBlock = Get-ScriptMethodBlock `
 	$nativeCoordinatorText 'bool RequestAdminNewCampaignReset('
+$nativeAdminResetBlock = Get-ScriptMethodBlock `
+	$nativeCoordinatorText 'protected bool ApplyAuthorizedAdminNewCampaignReset('
+$nativeAdminResetSuccessBlock = Get-ScriptMethodBlock `
+	$nativeCoordinatorText 'protected void OnAdminNewCampaignResetCheckpointCompleted('
+$nativeAdminResetCancelBlock = Get-ScriptMethodBlock `
+	$nativeCoordinatorText 'protected void CancelAdminNewCampaignResetTransaction('
 foreach ($nativeRestoredEntry in @(
 		'persistence.WasDataLoaded()',
 		'ResolveNativeCampaignState(persistence)',
@@ -40565,8 +40668,12 @@ if ([string]::IsNullOrEmpty($nativeProductionCompletionBlock) -or
 	$nativeProductionCompletionBlock.IndexOf(
 		'request.m_bProfileFallbackSaved = profileMirrorSaved;') -lt 0 -or
 	$nativeProductionCompletionBlock.IndexOf(
+		'bool durableSuccess;') -lt 0 -or
+	$nativeProductionCompletionBlock.IndexOf(
+		'durableSuccess = success && profileMirrorSaved;') -lt 0 -or
+	$nativeProductionCompletionBlock.IndexOf(
 		'if (!success || !profileMirrorSaved)') -lt 0) {
-	throw 'Native-active checkpoints must mirror the pending snapshot only after a successful native callback and retain mirror failure for retry'
+	throw 'Native completion must mirror ordinary snapshots after success while retaining prepared write-ahead journal authority and rearming failed native replication'
 }
 foreach ($nativeDetachedCaptureEntry in @(
 		'if (m_bCheckpointSavePointInFlight)',
@@ -40585,6 +40692,192 @@ if ($nativeCaptureAndTrackBlock.IndexOf(
 		'm_LastCapturedSave.Capture(state)') -ge 0) {
 	throw 'Checkpoint capture must not mutate and reuse a DTO that an in-flight callback can mirror'
 }
+
+foreach ($nativePreparedCheckpointRequestField in @(
+		'bool m_bPreparedDetachedSnapshotAccepted;',
+		'string m_sPreparedSnapshotFingerprint;',
+		'int m_iPreparedSnapshotCheckpointSequence;',
+		'int m_iPreparedSnapshotRestoreSequence;',
+		'bool m_bPreparedDetachedCheckpoint;'
+	)) {
+	if ($nativePersistenceServiceText.IndexOf(
+		$nativePreparedCheckpointRequestField) -lt 0) {
+		throw "Prepared reset checkpoints are missing observable request or rollback authority: $nativePreparedCheckpointRequestField"
+	}
+}
+foreach ($nativePreparedCheckpointCloneEntry in @(
+		'preparedSnapshot.m_iSchemaVersion',
+		'!= HST_CampaignState.SCHEMA_VERSION',
+		'preparedSnapshot.m_iPersistenceCheckpointSequence <= 0',
+		'preparedSnapshot.m_iPersistenceRestoreSequence < 0',
+		'HST_CampaignPersistentState.TrySerializeSnapshot(',
+		'JsonLoadContext cloneContext = new JsonLoadContext();',
+		'cloneContext.LoadFromString(exactPayload)',
+		'cloneContext.ReadValue("", detachedSnapshot)',
+		'HST_CampaignPersistentState.BuildSnapshotFingerprint(',
+		'cloneFingerprint != snapshotFingerprint',
+		'!= preparedSnapshot.m_iPersistenceCheckpointSequence',
+		'!= preparedSnapshot.m_iPersistenceRestoreSequence'
+	)) {
+	if ([string]::IsNullOrEmpty($nativePreparedCheckpointCloneBlock) -or
+		$nativePreparedCheckpointCloneBlock.IndexOf(
+			$nativePreparedCheckpointCloneEntry) -lt 0) {
+		throw "Prepared reset checkpoint exact-clone validation is incomplete: $nativePreparedCheckpointCloneEntry"
+	}
+}
+foreach ($nativePreparedCheckpointReadinessEntry in @(
+		'm_ProfileJournal.CanAdvanceVerifiedSnapshot(journalEvidence)',
+		'm_ProfileJournal.ResolveJournal()',
+		'm_TrackedCampaignSave.m_iPersistenceCheckpointSequence',
+		'm_LastCapturedSave.m_iPersistenceCheckpointSequence',
+		'm_RestoredCampaignSave.m_iPersistenceCheckpointSequence',
+		'journalResolution.m_Selected.m_SaveData',
+		'nativeState.GetSnapshot()',
+		'detachedSnapshot.m_iPersistenceCheckpointSequence',
+		'<= highestKnownCheckpointSequence',
+		'CanRequestSavePoint(saveManager)',
+		'persistence.StartTracking(nativeState, false)',
+		'persistence.GetConfig(nativeState) == null'
+	)) {
+	if ([string]::IsNullOrEmpty($nativePreparedCheckpointReadinessBlock) -or
+		$nativePreparedCheckpointReadinessBlock.IndexOf(
+			$nativePreparedCheckpointReadinessEntry) -lt 0) {
+		throw "Prepared reset checkpoint monotonic/readiness fencing is incomplete: $nativePreparedCheckpointReadinessEntry"
+	}
+}
+$nativePreparedCloneIndex = $nativePreparedCheckpointBlock.IndexOf(
+	'CloneAndValidatePreparedCheckpointSnapshot(')
+$nativePreparedReadinessIndex = $nativePreparedCheckpointBlock.IndexOf(
+	'ResolvePreparedCheckpointReadiness(')
+$nativePreparedAcceptedIndex = $nativePreparedCheckpointBlock.IndexOf(
+	'request.m_bPreparedDetachedSnapshotAccepted = true;')
+$nativePreparedProfileIndex = $nativePreparedCheckpointBlock.IndexOf(
+	'SaveProfileFallback(detachedSnapshot)')
+$nativePreparedProfileFailureIndex = $nativePreparedCheckpointBlock.IndexOf(
+	'if (!request.m_bProfileFallbackSaved)')
+$nativePreparedTrackedIndex = $nativePreparedCheckpointBlock.IndexOf(
+	'm_TrackedCampaignSave = detachedSnapshot;')
+$nativePreparedProfileObserverIndex = $nativePreparedCheckpointBlock.IndexOf(
+	'completionObserver.InvokeDelegate(true);')
+$nativePreparedCarrierMutationIndex = $nativePreparedCheckpointBlock.IndexOf(
+	'nativeState.SetSnapshotForSave(detachedSnapshot);')
+$nativePreparedTransientSaveIndex = $nativePreparedCheckpointBlock.IndexOf(
+	'persistence.Save(nativeState, ESaveGameType.MANUAL)')
+$nativePreparedPendingIndex = $nativePreparedCheckpointBlock.IndexOf(
+	'm_PendingCheckpointSaveData = detachedSnapshot;')
+$nativePreparedSavePointIndex = $nativePreparedCheckpointBlock.IndexOf(
+	'saveManager.RequestSavePoint(')
+if ([string]::IsNullOrEmpty($nativePreparedCheckpointBlock) -or
+	$nativePreparedCheckpointBlock.IndexOf(
+		'request.m_sDisplayName = "Partisan manual checkpoint";') -lt 0 -or
+	$nativePreparedCheckpointBlock.IndexOf('m_bCampaignDebugIsolationActive') -lt 0 -or
+	$nativePreparedCheckpointBlock.IndexOf('m_bCheckpointSavePointInFlight') -lt 0 -or
+	$nativePreparedCloneIndex -lt 0 -or
+	$nativePreparedReadinessIndex -le $nativePreparedCloneIndex -or
+	$nativePreparedAcceptedIndex -le $nativePreparedReadinessIndex -or
+	$nativePreparedProfileIndex -le $nativePreparedAcceptedIndex -or
+	$nativePreparedProfileFailureIndex -le $nativePreparedProfileIndex -or
+	$nativePreparedTrackedIndex -le $nativePreparedProfileFailureIndex -or
+	$nativePreparedProfileObserverIndex -le $nativePreparedTrackedIndex -or
+	$nativePreparedCarrierMutationIndex -le $nativePreparedProfileObserverIndex -or
+	$nativePreparedTransientSaveIndex -le $nativePreparedCarrierMutationIndex -or
+	$nativePreparedPendingIndex -le $nativePreparedTransientSaveIndex -or
+	$nativePreparedSavePointIndex -le $nativePreparedPendingIndex -or
+	$nativePreparedCheckpointBlock.IndexOf(
+		'm_CheckpointCallbackContext.m_bPreparedDetachedCheckpoint = true;') -lt 0 -or
+	$nativePreparedCheckpointBlock.IndexOf(
+		'm_PendingCheckpointObserver = null;') -lt 0 -or
+	$nativePreparedCheckpointBlock.IndexOf(
+		'native transient staging failed after journal commit; reset remains committed and native repair is pending') -lt 0 -or
+	$nativePreparedCheckpointBlock.IndexOf('EnsureMajorChangePending();') -lt 0 -or
+	$nativePreparedCheckpointBlock.IndexOf('PrepareStateForCapture(') -ge 0 -or
+	$nativePreparedCheckpointBlock.IndexOf('CaptureAndTrackState(') -ge 0 -or
+	$nativePreparedCheckpointBlock.IndexOf('previousNativeSnapshot') -ge 0 -or
+	$nativePreparedCheckpointBlock.IndexOf('RestorePreparedCheckpoint') -ge 0 -or
+	([regex]::Matches(
+		$nativePreparedCheckpointBlock,
+		'completionObserver\.InvokeDelegate\(')).Count -ne 1 -or
+	([regex]::Matches(
+		$nativePreparedCheckpointBlock,
+		'persistence\.Save\(')).Count -ne 1) {
+	throw 'Prepared reset checkpoint admission must clone and fence first, synchronously commit one verified journal generation and notify exactly once, then stage native replication without any rollback of the committed reset'
+}
+
+if ([string]::IsNullOrEmpty($nativePreparedCheckpointReleaseBlock) -or
+	$nativePreparedCheckpointReleaseBlock.IndexOf(
+		'callbackContext.m_bPreparedDetachedCheckpoint = false;') -lt 0) {
+	throw 'Prepared reset native replication context must release its prepared marker after terminal observation'
+}
+$nativePreparedCompletionPreparedIndex = $nativeProductionCompletionBlock.IndexOf(
+	'if (preparedCheckpoint && request)')
+$nativePreparedCompletionReuseIndex = $nativeProductionCompletionBlock.IndexOf(
+	'profileMirrorSaved = request.m_bProfileFallbackSaved;')
+$nativePreparedCompletionOrdinaryMirrorIndex = $nativeProductionCompletionBlock.IndexOf(
+	'profileMirrorSaved = SaveProfileFallback(pendingSaveData);')
+$nativePreparedCompletionDurableIndex = $nativeProductionCompletionBlock.IndexOf(
+	'durableSuccess = profileMirrorSaved;')
+$nativePreparedCompletionReleaseIndex = $nativeProductionCompletionBlock.IndexOf(
+	'ReleasePreparedCheckpointContext(callbackContext);')
+$nativePreparedCompletionRepairIndex = $nativeProductionCompletionBlock.IndexOf(
+	'if (!success || !profileMirrorSaved)')
+$nativePreparedCompletionClearIndex = $nativeProductionCompletionBlock.IndexOf(
+	'ClearPendingCheckpointRequest();')
+$nativePreparedCompletionObserverIndex = $nativeProductionCompletionBlock.IndexOf(
+	'observer.InvokeDelegate(durableSuccess);')
+$nativePreparedTimeoutReleaseIndex = $nativeCheckpointTimeoutBlock.IndexOf(
+	'ReleasePreparedCheckpointContext(m_CheckpointCallbackContext);')
+$nativePreparedTimeoutAuthorityIndex = $nativeCheckpointTimeoutBlock.IndexOf(
+	'verified write-ahead journal remains authoritative and native repair is pending')
+$nativePreparedTimeoutRepairIndex = $nativeCheckpointTimeoutBlock.IndexOf(
+	'EnsureMajorChangePending();')
+$nativePreparedTimeoutClearIndex = $nativeCheckpointTimeoutBlock.IndexOf(
+	'ClearPendingCheckpointRequest();')
+$nativePreparedCancelReleaseIndex = $nativeCheckpointCancelBlock.IndexOf(
+	'ReleasePreparedCheckpointContext(m_CheckpointCallbackContext);')
+$nativePreparedCancelAuthorityIndex = $nativeCheckpointCancelBlock.IndexOf(
+	'verified write-ahead journal remains authoritative')
+$nativePreparedCancelSequenceIndex = $nativeCheckpointCancelBlock.IndexOf(
+	'm_iCheckpointRequestSequence++;')
+$nativePreparedCancelClearIndex = $nativeCheckpointCancelBlock.IndexOf(
+	'ClearPendingCheckpointRequest();')
+if ($nativePreparedCompletionPreparedIndex -lt 0 -or
+	$nativePreparedCompletionReuseIndex -le $nativePreparedCompletionPreparedIndex -or
+	$nativePreparedCompletionOrdinaryMirrorIndex -le $nativePreparedCompletionReuseIndex -or
+	$nativePreparedCompletionDurableIndex -le $nativePreparedCompletionOrdinaryMirrorIndex -or
+	$nativePreparedCompletionReleaseIndex -le $nativePreparedCompletionDurableIndex -or
+	$nativePreparedCompletionRepairIndex -le $nativePreparedCompletionReleaseIndex -or
+	$nativePreparedCompletionClearIndex -le $nativePreparedCompletionRepairIndex -or
+	$nativePreparedCompletionObserverIndex -le $nativePreparedCompletionClearIndex -or
+	$nativeProductionCompletionBlock.IndexOf('RestorePreparedCheckpoint') -ge 0 -or
+	$nativePreparedTimeoutReleaseIndex -lt 0 -or
+	$nativePreparedTimeoutAuthorityIndex -le $nativePreparedTimeoutReleaseIndex -or
+	$nativePreparedTimeoutRepairIndex -le $nativePreparedTimeoutAuthorityIndex -or
+	$nativePreparedTimeoutClearIndex -le $nativePreparedTimeoutRepairIndex -or
+	$nativeCheckpointTimeoutBlock.IndexOf('RestorePreparedCheckpoint') -ge 0 -or
+	$nativePreparedCancelReleaseIndex -lt 0 -or
+	$nativePreparedCancelAuthorityIndex -le $nativePreparedCancelReleaseIndex -or
+	$nativePreparedCancelSequenceIndex -le $nativePreparedCancelReleaseIndex -or
+	$nativePreparedCancelClearIndex -le $nativePreparedCancelSequenceIndex) {
+	throw 'Prepared reset native completion must reuse the write-ahead receipt without a second mirror or rollback; failure, timeout, and cancellation must retain journal authority and schedule native repair'
+}
+
+foreach ($nativeAdminResetTransactionEntry in @(
+		'class HST_AdminNewCampaignResetTransaction',
+		'ref HST_CampaignState m_PreviousState;',
+		'ref HST_CampaignState m_ProspectiveState;',
+		'ref HST_CampaignSaveData m_PreparedSnapshot;',
+		'ref HST_RadioSiteNewCampaignResetPlan m_RadioPlan;',
+		'ref HST_PersistenceCheckpointRequest m_CheckpointRequest;',
+		'ref SaveGameOperationCallback m_ExternalCompletionObserver;',
+		'bool m_bRadioRestorationApplied;',
+		'bool m_bDurableCompletionReceived;',
+		'bool m_bDurableCompletionSucceeded;'
+	)) {
+	if ($nativeCoordinatorText.IndexOf($nativeAdminResetTransactionEntry) -lt 0) {
+		throw "Administrative reset transaction is missing frozen authority or observable durability state: $nativeAdminResetTransactionEntry"
+	}
+}
+
 $nativeAdminResetReadinessIndex = $nativeAdminResetBlock.IndexOf(
 	'm_Persistence.CanAcceptImmediateCheckpoint(')
 $nativeAdminResetRetainedCheckpointIndex = $nativeAdminResetBlock.IndexOf(
@@ -40593,26 +40886,69 @@ $nativeAdminResetExhaustionIndex = $nativeAdminResetBlock.IndexOf(
 	'retainedCheckpointSequence >= int.MAX')
 $nativeAdminResetRetainedRestoreIndex = $nativeAdminResetBlock.IndexOf(
 	'int retainedRestoreSequence')
-$nativeAdminResetMutationIndex = $nativeAdminResetBlock.IndexOf(
-	'm_State = CreateInitialCampaignState();')
-$nativeAdminResetRadioSideEffectIndex = $nativeAdminResetBlock.IndexOf(
-	'm_RadioSites.PrepareForNewCampaignReset(')
-$nativeAdminResetCivilianSideEffectIndex = $nativeAdminResetBlock.IndexOf(
-	'm_Civilians.ResetRuntimeSession(')
+$nativeAdminResetRadioPlanIndex = $nativeAdminResetBlock.IndexOf(
+	'm_RadioSites.BuildNewCampaignResetPlan(')
+$nativeAdminResetCivilianPlanIndex = $nativeAdminResetBlock.IndexOf(
+	'm_Civilians.PrepareNewCampaignReset(')
+$nativeAdminResetProspectiveIndex = $nativeAdminResetBlock.IndexOf(
+	'HST_CampaignState prospectiveState = CreateInitialCampaignState();')
 $nativeAdminResetCheckpointAssignmentIndex = $nativeAdminResetBlock.IndexOf(
-	'm_State.m_iPersistenceCheckpointSequence')
+	'prospectiveState.m_iPersistenceCheckpointSequence')
 $nativeAdminResetCheckpointAssignmentIndex = $nativeAdminResetBlock.IndexOf(
-	'= retainedCheckpointSequence;',
+	'= retainedCheckpointSequence + 1;',
 	[Math]::Max(0, $nativeAdminResetCheckpointAssignmentIndex))
 $nativeAdminResetRestoreAssignmentIndex = $nativeAdminResetBlock.IndexOf(
-	'm_State.m_iPersistenceRestoreSequence = retainedRestoreSequence;')
+	'prospectiveState.m_iPersistenceRestoreSequence')
+$nativeAdminResetCopyVehiclesIndex = $nativeAdminResetBlock.IndexOf(
+	'm_Civilians.CopyResetPreservedPlayerVehiclesToState(')
+$nativeAdminResetPreparedCaptureIndex = $nativeAdminResetBlock.IndexOf(
+	'preparedSnapshot.Capture(prospectiveState);')
+$nativeAdminResetDetachedRestoreIndex = $nativeAdminResetBlock.IndexOf(
+	'preparedSnapshot.Restore();')
+$nativeAdminResetRadioApplyIndex = $nativeAdminResetBlock.IndexOf(
+	'm_RadioSites.ApplyNewCampaignResetPlan(')
+$nativeAdminResetTransactionPublishIndex = $nativeAdminResetBlock.IndexOf(
+	'm_AdminNewCampaignResetTransaction = transaction;')
 $nativeAdminResetCheckpointIndex = $nativeAdminResetBlock.IndexOf(
-	'm_Persistence.RequestManualCheckpointDetailed(m_State)')
+	'm_Persistence.RequestPreparedManualCheckpointDetailed(')
+$nativeAdminResetPostCommitGuardIndex = $nativeAdminResetBlock.IndexOf(
+	'if (m_AdminNewCampaignResetTransaction == transaction)',
+	[Math]::Max(0, $nativeAdminResetCheckpointIndex))
 $nativeAdminResetAcceptedIndex = $nativeAdminResetBlock.IndexOf(
-	'!resetCheckpoint.WasAccepted()')
+	'!resetCheckpoint || !resetCheckpoint.WasAccepted()')
 $nativeAdminResetRejectedBlock = Get-ScriptMethodBlock `
 	$nativeAdminResetBlock 'if (!resetCheckpoint || !resetCheckpoint.WasAccepted())'
+$nativeAdminResetFailureIndex = $nativeAdminResetSuccessBlock.IndexOf(
+	'if (!success)')
+$nativeAdminResetFailureCancelIndex = $nativeAdminResetSuccessBlock.IndexOf(
+	'CancelAdminNewCampaignResetTransaction(')
+$nativeAdminResetRadioFinalizeIndex = $nativeAdminResetSuccessBlock.IndexOf(
+	'm_RadioSites.FinalizeNewCampaignResetPlan(')
+$nativeAdminResetCivilianCommitIndex = $nativeAdminResetSuccessBlock.IndexOf(
+	'm_Civilians.CommitNewCampaignReset()')
+$nativeAdminResetStateSwapIndex = $nativeAdminResetSuccessBlock.IndexOf(
+	'm_State = transaction.m_ProspectiveState;')
+$nativeAdminResetPreservedClearIndex = $nativeAdminResetSuccessBlock.IndexOf(
+	'm_Civilians.ClearResetPreservedPlayerVehicles()')
+$nativeAdminResetReconcileIndex = $nativeAdminResetSuccessBlock.IndexOf(
+	'm_RadioSites.ReconcileAfterRestore(m_State)')
+$nativeAdminResetExternalSuccessIndex = $nativeAdminResetSuccessBlock.IndexOf(
+	'externalObserver.InvokeDelegate(true);')
+$nativeAdminResetRollbackIndex = $nativeAdminResetCancelBlock.IndexOf(
+	'm_RadioSites.RollbackNewCampaignResetPlan(')
+$nativeAdminResetCivilianCancelIndex = $nativeAdminResetCancelBlock.IndexOf(
+	'm_Civilians.CancelNewCampaignResetPreparation()')
+$nativeAdminResetOldStateRestoreIndex = $nativeAdminResetCancelBlock.IndexOf(
+	'm_State = transaction.m_PreviousState;')
+$nativeAdminResetTransactionClearIndex = $nativeAdminResetCancelBlock.IndexOf(
+	'm_AdminNewCampaignResetTransaction = null;')
+$nativeAdminResetExternalFailureIndex = $nativeAdminResetCancelBlock.IndexOf(
+	'externalObserver.InvokeDelegate(false);')
 if ([string]::IsNullOrEmpty($nativeAdminResetBlock) -or
+	[string]::IsNullOrEmpty($nativeAdminResetPublicBlock) -or
+	$nativeAdminResetPublicBlock.IndexOf('!Replication.IsServer()') -lt 0 -or
+	$nativeAdminResetPublicBlock.IndexOf('!CanPlayerUseAdminActions(playerId)') -lt 0 -or
+	$nativeAdminResetPublicBlock.IndexOf('ApplyAuthorizedAdminNewCampaignReset(resetCheckpoint)') -lt 0 -or
 	[string]::IsNullOrEmpty($nativeImmediateCheckpointReadinessBlock) -or
 	$nativeImmediateCheckpointReadinessBlock.IndexOf(
 		'm_bCheckpointSavePointInFlight') -lt 0 -or
@@ -40626,28 +40962,56 @@ if ([string]::IsNullOrEmpty($nativeAdminResetBlock) -or
 	$nativeImmediateCheckpointReadinessBlock.IndexOf(
 		'CanRequestSavePoint(saveManager)') -lt 0 -or
 	$nativeAdminResetReadinessIndex -lt 0 -or
-	$nativeAdminResetRadioSideEffectIndex -le $nativeAdminResetReadinessIndex -or
-	$nativeAdminResetCivilianSideEffectIndex -le $nativeAdminResetReadinessIndex -or
 	$nativeAdminResetRetainedCheckpointIndex -le $nativeAdminResetReadinessIndex -or
 	$nativeAdminResetExhaustionIndex -le $nativeAdminResetRetainedCheckpointIndex -or
 	$nativeAdminResetRetainedRestoreIndex -le $nativeAdminResetExhaustionIndex -or
-	$nativeAdminResetMutationIndex -le $nativeAdminResetReadinessIndex -or
-	$nativeAdminResetMutationIndex -le $nativeAdminResetRetainedRestoreIndex -or
-	$nativeAdminResetCheckpointAssignmentIndex -le $nativeAdminResetMutationIndex -or
+	$nativeAdminResetRadioPlanIndex -le $nativeAdminResetRetainedRestoreIndex -or
+	$nativeAdminResetCivilianPlanIndex -le $nativeAdminResetRadioPlanIndex -or
+	$nativeAdminResetProspectiveIndex -le $nativeAdminResetCivilianPlanIndex -or
+	$nativeAdminResetCheckpointAssignmentIndex -le $nativeAdminResetProspectiveIndex -or
 	$nativeAdminResetRestoreAssignmentIndex -le $nativeAdminResetCheckpointAssignmentIndex -or
-	$nativeAdminResetCheckpointIndex -le $nativeAdminResetRestoreAssignmentIndex -or
+	$nativeAdminResetCopyVehiclesIndex -le $nativeAdminResetRestoreAssignmentIndex -or
+	$nativeAdminResetPreparedCaptureIndex -le $nativeAdminResetCopyVehiclesIndex -or
+	$nativeAdminResetDetachedRestoreIndex -le $nativeAdminResetPreparedCaptureIndex -or
+	$nativeAdminResetRadioApplyIndex -le $nativeAdminResetDetachedRestoreIndex -or
+	$nativeAdminResetTransactionPublishIndex -le $nativeAdminResetRadioApplyIndex -or
+	$nativeAdminResetCheckpointIndex -le $nativeAdminResetTransactionPublishIndex -or
+	$nativeAdminResetPostCommitGuardIndex -le $nativeAdminResetCheckpointIndex -or
 	$nativeAdminResetAcceptedIndex -le $nativeAdminResetCheckpointIndex -or
 	[string]::IsNullOrEmpty($nativeAdminResetRejectedBlock) -or
-	$nativeAdminResetRejectedBlock.IndexOf('MarkMajorCampaignChange(false);') -lt 0 -or
+	$nativeAdminResetRejectedBlock.IndexOf(
+		'CancelAdminNewCampaignResetTransaction(') -lt 0 -or
 	$nativeAdminResetRejectedBlock.IndexOf('return false;') -lt 0 -or
 	$nativeAdminResetBlock.IndexOf(
 		'Math.Max(0, m_State.m_iPersistenceCheckpointSequence)') -lt 0 -or
 	$nativeAdminResetBlock.IndexOf(
 		'Math.Max(0, m_State.m_iPersistenceRestoreSequence)') -lt 0 -or
 	$nativeAdminResetBlock.IndexOf(
-		'new campaign reset applied; immediate durable checkpoint is pending') -lt 0 -or
-	$nativeAdminResetBlock.IndexOf('CaptureAndTrackState(m_State)') -ge 0) {
-	throw 'Admin reset must preflight immediate persistence, retain durable order, and queue a real checkpoint while surfacing and rearming any post-mutation deferral'
+		'new campaign reset accepted; durable completion pending before world cleanup') -lt 0 -or
+	$nativeAdminResetBlock.IndexOf(
+		'm_Civilians.CancelNewCampaignResetPreparation()') -lt 0 -or
+	$nativeAdminResetBlock.IndexOf(
+		'new SaveGameOperationCallback(') -lt 0 -or
+	$nativeAdminResetBlock.IndexOf(
+		'OnAdminNewCampaignResetCheckpointCompleted') -lt 0 -or
+	$nativeAdminResetBlock.IndexOf('CaptureAndTrackState(') -ge 0 -or
+	$nativeAdminResetBlock -match '(?m)^\s*m_State\s*=' -or
+	[string]::IsNullOrEmpty($nativeAdminResetSuccessBlock) -or
+	$nativeAdminResetFailureIndex -lt 0 -or
+	$nativeAdminResetFailureCancelIndex -le $nativeAdminResetFailureIndex -or
+	$nativeAdminResetRadioFinalizeIndex -le $nativeAdminResetFailureCancelIndex -or
+	$nativeAdminResetCivilianCommitIndex -le $nativeAdminResetRadioFinalizeIndex -or
+	$nativeAdminResetStateSwapIndex -le $nativeAdminResetCivilianCommitIndex -or
+	$nativeAdminResetPreservedClearIndex -le $nativeAdminResetStateSwapIndex -or
+	$nativeAdminResetReconcileIndex -le $nativeAdminResetPreservedClearIndex -or
+	$nativeAdminResetExternalSuccessIndex -le $nativeAdminResetReconcileIndex -or
+	[string]::IsNullOrEmpty($nativeAdminResetCancelBlock) -or
+	$nativeAdminResetRollbackIndex -lt 0 -or
+	$nativeAdminResetCivilianCancelIndex -le $nativeAdminResetRollbackIndex -or
+	$nativeAdminResetOldStateRestoreIndex -le $nativeAdminResetCivilianCancelIndex -or
+	$nativeAdminResetTransactionClearIndex -le $nativeAdminResetOldStateRestoreIndex -or
+	$nativeAdminResetExternalFailureIndex -le $nativeAdminResetTransactionClearIndex) {
+	throw 'Admin reset must preserve public authorization, freeze a detached prospective state, commit the write-ahead journal while old state remains live, finalize synchronously at that observer boundary before native replication, and restore exact old authority only when the journal commit is rejected'
 }
 
 $nativePostInitBlock = Get-ScriptMethodBlock `
@@ -40658,6 +41022,14 @@ $nativeBootstrapFailureBlock = Get-ScriptMethodBlock `
 	$nativeCoordinatorText 'protected void FailCampaignPersistenceBootstrap('
 $nativeFrameBlock = Get-ScriptMethodBlock `
 	$nativeCoordinatorText 'override void EOnFrame('
+$nativeDeleteBlock = Get-ScriptMethodBlock `
+	$nativeCoordinatorText 'override void OnDelete('
+if ([string]::IsNullOrEmpty($nativeFrameBlock) -or
+	$nativeFrameBlock -notmatch '(?s)if\s*\(m_AdminNewCampaignResetTransaction\).*?m_Persistence\.TickPendingCheckpoint\(timeSlice\);.*?return;' -or
+	[string]::IsNullOrEmpty($nativeDeleteBlock) -or
+	$nativeDeleteBlock -notmatch '(?s)if\s*\(m_AdminNewCampaignResetTransaction\).*?CancelAdminNewCampaignResetTransaction\(.*?false\);.*?m_Persistence\.CancelPendingCheckpointRequest\(\);') {
+	throw 'Administrative reset transaction must continue its native timeout while normal simulation is frozen and roll back old-world authority before persistence teardown'
+}
 $nativeFallbackCreateIndex = $nativePostInitBlock.IndexOf(
 	'm_CampaignPersistenceBootstrapFallbackState = CreateInitialCampaignState();')
 $nativeFrameMaskIndex = $nativePostInitBlock.IndexOf(
@@ -41304,6 +41676,158 @@ $ordinaryPersistenceProofText = Get-Content -Raw `
 	'Scripts/Game/HST/Services/HST_OrdinaryCampaignPersistenceProofService.c'
 $ordinaryPersistenceRunnerText = Get-Content -Raw `
 	'tools/run-ordinary-campaign-persistence-proof.ps1'
+
+foreach ($adminResetProofDataEntry in @(
+		'class HST_AdminCampaignResetPersistenceProofOwner',
+		'class HST_AdminCampaignResetPersistenceProofGuard',
+		'class HST_AdminCampaignResetPersistenceProofCarrier',
+		'class HST_AdminCampaignResetPersistenceProofResult',
+		'bool m_bDisposableProfile;',
+		'bool m_bAllowCanonicalCampaignOverwrite;',
+		'bool m_bNoSaveStage;',
+		'string m_sOldSentinelTaskId;',
+		'string m_sBlockerSavePointId;',
+		'string m_sResetSavePointId;',
+		'bool m_bInFlightResetRejected;',
+		'bool m_bRejectedResetStateExact;',
+		'bool m_bResetRemovedSentinel;',
+		'bool m_bResetPreservedIdentity;',
+		'bool m_bResetAdvancedEpoch;',
+		'bool m_bResetRetainedSequenceFloors;',
+		'bool m_bNoCheckpointRequested;',
+		'bool m_bNoSaveEventsObserved;',
+		'bool m_bActiveSaveUnchanged;'
+	)) {
+	if ($adminResetPersistenceProofDataText.IndexOf(
+		$adminResetProofDataEntry) -lt 0) {
+		throw "Administrative reset persistence proof DTO contract is incomplete: $adminResetProofDataEntry"
+	}
+}
+foreach ($adminResetProofServiceEntry in @(
+		'static const int EXPECTED_STAGE_COUNT = 3;',
+		'= "prepare_old_checkpoint";',
+		'static const string STAGE_RESET_COMMIT = "reset_commit";',
+		'= "stale_native_no_save_verify";',
+		'static bool StageCreatesSavePoints(',
+		'static bool StageIsNoSave(',
+		'guard.m_bAllowCanonicalCampaignOverwrite',
+		'!= StageCreatesSavePoints(expectedStage)',
+		'guard.m_bNoSaveStage != StageIsNoSave(expectedStage)',
+		'static bool LoadValidateAndConsumeGuard(',
+		'FileIO.DeleteFile(path);',
+		'static bool ValidateGuardCarrierRelationship(',
+		'static bool ValidateResetJournalBoundary(',
+		'protected static bool ValidateResultNoSave(',
+		'result.m_bNoCheckpointRequested',
+		'result.m_bNoSaveEventsObserved',
+		'result.m_bActiveSaveUnchanged',
+		'static bool SaveResult('
+	)) {
+	if ($adminResetPersistenceProofServiceText.IndexOf(
+		$adminResetProofServiceEntry) -lt 0) {
+		throw "Administrative reset persistence proof service is missing fail-closed cross-process authority: $adminResetProofServiceEntry"
+	}
+}
+if (([regex]::Matches(
+	$adminResetPersistenceProofServiceText,
+	'FileIO\.DeleteFile\(')).Count -ne 1) {
+	throw 'Administrative reset persistence proof service may delete only its consumed one-use stage lease'
+}
+foreach ($adminResetCoordinatorProofEntry in @(
+		'hstAdminCampaignResetPersistenceProof',
+		'hstAdminCampaignResetPersistenceStage',
+		'hstAdminCampaignResetPersistenceRunId',
+		'hstAdminCampaignResetPersistenceSessionNonce',
+		'hstAdminCampaignResetPersistenceStageNonce',
+		'BeginAdminCampaignResetPersistenceCommittedReset(',
+		'ApplyAuthorizedAdminNewCampaignReset(',
+		'FinalizeAdminCampaignResetPersistenceResetCheckpoint(',
+		'DisconnectAdminCampaignResetPersistenceSaveEvents()'
+	)) {
+	if ($nativeCoordinatorText.IndexOf($adminResetCoordinatorProofEntry) -lt 0) {
+		throw "Administrative reset persistence proof is not wired through the production coordinator reset/checkpoint path: $adminResetCoordinatorProofEntry"
+	}
+}
+
+$ordinaryLibraryOnlyParameterIndex = $ordinaryPersistenceRunnerText.IndexOf(
+	'[switch]$LibraryOnly')
+$ordinaryLibraryOnlyReturnIndex = $ordinaryPersistenceRunnerText.IndexOf(
+	'if ($LibraryOnly) {')
+$ordinaryLibraryOnlyExecutionIndex = $ordinaryPersistenceRunnerText.IndexOf(
+	'$repositoryRoot = [IO.Path]::GetFullPath(')
+if ($ordinaryLibraryOnlyParameterIndex -lt 0 -or
+	$ordinaryLibraryOnlyReturnIndex -le $ordinaryLibraryOnlyParameterIndex -or
+	$ordinaryLibraryOnlyExecutionIndex -le $ordinaryLibraryOnlyReturnIndex) {
+	throw 'Ordinary persistence runner must expose a LibraryOnly return seam before any guarded run state is created'
+}
+foreach ($ordinaryLibraryOnlyExportEntry in @(
+		'function Get-CampaignJournalFileState',
+		'function Test-CampaignJournalFileStateExact',
+		'function Read-JsonArtifact',
+		'function New-RootSnapshot',
+		'function Remove-ExactOwnedGuard',
+		'function Invoke-GuardedProcess'
+	)) {
+	$ordinaryLibraryOnlyExportIndex = $ordinaryPersistenceRunnerText.IndexOf(
+		$ordinaryLibraryOnlyExportEntry)
+	if ($ordinaryLibraryOnlyExportIndex -lt 0 -or
+		$ordinaryLibraryOnlyExportIndex -ge $ordinaryLibraryOnlyReturnIndex) {
+		throw "Ordinary persistence LibraryOnly seam does not export required guarded helper: $ordinaryLibraryOnlyExportEntry"
+	}
+}
+foreach ($adminResetProofRunnerEntry in @(
+		'run-ordinary-campaign-persistence-proof.ps1',
+		'-LibraryOnly',
+		'$script:Stages = @(',
+		'"prepare_old_checkpoint"',
+		'"reset_commit"',
+		'"stale_native_no_save_verify"',
+		'prepare_old_checkpoint = "new_campaign"',
+		'reset_commit = "native"',
+		'stale_native_no_save_verify = "profile_fallback"',
+		'$readJsonArtifactCommand = ${function:Read-JsonArtifact}',
+		'$candidateCarrier = & $readJsonArtifactCommand -Path $carrierPath',
+		'prepare_old_checkpoint = 2',
+		'reset_commit = 5',
+		'stale_native_no_save_verify = 6',
+		'"-loadSessionSave", $LoadSavePointId',
+		'"-keepSessionSave"',
+		'Get-CampaignJournalFileState',
+		'Test-CampaignJournalFileStateExact',
+		'CarrierUnchanged = $carrierUnchanged',
+		'-Stage "prepare_old_checkpoint"',
+		'-Stage "reset_commit"',
+		'-Stage "stale_native_no_save_verify"',
+		'-LoadSavePointId $u0',
+		'-LoadSavePointId $u1',
+		'$stageOutcomes.Count -ne 3',
+		'FinalJournalReadOnly',
+		'FinalCarrierReadOnly',
+		'CleanupPhaseErrorCount'
+	)) {
+	if ($adminResetPersistenceProofRunnerText.IndexOf(
+		$adminResetProofRunnerEntry) -lt 0) {
+		throw "Administrative reset persistence runner does not prove its exact three-process stale-native boundary: $adminResetProofRunnerEntry"
+	}
+}
+if ($adminResetPersistenceProofRunnerText.IndexOf('Add-Type') -ge 0) {
+	throw 'Administrative reset persistence runner must reuse the ordinary LibraryOnly process helper and must not compile a second job/process helper type'
+}
+foreach ($adminResetProofRunnerPath in @(
+		$adminResetPersistenceProofRunnerPath,
+		'tools/run-ordinary-campaign-persistence-proof.ps1'
+	)) {
+	$adminResetProofRunnerTokens = $null
+	$adminResetProofRunnerParseErrors = $null
+	[void][System.Management.Automation.Language.Parser]::ParseFile(
+		(Resolve-Path -LiteralPath $adminResetProofRunnerPath),
+		[ref]$adminResetProofRunnerTokens,
+		[ref]$adminResetProofRunnerParseErrors)
+	if ($adminResetProofRunnerParseErrors.Count -ne 0) {
+		throw "Campaign persistence proof runner has PowerShell parser errors: $adminResetProofRunnerPath"
+	}
+}
+
 $nativeCheckoutWatchExclusionBlock = Get-ScriptMethodBlock `
 	$nativeRestartRunnerText 'function Get-CheckoutWatchExclusions {'
 $ordinaryCheckoutWatchExclusionBlock = Get-ScriptMethodBlock `
@@ -41710,8 +42234,10 @@ if ($ordinaryProofValidateResultBlock -notmatch
 }
 if ([string]::IsNullOrEmpty($ordinaryCheckpointCompletionBlock) -or
 	$ordinaryCheckpointCompletionBlock.IndexOf('m_bNativeCommitSucceeded = success;') -lt 0 -or
-	$ordinaryCheckpointCompletionBlock -notmatch
-		'observer\.InvokeDelegate\s*\(\s*success\s*&&\s*profileMirrorSaved\s*\)') {
+	$ordinaryCheckpointCompletionBlock.IndexOf(
+		'durableSuccess = success && profileMirrorSaved;') -lt 0 -or
+	$ordinaryCheckpointCompletionBlock.IndexOf(
+		'observer.InvokeDelegate(durableSuccess);') -lt 0) {
 	throw 'Production checkpoint completion must record native commit and notify the bounded observer only after the post-commit profile mirror also succeeds'
 }
 if ([string]::IsNullOrEmpty($ordinaryCheckpointCancelBlock) -or

@@ -21,6 +21,10 @@ class HST_PersistenceCheckpointRequest
 	ESaveGameRequestFlags m_eRequestFlags;
 	string m_sDisplayName;
 	bool m_bCampaignCaptured;
+	bool m_bPreparedDetachedSnapshotAccepted;
+	string m_sPreparedSnapshotFingerprint;
+	int m_iPreparedSnapshotCheckpointSequence;
+	int m_iPreparedSnapshotRestoreSequence;
 	bool m_bIsolatedCaptureAccepted;
 	bool m_bTransientStateStaged;
 	bool m_bProfileFallbackSaved;
@@ -52,6 +56,7 @@ class HST_PersistenceCheckpointRequest
 class HST_PersistenceCheckpointCallbackContext
 {
 	int m_iRequestSequence;
+	bool m_bPreparedDetachedCheckpoint;
 }
 
 class HST_PersistenceService
@@ -597,6 +602,407 @@ class HST_PersistenceService
 			completionObserver);
 	}
 
+	// Administrative reset prepares its prospective authority while the old
+	// campaign is still live. Accept that already-detached DTO directly so the
+	// checkpoint can be admitted before irreversible runtime cleanup. This path
+	// deliberately does not call PrepareStateForCapture: the caller owns all
+	// reset-specific reconciliation and must provide one complete current-schema
+	// snapshot whose durable checkpoint sequence is newer than every authority
+	// visible to this service.
+	//
+	// The supplied DTO is serialized and read into a private exact clone, then
+	// committed to the verified profile journal as a write-ahead record before
+	// native staging. The callback fires at that journal commit boundary so the
+	// caller can retire old roots in the same script turn; native replication then
+	// saves the already-detached DTO and the cleaned world. The caller may keep or
+	// discard its copy without changing either durable payload.
+	HST_PersistenceCheckpointRequest RequestPreparedManualCheckpointDetailed(
+		HST_CampaignSaveData preparedSnapshot,
+		HST_CampaignState statusState = null,
+		SaveGameOperationCallback completionObserver = null)
+	{
+		HST_PersistenceCheckpointRequest request
+			= new HST_PersistenceCheckpointRequest();
+		request.m_eSaveType = ESaveGameType.MANUAL;
+		request.m_eRequestFlags = 0;
+		request.m_sDisplayName = "Partisan manual checkpoint";
+
+		if (m_bCampaignDebugIsolationActive)
+		{
+			request.m_sEvidence
+				= "prepared manual checkpoint rejected: campaign debug isolation is active";
+			return request;
+		}
+		if (m_bCheckpointSavePointInFlight)
+		{
+			request.m_sEvidence
+				= "prepared manual checkpoint rejected: a native checkpoint is already in flight";
+			return request;
+		}
+
+		HST_CampaignSaveData detachedSnapshot;
+		string snapshotFingerprint;
+		string snapshotEvidence;
+		if (!CloneAndValidatePreparedCheckpointSnapshot(
+			preparedSnapshot,
+			detachedSnapshot,
+			snapshotFingerprint,
+			snapshotEvidence))
+		{
+			request.m_sEvidence
+				= "prepared manual checkpoint rejected: " + snapshotEvidence;
+			return request;
+		}
+
+		string readinessEvidence;
+		if (!ResolvePreparedCheckpointReadiness(
+			detachedSnapshot,
+			readinessEvidence))
+		{
+			request.m_sEvidence
+				= "prepared manual checkpoint rejected: " + readinessEvidence;
+			return request;
+		}
+
+		request.m_bCampaignCaptured = true;
+		request.m_bPreparedDetachedSnapshotAccepted = true;
+		request.m_sPreparedSnapshotFingerprint = snapshotFingerprint;
+		request.m_iPreparedSnapshotCheckpointSequence
+			= detachedSnapshot.m_iPersistenceCheckpointSequence;
+		request.m_iPreparedSnapshotRestoreSequence
+			= detachedSnapshot.m_iPersistenceRestoreSequence;
+
+		// The verified profile journal is the write-ahead commit record for an
+		// administrative reset. Once this synchronous write succeeds, either the
+		// journal or the native save can recover the same reset after a crash. A
+		// later native failure is therefore degraded replication, not grounds for
+		// resurrecting the old campaign in memory.
+		request.m_bProfileFallbackSaved
+			= SaveProfileFallback(detachedSnapshot);
+		if (!request.m_bProfileFallbackSaved)
+		{
+			request.m_bCampaignCaptured = false;
+			request.m_bPreparedDetachedSnapshotAccepted = false;
+			request.m_sEvidence
+				= "prepared manual checkpoint rejected before native staging: verified write-ahead journal commit failed | "
+					+ snapshotEvidence + " | " + readinessEvidence;
+			return request;
+		}
+
+		m_LastCapturedSave = detachedSnapshot;
+		m_TrackedCampaignSave = detachedSnapshot;
+		AcknowledgeAcceptedCheckpointCoverage();
+		request.m_sEvidence = string.Format(
+			"prepared reset write-ahead journal committed | schema %1 | checkpoint/restore sequence %2/%3 | fingerprint %4 | %5 | %6",
+			detachedSnapshot.m_iSchemaVersion,
+			detachedSnapshot.m_iPersistenceCheckpointSequence,
+			detachedSnapshot.m_iPersistenceRestoreSequence,
+			snapshotFingerprint,
+			snapshotEvidence,
+			readinessEvidence);
+		if (statusState)
+		{
+			statusState.m_iLastSaveSecond = statusState.m_iElapsedSeconds;
+			statusState.m_sLastPersistenceStatus = request.m_sEvidence;
+		}
+		// The coordinator may now retire old runtime roots synchronously. Native
+		// staging happens later in this same script call, after that cleanup, and
+		// uses the already-detached DTO rather than mutable live state.
+		if (completionObserver)
+			completionObserver.InvokeDelegate(true);
+
+		PersistenceSystem persistence = PersistenceSystem.GetInstance();
+		bool nativeCheckpointRequired = persistence
+			&& persistence.GetState() == EPersistenceSystemState.ACTIVE
+			&& !m_bProfileFallbackOnlyForSession;
+		if (!nativeCheckpointRequired)
+		{
+			request.m_bCompletionReceived = true;
+			request.m_sEvidence
+				+= " | profile-journal authority committed; native persistence unavailable for this session";
+			return request;
+		}
+
+		HST_CampaignPersistentState nativeState
+			= ResolveNativeCampaignState(persistence);
+		SaveGameManager saveManager = SaveGameManager.Get();
+		if (!nativeState || !saveManager)
+		{
+			request.m_bCompletionReceived = true;
+			request.m_sEvidence
+				+= " | native authority disappeared after journal commit; reset remains committed and native repair is pending";
+			EnsureMajorChangePending();
+			return request;
+		}
+		nativeState.SetSnapshotForSave(detachedSnapshot);
+		if (nativeState.GetSnapshotFingerprint() != snapshotFingerprint
+			|| !persistence.Save(nativeState, ESaveGameType.MANUAL))
+		{
+			request.m_bCompletionReceived = true;
+			request.m_sEvidence
+				+= " | native transient staging failed after journal commit; reset remains committed and native repair is pending";
+			EnsureMajorChangePending();
+			return request;
+		}
+		request.m_bTransientStateStaged = true;
+		m_NativeCampaignState = nativeState;
+		m_bCheckpointSavePointInFlight = true;
+		m_PendingCheckpointRequest = request;
+		m_PendingCheckpointSaveData = detachedSnapshot;
+		// The write-ahead observer was already notified exactly once. Native
+		// completion updates the request and repair scheduler, but must not repeat
+		// the campaign reset callback.
+		m_PendingCheckpointObserver = null;
+		m_PendingCheckpointState = statusState;
+		m_iCheckpointRequestSequence++;
+		m_fCheckpointCommitElapsedSeconds = 0;
+		m_CheckpointCallbackContext
+			= new HST_PersistenceCheckpointCallbackContext();
+		m_CheckpointCallbackContext.m_iRequestSequence
+			= m_iCheckpointRequestSequence;
+		m_CheckpointCallbackContext.m_bPreparedDetachedCheckpoint = true;
+		m_CheckpointCompletionCallback = new SaveGameOperationCallback(
+			OnCheckpointSavePointCompleted,
+			m_CheckpointCallbackContext);
+		request.m_bSavePointRequested = true;
+		saveManager.RequestSavePoint(
+			ESaveGameType.MANUAL,
+			request.m_sDisplayName,
+			0,
+			m_CheckpointCompletionCallback);
+		request.m_sEvidence
+			+= " | native manual save point requested from the committed reset DTO";
+		return request;
+	}
+
+	protected bool CloneAndValidatePreparedCheckpointSnapshot(
+		HST_CampaignSaveData preparedSnapshot,
+		out HST_CampaignSaveData detachedSnapshot,
+		out string snapshotFingerprint,
+		out string evidence)
+	{
+		detachedSnapshot = null;
+		snapshotFingerprint = "";
+		evidence = "prepared snapshot validation was not attempted";
+		if (!preparedSnapshot)
+		{
+			evidence = "prepared snapshot is null";
+			return false;
+		}
+		if (preparedSnapshot.m_iSchemaVersion
+			!= HST_CampaignState.SCHEMA_VERSION)
+		{
+			evidence = string.Format(
+				"prepared snapshot schema %1 is not current schema %2",
+				preparedSnapshot.m_iSchemaVersion,
+				HST_CampaignState.SCHEMA_VERSION);
+			return false;
+		}
+		if (preparedSnapshot.m_iPersistenceCheckpointSequence <= 0)
+		{
+			evidence
+				= "prepared snapshot has no positive durable checkpoint sequence";
+			return false;
+		}
+		if (preparedSnapshot.m_iPersistenceRestoreSequence < 0)
+		{
+			evidence
+				= "prepared snapshot has a negative durable restore sequence";
+			return false;
+		}
+
+		string exactPayload;
+		if (!HST_CampaignPersistentState.TrySerializeSnapshot(
+			preparedSnapshot,
+			exactPayload,
+			snapshotFingerprint))
+		{
+			evidence = "prepared snapshot exact serialization failed";
+			return false;
+		}
+		JsonLoadContext cloneContext = new JsonLoadContext();
+		if (!cloneContext.LoadFromString(exactPayload))
+		{
+			evidence = "prepared snapshot exact clone JSON load failed";
+			return false;
+		}
+		detachedSnapshot = new HST_CampaignSaveData();
+		if (!cloneContext.ReadValue("", detachedSnapshot))
+		{
+			detachedSnapshot = null;
+			evidence = "prepared snapshot exact clone DTO read failed";
+			return false;
+		}
+		string cloneFingerprint
+			= HST_CampaignPersistentState.BuildSnapshotFingerprint(
+				detachedSnapshot);
+		if (cloneFingerprint.IsEmpty()
+			|| cloneFingerprint != snapshotFingerprint
+			|| detachedSnapshot.m_iSchemaVersion
+				!= preparedSnapshot.m_iSchemaVersion
+			|| detachedSnapshot.m_iPersistenceCheckpointSequence
+				!= preparedSnapshot.m_iPersistenceCheckpointSequence
+			|| detachedSnapshot.m_iPersistenceRestoreSequence
+				!= preparedSnapshot.m_iPersistenceRestoreSequence)
+		{
+			detachedSnapshot = null;
+			evidence
+				= "prepared snapshot exact clone identity or durable ordering changed";
+			return false;
+		}
+
+		evidence = string.Format(
+			"prepared snapshot exact clone verified | schema %1 | checkpoint/restore sequence %2/%3 | fingerprint %4",
+			detachedSnapshot.m_iSchemaVersion,
+			detachedSnapshot.m_iPersistenceCheckpointSequence,
+			detachedSnapshot.m_iPersistenceRestoreSequence,
+			snapshotFingerprint);
+		return true;
+	}
+
+	protected bool ResolvePreparedCheckpointReadiness(
+		HST_CampaignSaveData detachedSnapshot,
+		out string evidence)
+	{
+		evidence = "prepared checkpoint readiness was not attempted";
+		if (!detachedSnapshot)
+		{
+			evidence = "prepared checkpoint has no detached snapshot";
+			return false;
+		}
+
+		string journalEvidence;
+		if (!m_ProfileJournal.CanAdvanceVerifiedSnapshot(journalEvidence))
+		{
+			evidence = journalEvidence;
+			return false;
+		}
+		HST_CampaignProfileSaveResolution journalResolution
+			= m_ProfileJournal.ResolveJournal();
+		if (!journalResolution)
+		{
+			evidence = "profile journal resolution is unavailable";
+			return false;
+		}
+
+		int highestKnownCheckpointSequence;
+		string highestKnownSource = "empty authority";
+		if (m_TrackedCampaignSave
+			&& m_TrackedCampaignSave.m_iPersistenceCheckpointSequence
+				> highestKnownCheckpointSequence)
+		{
+			highestKnownCheckpointSequence
+				= m_TrackedCampaignSave.m_iPersistenceCheckpointSequence;
+			highestKnownSource = "tracked campaign snapshot";
+		}
+		if (m_LastCapturedSave
+			&& m_LastCapturedSave.m_iPersistenceCheckpointSequence
+				> highestKnownCheckpointSequence)
+		{
+			highestKnownCheckpointSequence
+				= m_LastCapturedSave.m_iPersistenceCheckpointSequence;
+			highestKnownSource = "last captured campaign snapshot";
+		}
+		if (m_RestoredCampaignSave
+			&& m_RestoredCampaignSave.m_iPersistenceCheckpointSequence
+				> highestKnownCheckpointSequence)
+		{
+			highestKnownCheckpointSequence
+				= m_RestoredCampaignSave.m_iPersistenceCheckpointSequence;
+			highestKnownSource = "restored campaign snapshot";
+		}
+		if (journalResolution.m_bHasSelection
+			&& journalResolution.m_Selected
+			&& journalResolution.m_Selected.m_SaveData
+			&& journalResolution.m_Selected.m_SaveData
+				.m_iPersistenceCheckpointSequence
+					> highestKnownCheckpointSequence)
+		{
+			highestKnownCheckpointSequence
+				= journalResolution.m_Selected.m_SaveData
+					.m_iPersistenceCheckpointSequence;
+			highestKnownSource = string.Format(
+				"profile journal %1 generation %2",
+				journalResolution.m_Selected.m_sSlotLabel,
+				journalResolution.m_Selected.m_iGeneration);
+		}
+
+		PersistenceSystem persistence = PersistenceSystem.GetInstance();
+		bool nativeCheckpointRequired = persistence
+			&& persistence.GetState() == EPersistenceSystemState.ACTIVE
+			&& !m_bProfileFallbackOnlyForSession;
+		HST_CampaignPersistentState nativeState;
+		if (nativeCheckpointRequired)
+		{
+			SaveGameManager saveManager = SaveGameManager.Get();
+			if (!CanRequestSavePoint(saveManager))
+			{
+				if (!saveManager)
+					evidence = "native save manager is unavailable";
+				else
+				{
+					evidence = string.Format(
+						"native checkpoint is not ready | enabled/busy/allowed %1/%2/%3",
+						saveManager.IsSavingEnabled(),
+						saveManager.IsBusy(),
+						saveManager.IsSavingAllowed());
+				}
+				return false;
+			}
+
+			nativeState = ResolveNativeCampaignState(persistence);
+			if (!nativeState)
+			{
+				evidence = "native campaign state proxy is unavailable";
+				return false;
+			}
+			HST_CampaignSaveData nativeSnapshot = nativeState.GetSnapshot();
+			if (nativeSnapshot
+				&& nativeSnapshot.m_iPersistenceCheckpointSequence
+					> highestKnownCheckpointSequence)
+			{
+				highestKnownCheckpointSequence
+					= nativeSnapshot.m_iPersistenceCheckpointSequence;
+				highestKnownSource = "native campaign state proxy";
+			}
+		}
+
+		if (detachedSnapshot.m_iPersistenceCheckpointSequence
+			<= highestKnownCheckpointSequence)
+		{
+			evidence = string.Format(
+				"prepared checkpoint sequence %1 does not supersede known sequence %2 from %3",
+				detachedSnapshot.m_iPersistenceCheckpointSequence,
+				highestKnownCheckpointSequence,
+				highestKnownSource);
+			return false;
+		}
+		if (nativeCheckpointRequired)
+		{
+			if (!persistence.IsTracked(nativeState)
+				&& !persistence.StartTracking(nativeState, false))
+			{
+				evidence = "native campaign state proxy could not be tracked";
+				return false;
+			}
+			if (!persistence.IsTracked(nativeState)
+				|| persistence.GetConfig(nativeState) == null)
+			{
+				evidence
+					= "native campaign state proxy is not tracked and configured";
+				return false;
+			}
+		}
+
+		evidence = string.Format(
+			"prepared checkpoint readiness passed | known checkpoint floor/source %1/%2 | native required %3 | %4",
+			highestKnownCheckpointSequence,
+			highestKnownSource,
+			nativeCheckpointRequired,
+			journalEvidence);
+		return true;
+	}
+
 	HST_PersistenceCheckpointRequest RequestShutdownCheckpointDetailed(
 		HST_CampaignState state,
 		SaveGameOperationCallback completionObserver = null)
@@ -607,6 +1013,14 @@ class HST_PersistenceService
 			ESaveGameRequestFlags.BLOCKING,
 			state,
 			completionObserver);
+	}
+
+	protected void ReleasePreparedCheckpointContext(
+		HST_PersistenceCheckpointCallbackContext callbackContext)
+	{
+		if (!callbackContext)
+			return;
+		callbackContext.m_bPreparedDetachedCheckpoint = false;
 	}
 
 	protected void OnCheckpointSavePointCompleted(
@@ -623,31 +1037,62 @@ class HST_PersistenceService
 		HST_CampaignSaveData pendingSaveData = m_PendingCheckpointSaveData;
 		HST_CampaignState state = m_PendingCheckpointState;
 		ref SaveGameOperationCallback observer = m_PendingCheckpointObserver;
+		bool preparedCheckpoint
+			= callbackContext.m_bPreparedDetachedCheckpoint;
 		bool profileMirrorSaved;
-		if (success)
+		if (preparedCheckpoint && request)
+			profileMirrorSaved = request.m_bProfileFallbackSaved;
+		else if (success)
 			profileMirrorSaved = SaveProfileFallback(pendingSaveData);
+		bool durableSuccess;
+		if (preparedCheckpoint)
+			durableSuccess = profileMirrorSaved;
+		else
+			durableSuccess = success && profileMirrorSaved;
 		if (request)
 		{
 			request.m_bCompletionReceived = true;
 			request.m_bNativeCommitSucceeded = success;
 			request.m_bProfileFallbackSaved = profileMirrorSaved;
-			request.m_sEvidence += string.Format(
-				" | native commit completed %1 | post-commit profile mirror %2",
-				success,
-				profileMirrorSaved);
+			if (preparedCheckpoint)
+			{
+				request.m_sEvidence += string.Format(
+					" | native replication completed %1 after verified write-ahead journal commit %2",
+					success,
+					profileMirrorSaved);
+			}
+			else
+			{
+				request.m_sEvidence += string.Format(
+					" | native commit completed %1 | post-commit profile mirror %2",
+					success,
+					profileMirrorSaved);
+			}
 		}
+		if (preparedCheckpoint)
+			ReleasePreparedCheckpointContext(callbackContext);
 		if (!success || !profileMirrorSaved)
 			EnsureMajorChangePending();
 		if (state)
 		{
-			state.m_sLastPersistenceStatus += string.Format(
-				" | native commit %1 | post-commit profile mirror %2",
-				success,
-				profileMirrorSaved);
+			if (preparedCheckpoint)
+			{
+				state.m_sLastPersistenceStatus += string.Format(
+					" | native replication %1 | write-ahead journal committed %2",
+					success,
+					profileMirrorSaved);
+			}
+			else
+			{
+				state.m_sLastPersistenceStatus += string.Format(
+					" | native commit %1 | post-commit profile mirror %2",
+					success,
+					profileMirrorSaved);
+			}
 		}
 		ClearPendingCheckpointRequest();
 		if (observer)
-			observer.InvokeDelegate(success && profileMirrorSaved);
+			observer.InvokeDelegate(durableSuccess);
 	}
 
 	protected void TickCheckpointCommitTimeout(float timeSlice)
@@ -662,19 +1107,41 @@ class HST_PersistenceService
 		HST_PersistenceCheckpointRequest request = m_PendingCheckpointRequest;
 		HST_CampaignState state = m_PendingCheckpointState;
 		ref SaveGameOperationCallback observer = m_PendingCheckpointObserver;
+		bool preparedCheckpoint = m_CheckpointCallbackContext
+			&& m_CheckpointCallbackContext.m_bPreparedDetachedCheckpoint;
+		if (preparedCheckpoint)
+			ReleasePreparedCheckpointContext(m_CheckpointCallbackContext);
 		if (request)
 		{
 			request.m_bCompletionReceived = true;
 			request.m_bNativeCommitSucceeded = false;
-			request.m_sEvidence += string.Format(
-				" | native commit timed out after %1 seconds",
-				CHECKPOINT_COMMIT_TIMEOUT_SECONDS);
+			if (preparedCheckpoint)
+			{
+				request.m_sEvidence += string.Format(
+					" | native replication timed out after %1 seconds; verified write-ahead journal remains authoritative and native repair is pending",
+					CHECKPOINT_COMMIT_TIMEOUT_SECONDS);
+			}
+			else
+			{
+				request.m_sEvidence += string.Format(
+					" | native commit timed out after %1 seconds",
+					CHECKPOINT_COMMIT_TIMEOUT_SECONDS);
+			}
 		}
 		if (state)
 		{
-			state.m_sLastPersistenceStatus += string.Format(
-				" | native commit timed out after %1 seconds",
-				CHECKPOINT_COMMIT_TIMEOUT_SECONDS);
+			if (preparedCheckpoint)
+			{
+				state.m_sLastPersistenceStatus += string.Format(
+					" | native replication timed out after %1 seconds; journal authority retained",
+					CHECKPOINT_COMMIT_TIMEOUT_SECONDS);
+			}
+			else
+			{
+				state.m_sLastPersistenceStatus += string.Format(
+					" | native commit timed out after %1 seconds",
+					CHECKPOINT_COMMIT_TIMEOUT_SECONDS);
+			}
 		}
 		EnsureMajorChangePending();
 		ClearPendingCheckpointRequest();
@@ -773,18 +1240,38 @@ class HST_PersistenceService
 	// callback harmless; the request remains observably incomplete and failed.
 	void CancelPendingCheckpointRequest()
 	{
+		bool preparedCheckpoint = m_CheckpointCallbackContext
+			&& m_CheckpointCallbackContext.m_bPreparedDetachedCheckpoint;
+		if (preparedCheckpoint)
+			ReleasePreparedCheckpointContext(m_CheckpointCallbackContext);
 		m_iCheckpointRequestSequence++;
 		if (m_PendingCheckpointRequest)
 		{
 			m_PendingCheckpointRequest.m_bCompletionReceived = false;
 			m_PendingCheckpointRequest.m_bNativeCommitSucceeded = false;
-			m_PendingCheckpointRequest.m_sEvidence
-				+= " | native commit observation cancelled during teardown";
+			if (preparedCheckpoint)
+			{
+				m_PendingCheckpointRequest.m_sEvidence
+					+= " | native replication observation cancelled during teardown; verified write-ahead journal remains authoritative";
+			}
+			else
+			{
+				m_PendingCheckpointRequest.m_sEvidence
+					+= " | native commit observation cancelled during teardown";
+			}
 		}
 		if (m_PendingCheckpointState)
 		{
-			m_PendingCheckpointState.m_sLastPersistenceStatus
-				+= " | native commit observation cancelled during teardown";
+			if (preparedCheckpoint)
+			{
+				m_PendingCheckpointState.m_sLastPersistenceStatus
+					+= " | native replication observation cancelled during teardown; journal authority retained";
+			}
+			else
+			{
+				m_PendingCheckpointState.m_sLastPersistenceStatus
+					+= " | native commit observation cancelled during teardown";
+			}
 		}
 		ClearPendingCheckpointRequest();
 	}

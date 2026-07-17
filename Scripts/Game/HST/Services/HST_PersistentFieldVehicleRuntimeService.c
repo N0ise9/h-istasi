@@ -1,6 +1,17 @@
 // Session-only live binding for durable field vehicles. Registered bindings are
 // exact; the bounded same-prefab position lookup is recovery-only and fails
 // closed when more than one durable row is plausible.
+class HST_PersistentFieldVehicleNewCampaignResetPlan
+{
+	ref HST_CampaignState m_State;
+	ref array<string> m_aRetainedRuntimeIds = {};
+	ref array<string> m_aDeleteRuntimeIds = {};
+	ref array<IEntity> m_aDeleteEntities = {};
+	ref array<ref HST_RuntimeVehicleState> m_aDeleteRecords = {};
+	bool m_bPrepared;
+	bool m_bCommitted;
+}
+
 class HST_PersistentFieldVehicleRuntimeService
 {
 	protected ref array<IEntity> m_aEntities = {};
@@ -503,46 +514,148 @@ class HST_PersistentFieldVehicleRuntimeService
 		return includeInactive || (!record.m_bDeleted && !record.m_bDetached);
 	}
 
+	// This is the non-mutating half of reset cleanup. The caller must first run
+	// PrepareForCapture (normally through civilian persistence reconciliation),
+	// which folds current transforms and removes already-dead bindings. This pass
+	// then freezes the exact deletion set only after every retained/removed root
+	// has passed its player-safety and identity checks.
+	HST_PersistentFieldVehicleNewCampaignResetPlan BuildNewCampaignResetCleanupPlanAfterCapture(
+		HST_CampaignState state,
+		array<string> retainedRuntimeIds,
+		out string evidence)
+	{
+		evidence = "durable field vehicle new-campaign cleanup plan rejected";
+		if (!state || m_bBindingFault
+			|| m_aEntities.Count() != m_aRuntimeIds.Count())
+			return null;
+		int activeRows;
+		int inactiveRows;
+		string graphEvidence;
+		if (!ValidateDurableStateGraph(
+			state,
+			true,
+			activeRows,
+			inactiveRows,
+			graphEvidence))
+		{
+			evidence += " | " + graphEvidence;
+			return null;
+		}
+
+		HST_PersistentFieldVehicleNewCampaignResetPlan plan
+			= new HST_PersistentFieldVehicleNewCampaignResetPlan();
+		plan.m_State = state;
+		if (retainedRuntimeIds)
+		{
+			foreach (string retainedId : retainedRuntimeIds)
+			{
+				int retainedIndex = m_aRuntimeIds.Find(retainedId);
+				if (retainedId.IsEmpty() || retainedIndex < 0
+					|| plan.m_aRetainedRuntimeIds.Find(retainedId) >= 0)
+				{
+					evidence
+						= "durable field vehicle reset retained ID is empty, missing, or duplicated";
+					return null;
+				}
+				HST_RuntimeVehicleState retainedRecord
+					= state.FindRuntimeVehicle(retainedId);
+				IEntity retainedEntity = m_aEntities[retainedIndex];
+				if (!IsDurableRecord(retainedRecord)
+					|| !retainedEntity
+					|| !HasLivingPlayerOccupant(retainedEntity))
+				{
+					evidence
+						= "durable field vehicle reset retained root lost exact living player occupancy";
+					return null;
+				}
+				plan.m_aRetainedRuntimeIds.Insert(retainedId);
+			}
+		}
+
+		for (int index; index < m_aRuntimeIds.Count(); index++)
+		{
+			string runtimeId = m_aRuntimeIds[index];
+			bool retained = plan.m_aRetainedRuntimeIds.Find(runtimeId) >= 0;
+			IEntity entity = m_aEntities[index];
+			HST_RuntimeVehicleState record = state.FindRuntimeVehicle(runtimeId);
+			if (!IsDurableRecord(record) || !entity)
+			{
+				evidence
+					= "durable field vehicle reset binding lost active durable authority after capture";
+				return null;
+			}
+			if (retained && !HasLivingPlayerOccupant(entity))
+			{
+				evidence
+					= "durable field vehicle reset retained root is no longer player occupied";
+				return null;
+			}
+			if (!retained && entity && HasLivingPlayerOccupant(entity))
+			{
+				evidence
+					= "durable field vehicle reset would delete a living player-occupied root";
+				return null;
+			}
+			if (retained)
+				continue;
+			plan.m_aDeleteRuntimeIds.Insert(runtimeId);
+			plan.m_aDeleteEntities.Insert(entity);
+			plan.m_aDeleteRecords.Insert(record);
+		}
+		if (plan.m_aRetainedRuntimeIds.Count()
+			+ plan.m_aDeleteRuntimeIds.Count() != m_aRuntimeIds.Count())
+		{
+			evidence
+				= "durable field vehicle reset plan does not cover every exact binding";
+			return null;
+		}
+		plan.m_bPrepared = true;
+		evidence = string.Format(
+			"durable field vehicle reset plan exact | retained/delete %1/%2",
+			plan.m_aRetainedRuntimeIds.Count(),
+			plan.m_aDeleteRuntimeIds.Count());
+		return plan;
+	}
+
+	// Every fallible identity, graph, and occupancy decision belongs to the plan
+	// builder. A consumed plan owns a fixed deletion set, so commit has no reject
+	// path and cannot strand a half-pruned binding graph.
+	void CommitNewCampaignResetCleanupPlan(
+		HST_PersistentFieldVehicleNewCampaignResetPlan plan)
+	{
+		if (!plan || !plan.m_bPrepared || plan.m_bCommitted)
+			return;
+		for (int deleteIndex; deleteIndex < plan.m_aDeleteRuntimeIds.Count(); deleteIndex++)
+		{
+			string runtimeId = plan.m_aDeleteRuntimeIds[deleteIndex];
+			HST_RuntimeVehicleState record = plan.m_aDeleteRecords[deleteIndex];
+			if (record)
+				record.m_bDeleted = true;
+			IEntity entity = plan.m_aDeleteEntities[deleteIndex];
+			if (entity)
+				SCR_EntityHelper.DeleteEntityAndChildren(entity);
+			int bindingIndex = m_aRuntimeIds.Find(runtimeId);
+			if (bindingIndex >= 0)
+				RemoveAt(bindingIndex);
+		}
+		plan.m_bCommitted = true;
+	}
+
 	bool CleanupForNewCampaignReset(
 		HST_CampaignState state,
 		array<string> retainedRuntimeIds)
 	{
 		if (!state || !PrepareForCapture(state))
 			return false;
-		if (retainedRuntimeIds)
-		{
-			foreach (string retainedId : retainedRuntimeIds)
-			{
-				if (retainedId.IsEmpty() || m_aRuntimeIds.Find(retainedId) < 0)
-					return false;
-			}
-		}
-
-		// Player-safety preflight occurs before any deletion.
-		for (int index = m_aRuntimeIds.Count() - 1; index >= 0; index--)
-		{
-			bool retained = retainedRuntimeIds
-				&& retainedRuntimeIds.Find(m_aRuntimeIds[index]) >= 0;
-			IEntity entity = m_aEntities[index];
-			if (retained && (!entity || !HasLivingPlayerOccupant(entity)))
-				return false;
-			if (!retained && entity && HasLivingPlayerOccupant(entity))
-				return false;
-		}
-
-		for (int index = m_aRuntimeIds.Count() - 1; index >= 0; index--)
-		{
-			string runtimeId = m_aRuntimeIds[index];
-			if (retainedRuntimeIds && retainedRuntimeIds.Find(runtimeId) >= 0)
-				continue;
-			HST_RuntimeVehicleState record = state.FindRuntimeVehicle(runtimeId);
-			if (record)
-				record.m_bDeleted = true;
-			IEntity entity = m_aEntities[index];
-			if (entity)
-				SCR_EntityHelper.DeleteEntityAndChildren(entity);
-			RemoveAt(index);
-		}
+		string evidence;
+		HST_PersistentFieldVehicleNewCampaignResetPlan plan
+			= BuildNewCampaignResetCleanupPlanAfterCapture(
+				state,
+				retainedRuntimeIds,
+				evidence);
+		if (!plan)
+			return false;
+		CommitNewCampaignResetCleanupPlan(plan);
 		return true;
 	}
 

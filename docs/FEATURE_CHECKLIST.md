@@ -41,18 +41,25 @@ implementation/source identity is
   its legacy layout and fingerprint, normalize it for comparison, and write
   native envelope version 2 thereafter. Version 2 stores the exact serialized
   payload string and validates its bytes before DTO parsing.
-- [x] Preserve checkpoint order across an admin new-campaign reset, preflight
-  journal/checkpoint readiness, and request an immediate checkpoint so an older
-  pre-reset JSON generation cannot outrank a durably accepted reset. This reset
-  path is source/static-gated and still needs a focused runtime proof.
+- [x] Preserve checkpoint order across an admin new-campaign reset and capture
+  one detached prospective Schema-71 snapshot before destructive cleanup.
+- [x] Commit that snapshot synchronously to the rotating, readback-verified JSON
+  journal as write-ahead authority before native staging. After that commit,
+  retire old radio, civilian, ambient-vehicle, and non-retained field-vehicle
+  roots synchronously and stage the already-detached snapshot natively.
+- [x] Roll reversible preparation back only when the write-ahead commit fails.
+  After it succeeds, native failure or timeout is degraded repair work and must
+  not resurrect the old campaign.
 
 This is a crash-tolerant two-generation journal, not an atomic filesystem
 transaction. It assumes one campaign writer and does not provide a lock,
 atomic rename, authenticated storage, or off-device backup. With native
-persistence active, the JSON journal advances after the matching successful
-native completion callback, not literally at the same instant as the engine
-write. Fallback-only checkpoints write the journal synchronously. Abrupt
-termination can recover only the last completed native or journal generation.
+persistence active, every accepted ordinary checkpoint advances the rotating
+verified JSON journal from its exact staged snapshot only after matching native
+success. Fallback-only ordinary checkpoints write synchronously. Admin reset is
+the deliberate exception: its journal generation is the write-ahead commit and
+native persistence subsequently replicates it. Abrupt termination can recover
+only the last verified native or journal generation.
 
 The final stamped proof evidence is clean. Foundation passes all 851
 script-symbol references. Workbench loads 5,842 files and 11,862 classes at CRC
@@ -68,9 +75,17 @@ and cleanup is zero. The separate native-versus-stale-journal counterattack
 chain passes 3/3 with native selected, both journal files unchanged, an exact
 chain, and zero cleanup.
 
+The current admin-reset durability slice passes guarded Workbench compilation at
+5,844 files/11,870 classes, CRC `b94fd51c`, with zero HST, script, or hard errors
+and zero owned cleanup residue. Its dedicated three-process
+`prepare_old_checkpoint -> reset_commit -> stale_native_no_save_verify` proof is
+pending and is not claimed as passed.
+
 - [x] Repeat Workbench, Foundation, the focused journal-authority testcase, the
   five-process ordinary persistence chain, and the native-versus-stale-journal
   chain against the final Schema-71 build stamp.
+- [ ] Complete the three-process admin-reset stale-native proof and require a
+  read-only final process to select the newer reset journal over stale native.
 - [ ] Prove broader active-world families, Workshop/live clients, networking,
   arbitrary migration, marker behavior, performance, and soak behavior.
 - [ ] Add multi-writer exclusion or an engine-supported atomic replacement

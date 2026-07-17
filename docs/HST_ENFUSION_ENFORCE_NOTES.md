@@ -70,18 +70,27 @@ implementation/source identity is
   legacy `<serialized-length>:<payload.Hash()>` value, then normalize before
   native/journal equality or ordering decisions. Never use the legacy hash for
   a newly written envelope.
-- Keep the pending checkpoint DTO detached from the live campaign. Reject
-  ordinary/debug capture and admin reset while a checkpoint is in flight. On a
-  successful native callback, journal that exact pending DTO; on native failure,
-  write no JSON and re-arm the request. Fallback-only saves may journal
-  synchronously.
-- An admin new-campaign reset must retain the prior checkpoint and restore
-  sequence floors, preflight the journal, civilian capture authority, and native
-  checkpoint readiness before any reset side effect, then request an immediate
-  checkpoint. Reject Campaign Debug isolation. If the post-mutation request is
-  still rejected, re-arm persistence and return failure instead of claiming a
-  durable reset. Resetting the counters to zero can allow a stale pre-reset
-  profile generation to outrank the new campaign.
+- Keep every pending checkpoint DTO detached from the live campaign. Reject
+  ordinary/debug capture and admin reset while a native checkpoint is in flight.
+  For ordinary native-active checkpoints, journal the exact DTO only after
+  native success; native failure advances no ordinary JSON generation and
+  re-arms the request. Profile-only ordinary saves journal synchronously.
+- Admin reset has a separate write-ahead contract. Retain prior checkpoint and
+  restore sequence floors, preflight journal/native and civilian authority,
+  build every fallible radio/civilian/field-vehicle plan, then serialize and
+  exact-clone the complete prospective state. Reject Campaign Debug isolation
+  and sequence exhaustion.
+- Apply only reversible radio restoration while the old campaign is live. Commit
+  the detached reset DTO to the inactive journal slot and require readback plus
+  normal journal selection before proceeding. If that write-ahead commit fails,
+  roll radio health back exactly, cancel civilian preparation, and keep the old
+  state.
+- On write-ahead success, synchronously finalize radio projection retirement,
+  consume the no-reject field-vehicle cleanup plan, delete old civilian and
+  ambient roots, swap state, and rebuild projections before native staging uses
+  the already-detached DTO. A later native absence, staging failure, callback
+  failure, or timeout is degraded replica repair and must never resurrect the
+  old campaign.
 - Profile migration treats both canonical and recovery campaign slots as
   authority. Byte-identical old/new copies may converge. Differing retired and
   canonical copies stay in place and startup fails so neither side is silently
@@ -105,9 +114,12 @@ conditions, and native-v1/native-v2/invalid-fingerprint/future-envelope cases at
 exact chain, keeps native and profile-fallback restores read-only, preserves
 exact field-vehicle state, and leaves cleanup at zero. The native-over-stale-
 journal counterattack chain passes 3/3, selects native, leaves both journal files
-and their exact chain unchanged, and also leaves cleanup at zero. Admin-reset
-preflight and retained ordering are source/static-gated only; no focused runtime
-reset proof is claimed. The unrelated stock filter diagnostic may still appear
+and their exact chain unchanged, and also leaves cleanup at zero.
+
+The current admin-reset source passes guarded Workbench compilation at 5,844
+files/11,870 classes, CRC `b94fd51c`, with zero hard errors and zero owned cleanup
+residue. Its dedicated three-process stale-native proof remains pending and is
+not claimed as passed. The unrelated stock filter diagnostic may still appear
 after the focused testcase succeeds; it is not evidence that an HST assertion
 failed.
 

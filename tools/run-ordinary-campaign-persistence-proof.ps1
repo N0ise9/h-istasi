@@ -29,7 +29,9 @@ param(
     [ValidateRange(1, 60)]
     [int]$ResultGraceSeconds = 5,
 
-    [switch]$PreflightOnly
+    [switch]$PreflightOnly,
+
+    [switch]$LibraryOnly
 )
 
 Set-StrictMode -Version Latest
@@ -3337,6 +3339,10 @@ function Assert-FallbackProfilePrelaunchFiles {
             throw "The fallback profile is not an isolated fallback-only source."
         }
     }
+}
+
+if ($LibraryOnly) {
+    return
 }
 
 $repositoryRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot ".."))

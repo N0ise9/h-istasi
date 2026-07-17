@@ -177,6 +177,10 @@ class HST_CivilianService
 	// current transform and terminal destruction state.
 	protected ref array<ref HST_RuntimeVehicleState> m_aResetPreservedPlayerVehicles = {};
 	protected ref array<ref HST_VehicleCargoItemState> m_aResetPreservedPlayerVehicleCargo = {};
+	protected ref HST_CampaignState m_NewCampaignResetPreparedState;
+	protected ref HST_PersistentFieldVehicleNewCampaignResetPlan
+		m_NewCampaignResetFieldVehiclePlan;
+	protected bool m_bNewCampaignResetPrepared;
 	protected ref HST_AmbientPopulationBudgetService m_AmbientBudget = new HST_AmbientPopulationBudgetService();
 	protected ref HST_AmbientActorRuntimeService m_AmbientRuntime = new HST_AmbientActorRuntimeService();
 	protected ref HST_AmbientPopulationBudgetPlan m_LastAmbientBudgetPlan;
@@ -732,8 +736,21 @@ class HST_CivilianService
 		return zone.m_vPosition;
 	}
 
-	bool ResetRuntimeSession(HST_CampaignState previousState)
+	// Reset preparation may perform the same reconciliation required by any
+	// persistence boundary, but it does not clear civilian runtime caches or
+	// delete roots. It freezes every occupied durable vehicle and proves the
+	// complete field-vehicle deletion set before another reset authority mutates
+	// the world.
+	bool PrepareNewCampaignReset(
+		HST_CampaignState previousState,
+		out string failureReason)
 	{
+		failureReason = "ambient vehicle authority could not be reconciled safely";
+		m_bNewCampaignResetPrepared = false;
+		m_NewCampaignResetPreparedState = null;
+		m_NewCampaignResetFieldVehiclePlan = null;
+		m_aResetPreservedPlayerVehicles.Clear();
+		m_aResetPreservedPlayerVehicleCargo.Clear();
 		if (!previousState)
 			return false;
 		array<IEntity> resetOccupancyPreflight = {};
@@ -749,15 +766,6 @@ class HST_CivilianService
 		}
 		if (!PrepareAmbientVehiclePersistence(previousState))
 			return false;
-		if (m_CivilianConsequences)
-			m_CivilianConsequences.ResetRuntimeSession();
-		m_aResetPreservedPlayerVehicles.Clear();
-		m_aResetPreservedPlayerVehicleCargo.Clear();
-		ClearPendingCivilianCasualties();
-		ClearPendingCivilianThefts();
-		m_bPendingCivilianConsequenceAuthorityFault = false;
-		m_aCivilianPanicThreatZoneIds.Clear();
-		m_aCivilianPanicThreatPositions.Clear();
 		array<string> claimedRuntimeIds = {};
 		// A new campaign must not inherit every old field vehicle. Preserve only
 		// live roots that a player occupies at the reset boundary, including an
@@ -783,7 +791,6 @@ class HST_CivilianService
 				&& !vehicle.m_sVehicleRuntimeId.IsEmpty()
 				&& claimedRuntimeIds.Find(vehicle.m_sVehicleRuntimeId) < 0)
 			{
-				vehicle.m_sRuntimeKind = "field_vehicle";
 				claimedRuntimeIds.Insert(vehicle.m_sVehicleRuntimeId);
 			}
 		}
@@ -803,15 +810,67 @@ class HST_CivilianService
 				}
 			}
 		}
-		if (!m_PersistentFieldVehicles
-			|| !m_PersistentFieldVehicles.CleanupForNewCampaignReset(
-			previousState,
-			claimedRuntimeIds))
+		if (!m_PersistentFieldVehicles)
 		{
 			m_aResetPreservedPlayerVehicles.Clear();
 			m_aResetPreservedPlayerVehicleCargo.Clear();
 			return false;
 		}
+		string cleanupEvidence;
+		m_NewCampaignResetFieldVehiclePlan
+			= m_PersistentFieldVehicles
+				.BuildNewCampaignResetCleanupPlanAfterCapture(
+					previousState,
+					claimedRuntimeIds,
+					cleanupEvidence);
+		if (!m_NewCampaignResetFieldVehiclePlan)
+		{
+			m_aResetPreservedPlayerVehicles.Clear();
+			m_aResetPreservedPlayerVehicleCargo.Clear();
+			if (!cleanupEvidence.IsEmpty())
+				failureReason += " | " + cleanupEvidence;
+			return false;
+		}
+		m_NewCampaignResetPreparedState = previousState;
+		m_bNewCampaignResetPrepared = true;
+		failureReason = "";
+		return true;
+	}
+
+	void CancelNewCampaignResetPreparation()
+	{
+		m_bNewCampaignResetPrepared = false;
+		m_NewCampaignResetPreparedState = null;
+		m_NewCampaignResetFieldVehiclePlan = null;
+		m_aResetPreservedPlayerVehicles.Clear();
+		m_aResetPreservedPlayerVehicleCargo.Clear();
+	}
+
+	// All fallible persistence, occupancy, and binding checks were completed by
+	// PrepareNewCampaignReset. After the prospective reset checkpoint becomes
+	// durable, Commit consumes only that frozen plan and performs the no-reject
+	// destructive cleanup of old civilian runtime authority.
+	void CommitNewCampaignReset()
+	{
+		if (!m_bNewCampaignResetPrepared
+			|| !m_NewCampaignResetPreparedState
+			|| !m_NewCampaignResetFieldVehiclePlan)
+			return;
+		HST_CampaignState previousState = m_NewCampaignResetPreparedState;
+		if (m_CivilianConsequences)
+			m_CivilianConsequences.ResetRuntimeSession();
+		ClearPendingCivilianCasualties();
+		ClearPendingCivilianThefts();
+		m_bPendingCivilianConsequenceAuthorityFault = false;
+		m_aCivilianPanicThreatZoneIds.Clear();
+		m_aCivilianPanicThreatPositions.Clear();
+		foreach (HST_RuntimeVehicleState preservedVehicle : m_aResetPreservedPlayerVehicles)
+		{
+			if (preservedVehicle)
+				preservedVehicle.m_sRuntimeKind = "field_vehicle";
+		}
+		m_PersistentFieldVehicles.CommitNewCampaignResetCleanupPlan(
+			m_NewCampaignResetFieldVehiclePlan);
 		CleanupAllRuntimeEntities(previousState);
 		m_LastAmbientBudgetPlan = null;
 		m_iNextAmbientRuntimeUpdateSecond = 0;
@@ -824,19 +883,35 @@ class HST_CivilianService
 		m_bLastAmbientClaimObservationExact = true;
 		m_bWarnedMissingCivilianCharacterPool = false;
 		m_bWarnedMissingCivilianVehicleCatalog = false;
+		m_bNewCampaignResetPrepared = false;
+		m_NewCampaignResetPreparedState = null;
+		m_NewCampaignResetFieldVehiclePlan = null;
+	}
+
+	// Compatibility wrapper for the former one-call reset path.
+	bool ResetRuntimeSession(HST_CampaignState previousState)
+	{
+		string failureReason;
+		if (!PrepareNewCampaignReset(previousState, failureReason))
+			return false;
+		CommitNewCampaignReset();
 		return true;
 	}
 
-	void ApplyResetPreservedPlayerVehicles(HST_CampaignState newState)
+	// Copies the frozen reset-boundary player vehicles into a prospective new
+	// campaign without consuming preparation state. The coordinator can therefore
+	// capture this state durably while every old-world cleanup remains reversible.
+	bool CopyResetPreservedPlayerVehiclesToState(HST_CampaignState newState)
 	{
 		if (!newState)
-			return;
+			return false;
 		foreach (HST_RuntimeVehicleState vehicle : m_aResetPreservedPlayerVehicles)
 		{
 			if (vehicle
 				&& !vehicle.m_sVehicleRuntimeId.IsEmpty()
 				&& !newState.FindRuntimeVehicle(vehicle.m_sVehicleRuntimeId))
-				newState.m_aRuntimeVehicles.Insert(vehicle);
+				newState.m_aRuntimeVehicles.Insert(
+					CopyResetPreservedPlayerVehicle(vehicle));
 		}
 		foreach (HST_VehicleCargoItemState cargoItem : m_aResetPreservedPlayerVehicleCargo)
 		{
@@ -844,10 +919,79 @@ class HST_CivilianService
 				&& !newState.FindVehicleCargoItem(
 					cargoItem.m_sVehicleRuntimeId,
 					cargoItem.m_sItemPrefab))
-				newState.m_aVehicleCargoItems.Insert(cargoItem);
+				newState.m_aVehicleCargoItems.Insert(
+					CopyResetPreservedPlayerVehicleCargo(cargoItem));
 		}
+		return true;
+	}
+
+	// Final consume occurs only after the reset checkpoint commits and the
+	// destructive civilian cleanup has completed.
+	void ClearResetPreservedPlayerVehicles()
+	{
 		m_aResetPreservedPlayerVehicles.Clear();
 		m_aResetPreservedPlayerVehicleCargo.Clear();
+	}
+
+	// Compatibility wrapper for the former copy-and-consume operation.
+	void ApplyResetPreservedPlayerVehicles(HST_CampaignState newState)
+	{
+		if (!CopyResetPreservedPlayerVehiclesToState(newState))
+			return;
+		ClearResetPreservedPlayerVehicles();
+	}
+
+	protected HST_RuntimeVehicleState CopyResetPreservedPlayerVehicle(
+		HST_RuntimeVehicleState source)
+	{
+		HST_RuntimeVehicleState target = new HST_RuntimeVehicleState();
+		if (!source)
+			return target;
+		target.m_sVehicleRuntimeId = source.m_sVehicleRuntimeId;
+		target.m_sPrefab = source.m_sPrefab;
+		target.m_sDisplayName = source.m_sDisplayName;
+		target.m_sFactionKey = source.m_sFactionKey;
+		target.m_sZoneId = source.m_sZoneId;
+		target.m_sRuntimeKind = "field_vehicle";
+		target.m_sSourceVehicleKind = source.m_sSourceVehicleKind;
+		target.m_vPosition = source.m_vPosition;
+		target.m_vAngles = source.m_vAngles;
+		target.m_iSpawnedAtSecond = source.m_iSpawnedAtSecond;
+		target.m_bDetached = source.m_bDetached;
+		target.m_bDeleted = source.m_bDeleted;
+		target.m_bAmmoSource = source.m_bAmmoSource;
+		target.m_bRepairSource = source.m_bRepairSource;
+		target.m_bFuelSource = source.m_bFuelSource;
+		target.m_bReported = source.m_bReported;
+		target.m_bCanProvideUndercover = source.m_bCanProvideUndercover;
+		target.m_iVehicleHeat = source.m_iVehicleHeat;
+		target.m_iLastReportedSecond = source.m_iLastReportedSecond;
+		target.m_iReportedUntilSecond = source.m_iReportedUntilSecond;
+		target.m_iLastVehicleHeatChangedSecond
+			= source.m_iLastVehicleHeatChangedSecond;
+		target.m_iPassengerCompromiseCount
+			= source.m_iPassengerCompromiseCount;
+		target.m_sLastReportedReason = source.m_sLastReportedReason;
+		target.m_sLastReporterZoneId = source.m_sLastReporterZoneId;
+		return target;
+	}
+
+	protected HST_VehicleCargoItemState CopyResetPreservedPlayerVehicleCargo(
+		HST_VehicleCargoItemState source)
+	{
+		HST_VehicleCargoItemState target = new HST_VehicleCargoItemState();
+		if (!source)
+			return target;
+		target.m_sVehicleRuntimeId = source.m_sVehicleRuntimeId;
+		target.m_sVehiclePrefab = source.m_sVehiclePrefab;
+		target.m_sVehicleDisplayName = source.m_sVehicleDisplayName;
+		target.m_sItemPrefab = source.m_sItemPrefab;
+		target.m_sDisplayName = source.m_sDisplayName;
+		target.m_sCategory = source.m_sCategory;
+		target.m_iCount = source.m_iCount;
+		target.m_iLastStoredAtSecond = source.m_iLastStoredAtSecond;
+		target.m_vLastVehiclePosition = source.m_vLastVehiclePosition;
+		return target;
 	}
 
 	bool EnsureCivilianZones(HST_CampaignState state)
