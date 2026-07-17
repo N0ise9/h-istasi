@@ -5486,6 +5486,33 @@ class HST_CivilianService
 		return m_PersistentFieldVehicles.PrepareForCapture(state);
 	}
 
+	bool PrepareControlledShutdownVehiclePersistence(
+		HST_CampaignState state,
+		out string evidence)
+	{
+		evidence
+			= "controlled-shutdown durable field vehicle authority unavailable";
+		if (!PrepareAmbientVehiclePersistence(state)
+			|| !m_PersistentFieldVehicles)
+			return false;
+		return m_PersistentFieldVehicles.PrepareForControlledShutdown(
+			state,
+			evidence);
+	}
+
+	bool MaintainControlledShutdownVehiclePersistence(
+		HST_CampaignState state,
+		out string evidence)
+	{
+		evidence
+			= "controlled-shutdown durable field vehicle quiescence maintenance unavailable";
+		if (!state || !m_PersistentFieldVehicles)
+			return false;
+		return m_PersistentFieldVehicles.MaintainControlledShutdownQuiescence(
+			state,
+			evidence);
+	}
+
 	protected bool PromotePlayerOccupiedRuntimeVehicles(HST_CampaignState state)
 	{
 		return ObservePlayerAmbientVehicleClaims(state);

@@ -10703,7 +10703,7 @@ foreach ($requiredPhase14VehiclePersistenceEntry in @(
 		'record.m_sRuntimeKind == "loot_vehicle"',
 		'record.m_sRuntimeKind == "field_vehicle"',
 		"m_Loot.SnapshotNearbyPersistentVehicles(m_State)",
-		"m_Loot.RestorePersistentFieldVehicles(m_State)"
+		"m_Loot.RestorePersistentFieldVehiclesDetailed(m_State)"
 	)) {
 	if ($lootServiceText -notmatch [regex]::Escape($requiredPhase14VehiclePersistenceEntry) -and $coordinatorText -notmatch [regex]::Escape($requiredPhase14VehiclePersistenceEntry)) {
 		throw "Phase 14 vehicle persistence contract is missing: $requiredPhase14VehiclePersistenceEntry"
@@ -25119,7 +25119,8 @@ if ($ambientCivilianText.IndexOf('m_iAmbientRotationEpoch++') -ge 0) {
 }
 $ambientFrameBlock = Get-ScriptMethodBlock $ambientCoordinatorText 'override void EOnFrame('
 $claimObservationIndex = $ambientFrameBlock.IndexOf('ObservePlayerAmbientVehicleClaims(m_State)')
-$durableRestoreIndex = $ambientFrameBlock.IndexOf('RestorePersistentFieldVehicles(m_State)')
+$durableRestoreIndex = $ambientFrameBlock.IndexOf(
+	'EnsurePersistentFieldVehicleRestoreComplete(timeSlice)')
 $persistenceTickIndex = $ambientFrameBlock.IndexOf('m_Persistence.Tick(')
 if ($claimObservationIndex -lt 0 -or $persistenceTickIndex -lt 0 -or
 	$claimObservationIndex -gt $persistenceTickIndex) {
@@ -25252,7 +25253,8 @@ if ($ambientCivilianResolveVehicleBlock.IndexOf('m_aRuntimeEntityVehicleIds[trac
 	$ambientCivilianResolveVehicleBlock.IndexOf('state.FindRuntimeVehicle(vehicleRuntimeId)') -ge 0) {
 	throw "Phase-8 civilian live-root resolution must use its exact ambient registry or shared durable tracker, never an unregistered RPL ID"
 }
-$ambientRestoreFieldBlock = Get-ScriptMethodBlock $ambientLootText 'int RestorePersistentFieldVehicles('
+$ambientRestoreFieldBlock = Get-ScriptMethodBlock $ambientLootText `
+	'RestorePersistentFieldVehiclesDetailed('
 if ($ambientRestoreFieldBlock.IndexOf('m_PersistentFieldVehicles.Track(') -lt 0 -or
 	$ambientRestoreFieldBlock.IndexOf('claimedRestoreRoots.Find(liveRoot)') -lt 0 -or
 	$ambientRestoreFieldBlock.IndexOf('claimedRestoreRoots.Insert(liveRoot)') -lt 0 -or
@@ -41209,6 +41211,757 @@ if ($ordinaryPersistenceRunnerText -notmatch
 	'profile_fallback_verify[\s\S]*?ExpectedSourceFingerprint') {
 	throw 'Ordinary campaign persistence runner must prove no-UUID fallback startup against the exact generation-3 fingerprint'
 }
+
+# Durable field vehicles extend the ordinary five-process chain. Keep this
+# contract fail-closed: campaign rows are the durable authority, while every
+# process-local root must be restored, bound, sampled, and captured exactly.
+$fieldVehicleProofPath =
+	'Scripts/Game/HST/Services/HST_PersistentFieldVehicleRestartProofService.c'
+if (-not (Test-Path -LiteralPath $fieldVehicleProofPath -PathType Leaf)) {
+	throw 'Durable field-vehicle restart proof source is missing'
+}
+$fieldVehicleProofText = Get-Content -Raw $fieldVehicleProofPath
+$fieldVehicleLootText = Get-Content -Raw `
+	'Scripts/Game/HST/Services/HST_LootService.c'
+$fieldVehicleTrackerText = Get-Content -Raw `
+	'Scripts/Game/HST/Services/HST_PersistentFieldVehicleRuntimeService.c'
+$fieldVehicleCoordinatorText = Get-Content -Raw `
+	'Scripts/Game/HST/Components/HST_CampaignCoordinatorComponent.c'
+
+$fieldVehicleCarrierFields = @(
+	'm_sFieldVehiclePrefab',
+	'm_sFieldVehicleCargoPrefab',
+	'm_sFieldVehicleAId',
+	'm_sFieldVehicleBId',
+	'm_vFieldVehicleAInitialPosition',
+	'm_vFieldVehicleBInitialPosition',
+	'm_vFieldVehicleAMovedPosition',
+	'm_vFieldVehicleAInitialAngles',
+	'm_vFieldVehicleBInitialAngles',
+	'm_vFieldVehicleAMovedAngles',
+	'm_iFieldVehicleACargoCount',
+	'm_iFieldVehicleBCargoCount',
+	'm_bFieldVehiclePrepared',
+	'm_bFieldVehicleRecoveredAndMutated',
+	'm_bFieldVehicleReplayVerified'
+)
+$fieldVehicleResultFields = @(
+	'm_sFieldVehicleProofPhase',
+	'm_iFieldVehicleExpectedDurableRows',
+	'm_iFieldVehicleObservedDurableRows',
+	'm_iFieldVehicleExpectedLiveRoots',
+	'm_iFieldVehicleObservedLiveRoots',
+	'm_iFieldVehicleExpectedDeletedRows',
+	'm_iFieldVehicleObservedDeletedRows',
+	'm_iFieldVehicleExpectedCargoRows',
+	'm_iFieldVehicleObservedCargoRows',
+	'm_iFieldVehicleRestoreEligibleRows',
+	'm_iFieldVehicleRestoreInactiveRows',
+	'm_iFieldVehicleRetiredNativeTombstoneRoots',
+	'm_iFieldVehicleRestoreAdoptedRoots',
+	'm_iFieldVehicleRestoreSpawnedRoots',
+	'm_iFieldVehicleRestoreTrackedRoots',
+	'm_iFieldVehicleRestoreFailedRows',
+	'm_iFieldVehicleRestoreAmbiguousRows',
+	'm_iFieldVehicleNativeTrackedRoots',
+	'm_iFieldVehicleShutdownQuiescedRoots',
+	'm_bFieldVehicleRestoreExact',
+	'm_bFieldVehicleStateExact',
+	'm_bFieldVehiclePhysicalExact',
+	'm_bFieldVehicleCargoExact',
+	'm_bFieldVehicleNoDuplicateRoots',
+	'm_bFieldVehicleNativeAuthorityDetached',
+	'm_bFieldVehicleShutdownQuiescenceRequired',
+	'm_bFieldVehicleShutdownQuiescenceExact',
+	'm_bFieldVehicleMutationApplied',
+	'm_bFieldVehicleProofExact',
+	'm_sFieldVehicleEvidence'
+)
+$fieldVehicleCarrierBlock = Get-ScriptMethodBlock `
+	$ordinaryPersistenceDataText 'class HST_OrdinaryCampaignPersistenceCarrier'
+$fieldVehicleResultBlock = Get-ScriptMethodBlock `
+	$ordinaryPersistenceDataText 'class HST_OrdinaryCampaignPersistenceResult'
+if ([string]::IsNullOrEmpty($fieldVehicleCarrierBlock) -or
+	[string]::IsNullOrEmpty($fieldVehicleResultBlock)) {
+	throw 'Durable field-vehicle ordinary persistence DTO blocks are missing'
+}
+$fieldVehicleDeclarationPattern =
+	'(?m)^\t(?:string|vector|int|bool)\s+(m_[svib]FieldVehicle[A-Za-z0-9_]*)\s*;\s*$'
+$actualFieldVehicleCarrierFields = @(
+	[regex]::Matches(
+		$fieldVehicleCarrierBlock,
+		$fieldVehicleDeclarationPattern) |
+		ForEach-Object { $_.Groups[1].Value }
+)
+$actualFieldVehicleResultFields = @(
+	[regex]::Matches(
+		$fieldVehicleResultBlock,
+		$fieldVehicleDeclarationPattern) |
+		ForEach-Object { $_.Groups[1].Value }
+)
+Assert-EqualSet `
+	'Durable field-vehicle carrier DTO fields' `
+	$fieldVehicleCarrierFields `
+	$actualFieldVehicleCarrierFields
+Assert-EqualSet `
+	'Durable field-vehicle result DTO fields' `
+	$fieldVehicleResultFields `
+	$actualFieldVehicleResultFields
+if ($actualFieldVehicleCarrierFields.Count -ne $fieldVehicleCarrierFields.Count -or
+	$actualFieldVehicleResultFields.Count -ne $fieldVehicleResultFields.Count) {
+	throw 'Durable field-vehicle DTO fields must occur exactly once'
+}
+foreach ($fieldVehicleTypedDeclaration in @(
+		'string m_sFieldVehiclePrefab;',
+		'string m_sFieldVehicleCargoPrefab;',
+		'string m_sFieldVehicleAId;',
+		'string m_sFieldVehicleBId;',
+		'vector m_vFieldVehicleAInitialPosition;',
+		'vector m_vFieldVehicleBInitialPosition;',
+		'vector m_vFieldVehicleAMovedPosition;',
+		'vector m_vFieldVehicleAInitialAngles;',
+		'vector m_vFieldVehicleBInitialAngles;',
+		'vector m_vFieldVehicleAMovedAngles;',
+		'int m_iFieldVehicleACargoCount;',
+		'int m_iFieldVehicleBCargoCount;',
+		'bool m_bFieldVehiclePrepared;',
+		'bool m_bFieldVehicleRecoveredAndMutated;',
+		'bool m_bFieldVehicleReplayVerified;'
+	)) {
+	if ($fieldVehicleCarrierBlock.IndexOf($fieldVehicleTypedDeclaration) -lt 0) {
+		throw "Durable field-vehicle carrier type is not exact: $fieldVehicleTypedDeclaration"
+	}
+}
+foreach ($fieldVehicleTypedDeclaration in @(
+		'string m_sFieldVehicleProofPhase;',
+		'int m_iFieldVehicleExpectedDurableRows;',
+		'int m_iFieldVehicleObservedDurableRows;',
+		'int m_iFieldVehicleExpectedLiveRoots;',
+		'int m_iFieldVehicleObservedLiveRoots;',
+		'int m_iFieldVehicleExpectedDeletedRows;',
+		'int m_iFieldVehicleObservedDeletedRows;',
+		'int m_iFieldVehicleExpectedCargoRows;',
+		'int m_iFieldVehicleObservedCargoRows;',
+		'int m_iFieldVehicleRestoreEligibleRows;',
+		'int m_iFieldVehicleRestoreInactiveRows;',
+		'int m_iFieldVehicleRetiredNativeTombstoneRoots;',
+		'int m_iFieldVehicleRestoreAdoptedRoots;',
+		'int m_iFieldVehicleRestoreSpawnedRoots;',
+		'int m_iFieldVehicleRestoreTrackedRoots;',
+		'int m_iFieldVehicleRestoreFailedRows;',
+		'int m_iFieldVehicleRestoreAmbiguousRows;',
+		'int m_iFieldVehicleNativeTrackedRoots;',
+		'int m_iFieldVehicleShutdownQuiescedRoots;',
+		'bool m_bFieldVehicleRestoreExact;',
+		'bool m_bFieldVehicleStateExact;',
+		'bool m_bFieldVehiclePhysicalExact;',
+		'bool m_bFieldVehicleCargoExact;',
+		'bool m_bFieldVehicleNoDuplicateRoots;',
+		'bool m_bFieldVehicleNativeAuthorityDetached;',
+		'bool m_bFieldVehicleShutdownQuiescenceRequired;',
+		'bool m_bFieldVehicleShutdownQuiescenceExact;',
+		'bool m_bFieldVehicleMutationApplied;',
+		'bool m_bFieldVehicleProofExact;',
+		'string m_sFieldVehicleEvidence;'
+	)) {
+	if ($fieldVehicleResultBlock.IndexOf($fieldVehicleTypedDeclaration) -lt 0) {
+		throw "Durable field-vehicle result type is not exact: $fieldVehicleTypedDeclaration"
+	}
+}
+
+foreach ($fieldVehicleFixtureContract in @(
+		@('FIELD_VEHICLE_PREFAB', 'string',
+			'"{4AE9D080927D3CB9}Prefabs/Vehicles/Wheeled/S1203/S1203_base.et"'),
+		@('FIELD_VEHICLE_CARGO_PREFAB', 'string',
+			'"{6985327711303720}Prefabs/Objects/HST/HST_MissionProp_Cargo.et"'),
+		@('FIELD_VEHICLE_A_CARGO_COUNT', 'int', '3'),
+		@('FIELD_VEHICLE_B_CARGO_COUNT', 'int', '7'),
+		@('STABLE_SAMPLE_COUNT', 'int', '3'),
+		@('PHASE_PREPARE', 'string', '"prepare"'),
+		@('PHASE_RECOVER_MUTATE', 'string', '"recover_mutate"'),
+		@('PHASE_REPLAY_SHUTDOWN', 'string', '"replay_shutdown"'),
+		@('PHASE_REPLAY_NATIVE', 'string', '"replay_native"'),
+		@('PHASE_REPLAY_FALLBACK', 'string', '"replay_fallback"')
+	)) {
+	$fieldVehicleFixtureName = $fieldVehicleFixtureContract[0]
+	$fieldVehicleFixtureType = $fieldVehicleFixtureContract[1]
+	$fieldVehicleFixtureValue = $fieldVehicleFixtureContract[2]
+	$fieldVehicleFixturePattern = '(?m)^\s*static\s+const\s+' +
+		[regex]::Escape($fieldVehicleFixtureType) + '\s+' +
+		[regex]::Escape($fieldVehicleFixtureName) + '\s*=\s*' +
+		[regex]::Escape($fieldVehicleFixtureValue) + '\s*;\s*$'
+	if (-not [regex]::IsMatch(
+		$fieldVehicleProofText,
+		$fieldVehicleFixturePattern)) {
+		throw "Durable field-vehicle proof fixture constant is not exact: $fieldVehicleFixtureName"
+	}
+}
+$fieldVehicleBuildIdBlock = Get-ScriptMethodBlock `
+	$fieldVehicleProofText 'static string BuildFieldVehicleRuntimeId('
+$fieldVehicleTickBlock = Get-ScriptMethodBlock `
+	$fieldVehicleProofText 'bool TickStagePreparation('
+$fieldVehiclePopulateBlock = Get-ScriptMethodBlock `
+	$fieldVehicleProofText 'bool PopulateStageResult('
+$fieldVehicleLogicalBlock = Get-ScriptMethodBlock `
+	$fieldVehicleProofText 'bool ValidateLogicalSnapshot('
+$fieldVehicleLogicalInspectionBlock = Get-ScriptMethodBlock `
+	$fieldVehicleProofText 'protected bool ObserveLogicalFixture('
+foreach ($fieldVehiclePublicApi in @(
+		@('BuildFieldVehicleRuntimeId', $fieldVehicleBuildIdBlock,
+			@('string payloadNonce', 'string suffix')),
+		@('TickStagePreparation', $fieldVehicleTickBlock,
+			@('HST_CampaignState state', 'HST_OrdinaryCampaignPersistenceCarrier carrier',
+				'HST_PersistentFieldVehicleRuntimeService tracker',
+				'HST_PersistentFieldVehicleRestoreResult restoreResult',
+				'float timeSlice', 'out bool ready', 'out string evidence')),
+		@('PopulateStageResult', $fieldVehiclePopulateBlock,
+			@('HST_CampaignState state', 'HST_OrdinaryCampaignPersistenceCarrier carrier',
+				'HST_PersistentFieldVehicleRuntimeService tracker',
+				'HST_PersistentFieldVehicleRestoreResult restoreResult',
+				'HST_OrdinaryCampaignPersistenceResult result', 'out string evidence')),
+		@('ValidateLogicalSnapshot', $fieldVehicleLogicalBlock,
+			@('HST_CampaignState state', 'HST_OrdinaryCampaignPersistenceCarrier carrier',
+				'int generation', 'out string evidence'))
+	)) {
+	$fieldVehicleApiName = $fieldVehiclePublicApi[0]
+	$fieldVehicleApiBlock = $fieldVehiclePublicApi[1]
+	if ([string]::IsNullOrEmpty($fieldVehicleApiBlock)) {
+		throw "Durable field-vehicle proof public API is missing: $fieldVehicleApiName"
+	}
+	foreach ($fieldVehicleApiParameter in $fieldVehiclePublicApi[2]) {
+		if ($fieldVehicleApiBlock.IndexOf($fieldVehicleApiParameter) -lt 0) {
+			throw "Durable field-vehicle proof API $fieldVehicleApiName omits: $fieldVehicleApiParameter"
+		}
+	}
+}
+foreach ($fieldVehicleTickWiring in @(
+		'PrepareInitialFixture(',
+		'BeginRecoveredMutation(',
+		'ValidateInitialPhysicalSnapshot(',
+		'ValidateMutatedPhysicalSnapshot(',
+		'ValidateReplayPhysicalSnapshot(',
+		'AcceptStableSample('
+	)) {
+	if ($fieldVehicleProofText.IndexOf($fieldVehicleTickWiring) -lt 0 -or
+		($fieldVehicleTickWiring -ne 'AcceptStableSample(' -and
+			$fieldVehicleTickBlock.IndexOf($fieldVehicleTickWiring) -lt 0)) {
+		throw "Durable field-vehicle proof stage wiring is incomplete: $fieldVehicleTickWiring"
+	}
+}
+foreach ($fieldVehicleResultField in $fieldVehicleResultFields) {
+	if ($fieldVehiclePopulateBlock.IndexOf($fieldVehicleResultField) -lt 0) {
+		throw "Durable field-vehicle proof result population omits: $fieldVehicleResultField"
+	}
+}
+foreach ($fieldVehicleLogicalEntry in @(
+		'm_aRuntimeVehicles',
+		'm_aVehicleCargoItems',
+		'm_sFieldVehicleAId',
+		'm_sFieldVehicleBId',
+		'm_iFieldVehicleACargoCount',
+		'm_iFieldVehicleBCargoCount'
+	)) {
+	if ($fieldVehicleLogicalBlock.IndexOf('ObserveLogicalFixture(') -lt 0 -or
+		$fieldVehicleLogicalInspectionBlock.IndexOf(
+			$fieldVehicleLogicalEntry) -lt 0) {
+		throw "Durable field-vehicle logical snapshot omits: $fieldVehicleLogicalEntry"
+	}
+}
+
+$fieldVehicleReceiptBlock = Get-ScriptMethodBlock `
+	$fieldVehicleLootText 'class HST_PersistentFieldVehicleRestoreResult'
+$fieldVehicleReceiptFields = @(
+	'm_iEligibleRows',
+	'm_iInactiveRows',
+	'm_iRetiredNativeTombstoneRoots',
+	'm_iAdoptedRoots',
+	'm_iSpawnedRoots',
+	'm_iTrackedRoots',
+	'm_iFailedRows',
+	'm_iAmbiguousRows',
+	'm_bLogicalGraphExact',
+	'm_bBindingGraphExact',
+	'm_sEvidence'
+)
+$actualFieldVehicleReceiptFields = @(
+	[regex]::Matches(
+		$fieldVehicleReceiptBlock,
+		'(?m)^\t(?:int|bool|string)\s+(m_[sib][A-Za-z0-9_]*)\s*;\s*$') |
+		ForEach-Object { $_.Groups[1].Value }
+)
+Assert-EqualSet `
+	'Durable field-vehicle restore receipt fields' `
+	$fieldVehicleReceiptFields `
+	$actualFieldVehicleReceiptFields
+if ($actualFieldVehicleReceiptFields.Count -ne $fieldVehicleReceiptFields.Count) {
+	throw 'Durable field-vehicle restore receipt fields must occur exactly once'
+}
+$fieldVehicleReceiptExactBlock = Get-ScriptMethodBlock `
+	$fieldVehicleReceiptBlock 'bool AllExact('
+foreach ($fieldVehicleReceiptExactEntry in @(
+		'm_bLogicalGraphExact',
+		'm_bBindingGraphExact',
+		'm_iFailedRows == 0',
+		'm_iAmbiguousRows == 0',
+		'm_iEligibleRows == RestoredRootCount()',
+		'm_iTrackedRoots == m_iEligibleRows'
+	)) {
+	if ([string]::IsNullOrEmpty($fieldVehicleReceiptExactBlock) -or
+		$fieldVehicleReceiptExactBlock.IndexOf(
+			$fieldVehicleReceiptExactEntry) -lt 0) {
+		throw "Durable field-vehicle restore receipt is not fail-closed: $fieldVehicleReceiptExactEntry"
+	}
+}
+if ($fieldVehicleLootText -notmatch
+	'(?m)^\s*static\s+const\s+int\s+PERSISTENT_FIELD_VEHICLE_RESTORE_RADIUS_METERS\s*=\s*8\s*;\s*$') {
+	throw 'Durable field-vehicle recovery radius must remain exactly 8 metres'
+}
+$fieldVehicleDetailedRestoreBlock = Get-ScriptMethodBlock `
+	$fieldVehicleLootText 'RestorePersistentFieldVehiclesDetailed(HST_CampaignState state)'
+$fieldVehicleResolveRestoreBlock = Get-ScriptMethodBlock `
+	$fieldVehicleLootText 'protected IEntity ResolveRuntimeVehicleRootFromRecord('
+$fieldVehicleNormalizePrefabBlock = Get-ScriptMethodBlock `
+	$fieldVehicleLootText 'protected string NormalizeVehiclePrefabResource('
+$fieldVehicleAmbiguousBlock = Get-ScriptMethodBlock `
+	$fieldVehicleResolveRestoreBlock 'if (uniqueRoot && uniqueRoot != rootVehicle)'
+$fieldVehicleSpawnRollbackBlock = Get-ScriptMethodBlock `
+	$fieldVehicleDetailedRestoreBlock 'if (!spawnedTracked)'
+foreach ($fieldVehicleRestoreEntry in @(
+		'ValidateDurableStateGraph(',
+		'ResolveRuntimeVehicleRootFromRecord(',
+		'm_iEligibleRows',
+		'm_iInactiveRows',
+		'm_iAdoptedRoots',
+		'm_iSpawnedRoots',
+		'm_iTrackedRoots',
+		'm_iFailedRows',
+		'm_iAmbiguousRows',
+		'm_bLogicalGraphExact',
+		'm_bBindingGraphExact',
+		'result.AllExact()'
+	)) {
+	if ([string]::IsNullOrEmpty($fieldVehicleDetailedRestoreBlock) -or
+		$fieldVehicleDetailedRestoreBlock.IndexOf($fieldVehicleRestoreEntry) -lt 0) {
+		throw "Durable field-vehicle detailed restore is incomplete: $fieldVehicleRestoreEntry"
+	}
+}
+foreach ($fieldVehicleNormalizeEntry in @(
+		'prefab.Trim()',
+		'IndexOf("}")',
+		'Substring(',
+		'normalized.ToLower()'
+	)) {
+	if ([string]::IsNullOrEmpty($fieldVehicleNormalizePrefabBlock) -or
+		$fieldVehicleNormalizePrefabBlock.IndexOf($fieldVehicleNormalizeEntry) -lt 0) {
+		throw "Durable field-vehicle prefab normalization is incomplete: $fieldVehicleNormalizeEntry"
+	}
+}
+if ($fieldVehicleNormalizePrefabBlock.IndexOf('ResolveResourceBasename(') -ge 0 -or
+	[string]::IsNullOrEmpty($fieldVehicleAmbiguousBlock) -or
+	$fieldVehicleAmbiguousBlock.IndexOf('return null;') -lt 0 -or
+	$fieldVehicleAmbiguousBlock.IndexOf('ambiguous durable restore') -lt 0) {
+	throw 'Durable field-vehicle restore must compare normalized full resources and reject ambiguous same-prefab roots'
+}
+if ([string]::IsNullOrEmpty($fieldVehicleSpawnRollbackBlock) -or
+	$fieldVehicleSpawnRollbackBlock.IndexOf(
+		'SCR_EntityHelper.DeleteEntityAndChildren(spawnedVehicle);') -lt 0 -or
+	$fieldVehicleSpawnRollbackBlock.IndexOf('m_iFailedRows++') -lt 0 -or
+	$fieldVehicleSpawnRollbackBlock.IndexOf('continue;') -lt 0) {
+	throw 'A spawned durable root must be deleted and failed atomically when exact tracking fails'
+}
+$fieldVehicleInactiveNativeRetireBlock = Get-ScriptMethodBlock `
+	$fieldVehicleTrackerText 'bool RetireNativeTrackedInactiveRoot('
+foreach ($fieldVehicleInactiveRetireEntry in @(
+		'HST_RuntimeVehicleState record',
+		'!record.m_bDeleted && !record.m_bDetached',
+		'BindingMatchesRecord(entity, record)',
+		'HasLivingPlayerOccupant(entity)',
+		'GetTrackedParent(entity)',
+		'IsTracked(entity)',
+		'StopTracking(entity, true)',
+		'SCR_EntityHelper.DeleteEntityAndChildren(entity)'
+	)) {
+	if ([string]::IsNullOrEmpty($fieldVehicleInactiveNativeRetireBlock) -or
+		$fieldVehicleInactiveNativeRetireBlock.IndexOf(
+			$fieldVehicleInactiveRetireEntry) -lt 0) {
+		throw "Inactive durable native-row retirement is incomplete: $fieldVehicleInactiveRetireEntry"
+	}
+}
+if ($fieldVehicleDetailedRestoreBlock.IndexOf(
+		'RetireNativeTrackedInactiveRoot(') -lt 0 -or
+	$fieldVehicleDetailedRestoreBlock.IndexOf('inactiveRecord') -lt 0 -or
+	$fieldVehicleDetailedRestoreBlock.IndexOf(
+		'm_iRetiredNativeTombstoneRoots++') -lt 0) {
+	throw 'Inactive durable tombstones must retire only exact native-tracked physical duplicates and otherwise fail closed'
+}
+
+$fieldVehiclePrepareCaptureBlock = Get-ScriptMethodBlock `
+	$fieldVehicleTrackerText 'bool PrepareForCapture(HST_CampaignState state)'
+$fieldVehicleTrackBlock = Get-ScriptMethodBlock `
+	$fieldVehicleTrackerText 'bool Track(IEntity entity, HST_RuntimeVehicleState record)'
+$fieldVehicleNativeDetachBlock = Get-ScriptMethodBlock `
+	$fieldVehicleTrackerText 'protected bool DetachNativePersistenceAuthority(IEntity entity)'
+$fieldVehicleNativeCountBlock = Get-ScriptMethodBlock `
+	$fieldVehicleTrackerText 'int CountNativeTrackedDurableRoots(HST_CampaignState state)'
+$fieldVehicleShutdownQuiescenceBlock = Get-ScriptMethodBlock `
+	$fieldVehicleTrackerText 'bool PrepareForControlledShutdown('
+$fieldVehiclePhysicsQuiescenceBlock = Get-ScriptMethodBlock `
+	$fieldVehicleTrackerText 'protected void QuiescePhysicsHierarchy(IEntity entity)'
+$fieldVehicleGraphBlock = Get-ScriptMethodBlock `
+	$fieldVehicleTrackerText 'bool ValidateDurableStateGraph('
+$fieldVehicleDestroyedCaptureBlock = Get-ScriptMethodBlock `
+	$fieldVehiclePrepareCaptureBlock 'if (!IsLivingEntity(entity))'
+foreach ($fieldVehicleCaptureEntry in @(
+		'ValidateDurableStateGraph(',
+		'true,',
+		'UpdateCargoPosition(',
+		'm_bDeleted = true',
+		'DetachNativePersistenceAuthority(entity)'
+	)) {
+	if ([string]::IsNullOrEmpty($fieldVehiclePrepareCaptureBlock) -or
+		$fieldVehiclePrepareCaptureBlock.IndexOf($fieldVehicleCaptureEntry) -lt 0) {
+		throw "Durable field-vehicle capture graph is incomplete: $fieldVehicleCaptureEntry"
+	}
+}
+foreach ($fieldVehicleNativeAuthorityEntry in @(
+		'PersistenceSystem.GetInstance()',
+		'GetTrackedParent(entity)',
+		'IsTracked(entity)',
+		'StopTracking(entity, true)',
+		'persistence.IsTracked(entity)'
+	)) {
+	if ([string]::IsNullOrEmpty($fieldVehicleNativeDetachBlock) -or
+		$fieldVehicleNativeDetachBlock.IndexOf(
+			$fieldVehicleNativeAuthorityEntry) -lt 0) {
+		throw "Durable field-vehicle native-authority detachment is incomplete: $fieldVehicleNativeAuthorityEntry"
+	}
+}
+if ([string]::IsNullOrEmpty($fieldVehicleTrackBlock) -or
+	$fieldVehicleTrackBlock.IndexOf(
+		'DetachNativePersistenceAuthority(entity)') -lt 0 -or
+	[string]::IsNullOrEmpty($fieldVehicleNativeCountBlock) -or
+	$fieldVehicleNativeCountBlock.IndexOf('IsTracked(entity)') -lt 0 -or
+	$fieldVehicleNativeCountBlock.IndexOf('GetTrackedParent(entity)') -lt 0) {
+	throw 'Durable field-vehicle Track/capture proof must reject every native entity-persistence overlap'
+}
+if ($fieldVehicleTrackerText.IndexOf('StopTracking(entity, false)') -ge 0) {
+	throw 'Durable field-vehicle authority transfer must delete stale native rows rather than preserve them'
+}
+foreach ($fieldVehicleShutdownEntry in @(
+		'PrepareForCapture(state)',
+		'CountNativeTrackedDurableRoots(state) != 0',
+		'QuiesceControlledShutdownRoot(root)',
+		'IsControlledShutdownRootQuiescent(root)',
+		'm_bControlledShutdownQuiescenceExact'
+	)) {
+	if ([string]::IsNullOrEmpty($fieldVehicleShutdownQuiescenceBlock) -or
+		$fieldVehicleShutdownQuiescenceBlock.IndexOf(
+			$fieldVehicleShutdownEntry) -lt 0) {
+		throw "Durable field-vehicle controlled-shutdown quiescence is incomplete: $fieldVehicleShutdownEntry"
+	}
+}
+$fieldVehicleQuiesceRootBlock = Get-ScriptMethodBlock `
+	$fieldVehicleTrackerText 'protected void QuiesceControlledShutdownRoot(IEntity root)'
+foreach ($fieldVehicleQuiesceRootEntry in @(
+		'controller.Shutdown()',
+		'controller.StopEngine(false)',
+		'carController.SetPersistentHandBrake(true)',
+		'QuiescePhysicsHierarchy(root)'
+	)) {
+	if ([string]::IsNullOrEmpty($fieldVehicleQuiesceRootBlock) -or
+		$fieldVehicleQuiesceRootBlock.IndexOf(
+			$fieldVehicleQuiesceRootEntry) -lt 0) {
+		throw "Durable field-vehicle controller shutdown quiescence is incomplete: $fieldVehicleQuiesceRootEntry"
+	}
+}
+$fieldVehicleShutdownRecheckBlock = Get-ScriptMethodBlock `
+	$fieldVehicleTrackerText 'bool IsControlledShutdownQuiescenceExact(HST_CampaignState state)'
+foreach ($fieldVehicleShutdownRecheckEntry in @(
+		'CountNativeTrackedDurableRoots(state) != 0',
+		'ValidateDurableStateGraph(',
+		'IsControlledShutdownRootQuiescent(entity)',
+		'observedQuiescentRoots'
+	)) {
+	if ([string]::IsNullOrEmpty($fieldVehicleShutdownRecheckBlock) -or
+		$fieldVehicleShutdownRecheckBlock.IndexOf(
+			$fieldVehicleShutdownRecheckEntry) -lt 0) {
+		throw "Durable field-vehicle post-commit shutdown quiescence recheck is incomplete: $fieldVehicleShutdownRecheckEntry"
+	}
+}
+if ($fieldVehiclePopulateBlock.IndexOf(
+		'IsControlledShutdownQuiescenceExact(state)') -lt 0) {
+	throw 'Durable field-vehicle result population must recheck live shutdown controller/physics authority'
+}
+$fieldVehicleShutdownMaintainBlock = Get-ScriptMethodBlock `
+	$fieldVehicleTrackerText 'bool MaintainControlledShutdownQuiescence('
+foreach ($fieldVehicleShutdownMaintainEntry in @(
+		'CountNativeTrackedDurableRoots(state) != 0',
+		'HST_WorldPositionService.ApplyUprightEntityTransform(',
+		'QuiesceControlledShutdownRoot(entity)',
+		'IsControlledShutdownQuiescenceExact(state)'
+	)) {
+	if ([string]::IsNullOrEmpty($fieldVehicleShutdownMaintainBlock) -or
+		$fieldVehicleShutdownMaintainBlock.IndexOf(
+			$fieldVehicleShutdownMaintainEntry) -lt 0) {
+		throw "Durable field-vehicle controlled-shutdown maintenance is incomplete: $fieldVehicleShutdownMaintainEntry"
+	}
+}
+$fieldVehicleCoordinatorStableBlock = Get-ScriptMethodBlock `
+	$fieldVehicleCoordinatorText 'bool IsControlledCampaignEndCheckpointStable()'
+$fieldVehicleCoordinatorEndTickBlock = Get-ScriptMethodBlock `
+	$fieldVehicleCoordinatorText 'protected void TickOrdinaryCampaignEndBridgeStage(float timeSlice)'
+foreach ($fieldVehicleCoordinatorMaintainBlock in @(
+		$fieldVehicleCoordinatorStableBlock,
+		$fieldVehicleCoordinatorEndTickBlock
+	)) {
+	if ([string]::IsNullOrEmpty($fieldVehicleCoordinatorMaintainBlock) -or
+		$fieldVehicleCoordinatorMaintainBlock.IndexOf(
+			'MaintainControlledCampaignEndVehicleQuiescence(') -lt 0) {
+		throw 'Controlled campaign end must maintain durable vehicle quiescence before callback/stability handoff'
+	}
+}
+foreach ($fieldVehiclePhysicsEntry in @(
+		'physics.ClearForces()',
+		'physics.SetVelocity(vector.Zero)',
+		'physics.SetAngularVelocity(vector.Zero)',
+		'physics.SetActive(ActiveState.INACTIVE)'
+	)) {
+	if ([string]::IsNullOrEmpty($fieldVehiclePhysicsQuiescenceBlock) -or
+		$fieldVehiclePhysicsQuiescenceBlock.IndexOf(
+			$fieldVehiclePhysicsEntry) -lt 0) {
+		throw "Durable field-vehicle shutdown physics quiescence is incomplete: $fieldVehiclePhysicsEntry"
+	}
+}
+$fieldVehicleCivilianShutdownBlock = Get-ScriptMethodBlock `
+	$ambientCivilianText 'bool PrepareControlledShutdownVehiclePersistence('
+$fieldVehiclePersistenceCheckpointBlock = Get-ScriptMethodBlock `
+	$ambientPersistenceText 'HST_PersistenceCheckpointRequest RequestTypedCheckpointDetailed('
+if ([string]::IsNullOrEmpty($fieldVehicleCivilianShutdownBlock) -or
+	$fieldVehicleCivilianShutdownBlock.IndexOf(
+		'PrepareAmbientVehiclePersistence(state)') -lt 0 -or
+	$fieldVehicleCivilianShutdownBlock.IndexOf(
+		'm_PersistentFieldVehicles.PrepareForControlledShutdown(') -lt 0 -or
+	[string]::IsNullOrEmpty($fieldVehiclePersistenceCheckpointBlock) -or
+	$fieldVehiclePersistenceCheckpointBlock.IndexOf(
+		'saveType == ESaveGameType.SHUTDOWN') -lt 0 -or
+	$fieldVehiclePersistenceCheckpointBlock.IndexOf(
+		'PrepareControlledShutdownVehiclePersistence(') -lt 0) {
+	throw 'Typed SHUTDOWN checkpoints must synchronously quiesce durable vehicle controller and physics authority before capture'
+}
+if ([string]::IsNullOrEmpty($fieldVehicleDestroyedCaptureBlock) -or
+	$fieldVehicleDestroyedCaptureBlock.IndexOf('record.m_bDeleted = true;') -lt 0 -or
+	$fieldVehicleDestroyedCaptureBlock.IndexOf(
+		'SCR_EntityHelper.DeleteEntityAndChildren(entity);') -lt 0 -or
+	$fieldVehicleDestroyedCaptureBlock.IndexOf('RemoveAt(index);') -lt 0) {
+	throw 'Destroyed durable vehicle roots must become tombstones and be physically deleted during capture'
+}
+foreach ($fieldVehicleGraphEntry in @(
+		'requireActiveBindings',
+		'm_aRuntimeIds.Find(record.m_sVehicleRuntimeId)',
+		'!IsLivingEntity(m_aEntities[bindingIndex])',
+		'HasBindingCollision()',
+		'durable field vehicle cargo key is duplicated'
+	)) {
+	if ([string]::IsNullOrEmpty($fieldVehicleGraphBlock) -or
+		$fieldVehicleGraphBlock.IndexOf($fieldVehicleGraphEntry) -lt 0) {
+		throw "Durable field-vehicle active binding graph is incomplete: $fieldVehicleGraphEntry"
+	}
+}
+
+$fieldVehicleCoordinatorFrameBlock = Get-ScriptMethodBlock `
+	$fieldVehicleCoordinatorText 'override void EOnFrame('
+$fieldVehicleCoordinatorRestoreBlock = Get-ScriptMethodBlock `
+	$fieldVehicleCoordinatorText 'protected bool EnsurePersistentFieldVehicleRestoreComplete('
+$fieldVehicleCoordinatorTickBlock = Get-ScriptMethodBlock `
+	$fieldVehicleCoordinatorText 'protected bool TickOrdinaryCampaignPersistenceFieldVehicleStage('
+$fieldVehicleCoordinatorPopulateBlock = Get-ScriptMethodBlock `
+	$fieldVehicleCoordinatorText 'protected bool PopulateOrdinaryCampaignPersistenceFieldVehicleResult('
+$fieldVehicleCoordinatorFallbackBlock = Get-ScriptMethodBlock `
+	$fieldVehicleCoordinatorText 'protected bool ValidateOrdinaryCampaignPersistenceFallback('
+$fieldVehicleRestoreOrderIndex = $fieldVehicleCoordinatorFrameBlock.IndexOf(
+	'EnsurePersistentFieldVehicleRestoreComplete(timeSlice)')
+$fieldVehicleOrdinaryOrderIndex = $fieldVehicleCoordinatorFrameBlock.IndexOf(
+	'if (m_bOrdinaryCampaignPersistenceCLIRequested)')
+if ($fieldVehicleRestoreOrderIndex -lt 0 -or
+	$fieldVehicleOrdinaryOrderIndex -le $fieldVehicleRestoreOrderIndex) {
+	throw 'Coordinator must complete durable field-vehicle restoration before any ordinary proof stage runs'
+}
+$fieldVehicleFreshRestoreBlock = Get-ScriptMethodBlock `
+	$fieldVehicleCoordinatorRestoreBlock 'if (!m_State.m_bRestoredFromPersistence)'
+$fieldVehicleExactRestoreBlock = Get-ScriptMethodBlock `
+	$fieldVehicleCoordinatorRestoreBlock 'if (m_PersistentFieldVehicleRestoreResult'
+$fieldVehicleRestoreCheckedAssignments = [regex]::Matches(
+	$fieldVehicleCoordinatorRestoreBlock,
+	'm_bPersistentFieldVehicleRestoreChecked\s*=\s*true\s*;').Count
+if ([string]::IsNullOrEmpty($fieldVehicleCoordinatorRestoreBlock) -or
+	$fieldVehicleRestoreCheckedAssignments -ne 2 -or
+	$fieldVehicleFreshRestoreBlock.IndexOf(
+		'm_bPersistentFieldVehicleRestoreChecked = true;') -lt 0 -or
+	$fieldVehicleExactRestoreBlock.IndexOf('AllExact()') -lt 0 -or
+	$fieldVehicleExactRestoreBlock.IndexOf(
+		'm_bPersistentFieldVehicleRestoreChecked = true;') -lt 0 -or
+	$fieldVehicleCoordinatorRestoreBlock.IndexOf(
+		'RestorePersistentFieldVehiclesDetailed(m_State)') -lt 0 -or
+	$fieldVehicleCoordinatorRestoreBlock.IndexOf(
+		'm_iPersistentFieldVehicleRestoreAttempts++') -lt 0 -or
+	$fieldVehicleCoordinatorRestoreBlock.IndexOf('return false;') -lt 0) {
+	throw 'Coordinator durable field-vehicle restoration must retry until an AllExact receipt and must never pre-mark a partial restore complete'
+}
+foreach ($fieldVehicleCoordinatorProofContract in @(
+		@($fieldVehicleCoordinatorTickBlock, 'TickStagePreparation('),
+		@($fieldVehicleCoordinatorPopulateBlock, 'PopulateStageResult('),
+		@($fieldVehicleCoordinatorFallbackBlock, 'ValidateLogicalSnapshot(')
+	)) {
+	if ([string]::IsNullOrEmpty($fieldVehicleCoordinatorProofContract[0]) -or
+		$fieldVehicleCoordinatorProofContract[0].IndexOf(
+			$fieldVehicleCoordinatorProofContract[1]) -lt 0) {
+		throw "Coordinator durable field-vehicle proof wiring is missing: $($fieldVehicleCoordinatorProofContract[1])"
+	}
+}
+
+$fieldVehicleMutationBlock = Get-ScriptMethodBlock `
+	$fieldVehicleProofText 'protected bool BeginRecoveredMutation('
+$fieldVehicleStableSampleBlock = Get-ScriptMethodBlock `
+	$fieldVehicleProofText 'protected bool AcceptStableSample('
+if ([string]::IsNullOrEmpty($fieldVehicleMutationBlock) -or
+	$fieldVehicleMutationBlock.IndexOf(
+		'damageManager.Kill(Instigator.CreateInstigator(null));') -lt 0 -or
+	$fieldVehicleMutationBlock.IndexOf('DeleteEntityAndChildren(') -ge 0) {
+	throw 'The restart proof must destroy vehicle B through engine Kill and must not directly delete it'
+}
+if ([string]::IsNullOrEmpty($fieldVehicleStableSampleBlock) -or
+	$fieldVehicleStableSampleBlock.IndexOf('STABLE_SAMPLE_COUNT') -lt 0 -or
+	$fieldVehicleStableSampleBlock -notmatch '(?s)\+\+|\+=\s*1' -or
+	$fieldVehicleStableSampleBlock -notmatch
+		'(?s)(?:>=|==)\s*STABLE_SAMPLE_COUNT|STABLE_SAMPLE_COUNT\s*(?:<=|==)') {
+	throw 'The restart proof must require three advancing stable physical samples before checkpoint or verification'
+}
+
+$fieldVehicleRunnerStageResultBlock = Get-ScriptMethodBlock `
+	$ordinaryPersistenceRunnerText 'function Assert-StageResult'
+$fieldVehicleRunnerCarrierBlock = Get-ScriptMethodBlock `
+	$ordinaryPersistenceRunnerText 'function Assert-Carrier'
+$fieldVehicleRunnerInvokeBlock = Get-ScriptMethodBlock `
+	$ordinaryPersistenceRunnerText 'function Invoke-OrdinaryCampaignStage'
+$fieldVehicleRunnerExpectedBlock = Get-ScriptMethodBlock `
+	$ordinaryPersistenceRunnerText '$script:ExpectedFieldVehicleResults = @{'
+foreach ($fieldVehicleResultField in $fieldVehicleResultFields) {
+	if ($fieldVehicleRunnerStageResultBlock.IndexOf($fieldVehicleResultField) -lt 0) {
+		throw "Ordinary runner result assertion omits: $fieldVehicleResultField"
+	}
+}
+foreach ($fieldVehicleCarrierField in $fieldVehicleCarrierFields) {
+	if ($fieldVehicleRunnerCarrierBlock.IndexOf($fieldVehicleCarrierField) -lt 0) {
+		throw "Ordinary runner carrier assertion omits: $fieldVehicleCarrierField"
+	}
+}
+foreach ($fieldVehicleRunnerExactEntry in @(
+		'$script:ExpectedFieldVehicleResults[$Stage]',
+		'm_iFieldVehicleRestoreFailedRows -ne 0',
+		'm_iFieldVehicleRestoreAmbiguousRows -ne 0',
+		'm_iFieldVehicleRetiredNativeTombstoneRoots -ne 0',
+		'm_iFieldVehicleRestoreAdoptedRoots -ne 0',
+		'm_iFieldVehicleNativeTrackedRoots -ne 0',
+		'-not [bool]$Result.m_bFieldVehicleNativeAuthorityDetached',
+		'm_iFieldVehicleShutdownQuiescedRoots -ne',
+		'-not [bool]$Result.m_bFieldVehicleShutdownQuiescenceExact',
+		'-not [bool]$Result.m_bFieldVehicleProofExact',
+		'$script:FieldVehiclePrefab',
+		'$script:FieldVehicleCargoPrefab',
+		'm_iFieldVehicleACargoCount -ne 3',
+		'm_iFieldVehicleBCargoCount -ne 7',
+		"-match '^(?i:rpl_|local_)'",
+		'm_bFieldVehicleRecoveredAndMutated',
+		'm_bFieldVehicleReplayVerified'
+	)) {
+	if (($fieldVehicleRunnerStageResultBlock + "`n" +
+		$fieldVehicleRunnerCarrierBlock).IndexOf($fieldVehicleRunnerExactEntry) -lt 0) {
+		throw "Ordinary runner field-vehicle exact assertion is missing: $fieldVehicleRunnerExactEntry"
+	}
+}
+if ($ordinaryPersistenceRunnerText -notmatch
+	'(?s)\$script:FieldVehiclePrefab\s*=\s*\r?\n?\s*"\{4AE9D080927D3CB9\}Prefabs/Vehicles/Wheeled/S1203/S1203_base\.et"' -or
+	$ordinaryPersistenceRunnerText -notmatch
+	'(?s)\$script:FieldVehicleCargoPrefab\s*=\s*\r?\n?\s*"\{6985327711303720\}Prefabs/Objects/HST/HST_MissionProp_Cargo\.et"') {
+	throw 'Ordinary runner durable field-vehicle fixture resources must exactly match the engine proof'
+}
+foreach ($fieldVehicleRunnerStageContract in @(
+		@('autosave_checkpoint', 'Phase = "prepare"', 'DurableRows = 2',
+			'LiveRoots = 2', 'DeletedRows = 0', 'CargoRows = 2',
+			'RestoreEligibleRows = 0', 'RestoreInactiveRows = 0',
+			'RestoreRoots = 0', 'RestoreTrackedRoots = 0',
+			'ShutdownQuiescedRoots = 0',
+			'MutationApplied = $false'),
+		@('manual_checkpoint', 'Phase = "recover_mutate"', 'DurableRows = 2',
+			'LiveRoots = 1', 'DeletedRows = 1', 'CargoRows = 2',
+			'RestoreEligibleRows = 2', 'RestoreInactiveRows = 0',
+			'RestoreRoots = 2', 'RestoreTrackedRoots = 2',
+			'ShutdownQuiescedRoots = 0',
+			'MutationApplied = $true'),
+		@('shutdown_checkpoint', 'Phase = "replay_shutdown"', 'DurableRows = 2',
+			'LiveRoots = 1', 'DeletedRows = 1', 'CargoRows = 2',
+			'RestoreEligibleRows = 1', 'RestoreInactiveRows = 1',
+			'RestoreRoots = 1', 'RestoreTrackedRoots = 1',
+			'ShutdownQuiescedRoots = 1',
+			'MutationApplied = $false'),
+		@('native_shutdown_verify', 'Phase = "replay_native"', 'DurableRows = 2',
+			'LiveRoots = 1', 'DeletedRows = 1', 'CargoRows = 2',
+			'RestoreEligibleRows = 1', 'RestoreInactiveRows = 1',
+			'RestoreRoots = 1', 'RestoreTrackedRoots = 1',
+			'ShutdownQuiescedRoots = 0',
+			'MutationApplied = $false'),
+		@('profile_fallback_verify', 'Phase = "replay_fallback"', 'DurableRows = 2',
+			'LiveRoots = 1', 'DeletedRows = 1', 'CargoRows = 2',
+			'RestoreEligibleRows = 1', 'RestoreInactiveRows = 1',
+			'RestoreRoots = 1', 'RestoreTrackedRoots = 1',
+			'ShutdownQuiescedRoots = 0',
+			'MutationApplied = $false')
+	)) {
+	$fieldVehicleExpectedStageBlock = Get-ScriptMethodBlock `
+		$fieldVehicleRunnerExpectedBlock `
+		($fieldVehicleRunnerStageContract[0] + ' = @{')
+	if ([string]::IsNullOrEmpty($fieldVehicleExpectedStageBlock)) {
+		throw "Ordinary runner field-vehicle stage contract is incomplete: $($fieldVehicleRunnerStageContract[0])"
+	}
+	for ($fieldVehicleStageEntryIndex = 1;
+		$fieldVehicleStageEntryIndex -lt $fieldVehicleRunnerStageContract.Count;
+		$fieldVehicleStageEntryIndex++) {
+		$fieldVehicleExpectedStageEntry =
+			$fieldVehicleRunnerStageContract[$fieldVehicleStageEntryIndex]
+		if ($fieldVehicleExpectedStageBlock.IndexOf(
+			$fieldVehicleExpectedStageEntry) -lt 0) {
+			throw "Ordinary runner field-vehicle stage $($fieldVehicleRunnerStageContract[0]) omits: $fieldVehicleExpectedStageEntry"
+		}
+	}
+}
+foreach ($fieldVehicleStageSummaryEntry in @(
+		'FieldPhase =',
+		'FieldRows =',
+		'FieldRoots =',
+		'FieldDeleted =',
+		'FieldCargo =',
+		'FieldRestore =',
+		'FieldNativeTracked =',
+		'FieldShutdownQuiesced =',
+		'FieldExact ='
+	)) {
+	if ($fieldVehicleRunnerInvokeBlock.IndexOf($fieldVehicleStageSummaryEntry) -lt 0) {
+		throw "Ordinary runner safe stage summary omits: $fieldVehicleStageSummaryEntry"
+	}
+}
+foreach ($fieldVehicleFinalSummaryEntry in @(
+		'FieldVehiclePrepare =',
+		'FieldVehicleRecover =',
+		'FieldVehicleReplay =',
+		'FieldVehicleNative =',
+		'FieldVehicleFallback ='
+	)) {
+	if ($ordinaryPersistenceRunnerText.IndexOf($fieldVehicleFinalSummaryEntry) -lt 0) {
+		throw "Ordinary runner final summary omits: $fieldVehicleFinalSummaryEntry"
+	}
+}
+
+Write-Host 'Durable field-vehicle sole native authority, exact restore, capture, destruction, three-sample, DTO, and ordinary five-process runner contract OK'
 
 Write-Host 'Native campaign proxy transport, fail-closed source selection, deferred bootstrap, and guarded native-over-fallback restart contract OK'
 

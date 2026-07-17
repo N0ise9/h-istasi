@@ -6,6 +6,8 @@ class HST_PersistentFieldVehicleRuntimeService
 	protected ref array<IEntity> m_aEntities = {};
 	protected ref array<string> m_aRuntimeIds = {};
 	protected bool m_bBindingFault;
+	protected bool m_bControlledShutdownQuiescenceExact;
+	protected int m_iControlledShutdownQuiescedRoots;
 
 	bool Track(IEntity entity, HST_RuntimeVehicleState record)
 	{
@@ -27,9 +29,8 @@ class HST_PersistentFieldVehicleRuntimeService
 				Print("Partisan vehicle persistence | rejected durable root ID rebind/collision", LogLevel.ERROR);
 				return false;
 			}
-			return true;
 		}
-		if (idIndex >= 0)
+		else if (idIndex >= 0)
 		{
 			IEntity existingEntity = m_aEntities[idIndex];
 			if (existingEntity && existingEntity != entity
@@ -39,12 +40,202 @@ class HST_PersistentFieldVehicleRuntimeService
 				Print("Partisan vehicle persistence | rejected durable ID/live-root collision", LogLevel.ERROR);
 				return false;
 			}
+		}
+
+		// Durable Partisan vehicle rows are the sole restart authority. Stock
+		// vehicle prefabs also carry native entity persistence; leaving that live
+		// would create a second record for the same root and can make a blocking
+		// shutdown flush wait on both authorities. Remove any native row before
+		// publishing the exact HST binding. removeData=true also retires an older
+		// native row instead of allowing it to respawn beside this durable ledger.
+		if (!DetachNativePersistenceAuthority(entity))
+		{
+			m_bBindingFault = true;
+			return false;
+		}
+		if (entityIndex >= 0)
+			return true;
+		if (idIndex >= 0)
+		{
 			m_aEntities[idIndex] = entity;
 			return true;
 		}
 		m_aEntities.Insert(entity);
 		m_aRuntimeIds.Insert(record.m_sVehicleRuntimeId);
 		return true;
+	}
+
+	int CountNativeTrackedDurableRoots(HST_CampaignState state)
+	{
+		if (!state || m_aEntities.Count() != m_aRuntimeIds.Count())
+			return -1;
+		PersistenceSystem persistence = PersistenceSystem.GetInstance();
+		if (!persistence)
+			return 0;
+		int trackedRoots;
+		for (int index = 0; index < m_aRuntimeIds.Count(); index++)
+		{
+			HST_RuntimeVehicleState record = state.FindRuntimeVehicle(
+				m_aRuntimeIds[index]);
+			if (!IsDurableRecord(record))
+				continue;
+			IEntity entity = m_aEntities[index];
+			if (entity && (persistence.IsTracked(entity)
+				|| persistence.GetTrackedParent(entity) != null))
+				trackedRoots++;
+		}
+		return trackedRoots;
+	}
+
+	bool RetireNativeTrackedInactiveRoot(
+		IEntity entity,
+		HST_RuntimeVehicleState record)
+	{
+		if (!entity || !entity.GetWorld() || !record
+			|| (!record.m_bDeleted && !record.m_bDetached)
+			|| !BindingMatchesRecord(entity, record)
+			|| m_aEntities.Find(entity) >= 0
+			|| HasLivingPlayerOccupant(entity))
+			return false;
+		PersistenceSystem persistence = PersistenceSystem.GetInstance();
+		if (!persistence)
+			return false;
+		IEntity trackedParent = persistence.GetTrackedParent(entity);
+		if ((trackedParent && trackedParent != entity)
+			|| !persistence.IsTracked(entity)
+			|| !persistence.StopTracking(entity, true)
+			|| persistence.IsTracked(entity)
+			|| persistence.GetTrackedParent(entity) != null)
+			return false;
+		SCR_EntityHelper.DeleteEntityAndChildren(entity);
+		return !entity.GetWorld();
+	}
+
+	bool PrepareForControlledShutdown(
+		HST_CampaignState state,
+		out string evidence)
+	{
+		evidence = "durable field vehicle controlled-shutdown quiescence rejected";
+		m_bControlledShutdownQuiescenceExact = false;
+		m_iControlledShutdownQuiescedRoots = 0;
+		if (!PrepareForCapture(state))
+			return false;
+		int activeRows;
+		int inactiveRows;
+		string graphEvidence;
+		if (!ValidateDurableStateGraph(
+			state,
+			true,
+			activeRows,
+			inactiveRows,
+			graphEvidence)
+			|| CountNativeTrackedDurableRoots(state) != 0)
+		{
+			evidence += " | " + graphEvidence;
+			return false;
+		}
+
+		array<IEntity> activeRoots = {};
+		foreach (HST_RuntimeVehicleState record : state.m_aRuntimeVehicles)
+		{
+			if (!IsDurableRecord(record))
+				continue;
+			IEntity entity = ResolveEntityForRuntimeId(
+				record.m_sVehicleRuntimeId);
+			if (!entity || activeRoots.Find(entity) >= 0)
+				return false;
+			activeRoots.Insert(entity);
+		}
+		if (activeRoots.Count() != activeRows)
+			return false;
+
+		foreach (IEntity root : activeRoots)
+			QuiesceControlledShutdownRoot(root);
+
+		foreach (IEntity root : activeRoots)
+		{
+			if (!IsControlledShutdownRootQuiescent(root))
+				return false;
+			m_iControlledShutdownQuiescedRoots++;
+		}
+		m_bControlledShutdownQuiescenceExact
+			= m_iControlledShutdownQuiescedRoots == activeRows;
+		evidence = string.Format(
+			"durable field vehicle controlled-shutdown quiescence exact | active/inactive/quiesced %1/%2/%3",
+			activeRows,
+			inactiveRows,
+			m_iControlledShutdownQuiescedRoots);
+		return m_bControlledShutdownQuiescenceExact;
+	}
+
+	bool MaintainControlledShutdownQuiescence(
+		HST_CampaignState state,
+		out string evidence)
+	{
+		evidence
+			= "durable field vehicle controlled-shutdown quiescence maintenance rejected";
+		if (!m_bControlledShutdownQuiescenceExact || !state
+			|| CountNativeTrackedDurableRoots(state) != 0)
+			return false;
+		int maintainedRoots;
+		foreach (HST_RuntimeVehicleState record : state.m_aRuntimeVehicles)
+		{
+			if (!IsDurableRecord(record))
+				continue;
+			IEntity entity = ResolveEntityForRuntimeId(
+				record.m_sVehicleRuntimeId);
+			if (!entity)
+				return false;
+			HST_WorldPositionService.ApplyUprightEntityTransform(
+				entity,
+				record.m_vPosition,
+				record.m_vAngles);
+			QuiesceControlledShutdownRoot(entity);
+			maintainedRoots++;
+		}
+		if (maintainedRoots != m_iControlledShutdownQuiescedRoots
+			|| !IsControlledShutdownQuiescenceExact(state))
+			return false;
+		evidence = string.Format(
+			"durable field vehicle controlled-shutdown quiescence maintained for %1 root(s)",
+			maintainedRoots);
+		return true;
+	}
+
+	bool IsControlledShutdownQuiescenceExact(HST_CampaignState state)
+	{
+		if (!m_bControlledShutdownQuiescenceExact || !state
+			|| CountNativeTrackedDurableRoots(state) != 0)
+			return false;
+		int activeRows;
+		int inactiveRows;
+		string graphEvidence;
+		if (!ValidateDurableStateGraph(
+			state,
+			true,
+			activeRows,
+			inactiveRows,
+			graphEvidence)
+			|| activeRows != m_iControlledShutdownQuiescedRoots)
+			return false;
+		int observedQuiescentRoots;
+		foreach (HST_RuntimeVehicleState record : state.m_aRuntimeVehicles)
+		{
+			if (!IsDurableRecord(record))
+				continue;
+			IEntity entity = ResolveEntityForRuntimeId(
+				record.m_sVehicleRuntimeId);
+			if (!entity || !IsControlledShutdownRootQuiescent(entity))
+				return false;
+			observedQuiescentRoots++;
+		}
+		return observedQuiescentRoots
+			== m_iControlledShutdownQuiescedRoots;
+	}
+
+	int GetControlledShutdownQuiescedRootCount()
+	{
+		return m_iControlledShutdownQuiescedRoots;
 	}
 
 	bool Untrack(IEntity entity = null, string runtimeId = "")
@@ -153,6 +344,11 @@ class HST_PersistentFieldVehicleRuntimeService
 				RemoveAt(index);
 				continue;
 			}
+			// A prefab persistence component can register lazily after Track. Repeat
+			// the sole-authority gate at every capture boundary so a late native
+			// registration cannot survive into any save type.
+			if (!DetachNativePersistenceAuthority(entity))
+				return false;
 
 			record.m_vPosition = entity.GetOrigin();
 			record.m_vAngles = HST_WorldPositionService.BuildUprightAnglesFromVector(
@@ -160,13 +356,151 @@ class HST_PersistentFieldVehicleRuntimeService
 			UpdateCargoPosition(state, runtimeId, record.m_vPosition);
 			if (!IsLivingEntity(entity))
 			{
+				if (HasLivingPlayerOccupant(entity))
+				{
+					Print(
+						"Partisan vehicle persistence | destroyed durable root still has a living player occupant",
+						LogLevel.ERROR);
+					return false;
+				}
 				record.m_bDeleted = true;
+				// A destroyed durable root is represented by the campaign tombstone,
+				// not by a lingering physical wreck. Delete it before native capture so
+				// a later process cannot observe both authorities.
+				SCR_EntityHelper.DeleteEntityAndChildren(entity);
 				RemoveAt(index);
 				continue;
 			}
 			record.m_bDeleted = false;
 		}
+
+		int activeRows;
+		int inactiveRows;
+		string graphEvidence;
+		if (!ValidateDurableStateGraph(
+			state,
+			true,
+			activeRows,
+			inactiveRows,
+			graphEvidence))
+		{
+			Print(
+				"Partisan vehicle persistence | capture graph rejected: "
+					+ graphEvidence,
+				LogLevel.ERROR);
+			return false;
+		}
 		return true;
+	}
+
+	// Durable field rows form a small identity graph: every durable ID is
+	// unique, every active row has one live registered root at capture time, and
+	// abstract cargo keys cannot silently collide. Restore uses the same graph
+	// gate without requiring process-local bindings before reconstruction.
+	bool ValidateDurableStateGraph(
+		HST_CampaignState state,
+		bool requireActiveBindings,
+		out int activeRows,
+		out int inactiveRows,
+		out string evidence)
+	{
+		activeRows = 0;
+		inactiveRows = 0;
+		evidence = "durable field vehicle graph unavailable";
+		if (!state || m_aEntities.Count() != m_aRuntimeIds.Count())
+			return false;
+
+		array<string> durableIds = {};
+		foreach (HST_RuntimeVehicleState record : state.m_aRuntimeVehicles)
+		{
+			if (!record || !IsDurableRuntimeKind(record.m_sRuntimeKind))
+				continue;
+			if (record.m_sVehicleRuntimeId.IsEmpty()
+				|| durableIds.Find(record.m_sVehicleRuntimeId) >= 0
+				|| record.m_sPrefab.IsEmpty())
+			{
+				evidence = "durable field vehicle ID or prefab is empty/duplicated";
+				return false;
+			}
+			durableIds.Insert(record.m_sVehicleRuntimeId);
+			if (record.m_bDeleted || record.m_bDetached)
+			{
+				inactiveRows++;
+				if (requireActiveBindings
+					&& m_aRuntimeIds.Find(record.m_sVehicleRuntimeId) >= 0)
+				{
+					evidence
+						= "inactive durable field vehicle retains a physical binding";
+					return false;
+				}
+				continue;
+			}
+
+			activeRows++;
+			if (IsZeroVector(record.m_vPosition))
+			{
+				evidence = "active durable field vehicle has a zero transform";
+				return false;
+			}
+			if (!requireActiveBindings)
+				continue;
+			int bindingIndex = m_aRuntimeIds.Find(record.m_sVehicleRuntimeId);
+			if (bindingIndex < 0 || bindingIndex >= m_aEntities.Count()
+				|| !IsLivingEntity(m_aEntities[bindingIndex]))
+			{
+				evidence = "active durable field vehicle has no exact live binding";
+				return false;
+			}
+			if (!BindingMatchesRecord(m_aEntities[bindingIndex], record))
+			{
+				evidence
+					= "active durable field vehicle binding has the wrong prefab or transform";
+				return false;
+			}
+		}
+
+		array<string> cargoKeys = {};
+		foreach (HST_VehicleCargoItemState cargo : state.m_aVehicleCargoItems)
+		{
+			if (!cargo
+				|| durableIds.Find(cargo.m_sVehicleRuntimeId) < 0)
+				continue;
+			if (cargo.m_sItemPrefab.IsEmpty() || cargo.m_iCount <= 0)
+			{
+				evidence = "durable field vehicle cargo is empty or non-positive";
+				return false;
+			}
+			string cargoKey = cargo.m_sVehicleRuntimeId
+				+ "|" + cargo.m_sItemPrefab;
+			if (cargoKeys.Find(cargoKey) >= 0)
+			{
+				evidence = "durable field vehicle cargo key is duplicated";
+				return false;
+			}
+			cargoKeys.Insert(cargoKey);
+		}
+
+		if (requireActiveBindings && HasBindingCollision())
+		{
+			evidence = "durable field vehicle binding graph contains a collision";
+			return false;
+		}
+		evidence = string.Format(
+			"durable field vehicle graph exact | active/inactive/cargo %1/%2/%3",
+			activeRows,
+			inactiveRows,
+			cargoKeys.Count());
+		return true;
+	}
+
+	bool IsDurableCampaignRecord(
+		HST_RuntimeVehicleState record,
+		bool includeInactive = false)
+	{
+		if (!record || record.m_sVehicleRuntimeId.IsEmpty()
+			|| !IsDurableRuntimeKind(record.m_sRuntimeKind))
+			return false;
+		return includeInactive || (!record.m_bDeleted && !record.m_bDetached);
 	}
 
 	bool CleanupForNewCampaignReset(
@@ -214,12 +548,158 @@ class HST_PersistentFieldVehicleRuntimeService
 
 	protected bool IsDurableRecord(HST_RuntimeVehicleState record)
 	{
-		if (!record || record.m_bDeleted || record.m_bDetached
-			|| record.m_sVehicleRuntimeId.IsEmpty())
+		return IsDurableCampaignRecord(record);
+	}
+
+	protected bool DetachNativePersistenceAuthority(IEntity entity)
+	{
+		if (!entity)
 			return false;
-		return record.m_sRuntimeKind == "loot_vehicle"
-			|| record.m_sRuntimeKind == "field_vehicle"
-			|| record.m_sRuntimeKind == "garage_redeploy";
+		PersistenceSystem persistence = PersistenceSystem.GetInstance();
+		if (!persistence)
+			return true;
+		IEntity trackedParent = persistence.GetTrackedParent(entity);
+		if (trackedParent && trackedParent != entity)
+		{
+			Print(
+				"Partisan vehicle persistence | durable root belongs to a native tracked parent",
+				LogLevel.ERROR);
+			return false;
+		}
+		if (!persistence.IsTracked(entity))
+			return true;
+		if (!persistence.StopTracking(entity, true)
+			|| persistence.IsTracked(entity))
+		{
+			Print(
+				"Partisan vehicle persistence | native entity authority detachment failed",
+				LogLevel.ERROR);
+			return false;
+		}
+		return true;
+	}
+
+	protected void QuiescePhysicsHierarchy(IEntity entity)
+	{
+		if (!entity)
+			return;
+		IEntity child = entity.GetChildren();
+		while (child)
+		{
+			QuiescePhysicsHierarchy(child);
+			child = child.GetSibling();
+		}
+		Physics physics = entity.GetPhysics();
+		if (!physics || !physics.IsDynamic())
+			return;
+		physics.ClearForces();
+		physics.SetVelocity(vector.Zero);
+		physics.SetAngularVelocity(vector.Zero);
+		physics.SetActive(ActiveState.INACTIVE);
+	}
+
+	protected void QuiesceControlledShutdownRoot(IEntity root)
+	{
+		if (!root)
+			return;
+		BaseVehicleControllerComponent controller
+			= BaseVehicleControllerComponent.Cast(
+				root.FindComponent(BaseVehicleControllerComponent));
+		if (controller)
+		{
+			controller.Shutdown();
+			controller.StopEngine(false);
+		}
+		CarControllerComponent carController = CarControllerComponent.Cast(
+			root.FindComponent(CarControllerComponent));
+		if (carController)
+			carController.SetPersistentHandBrake(true);
+		HelicopterControllerComponent helicopterController
+			= HelicopterControllerComponent.Cast(
+				root.FindComponent(HelicopterControllerComponent));
+		if (helicopterController)
+		{
+			helicopterController.SetPersistentWheelBrake(true);
+			helicopterController.SetAutohoverEnabled(true);
+		}
+		QuiescePhysicsHierarchy(root);
+	}
+
+	protected bool IsControlledShutdownRootQuiescent(IEntity entity)
+	{
+		if (!entity)
+			return false;
+		BaseVehicleControllerComponent controller
+			= BaseVehicleControllerComponent.Cast(
+				entity.FindComponent(BaseVehicleControllerComponent));
+		if (controller && controller.IsEngineOn())
+			return false;
+		CarControllerComponent carController = CarControllerComponent.Cast(
+			entity.FindComponent(CarControllerComponent));
+		if (carController && !carController.GetPersistentHandBrake())
+			return false;
+		Physics physics = entity.GetPhysics();
+		if (physics && physics.IsDynamic() && physics.IsActive())
+			return false;
+		IEntity child = entity.GetChildren();
+		while (child)
+		{
+			if (!IsControlledShutdownRootQuiescent(child))
+				return false;
+			child = child.GetSibling();
+		}
+		return true;
+	}
+
+	protected bool IsDurableRuntimeKind(string runtimeKind)
+	{
+		return runtimeKind == "loot_vehicle"
+			|| runtimeKind == "field_vehicle"
+			|| runtimeKind == "garage_redeploy";
+	}
+
+	protected bool BindingMatchesRecord(
+		IEntity entity,
+		HST_RuntimeVehicleState record)
+	{
+		if (!entity || !record || !entity.GetPrefabData())
+			return false;
+		string entityPrefab = NormalizePrefabResource(
+			entity.GetPrefabData().GetPrefabName());
+		string recordPrefab = NormalizePrefabResource(record.m_sPrefab);
+		if (entityPrefab.IsEmpty() || entityPrefab != recordPrefab)
+			return false;
+		vector origin = entity.GetOrigin();
+		float dx = origin[0] - record.m_vPosition[0];
+		float dy = origin[1] - record.m_vPosition[1];
+		float dz = origin[2] - record.m_vPosition[2];
+		if (dx * dx + dy * dy + dz * dz > 9.0)
+			return false;
+		vector actualAngles
+			= HST_WorldPositionService.BuildUprightAnglesFromVector(
+				entity.GetYawPitchRoll());
+		vector expectedAngles
+			= HST_WorldPositionService.BuildUprightAnglesFromVector(
+				record.m_vAngles);
+		float yawDifference = Math.AbsFloat(
+			actualAngles[0] - expectedAngles[0]);
+		if (yawDifference > 180.0)
+			yawDifference = 360.0 - yawDifference;
+		return yawDifference <= 3.0;
+	}
+
+	protected string NormalizePrefabResource(string prefab)
+	{
+		string normalized = prefab.Trim();
+		int boundary = normalized.IndexOf("}");
+		if (boundary >= 0 && boundary + 1 < normalized.Length())
+		{
+			normalized = normalized.Substring(
+				boundary + 1,
+				normalized.Length() - boundary - 1);
+		}
+		normalized.ToLower();
+		return normalized;
 	}
 
 	protected void RemoveAt(int index)
@@ -264,7 +744,7 @@ class HST_PersistentFieldVehicleRuntimeService
 
 	protected bool HasLivingPlayerOccupant(IEntity vehicleEntity)
 	{
-		if (!vehicleEntity || !IsLivingEntity(vehicleEntity))
+		if (!vehicleEntity || !vehicleEntity.GetWorld())
 			return false;
 		PlayerManager playerManager = GetGame().GetPlayerManager();
 		if (!playerManager)
@@ -313,5 +793,10 @@ class HST_PersistentFieldVehicleRuntimeService
 		float dx = first[0] - second[0];
 		float dz = first[2] - second[2];
 		return dx * dx + dz * dz;
+	}
+
+	protected bool IsZeroVector(vector value)
+	{
+		return value[0] == 0 && value[1] == 0 && value[2] == 0;
 	}
 }

@@ -225,6 +225,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	protected ref HST_CommandUIService m_CommandUI;
 	protected ref HST_LootService m_Loot;
 	protected ref HST_PersistentFieldVehicleRuntimeService m_PersistentFieldVehicles;
+	protected ref HST_PersistentFieldVehicleRestartProofService
+		m_PersistentFieldVehicleRestartProof;
 	protected ref HST_BuildModeService m_BuildMode;
 	protected ref HST_LoadoutEditorService m_LoadoutEditor;
 	protected ref HST_GeneratedContentService m_Content;
@@ -258,6 +260,11 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	protected int m_iStableSpawnSweepCount;
 	protected bool m_bDeferredMarkerRefresh;
 	protected bool m_bPersistentFieldVehicleRestoreChecked;
+	protected int m_iPersistentFieldVehicleRestoreAttempts;
+	protected float m_fPersistentFieldVehicleRestoreElapsedSeconds;
+	protected float m_fPersistentFieldVehicleRestoreRetrySeconds;
+	protected ref HST_PersistentFieldVehicleRestoreResult
+		m_PersistentFieldVehicleRestoreResult;
 	protected bool m_bPetrosRelocationActive;
 	protected int m_iPetrosRelocationPlayerId;
 	protected string m_sPetrosRelocationIdentityId;
@@ -335,6 +342,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	protected bool m_bOrdinaryCampaignPersistenceCheckpointSetupExact;
 	protected bool m_bOrdinaryCampaignPersistenceCheckpointResultSuccessful;
 	protected bool m_bOrdinaryCampaignPersistenceSchedulerDebounceRemarked;
+	protected bool m_bOrdinaryCampaignPersistenceFieldVehicleStagePrepared;
 	protected bool m_bOrdinaryCampaignPersistenceUsesGameModeEndBridge;
 	protected bool m_bOrdinaryCampaignPersistenceEndBridgeTransitionPrepared;
 	protected ESaveGameType m_eOrdinaryCampaignPersistenceAfterSaveType;
@@ -353,6 +361,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	protected string m_sOrdinaryCampaignPersistenceProfileFallbackFingerprint;
 	protected string m_sOrdinaryCampaignPersistenceSentinelEvidence;
 	protected string m_sOrdinaryCampaignPersistenceSaveEventEvidence;
+	protected string m_sOrdinaryCampaignPersistenceFieldVehicleEvidence;
 	protected ESaveGameType m_eOrdinaryCampaignPersistenceCreatedSaveType;
 	protected ESaveGameType m_eOrdinaryCampaignPersistenceExpectedSaveType;
 	protected int m_iOrdinaryCampaignPersistenceSaveQueueAttempts;
@@ -713,6 +722,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		m_Loot = new HST_LootService();
 		if (m_Loot)
 			m_Loot.SetPersistentFieldVehicleRuntimeService(m_PersistentFieldVehicles);
+		m_PersistentFieldVehicleRestartProof
+			= new HST_PersistentFieldVehicleRestartProofService();
 		m_BuildMode = new HST_BuildModeService();
 		m_LoadoutEditor = new HST_LoadoutEditorService();
 		if (m_LoadoutEditor && m_Settings)
@@ -926,6 +937,11 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		m_State = sourceResolution.m_State;
 		m_CampaignPersistenceBootstrapFallbackState = null;
+		// Durable physical roots are part of the selected startup source. Restore
+		// and bind them before CaptureAndTrackState asks the production capture
+		// preflight to prove every active durable row has one exact live root.
+		if (!EnsurePersistentFieldVehicleRestoreComplete(timeSlice))
+			return false;
 		Print(string.Format(
 			"Partisan persistence | startup source %1 | %2",
 			sourceResolution.BuildSourceLabel(),
@@ -1170,6 +1186,14 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			TryCompleteCampaignPersistenceBootstrap(timeSlice);
 			return;
 		}
+		if (!m_State)
+			return;
+		// Restore and bind every durable field root before any proof stage,
+		// player spawn/claim observation, or ordinary checkpoint tick can run.
+		// A partial restore remains pending and blocks capture instead of being
+		// converted into a stale campaign snapshot.
+		if (!EnsurePersistentFieldVehicleRestoreComplete(timeSlice))
+			return;
 		if (m_bOrdinaryCampaignPersistenceCLIRequested)
 		{
 			bool controlledEndBridgeStage
@@ -1210,8 +1234,6 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 					return;
 			}
 		}
-		if (!m_State)
-			return;
 		if (m_bExactQRFRestartCLIRequested)
 		{
 			FinalizeExactQRFExternalRestartStage();
@@ -1230,28 +1252,20 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		}
 		if (m_bControlledCampaignEndQuiescing)
 		{
+			string vehicleQuiescenceEvidence;
+			if (!MaintainControlledCampaignEndVehicleQuiescence(
+				vehicleQuiescenceEvidence))
+			{
+				m_sControlledCampaignEndStabilityEvidence
+					= vehicleQuiescenceEvidence;
+				return;
+			}
 			if (m_Persistence)
 				m_Persistence.TickPendingCheckpoint(timeSlice);
 			return;
 		}
 
 		m_PlayerSpawn.Tick(timeSlice);
-		// Restore and register durable vehicle roots before player-first claim
-		// observation. Process-local RPL IDs are not stable across restart, so an
-		// unregistered first-frame entity must never claim an old durable row first.
-		if (!m_bPersistentFieldVehicleRestoreChecked && GetGame().GetWorld())
-		{
-			m_bPersistentFieldVehicleRestoreChecked = true;
-			if (m_Loot && m_State.m_bRestoredFromPersistence)
-			{
-				int restoredFieldVehicles = m_Loot.RestorePersistentFieldVehicles(m_State);
-				if (restoredFieldVehicles > 0)
-				{
-					Print(string.Format("Partisan vehicle persistence | restored %1 field vehicle(s) after campaign load", restoredFieldVehicles));
-					MarkMajorCampaignChange(false);
-				}
-			}
-		}
 		if (m_Civilians)
 		{
 			if (m_Civilians.FlushPendingCivilianConsequences(m_State))
@@ -1744,6 +1758,84 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		}
 
 		TickCampaignDebugRunner(elapsedSeconds);
+	}
+
+	protected bool EnsurePersistentFieldVehicleRestoreComplete(float timeSlice)
+	{
+		if (m_bPersistentFieldVehicleRestoreChecked)
+			return true;
+		if (!m_State || !m_Loot || !m_PersistentFieldVehicles
+			|| !GetGame().GetWorld())
+			return false;
+
+		if (!m_State.m_bRestoredFromPersistence)
+		{
+			m_PersistentFieldVehicleRestoreResult
+				= new HST_PersistentFieldVehicleRestoreResult();
+			m_PersistentFieldVehicleRestoreResult.m_bLogicalGraphExact = true;
+			m_PersistentFieldVehicleRestoreResult.m_bBindingGraphExact = true;
+			m_PersistentFieldVehicleRestoreResult.m_sEvidence
+				= "fresh campaign requires no durable field vehicle restore";
+			m_bPersistentFieldVehicleRestoreChecked = true;
+			return true;
+		}
+
+		m_fPersistentFieldVehicleRestoreElapsedSeconds
+			+= Math.Max(0.0, timeSlice);
+		m_fPersistentFieldVehicleRestoreRetrySeconds
+			+= Math.Max(0.0, timeSlice);
+		if (!m_bCampaignPersistenceBootstrapComplete
+			&& m_fPersistentFieldVehicleRestoreElapsedSeconds
+				>= CAMPAIGN_PERSISTENCE_BOOTSTRAP_TIMEOUT_SECONDS)
+		{
+			string timeoutEvidence = "restore returned no receipt";
+			if (m_PersistentFieldVehicleRestoreResult)
+				timeoutEvidence
+					= m_PersistentFieldVehicleRestoreResult.BuildReport();
+			FailCampaignPersistenceBootstrap(string.Format(
+				"durable field vehicle restore timed out after %1 seconds and %2 attempt(s): %3",
+				m_fPersistentFieldVehicleRestoreElapsedSeconds,
+				m_iPersistentFieldVehicleRestoreAttempts,
+				timeoutEvidence));
+			return false;
+		}
+		if (m_iPersistentFieldVehicleRestoreAttempts > 0
+			&& m_fPersistentFieldVehicleRestoreRetrySeconds < 0.25)
+			return false;
+		m_fPersistentFieldVehicleRestoreRetrySeconds = 0;
+		m_iPersistentFieldVehicleRestoreAttempts++;
+		m_PersistentFieldVehicleRestoreResult
+			= m_Loot.RestorePersistentFieldVehiclesDetailed(m_State);
+		if (m_PersistentFieldVehicleRestoreResult
+			&& m_PersistentFieldVehicleRestoreResult.AllExact())
+		{
+			m_bPersistentFieldVehicleRestoreChecked = true;
+			int restoredRoots
+				= m_PersistentFieldVehicleRestoreResult.RestoredRootCount();
+			Print(string.Format(
+				"Partisan vehicle persistence | restore complete after %1 attempt(s) and %2 seconds | %3",
+				m_iPersistentFieldVehicleRestoreAttempts,
+				m_fPersistentFieldVehicleRestoreElapsedSeconds,
+				m_PersistentFieldVehicleRestoreResult.BuildReport()));
+			if (restoredRoots > 0
+				&& m_bCampaignPersistenceBootstrapComplete)
+				MarkMajorCampaignChange(false);
+			return true;
+		}
+
+		if (m_iPersistentFieldVehicleRestoreAttempts == 1
+			|| m_iPersistentFieldVehicleRestoreAttempts % 20 == 0)
+		{
+			string evidence = "restore returned no receipt";
+			if (m_PersistentFieldVehicleRestoreResult)
+				evidence = m_PersistentFieldVehicleRestoreResult.BuildReport();
+			Print(string.Format(
+				"Partisan vehicle persistence | restore remains fail-closed after %1 attempt(s) and %2 seconds | %3",
+				m_iPersistentFieldVehicleRestoreAttempts,
+				m_fPersistentFieldVehicleRestoreElapsedSeconds,
+				evidence), LogLevel.ERROR);
+		}
+		return false;
 	}
 
 	protected bool TickForceSpawnQueueRuntime()
@@ -3015,6 +3107,14 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (m_sControlledCampaignEndBaselineFingerprint.IsEmpty()
 			|| !m_Persistence || !m_State)
 			return false;
+		string vehicleQuiescenceEvidence;
+		if (!MaintainControlledCampaignEndVehicleQuiescence(
+			vehicleQuiescenceEvidence))
+		{
+			m_sControlledCampaignEndStabilityEvidence
+				= vehicleQuiescenceEvidence;
+			return false;
+		}
 
 		string currentFingerprint;
 		string evidence;
@@ -3050,6 +3150,18 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	string GetControlledCampaignEndStabilityEvidence()
 	{
 		return m_sControlledCampaignEndStabilityEvidence;
+	}
+
+	protected bool MaintainControlledCampaignEndVehicleQuiescence(
+		out string evidence)
+	{
+		evidence
+			= "controlled campaign end durable vehicle quiescence authority unavailable";
+		if (!m_Civilians || !m_State)
+			return false;
+		return m_Civilians.MaintainControlledShutdownVehiclePersistence(
+			m_State,
+			evidence);
 	}
 
 	protected bool IsOrdinaryCampaignEndBridgeProofActive()
@@ -7614,10 +7726,20 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!result)
 			result = CreateOrdinaryCampaignPersistenceResult();
 		result.m_bSuccess = false;
+		string fieldVehicleFailureEvidence;
+		if (m_bOrdinaryCampaignPersistenceFieldVehicleStagePrepared)
+		{
+			PopulateOrdinaryCampaignPersistenceFieldVehicleResult(
+				result,
+				fieldVehicleFailureEvidence);
+		}
 		if (result.m_sEvidence.IsEmpty())
 			result.m_sEvidence = failure;
 		else
-			result.m_sEvidence += " | " + failure;
+			result.m_sEvidence = failure + " | prior " + result.m_sEvidence;
+		if (!fieldVehicleFailureEvidence.IsEmpty())
+			result.m_sEvidence += " | failure field state "
+				+ fieldVehicleFailureEvidence;
 		SaveOrdinaryCampaignPersistenceResult(result);
 		DisableOrdinaryCampaignPersistenceExitSave();
 		Print(
@@ -7657,8 +7779,77 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			evidence += " | " + readEvidence + " | " + sentinelEvidence;
 			return false;
 		}
-		evidence = readEvidence + " | " + sentinelEvidence;
+		string fieldVehicleEvidence;
+		if (!m_PersistentFieldVehicleRestartProof
+			|| !m_PersistentFieldVehicleRestartProof.ValidateLogicalSnapshot(
+				readBackState,
+				m_OrdinaryCampaignPersistenceCarrier,
+				generation,
+				fieldVehicleEvidence))
+		{
+			evidence += " | " + readEvidence + " | " + sentinelEvidence
+				+ " | " + fieldVehicleEvidence;
+			return false;
+		}
+		evidence = readEvidence + " | " + sentinelEvidence
+			+ " | " + fieldVehicleEvidence;
 		return true;
+	}
+
+	protected bool TickOrdinaryCampaignPersistenceFieldVehicleStage(
+		float timeSlice,
+		out bool ready,
+		out string evidence)
+	{
+		ready = false;
+		evidence = "ordinary persistence field vehicle proof unavailable";
+		if (m_bOrdinaryCampaignPersistenceFieldVehicleStagePrepared)
+		{
+			ready = true;
+			evidence = m_sOrdinaryCampaignPersistenceFieldVehicleEvidence;
+			return true;
+		}
+		if (!m_PersistentFieldVehicleRestartProof || !m_State
+			|| !m_OrdinaryCampaignPersistenceCarrier
+			|| !m_PersistentFieldVehicles
+			|| !m_PersistentFieldVehicleRestoreResult)
+			return false;
+
+		if (!m_PersistentFieldVehicleRestartProof.TickStagePreparation(
+			m_sOrdinaryCampaignPersistenceCLIStage,
+			m_State,
+			m_OrdinaryCampaignPersistenceCarrier,
+			m_PersistentFieldVehicles,
+			m_PersistentFieldVehicleRestoreResult,
+			timeSlice,
+			ready,
+			evidence))
+			return false;
+		if (!ready)
+			return true;
+		m_bOrdinaryCampaignPersistenceFieldVehicleStagePrepared = true;
+		m_sOrdinaryCampaignPersistenceFieldVehicleEvidence = evidence;
+		return true;
+	}
+
+	protected bool PopulateOrdinaryCampaignPersistenceFieldVehicleResult(
+		HST_OrdinaryCampaignPersistenceResult result,
+		out string evidence)
+	{
+		evidence = "ordinary persistence field vehicle result unavailable";
+		if (!result || !m_PersistentFieldVehicleRestartProof || !m_State
+			|| !m_OrdinaryCampaignPersistenceCarrier
+			|| !m_PersistentFieldVehicles
+			|| !m_PersistentFieldVehicleRestoreResult)
+			return false;
+		return m_PersistentFieldVehicleRestartProof.PopulateStageResult(
+			m_sOrdinaryCampaignPersistenceCLIStage,
+			m_State,
+			m_OrdinaryCampaignPersistenceCarrier,
+			m_PersistentFieldVehicles,
+			m_PersistentFieldVehicleRestoreResult,
+			result,
+			evidence);
 	}
 
 	protected bool PopulateOrdinaryCampaignPersistenceCheckpointCarrier(
@@ -8137,9 +8328,25 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		int generation = HST_OrdinaryCampaignPersistenceProofService
 			.ResolveExpectedSentinelGeneration(
 				m_sOrdinaryCampaignPersistenceCLIStage);
+		bool fieldVehicleCaptureFreezeExact = true;
+		string fieldVehicleCaptureFreezeEvidence
+			= "field vehicle captured transform freeze not required";
+		if (m_sOrdinaryCampaignPersistenceCLIStage
+			== HST_OrdinaryCampaignPersistenceProofService
+				.STAGE_AUTOSAVE_CHECKPOINT)
+		{
+			fieldVehicleCaptureFreezeExact
+				= m_PersistentFieldVehicleRestartProof
+				&& m_PersistentFieldVehicleRestartProof
+					.FreezeInitialCapturedTransforms(
+						m_State,
+						m_OrdinaryCampaignPersistenceCarrier,
+						fieldVehicleCaptureFreezeEvidence);
+		}
 		string fallbackFingerprint;
 		string fallbackEvidence;
-		bool fallbackExact = checkpoint.m_bProfileFallbackSaved
+		bool fallbackExact = fieldVehicleCaptureFreezeExact
+			&& checkpoint.m_bProfileFallbackSaved
 			&& ValidateOrdinaryCampaignPersistenceFallback(
 				generation,
 				fallbackFingerprint,
@@ -8151,7 +8358,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		result.m_sExpectedProfileFallbackFingerprint = fallbackFingerprint;
 		result.m_sProfileFallbackReadBackFingerprint = fallbackFingerprint;
 		result.m_bProfileFallbackReadBackExact = fallbackExact;
-		result.m_sEvidence += " | " + fallbackEvidence;
+		result.m_sEvidence += " | " + fieldVehicleCaptureFreezeEvidence
+			+ " | " + fallbackEvidence;
 
 		string liveSentinelFingerprint;
 		string liveSentinelEvidence;
@@ -8189,6 +8397,12 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			createdExact,
 			activeExact,
 			m_sOrdinaryCampaignPersistenceCreatedSaveId);
+		string fieldVehicleEvidence;
+		bool fieldVehicleExact
+			= PopulateOrdinaryCampaignPersistenceFieldVehicleResult(
+				result,
+				fieldVehicleEvidence);
+		result.m_sEvidence += " | " + fieldVehicleEvidence;
 
 		bool schedulerResultExact;
 		if (m_sOrdinaryCampaignPersistenceCLIStage
@@ -8218,6 +8432,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			&& result.m_bProfileFallbackReadBackExact
 			&& commitExact && createdExact && activeExact
 			&& schedulerResultExact
+			&& fieldVehicleCaptureFreezeExact
+			&& fieldVehicleExact
 			&& liveSentinelExact;
 		string carrierEvidence;
 		bool carrierExact = preCarrierExact
@@ -8312,11 +8528,18 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				= m_sOrdinaryCampaignPersistencePriorActiveSaveId
 					== shutdownId;
 		}
+		string fieldVehicleEvidence;
+		bool fieldVehicleExact
+			= PopulateOrdinaryCampaignPersistenceFieldVehicleResult(
+				result,
+				fieldVehicleEvidence);
 		result.m_bSuccess = result.m_bSourceExact
 			&& sentinelExact && fallbackExact
 			&& result.m_bPriorSavePointExact
-			&& result.m_bActiveSavePointExact;
+			&& result.m_bActiveSavePointExact
+			&& fieldVehicleExact;
 		result.m_sEvidence = sentinelEvidence + " | " + fallbackEvidence
+			+ " | " + fieldVehicleEvidence
 			+ string.Format(
 				" | no-save source/prior/active exact %1/%2/%3",
 				result.m_bSourceExact,
@@ -8344,6 +8567,21 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				m_sOrdinaryCampaignPersistenceCLISetupFailure);
 			return;
 		}
+
+		bool fieldVehicleReady;
+		string fieldVehicleEvidence;
+		if (!TickOrdinaryCampaignPersistenceFieldVehicleStage(
+			timeSlice,
+			fieldVehicleReady,
+			fieldVehicleEvidence))
+		{
+			FailOrdinaryCampaignPersistenceStage(
+				m_OrdinaryCampaignPersistencePendingResult,
+				fieldVehicleEvidence);
+			return;
+		}
+		if (!fieldVehicleReady)
+			return;
 
 		if (!HST_OrdinaryCampaignPersistenceProofService.StageCreatesSavePoint(
 			m_sOrdinaryCampaignPersistenceCLIStage))
@@ -8452,7 +8690,18 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return;
 		}
 		if (m_bControlledCampaignEndQuiescing && m_Persistence)
+		{
+			string vehicleQuiescenceEvidence;
+			if (!MaintainControlledCampaignEndVehicleQuiescence(
+				vehicleQuiescenceEvidence))
+			{
+				FailOrdinaryCampaignPersistenceStage(
+					m_OrdinaryCampaignPersistencePendingResult,
+					vehicleQuiescenceEvidence);
+				return;
+			}
 			m_Persistence.TickPendingCheckpoint(timeSlice);
+		}
 
 		HST_PersistenceCheckpointRequest checkpoint
 			= m_OrdinaryCampaignPersistenceCheckpointRequest;

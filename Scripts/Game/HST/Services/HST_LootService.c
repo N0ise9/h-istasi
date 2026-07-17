@@ -52,14 +52,66 @@ class HST_VehicleRootScanResult
 	}
 }
 
+// Process-local receipt for the one authoritative durable-field restore pass.
+// Campaign rows remain the persisted authority; entity references never leave
+// the process and are deliberately absent from this receipt.
+class HST_PersistentFieldVehicleRestoreResult
+{
+	int m_iEligibleRows;
+	int m_iInactiveRows;
+	int m_iRetiredNativeTombstoneRoots;
+	int m_iAdoptedRoots;
+	int m_iSpawnedRoots;
+	int m_iTrackedRoots;
+	int m_iFailedRows;
+	int m_iAmbiguousRows;
+	bool m_bLogicalGraphExact;
+	bool m_bBindingGraphExact;
+	string m_sEvidence;
+
+	int RestoredRootCount()
+	{
+		return m_iAdoptedRoots + m_iSpawnedRoots;
+	}
+
+	bool AllExact()
+	{
+		return m_bLogicalGraphExact && m_bBindingGraphExact
+			&& m_iFailedRows == 0 && m_iAmbiguousRows == 0
+			&& m_iEligibleRows == RestoredRootCount()
+			&& m_iTrackedRoots == m_iEligibleRows;
+	}
+
+	string BuildReport()
+	{
+		string counts = string.Format(
+			"eligible/inactive/retired-native/adopted/spawned/tracked/failed/ambiguous %1/%2/%3/%4/%5/%6/%7/%8",
+			m_iEligibleRows,
+			m_iInactiveRows,
+			m_iRetiredNativeTombstoneRoots,
+			m_iAdoptedRoots,
+			m_iSpawnedRoots,
+			m_iTrackedRoots,
+			m_iFailedRows,
+			m_iAmbiguousRows);
+		string graph = string.Format(
+			"graph/bindings/exact %1/%2/%3",
+			m_bLogicalGraphExact,
+			m_bBindingGraphExact,
+			AllExact());
+		return counts + " | " + graph + " | " + m_sEvidence;
+	}
+}
+
 class HST_LootService
 {
 	static const int GARAGE_CAPTURE_RADIUS_METERS = 24;
 	static const int PERSISTENT_FIELD_VEHICLE_SNAPSHOT_RADIUS_METERS = 40;
-	static const int PERSISTENT_FIELD_VEHICLE_RESTORE_RADIUS_METERS = 12;
+	static const int PERSISTENT_FIELD_VEHICLE_RESTORE_RADIUS_METERS = 8;
 	static const int MAX_SCAN_ENTITIES = 384;
 	protected ref array<IEntity> m_aScanEntities = {};
 	protected HST_PersistentFieldVehicleRuntimeService m_PersistentFieldVehicles;
+	protected ref HST_PersistentFieldVehicleRestoreResult m_LastPersistentFieldVehicleRestoreResult;
 
 	void SetPersistentFieldVehicleRuntimeService(
 		HST_PersistentFieldVehicleRuntimeService persistentFieldVehicles)
@@ -146,15 +198,87 @@ class HST_LootService
 
 	int RestorePersistentFieldVehicles(HST_CampaignState state)
 	{
-		if (!state)
+		HST_PersistentFieldVehicleRestoreResult result
+			= RestorePersistentFieldVehiclesDetailed(state);
+		if (!result || !result.AllExact())
 			return 0;
+		return result.m_iSpawnedRoots;
+	}
+
+	HST_PersistentFieldVehicleRestoreResult RestorePersistentFieldVehiclesDetailed(HST_CampaignState state)
+	{
+		HST_PersistentFieldVehicleRestoreResult result
+			= new HST_PersistentFieldVehicleRestoreResult();
+		m_LastPersistentFieldVehicleRestoreResult = result;
+		result.m_sEvidence = "durable field vehicle restore unavailable";
+		if (!state || !m_PersistentFieldVehicles)
+		{
+			result.m_iFailedRows = 1;
+			return result;
+		}
 
 		BaseWorld world = GetGame().GetWorld();
 		if (!world)
-			return 0;
+		{
+			result.m_iFailedRows = 1;
+			return result;
+		}
 
-		int restoredVehicles;
+		string graphEvidence;
+		int eligibleRows;
+		int inactiveRows;
+		if (!m_PersistentFieldVehicles.ValidateDurableStateGraph(
+			state,
+			false,
+			eligibleRows,
+			inactiveRows,
+			graphEvidence))
+		{
+			result.m_iFailedRows = 1;
+			result.m_sEvidence = graphEvidence;
+			return result;
+		}
+		result.m_iEligibleRows = eligibleRows;
+		result.m_iInactiveRows = inactiveRows;
+		result.m_bLogicalGraphExact = true;
+
 		array<IEntity> claimedRestoreRoots = {};
+		foreach (HST_RuntimeVehicleState inactiveRecord : state.m_aRuntimeVehicles)
+		{
+			if (!m_PersistentFieldVehicles.IsDurableCampaignRecord(
+				inactiveRecord,
+				true)
+				|| ShouldRestorePersistentFieldVehicle(inactiveRecord))
+				continue;
+			int inactiveScannedCandidates;
+			int inactiveResolvedRoots;
+			string inactiveRejectReason;
+			IEntity inactiveRoot = ResolveRuntimeVehicleRootFromRecord(
+				world,
+				inactiveRecord,
+				inactiveScannedCandidates,
+				inactiveResolvedRoots,
+				inactiveRejectReason,
+				claimedRestoreRoots);
+			if (!inactiveRoot && !inactiveRejectReason.Contains("ambiguous"))
+				continue;
+			if (inactiveRoot
+				&& m_PersistentFieldVehicles
+					.RetireNativeTrackedInactiveRoot(
+						inactiveRoot,
+						inactiveRecord))
+			{
+				result.m_iRetiredNativeTombstoneRoots++;
+				continue;
+			}
+			result.m_iFailedRows++;
+			if (inactiveRejectReason.Contains("ambiguous"))
+				result.m_iAmbiguousRows++;
+			result.m_sEvidence
+				= "inactive durable field vehicle has a physical restore candidate: "
+					+ inactiveRejectReason;
+			return result;
+		}
 		foreach (HST_RuntimeVehicleState record : state.m_aRuntimeVehicles)
 		{
 			if (!ShouldRestorePersistentFieldVehicle(record))
@@ -183,20 +307,35 @@ class HST_LootService
 			}
 			if (liveRoot)
 			{
-				claimedRestoreRoots.Insert(liveRoot);
 				HST_RuntimeVehicleState refreshedRecord = EnsureRuntimeVehicleRecord(
 					state,
 					liveRoot,
 					record,
 					record.m_sPrefab,
 					true);
-				if (refreshedRecord)
+				bool liveTracked = refreshedRecord
+					&& refreshedRecord.m_sVehicleRuntimeId == record.m_sVehicleRuntimeId
+					&& m_PersistentFieldVehicles.Track(liveRoot, refreshedRecord)
+					&& m_PersistentFieldVehicles.ResolveEntityForRuntimeId(
+						refreshedRecord.m_sVehicleRuntimeId) == liveRoot;
+				if (!liveTracked)
 				{
-					refreshedRecord.m_sRuntimeKind = restoredKind;
-					if (!m_PersistentFieldVehicles
-						|| !m_PersistentFieldVehicles.Track(liveRoot, refreshedRecord))
-						Print("Partisan vehicle persistence | live restore root tracking failed", LogLevel.ERROR);
+					result.m_iFailedRows++;
+					result.m_sEvidence
+						= "adopted durable root failed exact stable-ID tracking";
+					continue;
 				}
+				refreshedRecord.m_sRuntimeKind = restoredKind;
+				claimedRestoreRoots.Insert(liveRoot);
+				result.m_iAdoptedRoots++;
+				result.m_iTrackedRoots++;
+				continue;
+			}
+			if (rejectReason.Contains("ambiguous"))
+			{
+				result.m_iAmbiguousRows++;
+				result.m_iFailedRows++;
+				result.m_sEvidence = rejectReason;
 				continue;
 			}
 
@@ -205,34 +344,69 @@ class HST_LootService
 			if (!spawnedVehicle)
 			{
 				Print(string.Format("Partisan vehicle persistence | restore failed for %1 | prefab %2 | position %3", record.m_sVehicleRuntimeId, record.m_sPrefab, record.m_vPosition), LogLevel.WARNING);
+				result.m_iFailedRows++;
+				result.m_sEvidence = "durable field vehicle prefab spawn failed";
 				continue;
 			}
 
 			HST_WorldPositionService.ApplyUprightEntityTransform(spawnedVehicle, record.m_vPosition, record.m_vAngles);
 			HST_VehicleRootPolicy.ClearVehicleFactionAffiliationRecursive(spawnedVehicle);
-			claimedRestoreRoots.Insert(spawnedVehicle);
 			HST_RuntimeVehicleState restoredRecord = EnsureRuntimeVehicleRecord(
 				state,
 				spawnedVehicle,
 				record,
 				record.m_sPrefab,
 				true);
-			if (restoredRecord)
+			bool spawnedTracked = restoredRecord
+				&& restoredRecord.m_sVehicleRuntimeId == previousRuntimeId
+				&& m_PersistentFieldVehicles.Track(spawnedVehicle, restoredRecord)
+				&& m_PersistentFieldVehicles.ResolveEntityForRuntimeId(
+					restoredRecord.m_sVehicleRuntimeId) == spawnedVehicle;
+			if (!spawnedTracked)
 			{
-				restoredRecord.m_sRuntimeKind = restoredKind;
-				restoredRecord.m_iSpawnedAtSecond = state.m_iElapsedSeconds;
-				restoredRecord.m_bDetached = false;
-				restoredRecord.m_bDeleted = false;
-				Print(string.Format("Partisan vehicle persistence | restored field vehicle %1 | prefab %2 | old id %3 | new id %4", restoredRecord.m_sDisplayName, restoredRecord.m_sPrefab, previousRuntimeId, restoredRecord.m_sVehicleRuntimeId));
-				if (!m_PersistentFieldVehicles
-					|| !m_PersistentFieldVehicles.Track(spawnedVehicle, restoredRecord))
-					Print("Partisan vehicle persistence | spawned restore root tracking failed", LogLevel.ERROR);
+				SCR_EntityHelper.DeleteEntityAndChildren(spawnedVehicle);
+				result.m_iFailedRows++;
+				result.m_sEvidence
+					= "spawned durable root failed exact stable-ID tracking";
+				continue;
 			}
-
-			restoredVehicles++;
+			restoredRecord.m_sRuntimeKind = restoredKind;
+			restoredRecord.m_iSpawnedAtSecond = state.m_iElapsedSeconds;
+			restoredRecord.m_bDetached = false;
+			restoredRecord.m_bDeleted = false;
+			claimedRestoreRoots.Insert(spawnedVehicle);
+			result.m_iSpawnedRoots++;
+			result.m_iTrackedRoots++;
+			Print(string.Format("Partisan vehicle persistence | restored field vehicle %1 | prefab %2 | old id %3 | new id %4", restoredRecord.m_sDisplayName, restoredRecord.m_sPrefab, previousRuntimeId, restoredRecord.m_sVehicleRuntimeId));
 		}
 
-		return restoredVehicles;
+		int boundActiveRows;
+		int boundInactiveRows;
+		string bindingEvidence;
+		result.m_bBindingGraphExact
+			= m_PersistentFieldVehicles.ValidateDurableStateGraph(
+				state,
+				true,
+				boundActiveRows,
+				boundInactiveRows,
+				bindingEvidence)
+			&& boundActiveRows == result.m_iEligibleRows
+			&& boundInactiveRows == result.m_iInactiveRows;
+		result.m_sEvidence = graphEvidence + " | " + bindingEvidence;
+		if (!result.AllExact() && result.m_iFailedRows == 0)
+			result.m_iFailedRows = 1;
+		if (result.AllExact())
+			Print("Partisan vehicle persistence | restore " + result.BuildReport());
+		else
+			Print(
+				"Partisan vehicle persistence | restore " + result.BuildReport(),
+				LogLevel.ERROR);
+		return result;
+	}
+
+	HST_PersistentFieldVehicleRestoreResult GetLastPersistentFieldVehicleRestoreResult()
+	{
+		return m_LastPersistentFieldVehicleRestoreResult;
 	}
 
 	string CaptureNearbyVehicleToGarage(HST_CampaignState state, HST_CampaignPreset preset, HST_ArsenalService arsenal, int playerId)
@@ -1995,9 +2169,7 @@ class HST_LootService
 		world.QueryEntitiesBySphere(record.m_vPosition, PERSISTENT_FIELD_VEHICLE_RESTORE_RADIUS_METERS, AddLootCandidate, null, EQueryEntitiesFlags.ALL);
 
 		array<IEntity> checkedRoots = {};
-		IEntity bestRoot;
-		float bestDistanceSq = 999999999.0;
-		int bestScore = 999;
+		IEntity uniqueRoot;
 		foreach (IEntity candidate : m_aScanEntities)
 		{
 			scannedCandidates++;
@@ -2039,22 +2211,18 @@ class HST_LootService
 				continue;
 			}
 
-			int score = 0;
-
-			if (score > bestScore)
-				continue;
-
-			if (score == bestScore && distanceSq >= bestDistanceSq)
-				continue;
-
-			bestRoot = rootVehicle;
-			bestDistanceSq = distanceSq;
-			bestScore = score;
+			if (uniqueRoot && uniqueRoot != rootVehicle)
+			{
+				rejectReason
+					= "ambiguous durable restore: multiple exact-prefab roots are within the recovery radius";
+				return null;
+			}
+			uniqueRoot = rootVehicle;
 			rejectReason = "resolved live vehicle root near registered record";
 		}
 
-		if (bestRoot)
-			return bestRoot;
+		if (uniqueRoot)
+			return uniqueRoot;
 
 		return null;
 	}
@@ -2067,7 +2235,22 @@ class HST_LootService
 		if (leftPrefab == rightPrefab)
 			return true;
 
-		return ResolveResourceBasename(leftPrefab) == ResolveResourceBasename(rightPrefab);
+		return NormalizeVehiclePrefabResource(leftPrefab)
+			== NormalizeVehiclePrefabResource(rightPrefab);
+	}
+
+	protected string NormalizeVehiclePrefabResource(string prefab)
+	{
+		string normalized = prefab.Trim();
+		int guidBoundary = normalized.IndexOf("}");
+		if (guidBoundary >= 0 && guidBoundary + 1 < normalized.Length())
+		{
+			normalized = normalized.Substring(
+				guidBoundary + 1,
+				normalized.Length() - guidBoundary - 1);
+		}
+		normalized.ToLower();
+		return normalized;
 	}
 
 	protected string ResolveResourceBasename(string prefab)

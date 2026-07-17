@@ -101,6 +101,24 @@ class HST_OrdinaryCampaignPersistenceCarrier
 	bool m_bGeneration2ProfileFallbackExact;
 	bool m_bGeneration3ProfileFallbackExact;
 	string m_sLatestProfileFallbackFingerprint;
+
+	// Stable fixture plan and monotonic cross-process proof receipts for the
+	// physical durable-field-vehicle portion of the same persistence chain.
+	string m_sFieldVehiclePrefab;
+	string m_sFieldVehicleCargoPrefab;
+	string m_sFieldVehicleAId;
+	string m_sFieldVehicleBId;
+	vector m_vFieldVehicleAInitialPosition;
+	vector m_vFieldVehicleBInitialPosition;
+	vector m_vFieldVehicleAMovedPosition;
+	vector m_vFieldVehicleAInitialAngles;
+	vector m_vFieldVehicleBInitialAngles;
+	vector m_vFieldVehicleAMovedAngles;
+	int m_iFieldVehicleACargoCount;
+	int m_iFieldVehicleBCargoCount;
+	bool m_bFieldVehiclePrepared;
+	bool m_bFieldVehicleRecoveredAndMutated;
+	bool m_bFieldVehicleReplayVerified;
 }
 
 [BaseContainerProps()]
@@ -180,6 +198,37 @@ class HST_OrdinaryCampaignPersistenceResult
 	string m_sExpectedProfileFallbackFingerprint;
 	string m_sProfileFallbackReadBackFingerprint;
 	bool m_bProfileFallbackReadBackExact;
+
+	string m_sFieldVehicleProofPhase;
+	int m_iFieldVehicleExpectedDurableRows;
+	int m_iFieldVehicleObservedDurableRows;
+	int m_iFieldVehicleExpectedLiveRoots;
+	int m_iFieldVehicleObservedLiveRoots;
+	int m_iFieldVehicleExpectedDeletedRows;
+	int m_iFieldVehicleObservedDeletedRows;
+	int m_iFieldVehicleExpectedCargoRows;
+	int m_iFieldVehicleObservedCargoRows;
+	int m_iFieldVehicleRestoreEligibleRows;
+	int m_iFieldVehicleRestoreInactiveRows;
+	int m_iFieldVehicleRetiredNativeTombstoneRoots;
+	int m_iFieldVehicleRestoreAdoptedRoots;
+	int m_iFieldVehicleRestoreSpawnedRoots;
+	int m_iFieldVehicleRestoreTrackedRoots;
+	int m_iFieldVehicleRestoreFailedRows;
+	int m_iFieldVehicleRestoreAmbiguousRows;
+	int m_iFieldVehicleNativeTrackedRoots;
+	int m_iFieldVehicleShutdownQuiescedRoots;
+	bool m_bFieldVehicleRestoreExact;
+	bool m_bFieldVehicleStateExact;
+	bool m_bFieldVehiclePhysicalExact;
+	bool m_bFieldVehicleCargoExact;
+	bool m_bFieldVehicleNoDuplicateRoots;
+	bool m_bFieldVehicleNativeAuthorityDetached;
+	bool m_bFieldVehicleShutdownQuiescenceRequired;
+	bool m_bFieldVehicleShutdownQuiescenceExact;
+	bool m_bFieldVehicleMutationApplied;
+	bool m_bFieldVehicleProofExact;
+	string m_sFieldVehicleEvidence;
 	string m_sEvidence;
 }
 

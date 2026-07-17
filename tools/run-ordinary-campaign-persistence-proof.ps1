@@ -112,6 +112,77 @@ $script:SentinelVersion = 1
 $script:HSTAutosaveSchedulerIntervalSeconds = 60
 $script:HSTAutosaveSchedulerDebounceSeconds = 120
 $script:HSTAutosaveSchedulerRemarkSeconds = 30
+$script:FieldVehiclePrefab =
+    "{4AE9D080927D3CB9}Prefabs/Vehicles/Wheeled/S1203/S1203_base.et"
+$script:FieldVehicleCargoPrefab =
+    "{6985327711303720}Prefabs/Objects/HST/HST_MissionProp_Cargo.et"
+$script:ExpectedFieldVehicleResults = @{
+    autosave_checkpoint = @{
+        Phase = "prepare"
+        DurableRows = 2
+        LiveRoots = 2
+        DeletedRows = 0
+        CargoRows = 2
+        RestoreEligibleRows = 0
+        RestoreInactiveRows = 0
+        RestoreRoots = 0
+        RestoreTrackedRoots = 0
+        ShutdownQuiescedRoots = 0
+        MutationApplied = $false
+    }
+    manual_checkpoint = @{
+        Phase = "recover_mutate"
+        DurableRows = 2
+        LiveRoots = 1
+        DeletedRows = 1
+        CargoRows = 2
+        RestoreEligibleRows = 2
+        RestoreInactiveRows = 0
+        RestoreRoots = 2
+        RestoreTrackedRoots = 2
+        ShutdownQuiescedRoots = 0
+        MutationApplied = $true
+    }
+    shutdown_checkpoint = @{
+        Phase = "replay_shutdown"
+        DurableRows = 2
+        LiveRoots = 1
+        DeletedRows = 1
+        CargoRows = 2
+        RestoreEligibleRows = 1
+        RestoreInactiveRows = 1
+        RestoreRoots = 1
+        RestoreTrackedRoots = 1
+        ShutdownQuiescedRoots = 1
+        MutationApplied = $false
+    }
+    native_shutdown_verify = @{
+        Phase = "replay_native"
+        DurableRows = 2
+        LiveRoots = 1
+        DeletedRows = 1
+        CargoRows = 2
+        RestoreEligibleRows = 1
+        RestoreInactiveRows = 1
+        RestoreRoots = 1
+        RestoreTrackedRoots = 1
+        ShutdownQuiescedRoots = 0
+        MutationApplied = $false
+    }
+    profile_fallback_verify = @{
+        Phase = "replay_fallback"
+        DurableRows = 2
+        LiveRoots = 1
+        DeletedRows = 1
+        CargoRows = 2
+        RestoreEligibleRows = 1
+        RestoreInactiveRows = 1
+        RestoreRoots = 1
+        RestoreTrackedRoots = 1
+        ShutdownQuiescedRoots = 0
+        MutationApplied = $false
+    }
+}
 $script:GuardBaseLeaf = "PartisanOrdinaryCampaignPersistence"
 $script:GuardLeafPrefix = "PartisanOrdinaryCampaignPersistenceGuard_"
 $script:GuardSentinelLeaf = ".partisan-ordinary-persistence-owner"
@@ -587,6 +658,83 @@ function Assert-JsonProperty {
     if ($null -eq $Value -or
         $Value.PSObject.Properties.Name -notcontains $PropertyName) {
         throw "$ArtifactLabel is missing required property $PropertyName."
+    }
+}
+
+function Get-FieldVehicleVectorSignature {
+    param(
+        [Parameter(Mandatory = $true)]$Value,
+        [Parameter(Mandatory = $true)][string]$ArtifactLabel
+    )
+
+    $components = New-Object Collections.Generic.List[double]
+    if ($Value -is [string]) {
+        $matches = [regex]::Matches(
+            [string]$Value,
+            '[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?')
+        if ($matches.Count -ne 3) {
+            throw "$ArtifactLabel does not contain an exact three-component vector."
+        }
+        foreach ($match in $matches) {
+            try {
+                $components.Add([double]::Parse(
+                    $match.Value,
+                    [Globalization.NumberStyles]::Float,
+                    [Globalization.CultureInfo]::InvariantCulture))
+            }
+            catch {
+                throw "$ArtifactLabel contains an invalid vector component."
+            }
+        }
+    }
+    elseif ($Value -is [array]) {
+        if ($Value.Count -ne 3) {
+            throw "$ArtifactLabel does not contain an exact three-component vector."
+        }
+        foreach ($component in $Value) {
+            try {
+                $components.Add([Convert]::ToDouble(
+                    $component,
+                    [Globalization.CultureInfo]::InvariantCulture))
+            }
+            catch {
+                throw "$ArtifactLabel contains an invalid vector component."
+            }
+        }
+    }
+    else {
+        foreach ($axis in @("x", "y", "z")) {
+            $property = $Value.PSObject.Properties[$axis]
+            if (-not $property) {
+                throw "$ArtifactLabel does not contain an exact three-component vector."
+            }
+            try {
+                $components.Add([Convert]::ToDouble(
+                    $property.Value,
+                    [Globalization.CultureInfo]::InvariantCulture))
+            }
+            catch {
+                throw "$ArtifactLabel contains an invalid vector component."
+            }
+        }
+    }
+
+    foreach ($component in $components) {
+        if ([double]::IsNaN($component) -or
+            [double]::IsInfinity($component)) {
+            throw "$ArtifactLabel contains a non-finite vector component."
+        }
+    }
+    $signatureParts = foreach ($component in $components) {
+        $component.ToString(
+            "R",
+            [Globalization.CultureInfo]::InvariantCulture)
+    }
+    return [pscustomobject]@{
+        IsZero = $components[0] -eq 0.0 -and
+            $components[1] -eq 0.0 -and
+            $components[2] -eq 0.0
+        Signature = $signatureParts -join ","
     }
 }
 
@@ -1294,6 +1442,7 @@ function Get-GuardedProcessDiagnosticSummary {
     if (-not (Test-Path -LiteralPath $guardRoot -PathType Container)) {
         return "no guarded diagnostics"
     }
+    $partisanLines = New-Object Collections.Generic.List[string]
     $diagnosticLines = New-Object Collections.Generic.List[string]
     $fallbackLines = New-Object Collections.Generic.List[string]
     $files = @(Get-ChildItem -LiteralPath $guardRoot -Recurse -File -Force `
@@ -1304,6 +1453,20 @@ function Get-GuardedProcessDiagnosticSummary {
             continue
         }
         try {
+            $partisanMatches = @(Select-String `
+                -LiteralPath $file.FullName `
+                -Pattern 'Partisan vehicle persistence|Partisan ordinary campaign persistence proof|Partisan controlled campaign end' `
+                -ErrorAction Stop | Select-Object -Last 12)
+            foreach ($match in $partisanMatches) {
+                $safePartisan = ConvertTo-SafeEvidenceLine `
+                    -Line ([string]$match.Line) `
+                    -GuardRoot $guardRoot `
+                    -ProjectDirectory $ProjectDirectory `
+                    -ResolvedAddonRoots $ResolvedAddonRoots
+                if (-not [string]::IsNullOrWhiteSpace($safePartisan)) {
+                    [void]$partisanLines.Add($safePartisan)
+                }
+            }
             foreach ($line in @(Get-Content -LiteralPath $file.FullName -Tail 1200 `
                 -ErrorAction Stop)) {
                 $text = ConvertTo-SafeEvidenceLine `
@@ -1314,21 +1477,29 @@ function Get-GuardedProcessDiagnosticSummary {
                 if ([string]::IsNullOrWhiteSpace($text)) {
                     continue
                 }
-                if ($text -match "(?i)(\s\(E\):|fatal|can't compile|cannot be packed|failed script compilation|broken expression|invalid statement|syntax error|unexpected scope|unknown type|undefined)") {
+                if ($text -match '(?i)(Partisan vehicle persistence|Partisan ordinary campaign persistence proof|Partisan controlled campaign end)') {
+                    [void]$partisanLines.Add($text)
+                }
+                elseif ($text -match "(?i)(\s\(E\):|fatal|can't compile|cannot be packed|failed script compilation|broken expression|invalid statement|syntax error|unexpected scope|unknown type|undefined)") {
                     [void]$diagnosticLines.Add($text)
                 }
                 elseif ($text -match '(?i)(SCRIPT\s*\(W\)|failed|gproj|ResourceManager)') {
                     [void]$fallbackLines.Add($text)
                 }
-                if ($diagnosticLines.Count -ge 12) {
+                if ($partisanLines.Count -ge 12 -and
+                    $diagnosticLines.Count -ge 12) {
                     break
                 }
             }
         }
         catch {}
-        if ($diagnosticLines.Count -ge 12) {
+        if ($partisanLines.Count -ge 12 -and
+            $diagnosticLines.Count -ge 12) {
             break
         }
+    }
+    if ($partisanLines.Count -gt 0) {
+        return (@($partisanLines | Select-Object -Last 12) -join " | ")
     }
     if ($diagnosticLines.Count -eq 0) {
         if ($fallbackLines.Count -eq 0) {
@@ -1526,7 +1697,11 @@ function Invoke-GuardedProcess {
 
         if ($null -eq $exitCode -or
             (Get-LiveOwnedProcessCount $owned) -ne 0) {
-            throw "$Label exceeded its guarded process deadline."
+            $diagnostic = Get-GuardedProcessDiagnosticSummary `
+                -WorkingDirectory $WorkingDirectory `
+                -ProjectDirectory $DiagnosticProjectDirectory `
+                -ResolvedAddonRoots $DiagnosticAddonRoots
+            throw "$Label exceeded its guarded process deadline | $diagnostic"
         }
         if ([int]$exitCode -ne 0) {
             $diagnostic = Get-GuardedProcessDiagnosticSummary `
@@ -1555,6 +1730,14 @@ function Invoke-GuardedProcess {
     }
     catch {
         $runError = $_.Exception.Message
+        $failureDiagnostic = Get-GuardedProcessDiagnosticSummary `
+            -WorkingDirectory $WorkingDirectory `
+            -ProjectDirectory $DiagnosticProjectDirectory `
+            -ResolvedAddonRoots $DiagnosticAddonRoots
+        if ($failureDiagnostic -ne "no guarded diagnostics" -and
+            $failureDiagnostic -ne "no matching guarded diagnostic lines") {
+            $runError += " | diagnostics $failureDiagnostic"
+        }
     }
     finally {
         try {
@@ -1870,6 +2053,36 @@ function Assert-StageResult {
         "m_sExpectedProfileFallbackFingerprint",
         "m_sProfileFallbackReadBackFingerprint",
         "m_bProfileFallbackReadBackExact",
+        "m_sFieldVehicleProofPhase",
+        "m_iFieldVehicleExpectedDurableRows",
+        "m_iFieldVehicleObservedDurableRows",
+        "m_iFieldVehicleExpectedLiveRoots",
+        "m_iFieldVehicleObservedLiveRoots",
+        "m_iFieldVehicleExpectedDeletedRows",
+        "m_iFieldVehicleObservedDeletedRows",
+        "m_iFieldVehicleExpectedCargoRows",
+        "m_iFieldVehicleObservedCargoRows",
+        "m_iFieldVehicleRestoreEligibleRows",
+        "m_iFieldVehicleRestoreInactiveRows",
+        "m_iFieldVehicleRetiredNativeTombstoneRoots",
+        "m_iFieldVehicleRestoreAdoptedRoots",
+        "m_iFieldVehicleRestoreSpawnedRoots",
+        "m_iFieldVehicleRestoreTrackedRoots",
+        "m_iFieldVehicleRestoreFailedRows",
+        "m_iFieldVehicleRestoreAmbiguousRows",
+        "m_iFieldVehicleNativeTrackedRoots",
+        "m_iFieldVehicleShutdownQuiescedRoots",
+        "m_bFieldVehicleRestoreExact",
+        "m_bFieldVehicleStateExact",
+        "m_bFieldVehiclePhysicalExact",
+        "m_bFieldVehicleCargoExact",
+        "m_bFieldVehicleNoDuplicateRoots",
+        "m_bFieldVehicleNativeAuthorityDetached",
+        "m_bFieldVehicleShutdownQuiescenceRequired",
+        "m_bFieldVehicleShutdownQuiescenceExact",
+        "m_bFieldVehicleMutationApplied",
+        "m_bFieldVehicleProofExact",
+        "m_sFieldVehicleEvidence",
         "m_sEvidence")) {
         Assert-JsonProperty $Result $property $label
     }
@@ -1924,15 +2137,52 @@ function Assert-StageResult {
         "m_bSchedulerMajorChangePendingAtAttempt",
         "m_bSchedulerDebounceRemarked",
         "m_bSchedulerDebounceHeld",
-        "m_bProfileFallbackReadBackExact")) {
+        "m_bProfileFallbackReadBackExact",
+        "m_bFieldVehicleRestoreExact",
+        "m_bFieldVehicleStateExact",
+        "m_bFieldVehiclePhysicalExact",
+        "m_bFieldVehicleCargoExact",
+        "m_bFieldVehicleNoDuplicateRoots",
+        "m_bFieldVehicleNativeAuthorityDetached",
+        "m_bFieldVehicleShutdownQuiescenceRequired",
+        "m_bFieldVehicleShutdownQuiescenceExact",
+        "m_bFieldVehicleMutationApplied",
+        "m_bFieldVehicleProofExact")) {
         if ($Result.$property -isnot [bool]) {
             throw "$label contains a non-boolean invariant."
         }
     }
     if (-not [bool]$Result.m_bSuccess) {
+        $safeFieldEvidence = ConvertTo-SafeEvidenceLine `
+            -Line ([string]$Result.m_sFieldVehicleEvidence)
+        $failureEvidence = [string]$Result.m_sEvidence
+        $failureHead = $failureEvidence
+        $failureTail = $failureEvidence
+        if ($failureHead.Length -gt 260) {
+            $failureHead = $failureHead.Substring(0, 260)
+        }
+        if ($failureTail.Length -gt 450) {
+            $failureTail = $failureTail.Substring($failureTail.Length - 450)
+        }
+        $safeFailureHead = ConvertTo-SafeEvidenceLine `
+            -Line $failureHead
         $safeFailureEvidence = ConvertTo-SafeEvidenceLine `
-            -Line ([string]$Result.m_sEvidence)
-        throw "$label reported failure: $safeFailureEvidence"
+            -Line $failureTail
+        $failureFlags = "source/prior/native/request/flags/fallback/callback/after/created/active/scheduler/field/sentinel={0}/{1}/{2}/{3}/{4}/{5}/{6}/{7}/{8}/{9}/{10}/{11}/{12}" -f `
+            [bool]$Result.m_bSourceExact,
+            [bool]$Result.m_bPriorSavePointExact,
+            [bool]$Result.m_bNativePayloadPrepared,
+            [bool]$Result.m_bSavePointRequested,
+            [bool]$Result.m_bRequestFlagsExact,
+            [bool]$Result.m_bProfileFallbackReadBackExact,
+            [bool]$Result.m_bCompletionCallbackSucceeded,
+            [bool]$Result.m_bOnAfterSaveSucceeded,
+            [bool]$Result.m_bOnSaveCreatedObserved,
+            [bool]$Result.m_bActiveSavePointExact,
+            [bool]$Result.m_bSchedulerExercised,
+            [bool]$Result.m_bFieldVehicleProofExact,
+            [bool]$Result.m_bSentinelExact
+        throw "$label reported failure | $failureFlags | field $safeFieldEvidence | head $safeFailureHead | tail $safeFailureEvidence"
     }
     if (-not [bool]$Result.m_bSuccess -or
         -not [bool]$Result.m_bSourceExact -or
@@ -1947,8 +2197,66 @@ function Assert-StageResult {
             [string]$Result.m_sExpectedProfileFallbackFingerprint) -or
         [string]$Result.m_sExpectedProfileFallbackFingerprint -cne
             [string]$Result.m_sProfileFallbackReadBackFingerprint -or
+        -not [bool]$Result.m_bFieldVehicleRestoreExact -or
+        -not [bool]$Result.m_bFieldVehicleStateExact -or
+        -not [bool]$Result.m_bFieldVehiclePhysicalExact -or
+        -not [bool]$Result.m_bFieldVehicleCargoExact -or
+        -not [bool]$Result.m_bFieldVehicleNoDuplicateRoots -or
+        -not [bool]$Result.m_bFieldVehicleNativeAuthorityDetached -or
+        -not [bool]$Result.m_bFieldVehicleShutdownQuiescenceExact -or
+        -not [bool]$Result.m_bFieldVehicleProofExact -or
+        [string]::IsNullOrWhiteSpace(
+            [string]$Result.m_sFieldVehicleEvidence) -or
         [string]::IsNullOrWhiteSpace([string]$Result.m_sEvidence)) {
         throw "$label omitted a required success invariant."
+    }
+    $expectedFieldVehicle = $script:ExpectedFieldVehicleResults[$Stage]
+    if (-not $expectedFieldVehicle) {
+        throw "$label has no field-vehicle expectation."
+    }
+    $restoredFieldVehicleRoots =
+        [int]$Result.m_iFieldVehicleRestoreAdoptedRoots +
+        [int]$Result.m_iFieldVehicleRestoreSpawnedRoots
+    if ([string]$Result.m_sFieldVehicleProofPhase -cne
+            [string]$expectedFieldVehicle.Phase -or
+        [int]$Result.m_iFieldVehicleExpectedDurableRows -ne
+            [int]$expectedFieldVehicle.DurableRows -or
+        [int]$Result.m_iFieldVehicleObservedDurableRows -ne
+            [int]$expectedFieldVehicle.DurableRows -or
+        [int]$Result.m_iFieldVehicleExpectedLiveRoots -ne
+            [int]$expectedFieldVehicle.LiveRoots -or
+        [int]$Result.m_iFieldVehicleObservedLiveRoots -ne
+            [int]$expectedFieldVehicle.LiveRoots -or
+        [int]$Result.m_iFieldVehicleExpectedDeletedRows -ne
+            [int]$expectedFieldVehicle.DeletedRows -or
+        [int]$Result.m_iFieldVehicleObservedDeletedRows -ne
+            [int]$expectedFieldVehicle.DeletedRows -or
+        [int]$Result.m_iFieldVehicleExpectedCargoRows -ne
+            [int]$expectedFieldVehicle.CargoRows -or
+        [int]$Result.m_iFieldVehicleObservedCargoRows -ne
+            [int]$expectedFieldVehicle.CargoRows -or
+        [int]$Result.m_iFieldVehicleRestoreEligibleRows -ne
+            [int]$expectedFieldVehicle.RestoreEligibleRows -or
+        [int]$Result.m_iFieldVehicleRestoreInactiveRows -ne
+            [int]$expectedFieldVehicle.RestoreInactiveRows -or
+        [int]$Result.m_iFieldVehicleRetiredNativeTombstoneRoots -ne 0 -or
+        [int]$Result.m_iFieldVehicleRestoreAdoptedRoots -ne 0 -or
+        [int]$Result.m_iFieldVehicleRestoreSpawnedRoots -ne
+            [int]$expectedFieldVehicle.RestoreRoots -or
+        $restoredFieldVehicleRoots -ne
+            [int]$expectedFieldVehicle.RestoreRoots -or
+        [int]$Result.m_iFieldVehicleRestoreTrackedRoots -ne
+            [int]$expectedFieldVehicle.RestoreTrackedRoots -or
+        [int]$Result.m_iFieldVehicleRestoreFailedRows -ne 0 -or
+        [int]$Result.m_iFieldVehicleRestoreAmbiguousRows -ne 0 -or
+        [int]$Result.m_iFieldVehicleNativeTrackedRoots -ne 0 -or
+        [int]$Result.m_iFieldVehicleShutdownQuiescedRoots -ne
+            [int]$expectedFieldVehicle.ShutdownQuiescedRoots -or
+        [bool]$Result.m_bFieldVehicleShutdownQuiescenceRequired -ne
+            ($Stage -ceq "shutdown_checkpoint") -or
+        [bool]$Result.m_bFieldVehicleMutationApplied -ne
+            [bool]$expectedFieldVehicle.MutationApplied) {
+        throw "$label did not prove its exact field-vehicle phase."
     }
     if ($Stage -ceq "autosave_checkpoint") {
         if (-not [string]::IsNullOrWhiteSpace(
@@ -2264,7 +2572,22 @@ function Assert-Carrier {
         "m_bGeneration1ProfileFallbackExact",
         "m_bGeneration2ProfileFallbackExact",
         "m_bGeneration3ProfileFallbackExact",
-        "m_sLatestProfileFallbackFingerprint")) {
+        "m_sLatestProfileFallbackFingerprint",
+        "m_sFieldVehiclePrefab",
+        "m_sFieldVehicleCargoPrefab",
+        "m_sFieldVehicleAId",
+        "m_sFieldVehicleBId",
+        "m_vFieldVehicleAInitialPosition",
+        "m_vFieldVehicleBInitialPosition",
+        "m_vFieldVehicleAMovedPosition",
+        "m_vFieldVehicleAInitialAngles",
+        "m_vFieldVehicleBInitialAngles",
+        "m_vFieldVehicleAMovedAngles",
+        "m_iFieldVehicleACargoCount",
+        "m_iFieldVehicleBCargoCount",
+        "m_bFieldVehiclePrepared",
+        "m_bFieldVehicleRecoveredAndMutated",
+        "m_bFieldVehicleReplayVerified")) {
         Assert-JsonProperty $Carrier $property $label
     }
     if ([string]$Carrier.m_sMagic -cne $script:CarrierMagic -or
@@ -2281,6 +2604,55 @@ function Assert-Carrier {
     }
     Assert-BuildIdentity $Carrier $ExpectedBuild $label
     $generation = $script:ExpectedSentinelGenerations[$Stage]
+    foreach ($property in @(
+        "m_bFieldVehiclePrepared",
+        "m_bFieldVehicleRecoveredAndMutated",
+        "m_bFieldVehicleReplayVerified")) {
+        if ($Carrier.$property -isnot [bool]) {
+            throw "$label contains a non-boolean field-vehicle invariant."
+        }
+    }
+    $fieldVehicleAId = [string]$Carrier.m_sFieldVehicleAId
+    $fieldVehicleBId = [string]$Carrier.m_sFieldVehicleBId
+    if ([string]$Carrier.m_sFieldVehiclePrefab -cne
+            $script:FieldVehiclePrefab -or
+        [string]$Carrier.m_sFieldVehicleCargoPrefab -cne
+            $script:FieldVehicleCargoPrefab -or
+        [string]::IsNullOrWhiteSpace($fieldVehicleAId) -or
+        [string]::IsNullOrWhiteSpace($fieldVehicleBId) -or
+        $fieldVehicleAId -ceq $fieldVehicleBId -or
+        $fieldVehicleAId -match '^(?i:rpl_|local_)' -or
+        $fieldVehicleBId -match '^(?i:rpl_|local_)' -or
+        [int]$Carrier.m_iFieldVehicleACargoCount -ne 3 -or
+        [int]$Carrier.m_iFieldVehicleBCargoCount -ne 7) {
+        throw "$label field-vehicle fixture identity is not exact."
+    }
+    $fieldVehicleVectorSignatures = @()
+    foreach ($property in @(
+        "m_vFieldVehicleAInitialPosition",
+        "m_vFieldVehicleBInitialPosition",
+        "m_vFieldVehicleAMovedPosition",
+        "m_vFieldVehicleAInitialAngles",
+        "m_vFieldVehicleBInitialAngles",
+        "m_vFieldVehicleAMovedAngles")) {
+        $vector = Get-FieldVehicleVectorSignature `
+            -Value $Carrier.$property `
+            -ArtifactLabel "$label $property"
+        if ($vector.IsZero -or
+            $fieldVehicleVectorSignatures -ccontains $vector.Signature) {
+            throw "$label field-vehicle vectors are zero or not distinct."
+        }
+        $fieldVehicleVectorSignatures += $vector.Signature
+    }
+    $expectedRecoveredAndMutated = $generation -ge 2
+    $expectedReplayVerified = $generation -ge 3
+    if (-not [bool]$Carrier.m_bFieldVehiclePrepared -or
+        [bool]$Carrier.m_bFieldVehicleRecoveredAndMutated -ne
+            $expectedRecoveredAndMutated -or
+        [bool]$Carrier.m_bFieldVehicleReplayVerified -ne
+            $expectedReplayVerified) {
+        throw "$label field-vehicle generation progress is not exact."
+    }
     $sentinelProperty = "m_sGeneration{0}SentinelFingerprint" -f $generation
     $fallbackProperty =
         "m_sGeneration{0}ProfileFallbackFingerprint" -f $generation
@@ -2688,6 +3060,33 @@ function Invoke-OrdinaryCampaignStage {
                 [double]$result.m_fSchedulerDebounceRemarkElapsedSeconds
             SchedulerDebounceHeld =
                 [bool]$result.m_bSchedulerDebounceHeld
+            FieldPhase = [string]$result.m_sFieldVehicleProofPhase
+            FieldRows = ("{0}/{1}" -f
+                [int]$result.m_iFieldVehicleExpectedDurableRows,
+                [int]$result.m_iFieldVehicleObservedDurableRows)
+            FieldRoots = ("{0}/{1}" -f
+                [int]$result.m_iFieldVehicleExpectedLiveRoots,
+                [int]$result.m_iFieldVehicleObservedLiveRoots)
+            FieldDeleted = ("{0}/{1}" -f
+                [int]$result.m_iFieldVehicleExpectedDeletedRows,
+                [int]$result.m_iFieldVehicleObservedDeletedRows)
+            FieldCargo = ("{0}/{1}" -f
+                [int]$result.m_iFieldVehicleExpectedCargoRows,
+                [int]$result.m_iFieldVehicleObservedCargoRows)
+            FieldRestore = ("e{0}/i{1}/n{2}/a{3}/s{4}/t{5}/f{6}/x{7}" -f
+                [int]$result.m_iFieldVehicleRestoreEligibleRows,
+                [int]$result.m_iFieldVehicleRestoreInactiveRows,
+                [int]$result.m_iFieldVehicleRetiredNativeTombstoneRoots,
+                [int]$result.m_iFieldVehicleRestoreAdoptedRoots,
+                [int]$result.m_iFieldVehicleRestoreSpawnedRoots,
+                [int]$result.m_iFieldVehicleRestoreTrackedRoots,
+                [int]$result.m_iFieldVehicleRestoreFailedRows,
+                [int]$result.m_iFieldVehicleRestoreAmbiguousRows)
+            FieldNativeTracked =
+                [int]$result.m_iFieldVehicleNativeTrackedRoots
+            FieldShutdownQuiesced =
+                [int]$result.m_iFieldVehicleShutdownQuiescedRoots
+            FieldExact = [bool]$result.m_bFieldVehicleProofExact
             ActiveSave = [string]$result.m_sActiveSavePointId
             CommittedSave = [string]$result.m_sCreatedSavePointId
             SourceDigest = (Get-FileNameSafeDigest `
@@ -3405,6 +3804,16 @@ try {
                 -not [bool]$fallbackVerify.Result.m_bSavePointRequested
             FallbackSource =
                 [string]$fallbackVerify.Result.m_sSource
+            FieldVehiclePrepare =
+                [bool]$autosave.Result.m_bFieldVehicleProofExact
+            FieldVehicleRecover =
+                [bool]$manual.Result.m_bFieldVehicleProofExact
+            FieldVehicleReplay =
+                [bool]$shutdown.Result.m_bFieldVehicleProofExact
+            FieldVehicleNative =
+                [bool]$nativeVerify.Result.m_bFieldVehicleProofExact
+            FieldVehicleFallback =
+                [bool]$fallbackVerify.Result.m_bFieldVehicleProofExact
         }
         $runSucceeded = $true
     }

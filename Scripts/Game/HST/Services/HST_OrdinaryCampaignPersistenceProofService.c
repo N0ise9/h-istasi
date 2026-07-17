@@ -731,11 +731,110 @@ class HST_OrdinaryCampaignPersistenceProofService
 		return "";
 	}
 
+	protected static float FieldVehicleDistanceSq2D(
+		vector first,
+		vector second)
+	{
+		float dx = first[0] - second[0];
+		float dz = first[2] - second[2];
+		return dx * dx + dz * dz;
+	}
+
+	protected static bool IsZeroFieldVehicleVector(vector value)
+	{
+		return value[0] == 0 && value[1] == 0 && value[2] == 0;
+	}
+
+	protected static bool ValidateFieldVehicleCarrierPlan(
+		HST_OrdinaryCampaignPersistenceCarrier carrier,
+		out string evidence)
+	{
+		evidence = "ordinary persistence field vehicle carrier plan rejected";
+		if (!carrier)
+			return false;
+		string expectedA
+			= HST_PersistentFieldVehicleRestartProofService
+				.BuildFieldVehicleRuntimeId(carrier.m_sPayloadNonce, "a");
+		string expectedB
+			= HST_PersistentFieldVehicleRestartProofService
+				.BuildFieldVehicleRuntimeId(carrier.m_sPayloadNonce, "b");
+		if (carrier.m_sFieldVehiclePrefab
+				!= HST_PersistentFieldVehicleRestartProofService
+					.FIELD_VEHICLE_PREFAB
+			|| carrier.m_sFieldVehicleCargoPrefab
+				!= HST_PersistentFieldVehicleRestartProofService
+					.FIELD_VEHICLE_CARGO_PREFAB
+			|| carrier.m_sFieldVehicleAId != expectedA
+			|| carrier.m_sFieldVehicleBId != expectedB)
+			return false;
+		if (expectedA.IsEmpty() || expectedB.IsEmpty()
+			|| expectedA == expectedB)
+			return false;
+		if (expectedA.StartsWith("rpl_") || expectedA.StartsWith("local_")
+			|| expectedB.StartsWith("rpl_") || expectedB.StartsWith("local_"))
+			return false;
+		if (carrier.m_iFieldVehicleACargoCount
+				!= HST_PersistentFieldVehicleRestartProofService
+					.FIELD_VEHICLE_A_CARGO_COUNT
+			|| carrier.m_iFieldVehicleBCargoCount
+				!= HST_PersistentFieldVehicleRestartProofService
+					.FIELD_VEHICLE_B_CARGO_COUNT)
+			return false;
+		if (IsZeroFieldVehicleVector(carrier.m_vFieldVehicleAInitialPosition)
+			|| IsZeroFieldVehicleVector(carrier.m_vFieldVehicleBInitialPosition)
+			|| IsZeroFieldVehicleVector(carrier.m_vFieldVehicleAMovedPosition))
+			return false;
+		if (FieldVehicleDistanceSq2D(
+				carrier.m_vFieldVehicleAInitialPosition,
+				carrier.m_vFieldVehicleBInitialPosition) <= 64.0
+			|| FieldVehicleDistanceSq2D(
+				carrier.m_vFieldVehicleAInitialPosition,
+				carrier.m_vFieldVehicleAMovedPosition) <= 400.0
+			|| FieldVehicleDistanceSq2D(
+				carrier.m_vFieldVehicleBInitialPosition,
+				carrier.m_vFieldVehicleAMovedPosition) <= 400.0)
+			return false;
+		evidence = "ordinary persistence field vehicle carrier plan exact";
+		return true;
+	}
+
+	protected static bool ValidateFieldVehicleCarrierProgress(
+		HST_OrdinaryCampaignPersistenceCarrier carrier,
+		int generation,
+		out string evidence)
+	{
+		if (!ValidateFieldVehicleCarrierPlan(carrier, evidence))
+			return false;
+		bool expectedRecovered = generation >= 2;
+		bool expectedReplay = generation >= 3;
+		if (!carrier.m_bFieldVehiclePrepared
+			|| carrier.m_bFieldVehicleRecoveredAndMutated
+				!= expectedRecovered
+			|| carrier.m_bFieldVehicleReplayVerified != expectedReplay)
+		{
+			evidence = "ordinary persistence field vehicle carrier progress rejected";
+			return false;
+		}
+		evidence = string.Format(
+			"ordinary persistence field vehicle carrier generation %1 exact",
+			generation);
+		return true;
+	}
+
 	protected static bool ValidateGenerationOneCarrier(
 		HST_OrdinaryCampaignPersistenceCarrier carrier,
 		out string evidence)
 	{
 		evidence = "ordinary persistence generation 1 carrier rejected";
+		string fieldVehicleEvidence;
+		if (!ValidateFieldVehicleCarrierProgress(
+			carrier,
+			1,
+			fieldVehicleEvidence))
+		{
+			evidence += " | " + fieldVehicleEvidence;
+			return false;
+		}
 		string expectedSentinel = BuildSentinelFingerprint(
 			carrier.m_sPayloadNonce,
 			1);
@@ -794,6 +893,15 @@ class HST_OrdinaryCampaignPersistenceProofService
 		out string evidence)
 	{
 		evidence = "ordinary persistence generation 2 carrier rejected";
+		string fieldVehicleEvidence;
+		if (!ValidateFieldVehicleCarrierProgress(
+			carrier,
+			2,
+			fieldVehicleEvidence))
+		{
+			evidence += " | " + fieldVehicleEvidence;
+			return false;
+		}
 		string priorEvidence;
 		if (!ValidateGenerationOneCarrierSnapshot(carrier, priorEvidence))
 		{
@@ -848,6 +956,15 @@ class HST_OrdinaryCampaignPersistenceProofService
 		out string evidence)
 	{
 		evidence = "ordinary persistence generation 3 carrier rejected";
+		string fieldVehicleEvidence;
+		if (!ValidateFieldVehicleCarrierProgress(
+			carrier,
+			3,
+			fieldVehicleEvidence))
+		{
+			evidence += " | " + fieldVehicleEvidence;
+			return false;
+		}
 		string priorEvidence;
 		if (!ValidateGenerationTwoCarrierSnapshot(carrier, priorEvidence))
 		{
@@ -892,6 +1009,13 @@ class HST_OrdinaryCampaignPersistenceProofService
 		out string evidence)
 	{
 		evidence = "ordinary persistence retained generation 1 rejected";
+		string fieldVehicleEvidence;
+		if (!ValidateFieldVehicleCarrierPlan(carrier, fieldVehicleEvidence)
+			|| !carrier.m_bFieldVehiclePrepared)
+		{
+			evidence += " | " + fieldVehicleEvidence;
+			return false;
+		}
 		if (carrier.m_sGeneration1SentinelFingerprint
 				!= BuildSentinelFingerprint(carrier.m_sPayloadNonce, 1)
 			|| !UUID.IsUUID(carrier.m_sAutosaveSavePointId)
@@ -916,6 +1040,14 @@ class HST_OrdinaryCampaignPersistenceProofService
 		out string evidence)
 	{
 		evidence = "ordinary persistence retained generation 2 rejected";
+		string fieldVehicleEvidence;
+		if (!ValidateFieldVehicleCarrierPlan(carrier, fieldVehicleEvidence)
+			|| !carrier.m_bFieldVehiclePrepared
+			|| !carrier.m_bFieldVehicleRecoveredAndMutated)
+		{
+			evidence += " | " + fieldVehicleEvidence;
+			return false;
+		}
 		string firstEvidence;
 		if (!ValidateGenerationOneCarrierSnapshot(carrier, firstEvidence))
 			return false;
@@ -1045,6 +1177,42 @@ class HST_OrdinaryCampaignPersistenceProofService
 			evidence);
 	}
 
+	protected static bool ValidateRetainedFieldVehiclePrefix(
+		HST_OrdinaryCampaignPersistenceCarrier previous,
+		HST_OrdinaryCampaignPersistenceCarrier current)
+	{
+		if (!previous || !current)
+			return false;
+		if (previous.m_sFieldVehiclePrefab
+				!= current.m_sFieldVehiclePrefab
+			|| previous.m_sFieldVehicleCargoPrefab
+				!= current.m_sFieldVehicleCargoPrefab
+			|| previous.m_sFieldVehicleAId != current.m_sFieldVehicleAId
+			|| previous.m_sFieldVehicleBId != current.m_sFieldVehicleBId)
+			return false;
+		if (previous.m_vFieldVehicleAInitialPosition
+				!= current.m_vFieldVehicleAInitialPosition
+			|| previous.m_vFieldVehicleBInitialPosition
+				!= current.m_vFieldVehicleBInitialPosition
+			|| previous.m_vFieldVehicleAMovedPosition
+				!= current.m_vFieldVehicleAMovedPosition)
+			return false;
+		if (previous.m_vFieldVehicleAInitialAngles
+				!= current.m_vFieldVehicleAInitialAngles
+			|| previous.m_vFieldVehicleBInitialAngles
+				!= current.m_vFieldVehicleBInitialAngles
+			|| previous.m_vFieldVehicleAMovedAngles
+				!= current.m_vFieldVehicleAMovedAngles)
+			return false;
+		if (previous.m_iFieldVehicleACargoCount
+				!= current.m_iFieldVehicleACargoCount
+			|| previous.m_iFieldVehicleBCargoCount
+				!= current.m_iFieldVehicleBCargoCount)
+			return false;
+		return previous.m_bFieldVehiclePrepared
+			&& current.m_bFieldVehiclePrepared;
+	}
+
 	protected static bool ValidateRetainedCarrierPrefix(
 		HST_OrdinaryCampaignPersistenceCarrier previous,
 		HST_OrdinaryCampaignPersistenceCarrier current,
@@ -1059,6 +1227,8 @@ class HST_OrdinaryCampaignPersistenceProofService
 			|| previous.m_sRunId != current.m_sRunId
 			|| previous.m_sPayloadNonce != current.m_sPayloadNonce
 			|| previous.m_sWorld != current.m_sWorld)
+			return false;
+		if (!ValidateRetainedFieldVehiclePrefix(previous, current))
 			return false;
 		if (previous.m_sGeneration1SentinelFingerprint
 				!= current.m_sGeneration1SentinelFingerprint
@@ -1087,6 +1257,9 @@ class HST_OrdinaryCampaignPersistenceProofService
 
 		if (completedGeneration == 2)
 		{
+			if (!previous.m_bFieldVehicleRecoveredAndMutated
+				|| !current.m_bFieldVehicleRecoveredAndMutated)
+				return false;
 			if (previous.m_sGeneration2SentinelFingerprint
 					!= current.m_sGeneration2SentinelFingerprint
 				|| previous.m_sManualSavePointId
@@ -1276,6 +1449,122 @@ class HST_OrdinaryCampaignPersistenceProofService
 		return true;
 	}
 
+	protected static bool ValidateFieldVehicleResult(
+		HST_OrdinaryCampaignPersistenceResult result,
+		out string evidence)
+	{
+		evidence = "ordinary persistence field vehicle result rejected";
+		if (!result || result.m_sFieldVehicleEvidence.IsEmpty())
+			return false;
+		if (!result.m_bFieldVehicleRestoreExact
+			|| !result.m_bFieldVehicleStateExact
+			|| !result.m_bFieldVehiclePhysicalExact
+			|| !result.m_bFieldVehicleCargoExact
+			|| !result.m_bFieldVehicleNoDuplicateRoots
+			|| !result.m_bFieldVehicleNativeAuthorityDetached
+			|| !result.m_bFieldVehicleShutdownQuiescenceExact
+			|| !result.m_bFieldVehicleProofExact)
+			return false;
+		if (result.m_iFieldVehicleExpectedDurableRows != 2
+			|| result.m_iFieldVehicleObservedDurableRows != 2
+			|| result.m_iFieldVehicleExpectedCargoRows != 2
+			|| result.m_iFieldVehicleObservedCargoRows != 2)
+			return false;
+		if (result.m_iFieldVehicleRestoreFailedRows != 0
+			|| result.m_iFieldVehicleRestoreAmbiguousRows != 0
+			|| result.m_iFieldVehicleRetiredNativeTombstoneRoots != 0
+			|| result.m_iFieldVehicleNativeTrackedRoots != 0)
+			return false;
+
+		int expectedLiveRoots;
+		int expectedDeletedRows;
+		int expectedRestoreEligible;
+		int expectedRestoreInactive;
+		string expectedPhase;
+		bool expectedMutation;
+		if (result.m_sStage == STAGE_AUTOSAVE_CHECKPOINT)
+		{
+			expectedLiveRoots = 2;
+			expectedDeletedRows = 0;
+			expectedRestoreEligible = 0;
+			expectedRestoreInactive = 0;
+			expectedPhase
+				= HST_PersistentFieldVehicleRestartProofService.PHASE_PREPARE;
+		}
+		else if (result.m_sStage == STAGE_MANUAL_CHECKPOINT)
+		{
+			expectedLiveRoots = 1;
+			expectedDeletedRows = 1;
+			expectedRestoreEligible = 2;
+			expectedRestoreInactive = 0;
+			expectedMutation = true;
+			expectedPhase
+				= HST_PersistentFieldVehicleRestartProofService
+					.PHASE_RECOVER_MUTATE;
+		}
+		else
+		{
+			expectedLiveRoots = 1;
+			expectedDeletedRows = 1;
+			expectedRestoreEligible = 1;
+			expectedRestoreInactive = 1;
+			if (result.m_sStage == STAGE_SHUTDOWN_CHECKPOINT)
+			{
+				expectedPhase
+					= HST_PersistentFieldVehicleRestartProofService
+						.PHASE_REPLAY_SHUTDOWN;
+			}
+			else if (result.m_sStage == STAGE_NATIVE_SHUTDOWN_VERIFY)
+			{
+				expectedPhase
+					= HST_PersistentFieldVehicleRestartProofService
+						.PHASE_REPLAY_NATIVE;
+			}
+			else if (result.m_sStage == STAGE_PROFILE_FALLBACK_VERIFY)
+			{
+				expectedPhase
+					= HST_PersistentFieldVehicleRestartProofService
+						.PHASE_REPLAY_FALLBACK;
+			}
+			else
+				return false;
+		}
+
+		int restoredRoots = result.m_iFieldVehicleRestoreAdoptedRoots
+			+ result.m_iFieldVehicleRestoreSpawnedRoots;
+		if (result.m_sFieldVehicleProofPhase != expectedPhase
+			|| result.m_iFieldVehicleExpectedLiveRoots != expectedLiveRoots
+			|| result.m_iFieldVehicleObservedLiveRoots != expectedLiveRoots)
+			return false;
+		if (result.m_iFieldVehicleExpectedDeletedRows != expectedDeletedRows
+			|| result.m_iFieldVehicleObservedDeletedRows != expectedDeletedRows
+			|| result.m_iFieldVehicleRestoreEligibleRows
+				!= expectedRestoreEligible)
+			return false;
+		if (result.m_iFieldVehicleRestoreInactiveRows
+				!= expectedRestoreInactive
+			|| result.m_iFieldVehicleRestoreAdoptedRoots != 0
+			|| result.m_iFieldVehicleRestoreSpawnedRoots
+				!= expectedRestoreEligible
+			|| restoredRoots != expectedRestoreEligible
+			|| result.m_iFieldVehicleRestoreTrackedRoots
+				!= expectedRestoreEligible
+			|| result.m_bFieldVehicleMutationApplied != expectedMutation)
+			return false;
+		bool shutdownQuiescenceRequired
+			= result.m_sStage == STAGE_SHUTDOWN_CHECKPOINT;
+		int expectedQuiescedRoots = 0;
+		if (shutdownQuiescenceRequired)
+			expectedQuiescedRoots = expectedLiveRoots;
+		if (result.m_bFieldVehicleShutdownQuiescenceRequired
+				!= shutdownQuiescenceRequired
+			|| result.m_iFieldVehicleShutdownQuiescedRoots
+				!= expectedQuiescedRoots)
+			return false;
+		evidence = "ordinary persistence field vehicle result exact";
+		return true;
+	}
+
 	static bool ValidateResult(
 		HST_OrdinaryCampaignPersistenceResult result,
 		out string evidence)
@@ -1305,6 +1594,13 @@ class HST_OrdinaryCampaignPersistenceProofService
 		{
 			evidence = "ordinary persistence failed-stage result exact";
 			return true;
+		}
+
+		string fieldVehicleEvidence;
+		if (!ValidateFieldVehicleResult(result, fieldVehicleEvidence))
+		{
+			evidence += " | " + fieldVehicleEvidence;
+			return false;
 		}
 
 		string expectedSource = ResolveExpectedSource(result.m_sStage);

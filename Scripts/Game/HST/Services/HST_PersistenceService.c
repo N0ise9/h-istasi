@@ -388,6 +388,7 @@ class HST_PersistenceService
 		request.m_eSaveType = saveType;
 		request.m_eRequestFlags = requestFlags;
 		request.m_sDisplayName = displayName;
+		string controlledShutdownVehicleEvidence;
 
 		if (m_bCampaignDebugIsolationActive)
 		{
@@ -420,6 +421,21 @@ class HST_PersistenceService
 					saveManager.IsSavingAllowed());
 			}
 			return request;
+		}
+		if (saveType == ESaveGameType.SHUTDOWN && state)
+		{
+			if (!m_Civilians
+				|| !m_Civilians.PrepareControlledShutdownVehiclePersistence(
+					state,
+					controlledShutdownVehicleEvidence))
+			{
+				request.m_sEvidence
+					= "checkpoint deferred: controlled-shutdown field vehicle quiescence failed";
+				if (!controlledShutdownVehicleEvidence.IsEmpty())
+					request.m_sEvidence += " | "
+						+ controlledShutdownVehicleEvidence;
+				return request;
+			}
 		}
 
 		if (state && !CaptureAndTrackState(state, "captured before checkpoint"))
@@ -542,6 +558,9 @@ class HST_PersistenceService
 			request.m_sEvidence
 				= "checkpoint request accepted without campaign status target";
 		}
+		if (!controlledShutdownVehicleEvidence.IsEmpty())
+			request.m_sEvidence += " | "
+				+ controlledShutdownVehicleEvidence;
 		return request;
 	}
 
