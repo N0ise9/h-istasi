@@ -55,7 +55,8 @@ $script:RequiredTargets = @("PC", "XBOX_ONE", "XBOX_SERIES", "PS4", "PS5")
 $script:RequiredPackageFiles = @(
     "Partisan/addon.gproj",
     "Partisan/data.pak",
-    "Partisan/resourceDatabase.rdb")
+    "Partisan/resourceDatabase.rdb",
+    "Partisan/thumbnail.png")
 
 function Write-TextUtf8NoBom {
     param(
@@ -354,12 +355,12 @@ function Get-PackageIdentity {
         "Partisan/" + $_.Name
     } | Sort-Object)
     if ($childDirectories.Count -ne 0 -or
-        $files.Count -ne 3 -or
+        $files.Count -ne 4 -or
         @(Compare-Object `
             -ReferenceObject @($script:RequiredPackageFiles | Sort-Object) `
             -DifferenceObject $actualNames `
             -CaseSensitive).Count -ne 0) {
-        throw "The release candidate does not contain the exact three-file package."
+        throw "The release candidate does not contain the exact four-file package."
     }
 
     $rows = New-Object Collections.Generic.List[object]
@@ -641,7 +642,8 @@ function Invoke-SelfTest {
     $rows = @(
         [pscustomobject]@{ Path = "Partisan/addon.gproj"; Length = 1; Sha256 = "a" * 64 },
         [pscustomobject]@{ Path = "Partisan/data.pak"; Length = 2; Sha256 = "b" * 64 },
-        [pscustomobject]@{ Path = "Partisan/resourceDatabase.rdb"; Length = 3; Sha256 = "c" * 64 })
+        [pscustomobject]@{ Path = "Partisan/resourceDatabase.rdb"; Length = 3; Sha256 = "c" * 64 },
+        [pscustomobject]@{ Path = "Partisan/thumbnail.png"; Length = 4; Sha256 = "d" * 64 })
     $indexRows = @($rows | ForEach-Object {
         "{0}`t{1}`t{2}" -f $_.Sha256, $_.Length, $_.Path
     })
@@ -665,7 +667,7 @@ function Invoke-SelfTest {
         "self-test runtime-settings schema")
     if ($digest -cnotmatch '^[0-9a-f]{64}$' -or
         $digest -cne (Get-Sha256Text -Text $canonical) -or
-        $script:RequiredPackageFiles.Count -ne 3 -or
+        $script:RequiredPackageFiles.Count -ne 4 -or
         $script:RequiredTargets.Count -ne 5 -or
         $selfTestCampaignSchema -le 0 -or
         $selfTestSettingsSchema -le 0) {
@@ -724,6 +726,16 @@ $sourceProject = Get-ProjectIdentity `
 $packedProject = Get-ProjectIdentity `
     -ProjectFile (Join-Path $candidateRootPath "Partisan/addon.gproj")
 Assert-ProjectIdentityEqual -Expected $sourceProject -Actual $packedProject
+$sourceThumbnailPath = Get-FullPath `
+    -Path (Join-Path $repositoryRoot "thumbnail.png") `
+    -Kind Leaf
+$packedThumbnailPath = Get-FullPath `
+    -Path (Join-Path $candidateRootPath "Partisan/thumbnail.png") `
+    -Kind Leaf
+if ((Get-FileHash -LiteralPath $sourceThumbnailPath -Algorithm SHA256).Hash -cne
+    (Get-FileHash -LiteralPath $packedThumbnailPath -Algorithm SHA256).Hash) {
+    throw "The packed release thumbnail differs from the tracked source thumbnail."
+}
 $package = Get-PackageIdentity `
     -BundleRoot $bundleRoot `
     -CandidateRoot $candidateRootPath
@@ -876,7 +888,7 @@ $indexPath = Join-Path $evidenceRootPath "pack/files.sha256"
 if (-not (Test-Path -LiteralPath $indexPath -PathType Leaf) -or
     (Get-Content -Raw -LiteralPath $indexPath).Replace("`r`n", "`n") -cne
         $package.CanonicalIndex) {
-    throw "The pack evidence canonical index does not match the three-file package."
+    throw "The pack evidence canonical index does not match the four-file package."
 }
 $evidenceRows = Get-FileRows `
     -BundleRoot $bundleRoot `

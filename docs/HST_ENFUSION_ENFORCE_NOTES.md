@@ -41,11 +41,14 @@ implementation/source identity is
   directory, bind a nonce sentinel to the exact wrapper PID/start time, census
   engine processes before cleanup, re-read ownership, and remove only that
   exact owned scratch tree.
-- Admit exactly three package files: `Partisan/addon.gproj`,
-  `Partisan/data.pak`, and `Partisan/resourceDatabase.rdb`. Exact-compare the
-  source and packed project ID, GUID, title, and dependency set. Build the
-  portable `sha256-manifest-v1` identity by sorting relative path, byte length,
-  and lowercase per-file SHA-256 rows before hashing the canonical index.
+- Native `-packAddon` output includes the tracked root thumbnail. Admit exactly
+  four package files: `Partisan/addon.gproj`, `Partisan/data.pak`,
+  `Partisan/resourceDatabase.rdb`, and `Partisan/thumbnail.png`. Exact-compare
+  the source and packed project ID, GUID, title, and dependency set, and require
+  the packed thumbnail hash to equal the tracked source thumbnail hash. Build
+  the portable `sha256-manifest-v1` identity by sorting relative path, byte
+  length, and lowercase per-file SHA-256 rows before hashing the canonical
+  index.
 - Run Workbench validation once per explicit release target: PC, XBOX_ONE,
   XBOX_SERIES, PS4, and PS5. A retained evidence directory must already exist,
   be empty and reparse-free, and remain outside the disposable Workbench guard.
@@ -57,7 +60,7 @@ implementation/source identity is
   HEAD and dirty state, embedded build identity and its Git relationship, both
   persisted schemas, source/packed project identity, diagnostic Workbench
   identity and all-five results, standard client/server identities, the exact
-  three package hashes, the candidate version as the local addon version, the
+  four package hashes, the candidate version as the local addon version, the
   unpublished local revision state, and every retained evidence hash. Check the
   manifest before and after moving the candidate directory, then publish a
   matching ready seal as the final atomic operation. A candidate-named

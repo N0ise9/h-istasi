@@ -27,11 +27,12 @@ Workbench packing requires that shape. The scratch directory is fresh,
 reparse-free, sentinel-owned by the exact wrapper process, and removable only
 after an engine-process census and exact ownership revalidation. Candidate
 content is assembled under a unique external partial directory. A successful
-pack must contain exactly `Partisan/addon.gproj`, `Partisan/data.pak`, and
-`Partisan/resourceDatabase.rdb`; the packed project ID, GUID, title, and
-dependency set must equal the source project identity. Per-file SHA-256 values
-are sorted into the portable `sha256-manifest-v1` index, whose digest is the
-package identity.
+pack must contain exactly `Partisan/addon.gproj`, `Partisan/data.pak`,
+`Partisan/resourceDatabase.rdb`, and `Partisan/thumbnail.png`; the packed
+project ID, GUID, title, and dependency set must equal the source project
+identity, and the packed thumbnail must be byte-identical to the tracked source
+thumbnail. Per-file SHA-256 values are sorted into the portable
+`sha256-manifest-v1` index, whose digest is the package identity.
 
 The release manifest binds checkout HEAD and dirty state, embedded build stamp
 and Git relationship, both persisted schema versions, source and packed addon

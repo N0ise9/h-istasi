@@ -3358,8 +3358,10 @@ Decision: Use `tools/new-guarded-release-candidate.ps1` as the single Gate-1
 build-once boundary. Require a clean checkout, Foundation, explicit
 PC/XBOX_ONE/XBOX_SERIES/PS4/PS5 Workbench passes with retained raw evidence, an
 unchanged source recheck, and one guarded native Workbench pack. Admit exactly
-the three release files and exact-match source versus packed project identity.
-Define package identity as the aggregate SHA-256 of the canonical sorted
+the four native release files (`addon.gproj`, `data.pak`,
+`resourceDatabase.rdb`, and `thumbnail.png`), exact-match source versus packed
+project identity, and require the packed thumbnail to match tracked source
+bytes. Define package identity as the aggregate SHA-256 of the canonical sorted
 `sha256-manifest-v1` file index. These five configurations are the compiled
 package targets; standard dedicated-server execution of the PC package remains
 a separate runtime rung rather than a sixth `HEADLESS` compile result.

@@ -42,9 +42,10 @@ and only then performs the native Workbench pack.
 
 The pack uses a fresh nonce-owned checkout-local scratch directory but keeps the
 candidate outside the checkout. The external candidate begins under a unique
-partial identity. Exactly three packed files are admitted; source and packed
-project identity must match, and a sorted `sha256-manifest-v1` index produces
-one aggregate package digest. The manifest then binds source, embedded stamp,
+partial identity. Exactly four native packed files are admitted, including the
+tracked thumbnail; source and packed project identity must match, the thumbnail
+bytes must match tracked source, and a sorted `sha256-manifest-v1` index
+produces one aggregate package digest. The manifest then binds source, embedded stamp,
 schemas, addon, toolchain, every target result, package, and retained evidence.
 Only a generated-and-checked manifest permits the partial directory to become a
 final candidate. The manifest is checked again after that move, and a matching

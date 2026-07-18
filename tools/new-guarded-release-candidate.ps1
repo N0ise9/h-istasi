@@ -126,7 +126,11 @@ function Get-CanonicalPackageIndex {
 function Get-PackageIdentity {
     param([Parameter(Mandatory = $true)][string]$PackedAddonPath)
 
-    $expectedNames = @("addon.gproj", "data.pak", "resourceDatabase.rdb")
+    $expectedNames = @(
+        "addon.gproj",
+        "data.pak",
+        "resourceDatabase.rdb",
+        "thumbnail.png")
     $files = @(Get-ChildItem `
         -LiteralPath $PackedAddonPath `
         -File `
@@ -143,9 +147,9 @@ function Get-PackageIdentity {
         -DifferenceObject $actualNames `
         -CaseSensitive)
     if ($directories.Count -ne 0 -or
-        $files.Count -ne 3 -or
+        $files.Count -ne 4 -or
         $nameDifference.Count -ne 0) {
-        throw "The retained package must contain exactly the three release files."
+        throw "The retained package must contain exactly the four release files."
     }
 
     $fileRows = New-Object Collections.Generic.List[object]
@@ -327,8 +331,9 @@ function Invoke-SelfTest {
     $first = @(
         [pscustomobject]@{ Path = "Partisan/resourceDatabase.rdb"; Length = 3; Sha256 = "c" * 64 },
         [pscustomobject]@{ Path = "Partisan/addon.gproj"; Length = 1; Sha256 = "a" * 64 },
+        [pscustomobject]@{ Path = "Partisan/thumbnail.png"; Length = 4; Sha256 = "d" * 64 },
         [pscustomobject]@{ Path = "Partisan/data.pak"; Length = 2; Sha256 = "b" * 64 })
-    $second = @($first[1], $first[2], $first[0])
+    $second = @($first[2], $first[0], $first[3], $first[1])
     $indexA = Get-CanonicalPackageIndex -Files $first
     $indexB = Get-CanonicalPackageIndex -Files $second
     $hashA = Get-Sha256Text -Text $indexA
@@ -341,7 +346,7 @@ function Invoke-SelfTest {
     Write-Output ("SELFTEST " + ([pscustomobject]@{
         Success = $true
         Algorithm = "sha256-manifest-v1"
-        FileCount = 3
+        FileCount = 4
         OrderIndependent = $true
         Digest = $hashA
     } | ConvertTo-Json -Compress))
@@ -757,7 +762,7 @@ try {
     $layout = Assert-PackedAddonLayout `
         -GuardRoot $partialRoot `
         -PackedAddonsParent $packageParent
-    if ($layout.FileCount -ne 3) {
+    if ($layout.FileCount -ne 4) {
         throw "Workbench packing emitted an unexpected release file count."
     }
     $packedProjectIdentity = Get-ProjectIdentity `
@@ -765,6 +770,14 @@ try {
     Assert-ProjectIdentityEqual `
         -Expected $sourceProjectIdentity `
         -Actual $packedProjectIdentity
+    $sourceThumbnailPath = Join-Path $repositoryRoot "thumbnail.png"
+    $packedThumbnailPath = Join-Path $packedAddonPath "thumbnail.png"
+    if (-not (Test-Path -LiteralPath $sourceThumbnailPath -PathType Leaf) -or
+        -not (Test-Path -LiteralPath $packedThumbnailPath -PathType Leaf) -or
+        (Get-FileHash -LiteralPath $sourceThumbnailPath -Algorithm SHA256).Hash -cne
+            (Get-FileHash -LiteralPath $packedThumbnailPath -Algorithm SHA256).Hash) {
+        throw "The packed release thumbnail differs from the tracked source thumbnail."
+    }
     $packageIdentity = Get-PackageIdentity -PackedAddonPath $packedAddonPath
     Write-TextUtf8NoBom `
         -Path (Join-Path $packEvidenceRoot "files.sha256") `
@@ -776,7 +789,7 @@ try {
             elapsedSeconds = $packOutcome.ElapsedSeconds
             engineAfter = $packOutcome.EngineAfter
             ownedProcessesRemaining = $packOutcome.OwnedProcessesRemaining
-            fileCount = 3
+            fileCount = 4
             packageHashAlgorithm = $packageIdentity.Algorithm
             packageSha256 = $packageIdentity.Sha256
         })

@@ -32,11 +32,12 @@ passing mixed-native proof described below.
   result and keep the release decision `NO-GO`.
 - [x] Add one guarded Gate-1 build entry point that requires a clean checkout,
   runs Foundation and separate PC/XBOX_ONE/XBOX_SERIES/PS4/PS5 Workbench
-  validations, retains raw per-target evidence, and packs exactly three release
-  files under one external partial-to-final candidate boundary.
+  validations, retains raw per-target evidence, and packs exactly four native
+  release files under one external partial-to-final candidate boundary.
 - [x] Define the portable package identity as `sha256-manifest-v1`: sorted
   relative path, byte length, and per-file SHA-256 rows for `addon.gproj`,
-  `data.pak`, and `resourceDatabase.rdb`, hashed as one aggregate digest.
+  `data.pak`, `resourceDatabase.rdb`, and `thumbnail.png`, hashed as one
+  aggregate digest.
 - [x] Require the candidate manifest to bind exact Git and embedded-build
   relationship, dirty state, schemas, source/packed addon identity, diagnostic
   Workbench and all-five results, standard server/client identities, package
