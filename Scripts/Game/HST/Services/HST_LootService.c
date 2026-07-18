@@ -103,6 +103,25 @@ class HST_PersistentFieldVehicleRestoreResult
 	}
 }
 
+// Process-local discovery/adoption receipt for one nearby durable-vehicle
+// snapshot candidate. The complete plan is latched before its first durable or
+// native mutation so a fallible registration can resume the same exact scope.
+class HST_ControlledShutdownNearbyVehicleSnapshotCandidate
+{
+	IEntity m_Root;
+	IEntity m_SourceCandidate;
+	IEntity m_PlayerEntity;
+	ref HST_RuntimeVehicleState m_Record;
+	string m_sPrefab;
+	string m_sIdentityKey;
+	bool m_bCommitted;
+}
+
+class HST_ControlledShutdownNearbyVehicleSnapshotPlan
+{
+	ref array<ref HST_ControlledShutdownNearbyVehicleSnapshotCandidate> m_aCandidates = {};
+}
+
 class HST_LootService
 {
 	static const int GARAGE_CAPTURE_RADIUS_METERS = 24;
@@ -112,11 +131,25 @@ class HST_LootService
 	protected ref array<IEntity> m_aScanEntities = {};
 	protected HST_PersistentFieldVehicleRuntimeService m_PersistentFieldVehicles;
 	protected ref HST_PersistentFieldVehicleRestoreResult m_LastPersistentFieldVehicleRestoreResult;
+	protected HST_CampaignState m_ControlledShutdownNearbyVehicleSnapshotState;
+	protected ref HST_ControlledShutdownNearbyVehicleSnapshotPlan
+		m_ControlledShutdownNearbyVehicleSnapshotPlan;
+	protected bool m_bControlledShutdownNearbyVehicleSnapshotApplied;
+	protected bool m_bControlledShutdownNearbyVehicleSnapshotExact;
 
 	void SetPersistentFieldVehicleRuntimeService(
 		HST_PersistentFieldVehicleRuntimeService persistentFieldVehicles)
 	{
 		m_PersistentFieldVehicles = persistentFieldVehicles;
+	}
+
+	protected bool IsControlledShutdownVehicleMutationLocked()
+	{
+		return m_PersistentFieldVehicles
+			&& (m_PersistentFieldVehicles
+				.HasControlledShutdownBindingScopeLocked()
+				|| m_PersistentFieldVehicles
+					.HasControlledShutdownQuiescenceApplied());
 	}
 
 	HST_LootResult LootNearbyToArsenal(HST_CampaignState state, HST_CampaignPreset preset, HST_BalanceConfig balance, HST_ArsenalService arsenal, int playerId)
@@ -171,6 +204,8 @@ class HST_LootService
 	{
 		if (!state || radiusMeters <= 0)
 			return 0;
+		if (IsControlledShutdownVehicleMutationLocked())
+			return 0;
 
 		PlayerManager playerManager = GetGame().GetPlayerManager();
 		if (!playerManager)
@@ -194,6 +229,120 @@ class HST_LootService
 		if (snapshottedVehicles > 0)
 			Print(string.Format("Partisan vehicle persistence | snapshotted %1 nearby field vehicle(s)", snapshottedVehicles));
 		return snapshottedVehicles;
+	}
+
+	// This pass is genuinely read-only with respect to campaign rows, live
+	// bindings, native persistence ownership, and entity transforms. It resolves
+	// the same would-be adopted roots as the ordinary nearby snapshot and admits
+	// the complete set only after identity, locality, and player-safety checks.
+	bool PreflightControlledShutdownNearbyPersistentVehicles(
+		HST_CampaignState state,
+		out int candidateCount,
+		out string evidence,
+		int radiusMeters = PERSISTENT_FIELD_VEHICLE_SNAPSHOT_RADIUS_METERS)
+	{
+		candidateCount = 0;
+		if (m_bControlledShutdownNearbyVehicleSnapshotApplied)
+		{
+			if (!ValidateLatchedControlledShutdownNearbyVehicleSnapshotPlan(
+					state,
+					m_ControlledShutdownNearbyVehicleSnapshotPlan,
+					evidence))
+				return false;
+			candidateCount
+				= m_ControlledShutdownNearbyVehicleSnapshotPlan.m_aCandidates.Count();
+			evidence = string.Format(
+				"nearby durable vehicle controlled-shutdown latched snapshot preflight exact | candidates %1",
+				candidateCount);
+			return true;
+		}
+		HST_ControlledShutdownNearbyVehicleSnapshotPlan plan
+			= BuildControlledShutdownNearbyVehicleSnapshotPlan(
+				state,
+				radiusMeters,
+				evidence);
+		if (!plan)
+			return false;
+		candidateCount = plan.m_aCandidates.Count();
+		evidence = string.Format(
+			"nearby durable vehicle controlled-shutdown snapshot preflight exact | candidates %1",
+			candidateCount);
+		return true;
+	}
+
+	// The caller first runs the public preflight alongside its other shutdown
+	// domains. This mutation seam then discovers and preflights a fresh complete
+	// plan again and commits that exact plan within this same call.
+	bool SnapshotNearbyPersistentVehiclesForControlledShutdown(
+		HST_CampaignState state,
+		out int snapshottedVehicles,
+		out string evidence,
+		int radiusMeters = PERSISTENT_FIELD_VEHICLE_SNAPSHOT_RADIUS_METERS)
+	{
+		snapshottedVehicles = 0;
+		if (m_bControlledShutdownNearbyVehicleSnapshotApplied)
+		{
+			return CommitControlledShutdownNearbyVehicleSnapshotPlan(
+				state,
+				m_ControlledShutdownNearbyVehicleSnapshotPlan,
+				snapshottedVehicles,
+				evidence);
+		}
+		HST_ControlledShutdownNearbyVehicleSnapshotPlan plan
+			= BuildControlledShutdownNearbyVehicleSnapshotPlan(
+				state,
+				radiusMeters,
+				evidence);
+		if (!plan)
+			return false;
+		// Publish the exact scope before EnsureRuntimeVehicleRecord or Track can
+		// mutate a durable row/native persistence owner. This latch is one-way;
+		// retries resume this plan and never discover additional nearby roots.
+		if (!m_PersistentFieldVehicles.LockControlledShutdownBindingScope())
+			return false;
+		m_ControlledShutdownNearbyVehicleSnapshotState = state;
+		m_ControlledShutdownNearbyVehicleSnapshotPlan = plan;
+		m_bControlledShutdownNearbyVehicleSnapshotApplied = true;
+		m_bControlledShutdownNearbyVehicleSnapshotExact = false;
+		return CommitControlledShutdownNearbyVehicleSnapshotPlan(
+			state,
+			plan,
+			snapshottedVehicles,
+			evidence);
+	}
+
+	bool HasControlledShutdownNearbyPersistentVehicleSnapshotApplied()
+	{
+		return m_bControlledShutdownNearbyVehicleSnapshotApplied;
+	}
+
+	bool IsControlledShutdownNearbyPersistentVehicleSnapshotExact()
+	{
+		if (!m_bControlledShutdownNearbyVehicleSnapshotApplied
+			|| !m_bControlledShutdownNearbyVehicleSnapshotExact)
+			return false;
+		string evidence;
+		return ValidateLatchedControlledShutdownNearbyVehicleSnapshotPlan(
+			m_ControlledShutdownNearbyVehicleSnapshotState,
+			m_ControlledShutdownNearbyVehicleSnapshotPlan,
+			evidence);
+	}
+
+	bool MaintainControlledShutdownNearbyPersistentVehicleSnapshot(
+		HST_CampaignState state,
+		out string evidence)
+	{
+		if (!m_bControlledShutdownNearbyVehicleSnapshotApplied)
+		{
+			evidence
+				= "nearby durable vehicle controlled-shutdown snapshot was not applied";
+			return false;
+		}
+		int snapshottedVehicles;
+		return SnapshotNearbyPersistentVehiclesForControlledShutdown(
+			state,
+			snapshottedVehicles,
+			evidence);
 	}
 
 	int RestorePersistentFieldVehicles(HST_CampaignState state)
@@ -413,6 +562,8 @@ class HST_LootService
 	{
 		if (!state || !preset || !arsenal || playerId <= 0)
 			return "Partisan garage | failed: service not ready";
+		if (IsControlledShutdownVehicleMutationLocked())
+			return "Partisan garage | failed: controlled shutdown is in progress";
 
 		IEntity playerEntity = ResolveLivingPlayerEntity(playerId);
 		if (!playerEntity)
@@ -500,6 +651,12 @@ class HST_LootService
 		HST_LootResult result = new HST_LootResult();
 		if (!state || !preset || !balance || !arsenal || playerId <= 0)
 			return result;
+		if (IsControlledShutdownVehicleMutationLocked())
+		{
+			result.m_aDepositedLines.Insert(
+				"controlled shutdown is in progress");
+			return result;
+		}
 
 		if (!balance.m_bVehicleLootEnabled)
 		{
@@ -599,6 +756,8 @@ class HST_LootService
 	{
 		if (!state || !preset || !balance || !arsenal || playerId <= 0)
 			return "Partisan vehicle loot | service not ready";
+		if (IsControlledShutdownVehicleMutationLocked())
+			return "Partisan vehicle loot | controlled shutdown is in progress";
 
 		IEntity playerEntity = ResolveLivingPlayerEntity(playerId);
 		if (!playerEntity)
@@ -875,6 +1034,416 @@ class HST_LootService
 			m_aScanEntities.Insert(entity);
 
 		return m_aScanEntities.Count() < MAX_SCAN_ENTITIES;
+	}
+
+	protected HST_ControlledShutdownNearbyVehicleSnapshotPlan BuildControlledShutdownNearbyVehicleSnapshotPlan(
+		HST_CampaignState state,
+		int radiusMeters,
+		out string evidence)
+	{
+		evidence
+			= "nearby durable vehicle controlled-shutdown snapshot preflight rejected";
+		if (!state || radiusMeters <= 0 || !m_PersistentFieldVehicles)
+			return null;
+		if (m_PersistentFieldVehicles.HasControlledShutdownQuiescenceApplied())
+		{
+			evidence
+				= "nearby durable vehicle snapshot rejected after the controlled-shutdown field fence applied";
+			return null;
+		}
+
+		BaseWorld world = GetGame().GetWorld();
+		PlayerManager playerManager = GetGame().GetPlayerManager();
+		if (!world || !playerManager)
+		{
+			evidence
+				= "nearby durable vehicle controlled-shutdown snapshot world/player manager unavailable";
+			return null;
+		}
+
+		HST_ControlledShutdownNearbyVehicleSnapshotPlan plan
+			= new HST_ControlledShutdownNearbyVehicleSnapshotPlan();
+		array<int> playerIds = {};
+		playerManager.GetPlayers(playerIds);
+		foreach (int playerId : playerIds)
+		{
+			IEntity playerEntity
+				= playerManager.GetPlayerControlledEntity(playerId);
+			if (!playerEntity)
+			{
+				playerEntity
+					= SCR_PossessingManagerComponent.GetPlayerMainEntity(playerId);
+			}
+			if (!IsLivingEntity(playerEntity))
+				continue;
+
+			if (!AddControlledShutdownNearbyVehicleSnapshotCandidates(
+					state,
+					world,
+					playerEntity,
+					radiusMeters,
+					plan,
+					evidence))
+				return null;
+		}
+
+		if (!ValidateControlledShutdownNearbyVehicleSnapshotPlan(
+				state,
+				plan,
+				evidence))
+			return null;
+		return plan;
+	}
+
+	protected bool AddControlledShutdownNearbyVehicleSnapshotCandidates(
+		HST_CampaignState state,
+		BaseWorld world,
+		IEntity playerEntity,
+		int radiusMeters,
+		HST_ControlledShutdownNearbyVehicleSnapshotPlan plan,
+		out string evidence)
+	{
+		if (!state || !world || !playerEntity || radiusMeters <= 0 || !plan)
+			return false;
+
+		m_aScanEntities.Clear();
+		world.QueryEntitiesBySphere(
+			playerEntity.GetOrigin(),
+			radiusMeters,
+			AddLootCandidate,
+			null,
+			EQueryEntitiesFlags.ALL);
+		if (m_aScanEntities.Count() >= MAX_SCAN_ENTITIES)
+		{
+			evidence
+				= "nearby durable vehicle controlled-shutdown snapshot query reached its entity limit";
+			return false;
+		}
+		array<IEntity> checkedRoots = {};
+		foreach (IEntity sourceCandidate : m_aScanEntities)
+		{
+			if (!sourceCandidate || sourceCandidate == playerEntity)
+				continue;
+
+			string rejectReason;
+			IEntity rootVehicle
+				= ResolveVehicleRoot(sourceCandidate, rejectReason);
+			if (!rootVehicle)
+			{
+				rootVehicle = ResolveVehicleRootByNearbyBounds(
+					sourceCandidate,
+					state,
+					rejectReason);
+			}
+			if (!rootVehicle || checkedRoots.Find(rootVehicle) >= 0)
+				continue;
+			checkedRoots.Insert(rootVehicle);
+
+			HST_RuntimeVehicleState runtimeCandidate
+				= ResolveRuntimeVehicleRecord(state, rootVehicle);
+			if (!CanAdoptPersistentFieldVehicle(runtimeCandidate))
+				continue;
+			string rootPrefab = ResolveVehiclePrefabFromCandidate(
+				rootVehicle,
+				runtimeCandidate,
+				sourceCandidate);
+			string protectedReason;
+			if (IsProtectedHQEntity(
+					state,
+					rootVehicle,
+					rootPrefab,
+					protectedReason)
+				|| !IsEligibleLootVehicle(
+					rootVehicle,
+					playerEntity,
+					runtimeCandidate,
+					rootPrefab))
+				continue;
+
+			string identityKey = ResolveVehicleRuntimeIdFromRecord(
+				rootVehicle,
+				runtimeCandidate);
+			if (identityKey.IsEmpty())
+				continue;
+
+			HST_ControlledShutdownNearbyVehicleSnapshotCandidate existingRoot
+				= FindControlledShutdownNearbyVehicleSnapshotCandidate(
+					plan,
+					rootVehicle);
+			if (existingRoot)
+			{
+				if (existingRoot.m_Record != runtimeCandidate
+					|| existingRoot.m_sPrefab != rootPrefab
+					|| existingRoot.m_sIdentityKey != identityKey)
+				{
+					evidence
+						= "nearby durable vehicle controlled-shutdown snapshot root identity changed during discovery";
+					return false;
+				}
+				continue;
+			}
+
+			foreach (HST_ControlledShutdownNearbyVehicleSnapshotCandidate existingIdentity : plan.m_aCandidates)
+			{
+				if (existingIdentity
+					&& existingIdentity.m_sIdentityKey == identityKey)
+				{
+					evidence
+						= "nearby durable vehicle controlled-shutdown snapshot identity collision ";
+					evidence += identityKey;
+					return false;
+				}
+			}
+
+			HST_ControlledShutdownNearbyVehicleSnapshotCandidate plannedCandidate
+				= new HST_ControlledShutdownNearbyVehicleSnapshotCandidate();
+			plannedCandidate.m_Root = rootVehicle;
+			plannedCandidate.m_SourceCandidate = sourceCandidate;
+			plannedCandidate.m_PlayerEntity = playerEntity;
+			plannedCandidate.m_Record = runtimeCandidate;
+			plannedCandidate.m_sPrefab = rootPrefab;
+			plannedCandidate.m_sIdentityKey = identityKey;
+			plan.m_aCandidates.Insert(plannedCandidate);
+		}
+		return true;
+	}
+
+	protected HST_ControlledShutdownNearbyVehicleSnapshotCandidate FindControlledShutdownNearbyVehicleSnapshotCandidate(
+		HST_ControlledShutdownNearbyVehicleSnapshotPlan plan,
+		IEntity root)
+	{
+		if (!plan || !root)
+			return null;
+		foreach (HST_ControlledShutdownNearbyVehicleSnapshotCandidate candidate : plan.m_aCandidates)
+		{
+			if (candidate && candidate.m_Root == root)
+				return candidate;
+		}
+		return null;
+	}
+
+	protected bool ValidateControlledShutdownNearbyVehicleSnapshotPlan(
+		HST_CampaignState state,
+		HST_ControlledShutdownNearbyVehicleSnapshotPlan plan,
+		out string evidence)
+	{
+		evidence
+			= "nearby durable vehicle controlled-shutdown snapshot plan changed";
+		if (!state || !plan || !m_PersistentFieldVehicles
+			|| m_PersistentFieldVehicles.HasControlledShutdownQuiescenceApplied())
+			return false;
+
+		array<IEntity> roots = {};
+		array<string> identityKeys = {};
+		foreach (HST_ControlledShutdownNearbyVehicleSnapshotCandidate candidate : plan.m_aCandidates)
+		{
+			if (!candidate || !candidate.m_Root
+				|| !candidate.m_Root.GetWorld()
+				|| !IsLivingEntity(candidate.m_Root)
+				|| candidate.m_sPrefab.IsEmpty()
+				|| candidate.m_sIdentityKey.IsEmpty()
+				|| roots.Find(candidate.m_Root) >= 0
+				|| identityKeys.Find(candidate.m_sIdentityKey) >= 0)
+				return false;
+
+			HST_RuntimeVehicleState currentRecord
+				= ResolveRuntimeVehicleRecord(state, candidate.m_Root);
+			if (currentRecord != candidate.m_Record
+				|| !CanAdoptPersistentFieldVehicle(currentRecord)
+				|| ResolveVehicleRuntimeIdFromRecord(
+					candidate.m_Root,
+					currentRecord) != candidate.m_sIdentityKey)
+				return false;
+
+			string currentPrefab = ResolveVehiclePrefabFromCandidate(
+				candidate.m_Root,
+				currentRecord,
+				candidate.m_SourceCandidate);
+			string protectedReason;
+			if (currentPrefab != candidate.m_sPrefab
+				|| IsProtectedHQEntity(
+					state,
+					candidate.m_Root,
+					currentPrefab,
+					protectedReason)
+				|| !IsEligibleLootVehicle(
+					candidate.m_Root,
+					candidate.m_PlayerEntity,
+					currentRecord,
+					currentPrefab))
+				return false;
+
+			roots.Insert(candidate.m_Root);
+			identityKeys.Insert(candidate.m_sIdentityKey);
+		}
+
+		if (!m_PersistentFieldVehicles.ValidateControlledShutdownSnapshotCandidateRoots(
+				roots,
+				evidence))
+			return false;
+		evidence = string.Format(
+			"nearby durable vehicle controlled-shutdown snapshot plan exact | candidates %1",
+			plan.m_aCandidates.Count());
+		return true;
+	}
+
+	protected bool ValidateLatchedControlledShutdownNearbyVehicleSnapshotPlan(
+		HST_CampaignState state,
+		HST_ControlledShutdownNearbyVehicleSnapshotPlan plan,
+		out string evidence)
+	{
+		evidence
+			= "nearby durable vehicle controlled-shutdown latched snapshot authority changed";
+		if (!m_bControlledShutdownNearbyVehicleSnapshotApplied
+			|| !state || state != m_ControlledShutdownNearbyVehicleSnapshotState
+			|| !plan || plan != m_ControlledShutdownNearbyVehicleSnapshotPlan
+			|| !m_PersistentFieldVehicles)
+			return false;
+
+		array<IEntity> roots = {};
+		array<string> identityKeys = {};
+		foreach (HST_ControlledShutdownNearbyVehicleSnapshotCandidate candidate : plan.m_aCandidates)
+		{
+			if (!candidate || !candidate.m_Root
+				|| !candidate.m_Root.GetWorld()
+				|| !IsLivingEntity(candidate.m_Root)
+				|| candidate.m_sPrefab.IsEmpty()
+				|| candidate.m_sIdentityKey.IsEmpty()
+				|| roots.Find(candidate.m_Root) >= 0
+				|| identityKeys.Find(candidate.m_sIdentityKey) >= 0)
+				return false;
+
+			string currentPrefab = ResolveVehiclePrefabFromCandidate(
+				candidate.m_Root,
+				candidate.m_Record,
+				candidate.m_Root);
+			string protectedReason;
+			if (currentPrefab != candidate.m_sPrefab
+				|| IsProtectedHQEntity(
+					state,
+					candidate.m_Root,
+					currentPrefab,
+					protectedReason))
+				return false;
+
+			if (candidate.m_Record)
+			{
+				if (!CanAdoptPersistentFieldVehicle(candidate.m_Record)
+					|| candidate.m_Record.m_sVehicleRuntimeId
+						!= candidate.m_sIdentityKey
+					|| state.FindRuntimeVehicle(candidate.m_sIdentityKey)
+						!= candidate.m_Record)
+					return false;
+			}
+			else if (candidate.m_bCommitted)
+				return false;
+
+			if (candidate.m_bCommitted
+				&& !m_PersistentFieldVehicles.HasExactBinding(
+					candidate.m_Root,
+					candidate.m_Record,
+					state))
+				return false;
+			roots.Insert(candidate.m_Root);
+			identityKeys.Insert(candidate.m_sIdentityKey);
+		}
+
+		if (!m_PersistentFieldVehicles.ValidateControlledShutdownSnapshotCandidateRoots(
+				roots,
+				evidence))
+			return false;
+		evidence = string.Format(
+			"nearby durable vehicle controlled-shutdown latched snapshot authority exact | candidates %1",
+			plan.m_aCandidates.Count());
+		return true;
+	}
+
+	protected bool CommitControlledShutdownNearbyVehicleSnapshotPlan(
+		HST_CampaignState state,
+		HST_ControlledShutdownNearbyVehicleSnapshotPlan plan,
+		out int snapshottedVehicles,
+		out string evidence)
+	{
+		snapshottedVehicles = 0;
+		m_bControlledShutdownNearbyVehicleSnapshotExact = false;
+		if (!ValidateLatchedControlledShutdownNearbyVehicleSnapshotPlan(
+				state,
+				plan,
+				evidence))
+			return false;
+
+		foreach (HST_ControlledShutdownNearbyVehicleSnapshotCandidate candidate : plan.m_aCandidates)
+		{
+			if (candidate.m_bCommitted)
+			{
+				if (!m_PersistentFieldVehicles.HasExactBinding(
+						candidate.m_Root,
+						candidate.m_Record,
+						state))
+					return false;
+				snapshottedVehicles++;
+				continue;
+			}
+			HST_RuntimeVehicleState record = EnsureRuntimeVehicleRecord(
+				state,
+				candidate.m_Root,
+				candidate.m_Record,
+				candidate.m_sPrefab,
+				false,
+				false,
+				true);
+			if (!record || !CanAdoptPersistentFieldVehicle(record)
+				|| (candidate.m_Record && record != candidate.m_Record)
+				|| record.m_sVehicleRuntimeId.IsEmpty())
+			{
+				evidence
+					= "nearby durable vehicle controlled-shutdown snapshot commit identity changed";
+				return false;
+			}
+			// Pin the durable identity immediately after its preparation and before
+			// the fallible native detachment/registration seam. A failed Track call
+			// can therefore resume this exact candidate without rediscovery.
+			candidate.m_Record = record;
+			candidate.m_sIdentityKey = record.m_sVehicleRuntimeId;
+			if (!ValidateLatchedControlledShutdownNearbyVehicleSnapshotPlan(
+					state,
+					plan,
+					evidence))
+				return false;
+
+			if (record.m_sRuntimeKind.IsEmpty()
+				|| record.m_sRuntimeKind == "runtime_vehicle")
+				record.m_sRuntimeKind = "loot_vehicle";
+			record.m_bDetached = false;
+			record.m_bDeleted = false;
+			if (record.m_iSpawnedAtSecond <= 0)
+				record.m_iSpawnedAtSecond = state.m_iElapsedSeconds;
+			if (!m_PersistentFieldVehicles.Track(
+				candidate.m_Root,
+				record,
+				true))
+			{
+				evidence
+					= "nearby durable vehicle controlled-shutdown snapshot durable root tracking failed";
+				return false;
+			}
+			candidate.m_bCommitted = true;
+			snapshottedVehicles++;
+		}
+
+		if (!ValidateLatchedControlledShutdownNearbyVehicleSnapshotPlan(
+				state,
+				plan,
+				evidence))
+			return false;
+		m_bControlledShutdownNearbyVehicleSnapshotExact
+			= snapshottedVehicles == plan.m_aCandidates.Count();
+		if (!m_bControlledShutdownNearbyVehicleSnapshotExact)
+			return false;
+		evidence = string.Format(
+			"nearby durable vehicle controlled-shutdown snapshot committed %1 candidate(s)",
+			snapshottedVehicles);
+		return true;
 	}
 
 	protected int SnapshotPersistentVehiclesNear(HST_CampaignState state, vector center, int radiusMeters, IEntity playerEntity, array<string> snapshottedRuntimeIds)
@@ -2046,10 +2615,33 @@ class HST_LootService
 		IEntity rootVehicle,
 		HST_RuntimeVehicleState existingRecord,
 		string prefabHint = "",
-		bool preserveExistingRuntimeId = false)
+		bool preserveExistingRuntimeId = false,
+		bool trackRuntimeRoot = true,
+		bool controlledShutdownSnapshotAuthority = false)
 	{
 		if (!state || !rootVehicle)
 			return existingRecord;
+		if (IsControlledShutdownVehicleMutationLocked()
+			&& !controlledShutdownSnapshotAuthority)
+			return null;
+		if (controlledShutdownSnapshotAuthority)
+		{
+			HST_ControlledShutdownNearbyVehicleSnapshotCandidate pinnedCandidate
+				= FindControlledShutdownNearbyVehicleSnapshotCandidate(
+					m_ControlledShutdownNearbyVehicleSnapshotPlan,
+					rootVehicle);
+			if (!m_bControlledShutdownNearbyVehicleSnapshotApplied
+				|| state != m_ControlledShutdownNearbyVehicleSnapshotState
+				|| !m_PersistentFieldVehicles
+				|| !m_PersistentFieldVehicles
+					.HasControlledShutdownBindingScopeLocked()
+				|| m_PersistentFieldVehicles
+					.HasControlledShutdownQuiescenceApplied()
+				|| !pinnedCandidate
+				|| pinnedCandidate.m_Record != existingRecord
+				|| pinnedCandidate.m_sPrefab != prefabHint)
+				return null;
+		}
 
 		string runtimeId = ResolveVehicleRuntimeId(rootVehicle);
 		// A durable ID belongs to the saved campaign row, not to a process-local
@@ -2101,7 +2693,7 @@ class HST_LootService
 		record.m_bDeleted = false;
 		if (!previousRuntimeId.IsEmpty() && previousRuntimeId != runtimeId)
 			RekeyVehicleCargoRuntimeId(state, previousRuntimeId, runtimeId, prefab, record.m_sDisplayName, rootVehicle.GetOrigin());
-		if (CanAdoptPersistentFieldVehicle(record)
+		if (trackRuntimeRoot && CanAdoptPersistentFieldVehicle(record)
 			&& (!m_PersistentFieldVehicles
 				|| !m_PersistentFieldVehicles.Track(rootVehicle, record)))
 			Print("Partisan vehicle persistence | durable root registration failed", LogLevel.ERROR);

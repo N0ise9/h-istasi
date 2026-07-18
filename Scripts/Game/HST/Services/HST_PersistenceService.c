@@ -29,6 +29,8 @@ class HST_PersistenceCheckpointRequest
 	bool m_bTransientStateStaged;
 	bool m_bProfileFallbackSaved;
 	bool m_bSavePointRequested;
+	bool m_bControlledShutdownPlayerReleaseRequired;
+	bool m_bControlledShutdownRuntimeQuiescenceApplied;
 	bool m_bCompletionReceived;
 	bool m_bNativeCommitSucceeded;
 	bool m_bIssuedByScheduler;
@@ -108,6 +110,7 @@ class HST_PersistenceService
 	protected HST_MissionGuardOperationService m_MissionGuardOperations;
 	protected HST_RescuePOWOperationService m_RescuePOWOperations;
 	protected HST_CivilianService m_Civilians;
+	protected HST_LootService m_Loot;
 
 	void SetPhysicalWarService(HST_PhysicalWarService physicalWar)
 	{
@@ -151,6 +154,11 @@ class HST_PersistenceService
 	void SetCivilianService(HST_CivilianService civilians)
 	{
 		m_Civilians = civilians;
+	}
+
+	void SetLootService(HST_LootService loot)
+	{
+		m_Loot = loot;
 	}
 
 	void MarkMajorChange()
@@ -400,7 +408,19 @@ class HST_PersistenceService
 		request.m_eSaveType = saveType;
 		request.m_eRequestFlags = requestFlags;
 		request.m_sDisplayName = displayName;
+		string controlledShutdownLootEvidence;
+		string controlledShutdownRescueEvidence;
 		string controlledShutdownVehicleEvidence;
+		string controlledShutdownActiveGroupEvidence;
+		if (saveType == ESaveGameType.SHUTDOWN)
+		{
+			StampControlledShutdownRequestFlags(
+				request,
+				controlledShutdownActiveGroupEvidence,
+				controlledShutdownVehicleEvidence,
+				controlledShutdownLootEvidence,
+				controlledShutdownRescueEvidence);
+		}
 
 		if (m_bCampaignDebugIsolationActive)
 		{
@@ -437,11 +457,384 @@ class HST_PersistenceService
 		}
 		if (saveType == ESaveGameType.SHUTDOWN && state)
 		{
+			// Treat controlled shutdown as one ordered, retry-safe transaction. Every
+			// live authority domain is inspected read-only before mutation. One complete
+			// fallible preparation pass then closes player-driven promotion and rejects
+			// malformed live authority before any latch is published. Nearby roots are
+			// adopted next, followed by a second full pass that includes those roots and
+			// repeats on retries: latched domains maintain their pins while unfenced
+			// domains refresh durable authority. Strict repeated preflights then guard the
+			// native fences and final rescue DTO-graph latch used by capture.
+			bool controlledShutdownFenceApplied
+				= (m_PhysicalWar
+						&& m_PhysicalWar.HasControlledShutdownActiveGroupQuiescenceApplied())
+					|| (m_Civilians
+						&& m_Civilians.HasControlledShutdownVehiclePersistenceApplied())
+					|| (m_RescuePOWOperations
+						&& m_RescuePOWOperations.HasControlledShutdownPersistenceSampleApplied());
+			bool controlledShutdownNearbySnapshotApplied
+				= m_Loot
+					&& m_Loot.HasControlledShutdownNearbyPersistentVehicleSnapshotApplied();
+			if (controlledShutdownFenceApplied
+				&& !controlledShutdownNearbySnapshotApplied)
+			{
+				StampControlledShutdownRequestFlags(
+					request,
+					controlledShutdownActiveGroupEvidence,
+					controlledShutdownVehicleEvidence,
+					controlledShutdownLootEvidence,
+					controlledShutdownRescueEvidence);
+				request.m_sEvidence
+					= "checkpoint deferred: controlled-shutdown runtime fence exists without its required nearby-vehicle scope latch";
+				return request;
+			}
+			int nearbyVehicleCandidateCount;
+			if (!m_Loot
+				|| !m_Loot.PreflightControlledShutdownNearbyPersistentVehicles(
+					state,
+					nearbyVehicleCandidateCount,
+					controlledShutdownLootEvidence))
+			{
+				StampControlledShutdownRequestFlags(
+					request,
+					controlledShutdownActiveGroupEvidence,
+					controlledShutdownVehicleEvidence,
+					controlledShutdownLootEvidence,
+					controlledShutdownRescueEvidence);
+				request.m_sEvidence
+					= "checkpoint deferred: controlled-shutdown nearby field vehicle preflight failed";
+				if (!controlledShutdownLootEvidence.IsEmpty())
+					request.m_sEvidence += " | "
+						+ controlledShutdownLootEvidence;
+				return request;
+			}
+			if (!m_RescuePOWOperations
+				|| !m_RescuePOWOperations.PreflightControlledShutdownPersistenceSample(
+					state,
+					controlledShutdownRescueEvidence,
+					false))
+			{
+				StampControlledShutdownRequestFlags(
+					request,
+					controlledShutdownActiveGroupEvidence,
+					controlledShutdownVehicleEvidence,
+					controlledShutdownLootEvidence,
+					controlledShutdownRescueEvidence);
+				request.m_sEvidence
+					= "checkpoint deferred: controlled-shutdown rescue persistence preflight failed";
+				if (!controlledShutdownRescueEvidence.IsEmpty())
+					request.m_sEvidence += " | "
+						+ controlledShutdownRescueEvidence;
+				return request;
+			}
+			// A previous adoption attempt may have pinned a new durable row before a
+			// fallible native-detach call returned. Resume that already locked scope
+			// before the ordinary field graph preflight, which correctly rejects an
+			// active row until its exact live binding has been completed.
+			if (controlledShutdownNearbySnapshotApplied
+				&& !m_Loot.IsControlledShutdownNearbyPersistentVehicleSnapshotExact())
+			{
+				if (!m_PhysicalWar
+					|| !m_PhysicalWar.PreflightControlledShutdownActiveGroupQuiescence(
+						state,
+						controlledShutdownActiveGroupEvidence))
+				{
+					StampControlledShutdownRequestFlags(
+						request,
+						controlledShutdownActiveGroupEvidence,
+						controlledShutdownVehicleEvidence,
+						controlledShutdownLootEvidence,
+						controlledShutdownRescueEvidence);
+					request.m_sEvidence
+						= "checkpoint deferred: controlled-shutdown active-group preflight failed before nearby vehicle adoption resumed";
+					if (!controlledShutdownActiveGroupEvidence.IsEmpty())
+						request.m_sEvidence += " | "
+							+ controlledShutdownActiveGroupEvidence;
+					return request;
+				}
+				int resumedNearbyVehicles;
+				if (!m_Loot.SnapshotNearbyPersistentVehiclesForControlledShutdown(
+					state,
+					resumedNearbyVehicles,
+					controlledShutdownLootEvidence))
+				{
+					StampControlledShutdownRequestFlags(
+						request,
+						controlledShutdownActiveGroupEvidence,
+						controlledShutdownVehicleEvidence,
+						controlledShutdownLootEvidence,
+						controlledShutdownRescueEvidence);
+					request.m_sEvidence
+						= "checkpoint deferred: controlled-shutdown nearby field vehicle adoption retry failed";
+					if (!controlledShutdownLootEvidence.IsEmpty())
+						request.m_sEvidence += " | "
+							+ controlledShutdownLootEvidence;
+					return request;
+				}
+			}
+			if (!m_Civilians
+				|| !m_Civilians.PreflightControlledShutdownVehiclePersistence(
+					state,
+					controlledShutdownVehicleEvidence,
+					false))
+			{
+				StampControlledShutdownRequestFlags(
+					request,
+					controlledShutdownActiveGroupEvidence,
+					controlledShutdownVehicleEvidence,
+					controlledShutdownLootEvidence,
+					controlledShutdownRescueEvidence);
+				request.m_sEvidence
+					= "checkpoint deferred: controlled-shutdown field vehicle preflight failed";
+				if (!controlledShutdownVehicleEvidence.IsEmpty())
+					request.m_sEvidence += " | "
+						+ controlledShutdownVehicleEvidence;
+				return request;
+			}
+			if (!m_PhysicalWar
+				|| !m_PhysicalWar.PreflightControlledShutdownActiveGroupQuiescence(
+					state,
+					controlledShutdownActiveGroupEvidence))
+			{
+				StampControlledShutdownRequestFlags(
+					request,
+					controlledShutdownActiveGroupEvidence,
+					controlledShutdownVehicleEvidence,
+					controlledShutdownLootEvidence,
+					controlledShutdownRescueEvidence);
+				request.m_sEvidence
+					= "checkpoint deferred: controlled-shutdown active-group preflight failed";
+				if (!controlledShutdownActiveGroupEvidence.IsEmpty())
+					request.m_sEvidence += " | "
+						+ controlledShutdownActiveGroupEvidence;
+				return request;
+			}
+			StampControlledShutdownRequestFlags(
+				request,
+				controlledShutdownActiveGroupEvidence,
+				controlledShutdownVehicleEvidence,
+				controlledShutdownLootEvidence,
+				controlledShutdownRescueEvidence);
+			// Run one complete fallible preparation before publishing the nearby binding
+			// plan. This closes ambient promotion and rejects malformed rescue/infantry
+			// authority before any process-local latch can make the attempt one-way. A
+			// retry with an existing plan skips this pre-latch pass.
+			if (!controlledShutdownNearbySnapshotApplied
+				&& !PrepareStateForCapture(
+					state,
+					"controlled-shutdown admission before nearby scope lock"))
+			{
+				request.m_sEvidence = state.m_sLastPersistenceStatus;
+				if (request.m_sEvidence.IsEmpty())
+				{
+					request.m_sEvidence
+						= "checkpoint deferred: controlled-shutdown authority preparation failed before nearby scope lock";
+				}
+				StampControlledShutdownRequestFlags(
+					request,
+					controlledShutdownActiveGroupEvidence,
+					controlledShutdownVehicleEvidence,
+					controlledShutdownLootEvidence,
+					controlledShutdownRescueEvidence);
+				return request;
+			}
+			// Preparation may legitimately change live ownership (for example, an
+			// on-foot rescue follower can become BOARDING when its escort is already
+			// seated). Re-run every relevant read-only/player gate against that
+			// prepared graph before Loot publishes the first one-way scope latch.
+			// This is the last point at which canonical player-release evidence can
+			// safely return controls without leaving a partially fenced transaction.
+			if (!controlledShutdownNearbySnapshotApplied)
+			{
+				int preparedNearbyVehicleCandidateCount;
+				if (!m_Loot.PreflightControlledShutdownNearbyPersistentVehicles(
+					state,
+					preparedNearbyVehicleCandidateCount,
+					controlledShutdownLootEvidence))
+				{
+					StampControlledShutdownRequestFlags(
+						request,
+						controlledShutdownActiveGroupEvidence,
+						controlledShutdownVehicleEvidence,
+						controlledShutdownLootEvidence,
+						controlledShutdownRescueEvidence);
+					request.m_sEvidence
+						= "checkpoint deferred: prepared controlled-shutdown nearby field vehicle preflight failed before scope lock";
+					if (!controlledShutdownLootEvidence.IsEmpty())
+						request.m_sEvidence += " | "
+							+ controlledShutdownLootEvidence;
+					return request;
+				}
+				if (!m_RescuePOWOperations.PreflightControlledShutdownPersistenceSample(
+					state,
+					controlledShutdownRescueEvidence,
+					true))
+				{
+					StampControlledShutdownRequestFlags(
+						request,
+						controlledShutdownActiveGroupEvidence,
+						controlledShutdownVehicleEvidence,
+						controlledShutdownLootEvidence,
+						controlledShutdownRescueEvidence);
+					request.m_sEvidence
+						= "checkpoint deferred: prepared controlled-shutdown rescue preflight failed before scope lock";
+					if (!controlledShutdownRescueEvidence.IsEmpty())
+						request.m_sEvidence += " | "
+							+ controlledShutdownRescueEvidence;
+					return request;
+				}
+				if (!m_Civilians.PreflightControlledShutdownVehiclePersistence(
+					state,
+					controlledShutdownVehicleEvidence,
+					true))
+				{
+					StampControlledShutdownRequestFlags(
+						request,
+						controlledShutdownActiveGroupEvidence,
+						controlledShutdownVehicleEvidence,
+						controlledShutdownLootEvidence,
+						controlledShutdownRescueEvidence);
+					request.m_sEvidence
+						= "checkpoint deferred: prepared controlled-shutdown field vehicle preflight failed before scope lock";
+					if (!controlledShutdownVehicleEvidence.IsEmpty())
+						request.m_sEvidence += " | "
+							+ controlledShutdownVehicleEvidence;
+					return request;
+				}
+				if (!m_PhysicalWar.PreflightControlledShutdownActiveGroupQuiescence(
+					state,
+					controlledShutdownActiveGroupEvidence))
+				{
+					StampControlledShutdownRequestFlags(
+						request,
+						controlledShutdownActiveGroupEvidence,
+						controlledShutdownVehicleEvidence,
+						controlledShutdownLootEvidence,
+						controlledShutdownRescueEvidence);
+					request.m_sEvidence
+						= "checkpoint deferred: prepared controlled-shutdown active-group preflight failed before scope lock";
+					if (!controlledShutdownActiveGroupEvidence.IsEmpty())
+						request.m_sEvidence += " | "
+							+ controlledShutdownActiveGroupEvidence;
+					return request;
+				}
+			}
+			if (!controlledShutdownNearbySnapshotApplied)
+			{
+				int snapshottedNearbyVehicles;
+				if (!m_Loot.SnapshotNearbyPersistentVehiclesForControlledShutdown(
+					state,
+					snapshottedNearbyVehicles,
+					controlledShutdownLootEvidence))
+				{
+					StampControlledShutdownRequestFlags(
+						request,
+						controlledShutdownActiveGroupEvidence,
+						controlledShutdownVehicleEvidence,
+						controlledShutdownLootEvidence,
+						controlledShutdownRescueEvidence);
+					request.m_sEvidence
+						= "checkpoint deferred: controlled-shutdown nearby field vehicle adoption failed";
+					if (!controlledShutdownLootEvidence.IsEmpty())
+						request.m_sEvidence += " | "
+							+ controlledShutdownLootEvidence;
+					return request;
+				}
+				controlledShutdownNearbySnapshotApplied = true;
+			}
+			// This post-latch full-state sampler runs after the nearby scope is complete,
+			// and it is intentionally repeated
+			// on retries: already applied domain fences maintain their original pins,
+			// while an unfenced domain can refresh durable authority that moved between
+			// attempts. The binding lock makes civilian/Loot discovery a no-op here.
+			if (!PrepareStateForCapture(
+				state,
+				"controlled-shutdown prepared authority after nearby scope lock"))
+			{
+				request.m_sEvidence = state.m_sLastPersistenceStatus;
+				if (request.m_sEvidence.IsEmpty())
+				{
+					request.m_sEvidence
+						= "checkpoint deferred: controlled-shutdown campaign capture preflight failed";
+				}
+				StampControlledShutdownRequestFlags(
+					request,
+					controlledShutdownActiveGroupEvidence,
+					controlledShutdownVehicleEvidence,
+					controlledShutdownLootEvidence,
+					controlledShutdownRescueEvidence);
+				return request;
+			}
+			if (!m_Civilians.PreflightControlledShutdownVehiclePersistence(
+				state,
+				controlledShutdownVehicleEvidence,
+				true))
+			{
+				StampControlledShutdownRequestFlags(
+					request,
+					controlledShutdownActiveGroupEvidence,
+					controlledShutdownVehicleEvidence,
+					controlledShutdownLootEvidence,
+					controlledShutdownRescueEvidence);
+				request.m_sEvidence
+					= "checkpoint deferred: controlled-shutdown prepared field vehicle preflight failed";
+				if (!controlledShutdownVehicleEvidence.IsEmpty())
+					request.m_sEvidence += " | "
+						+ controlledShutdownVehicleEvidence;
+				return request;
+			}
+			if (!m_RescuePOWOperations.PreflightControlledShutdownPersistenceSample(
+				state,
+				controlledShutdownRescueEvidence,
+				true))
+			{
+				StampControlledShutdownRequestFlags(
+					request,
+					controlledShutdownActiveGroupEvidence,
+					controlledShutdownVehicleEvidence,
+					controlledShutdownLootEvidence,
+					controlledShutdownRescueEvidence);
+				request.m_sEvidence
+					= "checkpoint deferred: controlled-shutdown prepared rescue persistence preflight failed";
+				if (!controlledShutdownRescueEvidence.IsEmpty())
+					request.m_sEvidence += " | "
+						+ controlledShutdownRescueEvidence;
+				return request;
+			}
+			if (!m_PhysicalWar.PrepareControlledShutdownActiveGroupQuiescence(
+				state,
+				controlledShutdownActiveGroupEvidence))
+			{
+				StampControlledShutdownRequestFlags(
+					request,
+					controlledShutdownActiveGroupEvidence,
+					controlledShutdownVehicleEvidence,
+					controlledShutdownLootEvidence,
+					controlledShutdownRescueEvidence);
+				request.m_sEvidence
+					= "checkpoint deferred: controlled-shutdown active-group quiescence failed";
+				if (!controlledShutdownActiveGroupEvidence.IsEmpty())
+					request.m_sEvidence += " | "
+						+ controlledShutdownActiveGroupEvidence;
+				return request;
+			}
+			StampControlledShutdownRequestFlags(
+				request,
+				controlledShutdownActiveGroupEvidence,
+				controlledShutdownVehicleEvidence,
+				controlledShutdownLootEvidence,
+				controlledShutdownRescueEvidence);
 			if (!m_Civilians
 				|| !m_Civilians.PrepareControlledShutdownVehiclePersistence(
 					state,
 					controlledShutdownVehicleEvidence))
 			{
+				StampControlledShutdownRequestFlags(
+					request,
+					controlledShutdownActiveGroupEvidence,
+					controlledShutdownVehicleEvidence,
+					controlledShutdownLootEvidence,
+					controlledShutdownRescueEvidence);
 				request.m_sEvidence
 					= "checkpoint deferred: controlled-shutdown field vehicle quiescence failed";
 				if (!controlledShutdownVehicleEvidence.IsEmpty())
@@ -449,6 +842,35 @@ class HST_PersistenceService
 						+ controlledShutdownVehicleEvidence;
 				return request;
 			}
+			StampControlledShutdownRequestFlags(
+				request,
+				controlledShutdownActiveGroupEvidence,
+				controlledShutdownVehicleEvidence,
+				controlledShutdownLootEvidence,
+				controlledShutdownRescueEvidence);
+			if (!m_RescuePOWOperations.PrepareControlledShutdownPersistenceSample(
+				state,
+				controlledShutdownRescueEvidence))
+			{
+				StampControlledShutdownRequestFlags(
+					request,
+					controlledShutdownActiveGroupEvidence,
+					controlledShutdownVehicleEvidence,
+					controlledShutdownLootEvidence,
+					controlledShutdownRescueEvidence);
+				request.m_sEvidence
+					= "checkpoint deferred: controlled-shutdown rescue persistence fence failed";
+				if (!controlledShutdownRescueEvidence.IsEmpty())
+					request.m_sEvidence += " | "
+						+ controlledShutdownRescueEvidence;
+				return request;
+			}
+			StampControlledShutdownRequestFlags(
+				request,
+				controlledShutdownActiveGroupEvidence,
+				controlledShutdownVehicleEvidence,
+				controlledShutdownLootEvidence,
+				controlledShutdownRescueEvidence);
 		}
 
 		if (state && !CaptureAndTrackState(state, "captured before checkpoint"))
@@ -572,10 +994,55 @@ class HST_PersistenceService
 			request.m_sEvidence
 				= "checkpoint request accepted without campaign status target";
 		}
+		if (!controlledShutdownActiveGroupEvidence.IsEmpty())
+			request.m_sEvidence += " | "
+				+ controlledShutdownActiveGroupEvidence;
 		if (!controlledShutdownVehicleEvidence.IsEmpty())
 			request.m_sEvidence += " | "
 				+ controlledShutdownVehicleEvidence;
+		if (!controlledShutdownLootEvidence.IsEmpty())
+			request.m_sEvidence += " | "
+				+ controlledShutdownLootEvidence;
+		if (!controlledShutdownRescueEvidence.IsEmpty())
+			request.m_sEvidence += " | "
+				+ controlledShutdownRescueEvidence;
 		return request;
+	}
+
+	protected void StampControlledShutdownRequestFlags(
+		HST_PersistenceCheckpointRequest request,
+		string activeGroupEvidence,
+		string fieldVehicleEvidence,
+		string lootEvidence,
+		string rescueEvidence)
+	{
+		if (!request)
+			return;
+		bool activeGroupApplied
+			= m_PhysicalWar
+				&& m_PhysicalWar.HasControlledShutdownActiveGroupQuiescenceApplied();
+		bool fieldVehicleApplied
+			= m_Civilians
+				&& m_Civilians.HasControlledShutdownVehiclePersistenceApplied();
+		bool rescueApplied
+			= m_RescuePOWOperations
+				&& m_RescuePOWOperations.HasControlledShutdownPersistenceSampleApplied();
+		bool nearbyVehicleSnapshotApplied
+			= m_Loot
+				&& m_Loot.HasControlledShutdownNearbyPersistentVehicleSnapshotApplied();
+		request.m_bControlledShutdownRuntimeQuiescenceApplied
+			= activeGroupApplied || fieldVehicleApplied || rescueApplied
+				|| nearbyVehicleSnapshotApplied;
+		request.m_bControlledShutdownPlayerReleaseRequired
+			= !request.m_bControlledShutdownRuntimeQuiescenceApplied
+				&& (activeGroupEvidence.Contains(
+						HST_PhysicalWarService.CONTROLLED_SHUTDOWN_PLAYER_RELEASE_EVIDENCE)
+					|| fieldVehicleEvidence.Contains(
+						HST_PhysicalWarService.CONTROLLED_SHUTDOWN_PLAYER_RELEASE_EVIDENCE)
+					|| lootEvidence.Contains(
+						HST_PhysicalWarService.CONTROLLED_SHUTDOWN_PLAYER_RELEASE_EVIDENCE)
+					|| rescueEvidence.Contains(
+						HST_PhysicalWarService.CONTROLLED_SHUTDOWN_PLAYER_RELEASE_EVIDENCE));
 	}
 
 	HST_PersistenceCheckpointRequest RequestAutosaveCheckpointDetailed(
@@ -1686,7 +2153,6 @@ class HST_PersistenceService
 		}
 		if (!PrepareStateForCapture(state, persistenceStatus))
 			return null;
-
 		state.m_iSchemaVersion = HST_CampaignState.SCHEMA_VERSION;
 		state.m_iLastSaveSecond = state.m_iElapsedSeconds;
 		if (!TryAdvancePersistenceCheckpointSequence(
@@ -1940,12 +2406,12 @@ class HST_PersistenceService
 			Print("Partisan persistence | " + state.m_sLastPersistenceStatus, LogLevel.WARNING);
 			return false;
 		}
+		bool requiresExhaustiveInfantrySampling
+			= HST_PhysicalWarService.RequiresExhaustiveInfantryPersistenceSampling(
+				state);
 		if (!m_PhysicalWar)
 		{
-			if (!hasExactMissionConvoy && !hasPhysicalExactEnemyResponse && !hasPhysicalExactEnemyPatrol
-				&& !hasPhysicalExactLocalSecurity && !hasPhysicalExactGarrisonPatrol
-				&& !hasPhysicalExactMissionGuard
-				&& !hasPhysicalExactPlayerSupport)
+			if (!hasExactMissionConvoy && !requiresExhaustiveInfantrySampling)
 				return true;
 			state.m_sLastPersistenceStatus = "checkpoint deferred: exact physical roster reconciler is unavailable";
 			Print("Partisan persistence | " + state.m_sLastPersistenceStatus, LogLevel.WARNING);
@@ -1977,9 +2443,7 @@ class HST_PersistenceService
 				return false;
 			}
 		}
-		if (!hasPhysicalExactEnemyResponse && !hasPhysicalExactEnemyPatrol && !hasPhysicalExactLocalSecurity
-			&& !hasPhysicalExactGarrisonPatrol
-			&& !hasPhysicalExactMissionGuard && !hasPhysicalExactPlayerSupport)
+		if (!requiresExhaustiveInfantrySampling)
 			return true;
 		if (!m_ForceSpawnQueue || !m_ForceSpawnAdapter)
 		{

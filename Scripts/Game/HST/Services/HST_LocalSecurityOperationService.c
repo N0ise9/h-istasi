@@ -16,6 +16,7 @@ class HST_LocalSecurityOperationResult
 // political or casualty truth.
 class HST_LocalSecurityOperationService
 {
+	static const float PERSISTENCE_POSITION_UPDATE_THRESHOLD_SQ_METERS = 4.0;
 	static const int EXACT_CONTRACT_VERSION = 1;
 	static const int QUARANTINED_CONTRACT_VERSION = -66;
 	static const int EXACT_PROJECTION_CONTRACT_VERSION = 1;
@@ -2253,11 +2254,29 @@ class HST_LocalSecurityOperationService
 				failure = "local-security live position is unavailable: " + liveEvidence;
 				return false;
 			}
-			group.m_vPosition = livePosition;
-			operation.m_vStrategicPosition = livePosition;
+			bool groupPositionChanged = HasPersistencePositionChanged(
+				group.m_vPosition,
+				livePosition);
+			bool operationPositionChanged = HasPersistencePositionChanged(
+				operation.m_vStrategicPosition,
+				livePosition);
+			if (groupPositionChanged)
+				group.m_vPosition = livePosition;
+			if (operationPositionChanged)
+				operation.m_vStrategicPosition = livePosition;
+			if (!groupPositionChanged && !operationPositionChanged)
+				continue;
 			operation.m_iLastProgressAtSecond = Math.Max(0, state.m_iElapsedSeconds);
 			operation.m_iRevision++;
 		}
 		return true;
+	}
+
+	protected bool HasPersistencePositionChanged(vector current, vector observed)
+	{
+		float deltaX = current[0] - observed[0];
+		float deltaZ = current[2] - observed[2];
+		return deltaX * deltaX + deltaZ * deltaZ
+			>= PERSISTENCE_POSITION_UPDATE_THRESHOLD_SQ_METERS;
 	}
 }

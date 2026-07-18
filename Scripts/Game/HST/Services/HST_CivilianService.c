@@ -5537,6 +5537,18 @@ class HST_CivilianService
 	// brief enter/exit gap left by the slower health cadence.
 	bool ObservePlayerAmbientVehicleClaims(HST_CampaignState state)
 	{
+		// A controlled-end binding plan or field fence owns an immutable root set.
+		// Coordinator retries may call this discovery hook again, but they must not
+		// promote a new root after either one-way latch has been published.
+		if (m_PersistentFieldVehicles
+			&& (m_PersistentFieldVehicles
+				.HasControlledShutdownBindingScopeLocked()
+				|| m_PersistentFieldVehicles
+					.HasControlledShutdownQuiescenceApplied()))
+		{
+			m_bLastAmbientClaimObservationExact = true;
+			return false;
+		}
 		if (!state)
 		{
 			m_bLastAmbientClaimObservationExact = false;
@@ -5621,6 +5633,12 @@ class HST_CivilianService
 	{
 		if (!state || !m_CivilianConsequences)
 			return false;
+		if (m_PersistentFieldVehicles
+			&& m_PersistentFieldVehicles
+				.HasControlledShutdownQuiescenceApplied())
+		{
+			return m_PersistentFieldVehicles.PrepareForCapture(state);
+		}
 		ObservePlayerAmbientVehicleClaims(state);
 		FlushPendingCivilianConsequences(state);
 		if (!m_bLastAmbientClaimObservationExact
@@ -5636,12 +5654,37 @@ class HST_CivilianService
 	{
 		evidence
 			= "controlled-shutdown durable field vehicle authority unavailable";
-		if (!PrepareAmbientVehiclePersistence(state)
-			|| !m_PersistentFieldVehicles)
+		if (!state || !m_PersistentFieldVehicles)
 			return false;
+		// Persistence owns the one normal PrepareStateForCapture pass before any
+		// runtime fence is applied. Do not observe/promote or resample here: the
+		// strict field preflight immediately before active-group mutation already
+		// covered every promoted player-used root in that prepared authority.
 		return m_PersistentFieldVehicles.PrepareForControlledShutdown(
 			state,
 			evidence);
+	}
+
+	bool PreflightControlledShutdownVehiclePersistence(
+		HST_CampaignState state,
+		out string evidence,
+		bool requirePreparedAuthority = false)
+	{
+		evidence
+			= "controlled-shutdown durable field vehicle preflight unavailable";
+		if (!state || !m_PersistentFieldVehicles)
+			return false;
+		return m_PersistentFieldVehicles.PreflightControlledShutdownQuiescence(
+			state,
+			evidence,
+			requirePreparedAuthority);
+	}
+
+	bool HasControlledShutdownVehiclePersistenceApplied()
+	{
+		return m_PersistentFieldVehicles
+			&& m_PersistentFieldVehicles
+				.HasControlledShutdownQuiescenceApplied();
 	}
 
 	bool MaintainControlledShutdownVehiclePersistence(
@@ -5674,23 +5717,38 @@ class HST_CivilianService
 		playerManager.GetPlayers(playerIds);
 		foreach (int playerId : playerIds)
 		{
-			IEntity controlledEntity = playerManager.GetPlayerControlledEntity(playerId);
-			if (!controlledEntity)
-				controlledEntity = SCR_PossessingManagerComponent.GetPlayerMainEntity(playerId);
-			if (!controlledEntity)
-				continue;
-			if (ChimeraCharacter.Cast(controlledEntity)
-				&& !IsLivingAmbientCharacter(controlledEntity))
-				continue;
-
-			IEntity vehicleEntity = ResolveEntityVehicle(controlledEntity);
-			if (!vehicleEntity && Vehicle.Cast(controlledEntity))
-				vehicleEntity = controlledEntity;
-			if (!IsLivingAmbientEntity(vehicleEntity)
-				|| vehicleRoots.Find(vehicleEntity) >= 0)
-				continue;
-			vehicleRoots.Insert(vehicleEntity);
+			IEntity controlledEntity
+				= playerManager.GetPlayerControlledEntity(playerId);
+			IEntity mainEntity
+				= SCR_PossessingManagerComponent.GetPlayerMainEntity(playerId);
+			CollectPlayerOccupiedVehicleRootFromEntity(
+				controlledEntity,
+				vehicleRoots);
+			if (mainEntity != controlledEntity)
+			{
+				CollectPlayerOccupiedVehicleRootFromEntity(
+					mainEntity,
+					vehicleRoots);
+			}
 		}
+	}
+
+	protected void CollectPlayerOccupiedVehicleRootFromEntity(
+		IEntity playerEntity,
+		array<IEntity> vehicleRoots)
+	{
+		if (!playerEntity || !vehicleRoots)
+			return;
+		if (ChimeraCharacter.Cast(playerEntity)
+			&& !IsLivingAmbientCharacter(playerEntity))
+			return;
+		IEntity vehicleEntity = ResolveEntityVehicle(playerEntity);
+		if (!vehicleEntity && Vehicle.Cast(playerEntity))
+			vehicleEntity = playerEntity;
+		if (!IsLivingAmbientEntity(vehicleEntity)
+			|| vehicleRoots.Find(vehicleEntity) >= 0)
+			return;
+		vehicleRoots.Insert(vehicleEntity);
 	}
 
 	protected bool HasPlayerOccupant(IEntity vehicleEntity)
@@ -7777,7 +7835,19 @@ class HST_CivilianService
 	{
 		if (!state || !IsLivingAmbientEntity(entity))
 			return false;
+		// No direct cleanup/policy caller may bypass the controlled-end discovery
+		// gate and mutate a durable row after its immutable binding scope is fixed.
+		if (m_PersistentFieldVehicles
+			&& (m_PersistentFieldVehicles
+				.HasControlledShutdownBindingScopeLocked()
+				|| m_PersistentFieldVehicles
+					.HasControlledShutdownQuiescenceApplied()))
+			return false;
 		HST_RuntimeVehicleState vehicle = ResolveRuntimeVehicleRecord(state, entity);
+		bool insertRecordAfterTrack;
+		string previousRuntimeKind;
+		bool previousDetached;
+		bool previousDeleted;
 		if (!vehicle)
 		{
 			int trackedIndex = m_aRuntimeEntities.Find(entity);
@@ -7789,8 +7859,11 @@ class HST_CivilianService
 			string prefab = entity.GetPrefabData().GetPrefabName();
 			if (!HST_VehicleRootPolicy.IsEligibleVehicleRootPrefab(prefab))
 				return false;
+			string vehicleRuntimeId = m_aRuntimeEntityVehicleIds[trackedIndex];
+			if (state.FindRuntimeVehicle(vehicleRuntimeId))
+				return false;
 			vehicle = new HST_RuntimeVehicleState();
-			vehicle.m_sVehicleRuntimeId = m_aRuntimeEntityVehicleIds[trackedIndex];
+			vehicle.m_sVehicleRuntimeId = vehicleRuntimeId;
 			vehicle.m_sPrefab = prefab;
 			vehicle.m_sDisplayName = HST_DisplayNameService.ResolveVehicleDisplayName(prefab);
 			if (trackedIndex < m_aRuntimeEntityFactionKeys.Count())
@@ -7798,19 +7871,42 @@ class HST_CivilianService
 			if (trackedIndex < m_aRuntimeEntityZoneIds.Count())
 				vehicle.m_sZoneId = m_aRuntimeEntityZoneIds[trackedIndex];
 			vehicle.m_iSpawnedAtSecond = state.m_iElapsedSeconds;
-			state.m_aRuntimeVehicles.Insert(vehicle);
+			insertRecordAfterTrack = true;
+		}
+		else
+		{
+			previousRuntimeKind = vehicle.m_sRuntimeKind;
+			previousDetached = vehicle.m_bDetached;
+			previousDeleted = vehicle.m_bDeleted;
 		}
 
+		// Track accepts an off-ledger durable candidate. Publish only the minimum
+		// eligibility fields first, then either restore the pre-promotion row on
+		// failure or commit the complete durable DTO after exact binding succeeds.
+		// This prevents a transient detach failure from stranding an active,
+		// unbound field row that every later preflight would correctly reject.
 		vehicle.m_sRuntimeKind = "field_vehicle";
 		vehicle.m_bDetached = false;
 		vehicle.m_bDeleted = false;
-		vehicle.m_vPosition = entity.GetOrigin();
-		vehicle.m_vAngles = HST_WorldPositionService.BuildUprightAnglesFromVector(entity.GetYawPitchRoll());
-		vehicle.m_bCanProvideUndercover = RuntimeVehicleCanProvideCivilianUndercover(vehicle);
-		HST_VehicleCapabilityPolicy.NormalizeRuntimeVehicleCoverState(vehicle);
 		if (!m_PersistentFieldVehicles
 			|| !m_PersistentFieldVehicles.Track(entity, vehicle))
+		{
+			if (!insertRecordAfterTrack)
+			{
+				vehicle.m_sRuntimeKind = previousRuntimeKind;
+				vehicle.m_bDetached = previousDetached;
+				vehicle.m_bDeleted = previousDeleted;
+			}
 			return false;
+		}
+		if (insertRecordAfterTrack)
+			state.m_aRuntimeVehicles.Insert(vehicle);
+		vehicle.m_vPosition = entity.GetOrigin();
+		vehicle.m_vAngles = HST_WorldPositionService.BuildUprightAnglesFromVector(
+			entity.GetYawPitchRoll());
+		vehicle.m_bCanProvideUndercover
+			= RuntimeVehicleCanProvideCivilianUndercover(vehicle);
+		HST_VehicleCapabilityPolicy.NormalizeRuntimeVehicleCoverState(vehicle);
 		return true;
 	}
 

@@ -44,6 +44,8 @@ class HST_MissionCaptiveFollowComponent : ScriptComponent
 	protected bool m_bLoggedVehicleBoardingFailed;
 	protected bool m_bStationaryWhenStopped;
 	protected bool m_bDirectFollowUnavailable;
+	protected bool m_bFollowTickScheduled;
+	protected bool m_bControlledShutdownQuiescenceApplied;
 	protected int m_iNoProgressTicks;
 	protected string m_sGroupFactionKey = "CIV";
 	protected string m_sFollowLogLabel = "mission captive follow";
@@ -76,6 +78,8 @@ class HST_MissionCaptiveFollowComponent : ScriptComponent
 
 	void StartFollowing(IEntity target)
 	{
+		if (m_bControlledShutdownQuiescenceApplied)
+			return;
 		if (!target)
 			return;
 
@@ -114,6 +118,7 @@ class HST_MissionCaptiveFollowComponent : ScriptComponent
 		{
 			queue.Remove(FollowTick);
 			queue.CallLater(FollowTick, FOLLOW_UPDATE_MS, true);
+			m_bFollowTickScheduled = true;
 		}
 	}
 
@@ -125,9 +130,145 @@ class HST_MissionCaptiveFollowComponent : ScriptComponent
 		if (m_bStationaryWhenStopped)
 			SetOwnerMovementLocked(GetOwner(), true);
 
-		ScriptCallQueue queue = GetGame().GetCallqueue();
-		if (queue)
-			queue.Remove(FollowTick);
+		RemoveFollowTick();
+	}
+
+	bool PreflightControlledShutdownQuiescence(out string evidence)
+	{
+		evidence = "mission captive follow controlled-shutdown readiness was rejected";
+		IEntity owner = GetOwner();
+		if (!owner || !owner.GetWorld())
+		{
+			evidence
+				= "mission captive follow owner is unavailable for controlled-shutdown readiness";
+			return false;
+		}
+		ChimeraCharacter character = ChimeraCharacter.Cast(owner);
+		CharacterControllerComponent controller;
+		if (character)
+			controller = character.GetCharacterController();
+		AIControlComponent control
+			= AIControlComponent.Cast(owner.FindComponent(AIControlComponent));
+		AIAgent agent;
+		if (control)
+			agent = control.GetControlAIAgent();
+		if (!character || !controller || !control || !agent)
+		{
+			evidence
+				= "mission captive follow controlled-shutdown AI or movement owner is incomplete";
+			return false;
+		}
+		evidence = "mission captive follow controlled-shutdown readiness exact";
+		return true;
+	}
+
+	bool PrepareControlledShutdownQuiescence(out string evidence)
+	{
+		evidence = "mission captive follow controlled-shutdown quiescence rejected";
+		if (m_bControlledShutdownQuiescenceApplied)
+			return MaintainControlledShutdownQuiescence(evidence);
+		if (!PreflightControlledShutdownQuiescence(evidence))
+			return false;
+
+		// Publish the irreversible latch before the first callback, waypoint, AI,
+		// movement, or physics mutation. Every retry maintains this same owner.
+		m_bControlledShutdownQuiescenceApplied = true;
+		return MaintainControlledShutdownQuiescence(evidence);
+	}
+
+	bool MaintainControlledShutdownQuiescence(out string evidence)
+	{
+		evidence = "mission captive follow controlled-shutdown quiescence was not prepared";
+		if (!m_bControlledShutdownQuiescenceApplied)
+			return false;
+
+		IEntity owner = GetOwner();
+		if (!owner || !owner.GetWorld())
+		{
+			evidence = "mission captive follow owner disappeared during controlled-shutdown quiescence";
+			return false;
+		}
+
+		AIControlComponent control = AIControlComponent.Cast(owner.FindComponent(AIControlComponent));
+		AIAgent agent;
+		AIGroup group;
+		if (control)
+		{
+			agent = control.GetControlAIAgent();
+			if (agent)
+				group = agent.GetParentGroup();
+		}
+
+		RemoveFollowTick();
+		ClearFollowWaypoint(group);
+		m_bFollowing = false;
+		m_FollowTarget = null;
+		SetOwnerMovementLocked(owner, true);
+
+		if (group)
+		{
+			group.DeactivateAllMembers();
+			group.DeactivateAI();
+		}
+		if (agent)
+			agent.DeactivateAI();
+		if (control)
+			control.DeactivateAI();
+
+		Physics physics = owner.GetPhysics();
+		if (physics && physics.IsDynamic())
+		{
+			physics.ClearForces();
+			physics.SetVelocity(vector.Zero);
+			physics.SetAngularVelocity(vector.Zero);
+			physics.SetActive(ActiveState.INACTIVE);
+		}
+
+		if (!IsControlledShutdownQuiescenceExact())
+		{
+			evidence = "mission captive follow controlled-shutdown quiescence is not exact";
+			return false;
+		}
+
+		evidence = "mission captive follow controlled-shutdown quiescence maintained";
+		return true;
+	}
+
+	bool IsControlledShutdownQuiescenceExact()
+	{
+		if (!m_bControlledShutdownQuiescenceApplied || m_bFollowTickScheduled
+			|| m_bFollowing || m_FollowTarget || m_WaypointEntity
+			|| !IsControlledShutdownZeroVector(m_WaypointPosition))
+			return false;
+
+		IEntity owner = GetOwner();
+		if (!owner || !owner.GetWorld())
+			return false;
+		ChimeraCharacter character = ChimeraCharacter.Cast(owner);
+		if (!character)
+			return false;
+		CharacterControllerComponent controller = character.GetCharacterController();
+		if (!controller || !controller.GetDisableMovementControls())
+			return false;
+
+		AIControlComponent control = AIControlComponent.Cast(owner.FindComponent(AIControlComponent));
+		if (!control || control.IsAIActivated())
+			return false;
+		AIAgent agent = control.GetControlAIAgent();
+		if (!agent || agent.IsAIActivated())
+			return false;
+		AIGroup group = agent.GetParentGroup();
+		if (group && group.IsAIActivated())
+			return false;
+
+		Physics physics = owner.GetPhysics();
+		if (physics && physics.IsDynamic()
+			&& (physics.IsActive()
+				|| !IsControlledShutdownZeroVector(physics.GetVelocity())
+				|| !IsControlledShutdownZeroVector(physics.GetAngularVelocity())))
+			return false;
+
+		return true;
 	}
 
 	override void OnDelete(IEntity owner)
@@ -138,6 +279,12 @@ class HST_MissionCaptiveFollowComponent : ScriptComponent
 
 	protected void FollowTick()
 	{
+		if (m_bControlledShutdownQuiescenceApplied)
+		{
+			RemoveFollowTick();
+			return;
+		}
+
 		IEntity owner = GetOwner();
 		if (!owner || !m_bFollowing || !m_FollowTarget)
 		{
@@ -370,16 +517,17 @@ class HST_MissionCaptiveFollowComponent : ScriptComponent
 
 	protected void ClearFollowWaypoint(AIGroup group)
 	{
-		if (!m_WaypointEntity)
+		IEntity waypointEntity = m_WaypointEntity;
+		m_WaypointEntity = null;
+		m_WaypointPosition = "0 0 0";
+		if (!waypointEntity)
 			return;
 
-		AIWaypoint waypoint = AIWaypoint.Cast(m_WaypointEntity);
+		AIWaypoint waypoint = AIWaypoint.Cast(waypointEntity);
 		if (group && waypoint)
 			group.RemoveWaypoint(waypoint);
 
-		SCR_EntityHelper.DeleteEntityAndChildren(m_WaypointEntity);
-		m_WaypointEntity = null;
-		m_WaypointPosition = "0 0 0";
+		SCR_EntityHelper.DeleteEntityAndChildren(waypointEntity);
 	}
 
 	protected AIGroup EnsureCaptiveAIGroup(IEntity owner, AIAgent agent)
@@ -732,6 +880,21 @@ class HST_MissionCaptiveFollowComponent : ScriptComponent
 	protected bool IsZeroVector(vector value)
 	{
 		return value[0] == 0 && value[1] == 0 && value[2] == 0;
+	}
+
+	protected bool IsControlledShutdownZeroVector(vector value)
+	{
+		return Math.AbsFloat(value[0]) <= 0.001
+			&& Math.AbsFloat(value[1]) <= 0.001
+			&& Math.AbsFloat(value[2]) <= 0.001;
+	}
+
+	protected void RemoveFollowTick()
+	{
+		ScriptCallQueue queue = GetGame().GetCallqueue();
+		if (queue)
+			queue.Remove(FollowTick);
+		m_bFollowTickScheduled = false;
 	}
 
 	protected AIGroup ResolveParentAIGroup(IEntity owner)

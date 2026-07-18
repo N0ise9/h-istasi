@@ -34,6 +34,56 @@ class HST_RescuePOWAdmissionPlan
 	vector m_vExtractionPosition;
 }
 
+// A controlled-shutdown rescue fence pins both the prepared durable DTO graph
+// and the exact native captive/carrier topology that produced it. The normal
+// persistence preparation remains the sole live sampler; after these pins are
+// published, retries maintain the same stopped follower, frozen mission carrier,
+// seat identity, state objects, scope, and values without resampling authority.
+class HST_ControlledShutdownRescueCaptiveSamplePin
+{
+	ref HST_MissionAssetState m_Captive;
+	ref HST_MissionRuntimeEntityState m_RuntimeProjection;
+	ref HST_RuntimeVehicleState m_CarrierRecord;
+	IEntity m_CaptiveEntity;
+	IEntity m_CarrierEntity;
+	BaseCompartmentSlot m_CaptiveSlot;
+	HST_MissionCaptiveFollowComponent m_FollowComponent;
+	string m_sAssetId;
+	string m_sProjectionId;
+	string m_sCarrierId;
+	string m_sObservedSeatToken;
+	string m_sCaptiveSample;
+	string m_sRuntimeProjectionSample;
+	string m_sCarrierSample;
+	vector m_vCaptivePosition;
+	vector m_vCaptiveAngles;
+}
+
+class HST_ControlledShutdownRescueCarrierPin
+{
+	IEntity m_Entity;
+	ref HST_RuntimeVehicleState m_Record;
+	string m_sRuntimeId;
+	vector m_aTransform[4];
+	ref array<BaseCompartmentSlot> m_aCompartmentSlots = {};
+	ref array<IEntity> m_aCompartmentOccupants = {};
+}
+
+class HST_ControlledShutdownRescueOperationSamplePin
+{
+	ref HST_OperationRecordState m_Operation;
+	ref HST_ActiveMissionState m_Mission;
+	ref HST_ActiveGroupState m_GuardGroup;
+	string m_sOperationId;
+	string m_sMissionId;
+	string m_sOperationSample;
+	string m_sMissionSample;
+	string m_sGuardSample;
+	ref array<ref HST_ControlledShutdownRescueCaptiveSamplePin> m_aCaptives = {};
+	ref array<ref HST_MissionObjectiveState> m_aObjectives = {};
+	ref array<string> m_aObjectiveSamples = {};
+}
+
 // Schema-58 authority for newly started rescue_pows missions only. One
 // operation owns one frozen composite manifest: a catalog-backed exact guard
 // roster plus three externally projected captive slots. The generic force
@@ -81,6 +131,13 @@ class HST_RescuePOWOperationService
 	protected ref HST_ForceSpawnAdapterService m_SpawnAdapter;
 	protected ref HST_PhysicalWarService m_PhysicalWar;
 	protected ref HST_MissionRuntimeService m_MissionRuntime;
+	protected ref HST_CampaignState m_ControlledShutdownPersistenceState;
+	protected ref array<ref HST_ControlledShutdownRescueOperationSamplePin>
+		m_aControlledShutdownPersistencePins = {};
+	protected ref array<ref HST_ControlledShutdownRescueCarrierPin>
+		m_aControlledShutdownCarrierPins = {};
+	protected bool m_bControlledShutdownPersistenceSampleApplied;
+	protected bool m_bControlledShutdownPersistenceSampleExact;
 
 	void SetRuntimeServices(
 		HST_ForceSpawnQueueService spawnQueue,
@@ -3174,10 +3231,1988 @@ class HST_RescuePOWOperationService
 		return ValidateCommittedGraph(state, mission, operation, manifest, batch, group, false);
 	}
 
+	bool PreflightControlledShutdownPersistenceSample(
+		HST_CampaignState state,
+		out string evidence,
+		bool requirePreparedAuthority = false)
+	{
+		if (m_bControlledShutdownPersistenceSampleApplied)
+		{
+			// A partially applied native fence must remain retryable. Preflight is
+			// read-only and proves only the immutable DTO/object pins; the ordered
+			// Prepare/Maintain step reapplies native pins before strict validation.
+			return ValidateControlledShutdownPersistenceFence(
+				state, evidence, false);
+		}
+		return ValidateControlledShutdownPersistenceCandidate(
+			state, requirePreparedAuthority, evidence);
+	}
+
+	bool PrepareControlledShutdownPersistenceSample(
+		HST_CampaignState state,
+		out string evidence)
+	{
+		evidence = "exact rescue controlled-shutdown durable sample was rejected";
+		if (m_bControlledShutdownPersistenceSampleApplied)
+			return MaintainControlledShutdownPersistenceSample(state, evidence);
+		if (!ValidateControlledShutdownNativeDomainFences(state, evidence)
+			|| !ValidateControlledShutdownPersistenceCandidate(state, true, evidence)
+			|| !BuildControlledShutdownPersistencePins(state, evidence))
+			return false;
+
+		// Publish the irreversible process-local latch only after every prepared
+		// durable row and identity has been captured successfully. No reset path is
+		// permitted after this point, including for an empty rescue scope.
+		m_bControlledShutdownPersistenceSampleApplied = true;
+		m_bControlledShutdownPersistenceSampleExact = false;
+		return MaintainControlledShutdownPersistenceSample(state, evidence);
+	}
+
+	bool MaintainControlledShutdownPersistenceSample(
+		HST_CampaignState state,
+		out string evidence)
+	{
+		evidence = "exact rescue controlled-shutdown durable sample maintenance was rejected";
+		if (!m_bControlledShutdownPersistenceSampleApplied)
+			return false;
+		m_bControlledShutdownPersistenceSampleExact = false;
+		// First prove the immutable DTO/object pins without requiring native
+		// quiescence, then reapply the pinned native fence. This makes the first
+		// post-latch call and every partial retry converge through the same path.
+		if (!ValidateControlledShutdownPersistenceFence(state, evidence, false)
+			|| !ApplyControlledShutdownNativePins(state, evidence)
+			|| !ValidateControlledShutdownPersistenceFence(state, evidence, true))
+			return false;
+		m_bControlledShutdownPersistenceSampleExact = true;
+		evidence = string.Format(
+			"exact rescue controlled-shutdown durable sample maintained for %1 operation(s)",
+			m_aControlledShutdownPersistencePins.Count());
+		return true;
+	}
+
+	bool HasControlledShutdownPersistenceSampleApplied()
+	{
+		return m_bControlledShutdownPersistenceSampleApplied;
+	}
+
+	bool IsControlledShutdownPersistenceSampleExact(HST_CampaignState state)
+	{
+		if (!m_bControlledShutdownPersistenceSampleApplied
+			|| !m_bControlledShutdownPersistenceSampleExact)
+			return false;
+		string evidence;
+		return ValidateControlledShutdownPersistenceFence(state, evidence);
+	}
+
+	protected bool IsOpenExactRescueOperation(HST_OperationRecordState operation)
+	{
+		return operation
+			&& operation.m_eType == HST_EOperationType.HST_OPERATION_TYPE_MISSION_RESCUE
+			&& operation.m_iContractVersion == EXACT_CONTRACT_VERSION
+			&& operation.m_eSettlementState
+				== HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_OPEN;
+	}
+
+	protected bool ValidateNoOpenMaterializingExactRescue(
+		HST_CampaignState state,
+		out string evidence)
+	{
+		if (!state)
+		{
+			evidence = "exact rescue controlled-shutdown state is unavailable";
+			return false;
+		}
+		foreach (HST_OperationRecordState operation : state.m_aOperations)
+		{
+			if (!IsOpenExactRescueOperation(operation))
+				continue;
+			if (operation.m_eMaterializationState
+				!= HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_MATERIALIZING)
+				continue;
+			evidence = "exact rescue persistence cannot sample MATERIALIZING authority";
+			if (!operation.m_sOperationId.IsEmpty())
+				evidence += ": " + operation.m_sOperationId;
+			return false;
+		}
+		return true;
+	}
+
+	protected bool ValidateControlledShutdownPersistenceCandidate(
+		HST_CampaignState state,
+		bool requirePreparedAuthority,
+		out string evidence)
+	{
+		evidence = "exact rescue controlled-shutdown durable sample preflight was rejected";
+		if (!ValidateNoOpenMaterializingExactRescue(state, evidence))
+			return false;
+
+		int openOperationCount;
+		array<IEntity> candidateCarriers = {};
+		array<string> candidateCarrierIds = {};
+		array<IEntity> candidateCaptives = {};
+		array<IEntity> candidateCaptiveCarriers = {};
+		array<BaseCompartmentSlot> candidateCaptiveSlots = {};
+		array<bool> candidateCaptiveRequiresSeat = {};
+		foreach (HST_OperationRecordState operation : state.m_aOperations)
+		{
+			if (!IsOpenExactRescueOperation(operation))
+				continue;
+			openOperationCount++;
+			if (!m_MissionRuntime)
+			{
+				evidence = "exact rescue controlled-shutdown mission runtime inspector is unavailable";
+				return false;
+			}
+
+			HST_ActiveMissionState mission;
+			HST_ForceManifestState manifest;
+			HST_ForceSpawnResultState batch;
+			HST_ActiveGroupState group;
+			string graphFailure = ResolveRuntimeContext(
+				state, operation, mission, manifest, batch, group);
+			if (!graphFailure.IsEmpty())
+			{
+				evidence = "exact rescue controlled-shutdown durable graph conflicts: " + graphFailure;
+				return false;
+			}
+			if (mission.m_aGunShopItems
+				&& mission.m_aGunShopItems.Count() != 0)
+			{
+				evidence
+					= "exact rescue controlled-shutdown mission contains foreign gun-shop item rows";
+				return false;
+			}
+
+			array<ref HST_MissionAssetState> captives = {};
+			CollectExactCaptives(state, mission, captives);
+			if (captives.Count() != EXACT_CAPTIVE_COUNT)
+			{
+				evidence = "exact rescue controlled-shutdown requires exactly three captive rows";
+				return false;
+			}
+			array<int> ordinals = {};
+			int extracted;
+			int dead;
+			foreach (HST_MissionAssetState captive : captives)
+			{
+				if (!IsExactRescueCaptiveAsset(state, captive)
+					|| ordinals.Contains(captive.m_iRescueOrdinal))
+				{
+					evidence = "exact rescue controlled-shutdown captive identity or ordinal conflicts";
+					return false;
+				}
+				ordinals.Insert(captive.m_iRescueOrdinal);
+
+				IEntity captiveEntity;
+				IEntity carrierEntity;
+				BaseCompartmentSlot captiveSlot;
+				string observedSeatToken;
+				string topologyEvidence;
+				if (!m_MissionRuntime.InspectExactRescueRuntimeTopologyReadOnly(
+					state,
+					mission,
+					captive,
+					captiveEntity,
+					carrierEntity,
+					captiveSlot,
+					observedSeatToken,
+					topologyEvidence,
+					requirePreparedAuthority))
+				{
+					evidence = topologyEvidence;
+					return false;
+				}
+				if (carrierEntity
+					&& IsControlledShutdownRescuePlayerUsingCarrier(carrierEntity))
+				{
+					evidence
+						= HST_PhysicalWarService.CONTROLLED_SHUTDOWN_PLAYER_RELEASE_EVIDENCE
+						+ " | exact rescue mission carrier is player-occupied or a player is changing compartments";
+					return false;
+				}
+				HST_MissionCaptiveFollowComponent followComponent;
+				if (captiveEntity)
+				{
+					followComponent = HST_MissionCaptiveFollowComponent.Cast(
+						captiveEntity.FindComponent(
+							HST_MissionCaptiveFollowComponent));
+					if (!followComponent
+						|| !followComponent.PreflightControlledShutdownQuiescence(
+							evidence))
+					{
+						if (evidence.IsEmpty())
+						{
+							evidence
+								= "exact rescue controlled-shutdown live captive follower is not ready";
+						}
+						return false;
+					}
+					if (candidateCaptives.Find(captiveEntity) >= 0)
+					{
+						evidence
+							= "exact rescue controlled-shutdown live captive identity is duplicated";
+						return false;
+					}
+					candidateCaptives.Insert(captiveEntity);
+					candidateCaptiveCarriers.Insert(carrierEntity);
+					candidateCaptiveSlots.Insert(captiveSlot);
+					candidateCaptiveRequiresSeat.Insert(captiveSlot != null);
+				}
+				if (carrierEntity)
+				{
+					int candidateCarrierIndex
+						= candidateCarriers.Find(carrierEntity);
+					if (candidateCarrierIndex < 0)
+					{
+						if (candidateCarrierIds.Contains(
+							captive.m_sRescueCarrierVehicleId))
+						{
+							evidence
+								= "exact rescue controlled-shutdown carrier runtime identity resolves to multiple roots";
+							return false;
+						}
+						candidateCarriers.Insert(carrierEntity);
+						candidateCarrierIds.Insert(
+							captive.m_sRescueCarrierVehicleId);
+					}
+					else if (candidateCarrierIndex >= candidateCarrierIds.Count()
+						|| candidateCarrierIds[candidateCarrierIndex]
+							!= captive.m_sRescueCarrierVehicleId)
+					{
+						evidence
+							= "exact rescue controlled-shutdown shared carrier identity conflicts";
+						return false;
+					}
+				}
+
+				HST_MissionRuntimeEntityState runtimeProjection;
+				if (!TryResolveUniqueMissionRuntimeProjectionReadOnly(
+					state, captive.m_sRescueProjectionId, runtimeProjection, evidence))
+					return false;
+				HST_RuntimeVehicleState carrierRecord;
+				if (!TryResolveUniqueMissionCarrierReadOnly(
+					state, captive.m_sRescueCarrierVehicleId, carrierRecord, evidence))
+					return false;
+				if (requirePreparedAuthority
+					&& (!IsPreparedCaptiveCompatibilityExact(captive)
+					|| !IsPreparedCaptiveRuntimeProjectionExact(
+						mission, captive, runtimeProjection)))
+				{
+					evidence = "exact rescue controlled-shutdown captive durable preparation is not exact";
+					return false;
+				}
+				if (captive.m_eRescueDisposition
+					== HST_ERescueCaptiveDisposition.HST_RESCUE_CAPTIVE_DISPOSITION_EXTRACTED)
+					extracted++;
+				else if (captive.m_eRescueDisposition
+					== HST_ERescueCaptiveDisposition.HST_RESCUE_CAPTIVE_DISPOSITION_KILLED)
+					dead++;
+			}
+
+			array<ref HST_MissionObjectiveState> objectives = {};
+			if (!CollectControlledShutdownMissionObjectivesReadOnly(
+				state, mission, objectives, evidence))
+				return false;
+			if (requirePreparedAuthority)
+			{
+				if (mission.m_iRequiredCaptiveCount != EXACT_CAPTIVE_COUNT
+					|| mission.m_iExtractedCaptiveCount != extracted
+					|| mission.m_iRuntimeDeliveryCount != extracted
+					|| mission.m_iRuntimeDestroyedCount != dead)
+				{
+					evidence = "exact rescue controlled-shutdown prepared mission counters are not exact";
+					return false;
+				}
+				bool objectiveComplete = extracted == EXACT_CAPTIVE_COUNT
+					&& AreAllRequiredCaptivesExtracted(state, mission);
+				foreach (HST_MissionObjectiveState objective : objectives)
+				{
+					if (objective.m_iRequiredCount != EXACT_CAPTIVE_COUNT
+						|| objective.m_iCurrentCount != extracted
+						|| objective.m_iRequiredProgress != EXACT_CAPTIVE_COUNT
+						|| objective.m_iCurrentProgress != extracted
+						|| objective.m_bComplete != objectiveComplete)
+					{
+						evidence = "exact rescue controlled-shutdown prepared objective projection is not exact";
+						return false;
+					}
+				}
+			}
+		}
+		if (!PreflightControlledShutdownCarrierScopesReadOnly(
+			candidateCarriers,
+			candidateCarrierIds,
+			candidateCaptives,
+			candidateCaptiveCarriers,
+			candidateCaptiveSlots,
+			candidateCaptiveRequiresSeat,
+			evidence))
+			return false;
+		evidence = string.Format(
+			"exact rescue controlled-shutdown durable sample preflight exact | prepared/scope %1/%2",
+			requirePreparedAuthority,
+			openOperationCount);
+		return true;
+	}
+
+	protected bool BuildControlledShutdownPersistencePins(
+		HST_CampaignState state,
+		out string evidence)
+	{
+		evidence = "exact rescue controlled-shutdown durable sample pinning was rejected";
+		if (!state || m_bControlledShutdownPersistenceSampleApplied)
+			return false;
+		m_ControlledShutdownPersistenceState = null;
+		m_aControlledShutdownPersistencePins.Clear();
+		m_aControlledShutdownCarrierPins.Clear();
+
+		foreach (HST_OperationRecordState operation : state.m_aOperations)
+		{
+			if (!IsOpenExactRescueOperation(operation))
+				continue;
+			HST_ActiveMissionState mission;
+			HST_ForceManifestState manifest;
+			HST_ForceSpawnResultState batch;
+			HST_ActiveGroupState group;
+			string graphFailure = ResolveRuntimeContext(
+				state, operation, mission, manifest, batch, group);
+			if (!graphFailure.IsEmpty())
+			{
+				m_aControlledShutdownPersistencePins.Clear();
+				return false;
+			}
+
+			HST_ControlledShutdownRescueOperationSamplePin operationPin
+				= new HST_ControlledShutdownRescueOperationSamplePin();
+			operationPin.m_Operation = operation;
+			operationPin.m_Mission = mission;
+			operationPin.m_GuardGroup = group;
+			operationPin.m_sOperationId = operation.m_sOperationId;
+			operationPin.m_sMissionId = mission.m_sInstanceId;
+			operationPin.m_sOperationSample = BuildControlledShutdownOperationSample(operation);
+			operationPin.m_sMissionSample = BuildControlledShutdownMissionSample(mission);
+			operationPin.m_sGuardSample = BuildControlledShutdownGroupSample(group);
+
+			array<ref HST_MissionAssetState> captives = {};
+			CollectExactCaptives(state, mission, captives);
+			foreach (HST_MissionAssetState captive : captives)
+			{
+				HST_MissionRuntimeEntityState runtimeProjection;
+				HST_RuntimeVehicleState carrierRecord;
+				if (!TryResolveUniqueMissionRuntimeProjectionReadOnly(
+					state, captive.m_sRescueProjectionId, runtimeProjection, evidence)
+					|| !TryResolveUniqueMissionCarrierReadOnly(
+						state, captive.m_sRescueCarrierVehicleId, carrierRecord, evidence))
+				{
+					m_aControlledShutdownPersistencePins.Clear();
+					return false;
+				}
+				HST_ControlledShutdownRescueCaptiveSamplePin captivePin
+					= new HST_ControlledShutdownRescueCaptiveSamplePin();
+				captivePin.m_Captive = captive;
+				captivePin.m_RuntimeProjection = runtimeProjection;
+				captivePin.m_CarrierRecord = carrierRecord;
+				captivePin.m_sAssetId = captive.m_sAssetId;
+				captivePin.m_sProjectionId = captive.m_sRescueProjectionId;
+				captivePin.m_sCarrierId = captive.m_sRescueCarrierVehicleId;
+				captivePin.m_sCaptiveSample = BuildControlledShutdownCaptiveSample(captive);
+				captivePin.m_sRuntimeProjectionSample
+					= BuildControlledShutdownRuntimeProjectionSample(runtimeProjection);
+				captivePin.m_sCarrierSample
+					= BuildControlledShutdownCarrierSample(carrierRecord);
+
+				IEntity captiveEntity;
+				IEntity carrierEntity;
+				BaseCompartmentSlot captiveSlot;
+				string observedSeatToken;
+				if (!m_MissionRuntime.InspectExactRescueRuntimeTopologyReadOnly(
+					state,
+					mission,
+					captive,
+					captiveEntity,
+					carrierEntity,
+					captiveSlot,
+					observedSeatToken,
+					evidence,
+					true))
+				{
+					m_aControlledShutdownPersistencePins.Clear();
+					return false;
+				}
+				captivePin.m_CaptiveEntity = captiveEntity;
+				captivePin.m_CarrierEntity = carrierEntity;
+				captivePin.m_CaptiveSlot = captiveSlot;
+				captivePin.m_sObservedSeatToken = observedSeatToken;
+				if (captiveEntity)
+				{
+					captivePin.m_FollowComponent
+						= HST_MissionCaptiveFollowComponent.Cast(
+							captiveEntity.FindComponent(
+								HST_MissionCaptiveFollowComponent));
+					if (!captivePin.m_FollowComponent)
+					{
+						evidence
+							= "exact rescue controlled-shutdown live captive lacks its follower quiescence owner";
+						m_aControlledShutdownPersistencePins.Clear();
+						return false;
+					}
+					if (!captivePin.m_FollowComponent.PreflightControlledShutdownQuiescence(
+						evidence))
+					{
+						m_aControlledShutdownPersistencePins.Clear();
+						m_aControlledShutdownCarrierPins.Clear();
+						return false;
+					}
+					captivePin.m_vCaptivePosition = captiveEntity.GetOrigin();
+					captivePin.m_vCaptiveAngles
+						= HST_WorldPositionService.BuildUprightAnglesFromVector(
+							captiveEntity.GetYawPitchRoll());
+				}
+				operationPin.m_aCaptives.Insert(captivePin);
+			}
+
+			array<ref HST_MissionObjectiveState> objectives = {};
+			if (!CollectControlledShutdownMissionObjectivesReadOnly(
+				state, mission, objectives, evidence))
+			{
+				m_aControlledShutdownPersistencePins.Clear();
+				return false;
+			}
+			foreach (HST_MissionObjectiveState objective : objectives)
+			{
+				operationPin.m_aObjectives.Insert(objective);
+				operationPin.m_aObjectiveSamples.Insert(
+					BuildControlledShutdownObjectiveSample(objective));
+			}
+			m_aControlledShutdownPersistencePins.Insert(operationPin);
+		}
+
+		foreach (HST_ControlledShutdownRescueOperationSamplePin pinnedOperation : m_aControlledShutdownPersistencePins)
+		{
+			foreach (HST_ControlledShutdownRescueCaptiveSamplePin pinnedCaptive : pinnedOperation.m_aCaptives)
+			{
+				if (!pinnedCaptive || !pinnedCaptive.m_CarrierEntity)
+					continue;
+				HST_ControlledShutdownRescueCarrierPin existingCarrierPin
+					= FindControlledShutdownCarrierPin(pinnedCaptive.m_CarrierEntity);
+				if (existingCarrierPin)
+				{
+					if (existingCarrierPin.m_Record != pinnedCaptive.m_CarrierRecord
+						|| existingCarrierPin.m_sRuntimeId != pinnedCaptive.m_sCarrierId)
+					{
+						evidence
+							= "exact rescue controlled-shutdown shared carrier identity conflicts";
+						m_aControlledShutdownPersistencePins.Clear();
+						m_aControlledShutdownCarrierPins.Clear();
+						return false;
+					}
+					continue;
+				}
+
+				HST_ControlledShutdownRescueCarrierPin carrierPin
+					= new HST_ControlledShutdownRescueCarrierPin();
+				carrierPin.m_Entity = pinnedCaptive.m_CarrierEntity;
+				carrierPin.m_Record = pinnedCaptive.m_CarrierRecord;
+				carrierPin.m_sRuntimeId = pinnedCaptive.m_sCarrierId;
+				carrierPin.m_Entity.GetTransform(carrierPin.m_aTransform);
+				if (!CollectControlledShutdownCarrierCompartmentPins(
+					carrierPin.m_Entity,
+					carrierPin.m_aCompartmentSlots,
+					carrierPin.m_aCompartmentOccupants,
+					evidence))
+				{
+					m_aControlledShutdownPersistencePins.Clear();
+					m_aControlledShutdownCarrierPins.Clear();
+					return false;
+				}
+				m_aControlledShutdownCarrierPins.Insert(carrierPin);
+			}
+		}
+		if (!ValidateControlledShutdownCarrierOccupantScope(evidence))
+		{
+			m_aControlledShutdownPersistencePins.Clear();
+			m_aControlledShutdownCarrierPins.Clear();
+			return false;
+		}
+		m_ControlledShutdownPersistenceState = state;
+		evidence = string.Format(
+			"exact rescue controlled-shutdown pinned %1 prepared operation(s) and %2 carrier root(s)",
+			m_aControlledShutdownPersistencePins.Count(),
+			m_aControlledShutdownCarrierPins.Count());
+		return true;
+	}
+
+	protected bool ValidateControlledShutdownPersistenceFence(
+		HST_CampaignState state,
+		out string evidence,
+		bool requireNativeQuiescence = true)
+	{
+		evidence = "exact rescue controlled-shutdown pinned durable authority changed";
+		if (!m_bControlledShutdownPersistenceSampleApplied || !state
+			|| state != m_ControlledShutdownPersistenceState
+			|| !ValidateNoOpenMaterializingExactRescue(state, evidence))
+			return false;
+
+		int openOperationCount;
+		foreach (HST_OperationRecordState operation : state.m_aOperations)
+		{
+			if (IsOpenExactRescueOperation(operation))
+				openOperationCount++;
+		}
+		if (openOperationCount != m_aControlledShutdownPersistencePins.Count())
+		{
+			evidence = "exact rescue controlled-shutdown open operation scope changed after pinning";
+			return false;
+		}
+
+		array<string> operationIds = {};
+		foreach (HST_ControlledShutdownRescueOperationSamplePin operationPin : m_aControlledShutdownPersistencePins)
+		{
+			if (!operationPin || operationPin.m_sOperationId.IsEmpty()
+				|| operationIds.Contains(operationPin.m_sOperationId)
+				|| !ValidateControlledShutdownOperationPin(
+					state, operationPin, evidence, requireNativeQuiescence))
+				return false;
+			operationIds.Insert(operationPin.m_sOperationId);
+		}
+		if (requireNativeQuiescence
+			&& (!ValidateControlledShutdownNativeDomainFences(state, evidence)
+				|| !ValidateControlledShutdownCarrierPins(state, evidence)))
+			return false;
+		return true;
+	}
+
+	protected bool ValidateControlledShutdownOperationPin(
+		HST_CampaignState state,
+		HST_ControlledShutdownRescueOperationSamplePin pin,
+		out string evidence,
+		bool requireNativeQuiescence)
+	{
+		if (!pin.m_Operation || !pin.m_Mission || !pin.m_GuardGroup
+			|| state.m_aOperations.Find(pin.m_Operation) < 0
+			|| state.FindOperation(pin.m_sOperationId) != pin.m_Operation
+			|| !IsOpenExactRescueOperation(pin.m_Operation)
+			|| pin.m_sOperationSample
+				!= BuildControlledShutdownOperationSample(pin.m_Operation))
+			return false;
+
+		HST_ActiveMissionState mission;
+		HST_ForceManifestState manifest;
+		HST_ForceSpawnResultState batch;
+		HST_ActiveGroupState group;
+		string graphFailure = ResolveRuntimeContext(
+			state, pin.m_Operation, mission, manifest, batch, group);
+		if (!graphFailure.IsEmpty() || mission != pin.m_Mission
+			|| group != pin.m_GuardGroup || mission.m_sInstanceId != pin.m_sMissionId
+			|| pin.m_sMissionSample != BuildControlledShutdownMissionSample(mission)
+			|| pin.m_sGuardSample != BuildControlledShutdownGroupSample(group))
+		{
+			evidence = "exact rescue controlled-shutdown pinned operation graph or values changed";
+			return false;
+		}
+
+		array<ref HST_MissionAssetState> captives = {};
+		CollectExactCaptives(state, mission, captives);
+		if (captives.Count() != pin.m_aCaptives.Count()
+			|| pin.m_aCaptives.Count() != EXACT_CAPTIVE_COUNT)
+		{
+			evidence = "exact rescue controlled-shutdown pinned captive scope changed";
+			return false;
+		}
+		array<string> assetIds = {};
+		foreach (HST_ControlledShutdownRescueCaptiveSamplePin captivePin : pin.m_aCaptives)
+		{
+			if (!captivePin || !captivePin.m_Captive
+				|| captivePin.m_sAssetId.IsEmpty()
+				|| assetIds.Contains(captivePin.m_sAssetId)
+				|| captives.Find(captivePin.m_Captive) < 0
+				|| state.FindMissionAsset(captivePin.m_sAssetId) != captivePin.m_Captive
+				|| captivePin.m_sProjectionId
+					!= captivePin.m_Captive.m_sRescueProjectionId
+				|| captivePin.m_sCarrierId
+					!= captivePin.m_Captive.m_sRescueCarrierVehicleId
+				|| captivePin.m_sCaptiveSample
+					!= BuildControlledShutdownCaptiveSample(captivePin.m_Captive))
+			{
+				evidence = "exact rescue controlled-shutdown pinned captive identity or values changed";
+				return false;
+			}
+			HST_MissionRuntimeEntityState runtimeProjection;
+			HST_RuntimeVehicleState carrierRecord;
+			if (!TryResolveUniqueMissionRuntimeProjectionReadOnly(
+				state, captivePin.m_sProjectionId, runtimeProjection, evidence)
+				|| runtimeProjection != captivePin.m_RuntimeProjection
+				|| captivePin.m_sRuntimeProjectionSample
+					!= BuildControlledShutdownRuntimeProjectionSample(runtimeProjection)
+				|| !TryResolveUniqueMissionCarrierReadOnly(
+					state, captivePin.m_sCarrierId, carrierRecord, evidence)
+				|| carrierRecord != captivePin.m_CarrierRecord
+				|| captivePin.m_sCarrierSample
+					!= BuildControlledShutdownCarrierSample(carrierRecord))
+			{
+				evidence = "exact rescue controlled-shutdown pinned projection or carrier DTO changed";
+				return false;
+			}
+			if (requireNativeQuiescence
+				&& !ValidateControlledShutdownCaptiveNativePin(
+					state,
+					mission,
+					captivePin,
+					evidence))
+				return false;
+			assetIds.Insert(captivePin.m_sAssetId);
+		}
+
+		array<ref HST_MissionObjectiveState> objectives = {};
+		if (!CollectControlledShutdownMissionObjectivesReadOnly(
+			state, mission, objectives, evidence)
+			|| objectives.Count() != pin.m_aObjectives.Count()
+			|| pin.m_aObjectives.Count() != pin.m_aObjectiveSamples.Count())
+		{
+			evidence = "exact rescue controlled-shutdown pinned objective scope changed";
+			return false;
+		}
+		for (int objectiveIndex = 0; objectiveIndex < pin.m_aObjectives.Count(); objectiveIndex++)
+		{
+			HST_MissionObjectiveState objective = pin.m_aObjectives[objectiveIndex];
+			if (!objective || objectives.Find(objective) < 0
+				|| pin.m_aObjectiveSamples[objectiveIndex]
+					!= BuildControlledShutdownObjectiveSample(objective))
+			{
+				evidence = "exact rescue controlled-shutdown pinned objective identity or values changed";
+				return false;
+			}
+		}
+		return true;
+	}
+
+	protected bool ValidateControlledShutdownNativeDomainFences(
+		HST_CampaignState state,
+		out string evidence)
+	{
+		if (!state || !m_PhysicalWar
+			|| !m_PhysicalWar.HasControlledShutdownActiveGroupQuiescenceApplied()
+			|| !m_PhysicalWar.IsControlledShutdownActiveGroupQuiescenceExact(state))
+		{
+			evidence
+				= "exact rescue controlled-shutdown guard native fence is not exact";
+			return false;
+		}
+		return true;
+	}
+
+	protected HST_ControlledShutdownRescueCarrierPin FindControlledShutdownCarrierPin(
+		IEntity carrier)
+	{
+		if (!carrier)
+			return null;
+		foreach (HST_ControlledShutdownRescueCarrierPin pin : m_aControlledShutdownCarrierPins)
+		{
+			if (pin && pin.m_Entity == carrier)
+				return pin;
+		}
+		return null;
+	}
+
+	protected bool PreflightControlledShutdownCarrierScopesReadOnly(
+		array<IEntity> carriers,
+		array<string> carrierIds,
+		array<IEntity> captives,
+		array<IEntity> captiveCarriers,
+		array<BaseCompartmentSlot> captiveSlots,
+		array<bool> captiveRequiresSeat,
+		out string evidence)
+	{
+		evidence
+			= "exact rescue controlled-shutdown carrier scope preflight was rejected";
+		if (!carriers || !carrierIds || !captives || !captiveCarriers
+			|| !captiveSlots || !captiveRequiresSeat
+			|| carriers.Count() != carrierIds.Count()
+			|| captives.Count() != captiveCarriers.Count()
+			|| captives.Count() != captiveSlots.Count()
+			|| captives.Count() != captiveRequiresSeat.Count())
+			return false;
+		foreach (IEntity carrier : carriers)
+		{
+			int carrierIndex = carriers.Find(carrier);
+			if (!carrier || !carrier.GetWorld() || carrierIndex < 0
+				|| carrierIndex >= carrierIds.Count()
+				|| carrierIds[carrierIndex].IsEmpty()
+				|| IsControlledShutdownRescueRuntimeProxy(carrier))
+				return false;
+			if (IsControlledShutdownRescuePlayerUsingCarrier(carrier))
+			{
+				evidence
+					= HST_PhysicalWarService.CONTROLLED_SHUTDOWN_PLAYER_RELEASE_EVIDENCE
+					+ " | exact rescue mission carrier is player-occupied or a player is changing compartments";
+				return false;
+			}
+
+			array<BaseCompartmentSlot> slots = {};
+			array<IEntity> occupants = {};
+			if (!CollectControlledShutdownCarrierCompartmentPins(
+				carrier, slots, occupants, evidence))
+				return false;
+			array<IEntity> observedCaptives = {};
+			for (int slotIndex; slotIndex < slots.Count(); slotIndex++)
+			{
+				BaseCompartmentSlot slot = slots[slotIndex];
+				IEntity occupant = occupants[slotIndex];
+				BaseCompartmentManagerComponent manager;
+				if (slot)
+					manager = slot.GetManager();
+				if (!slot || slot.GetVehicle() != carrier || !manager
+					|| !manager.GetOwner()
+					|| !IsEntityWithinControlledShutdownCarrierRoot(
+						manager.GetOwner(), carrier)
+					|| slot.GetOccupant() != occupant)
+				{
+					evidence
+						= "exact rescue controlled-shutdown carrier compartment topology is not read-only exact";
+					return false;
+				}
+				if (!occupant)
+					continue;
+				int captiveIndex = captives.Find(occupant);
+				if (captiveIndex < 0
+					|| captiveIndex >= captiveCarriers.Count()
+					|| captiveIndex >= captiveSlots.Count()
+					|| captiveCarriers[captiveIndex] != carrier
+					|| captiveSlots[captiveIndex] != slot
+					|| observedCaptives.Find(occupant) >= 0)
+				{
+					evidence
+						= "exact rescue controlled-shutdown carrier contains foreign or ambiguous live occupancy";
+					return false;
+				}
+				observedCaptives.Insert(occupant);
+			}
+			for (int captiveIndex; captiveIndex < captives.Count(); captiveIndex++)
+			{
+				if (captiveCarriers[captiveIndex] != carrier)
+					continue;
+				// Prepared BOARDING authority deliberately has a carrier but no
+				// occupied seat yet. Only topology that actually observed a seat
+				// may require the captive to be present in the compartment scope.
+				if (!captiveRequiresSeat[captiveIndex])
+					continue;
+				if (!captives[captiveIndex] || !captiveSlots[captiveIndex]
+					|| observedCaptives.Find(captives[captiveIndex]) < 0)
+				{
+					evidence
+						= "exact rescue controlled-shutdown captive is absent from its carrier seat scope";
+					return false;
+				}
+			}
+		}
+		return true;
+	}
+
+	protected bool CollectControlledShutdownCarrierCompartmentPins(
+		IEntity entity,
+		array<BaseCompartmentSlot> slots,
+		array<IEntity> occupants,
+		out string evidence)
+	{
+		if (!entity || !entity.GetWorld() || !slots || !occupants
+			|| slots.Count() != occupants.Count()
+			|| IsControlledShutdownRescueRuntimeProxy(entity))
+		{
+			evidence
+				= "exact rescue controlled-shutdown carrier compartment root is unavailable or proxy-local";
+			return false;
+		}
+
+		array<Managed> managedComponents = {};
+		int managerCount
+			= entity.FindComponents(BaseCompartmentManagerComponent, managedComponents);
+		if (managerCount != managedComponents.Count())
+			return false;
+		foreach (Managed managedComponent : managedComponents)
+		{
+			BaseCompartmentManagerComponent manager
+				= BaseCompartmentManagerComponent.Cast(managedComponent);
+			if (!manager || manager.GetOwner() != entity)
+				return false;
+			array<BaseCompartmentSlot> managedSlots = {};
+			int managedSlotCount = manager.GetCompartments(managedSlots);
+			if (managedSlotCount != managedSlots.Count())
+				return false;
+			foreach (BaseCompartmentSlot slot : managedSlots)
+			{
+				if (!slot || slot.GetManager() != manager || slots.Find(slot) >= 0)
+					return false;
+				slots.Insert(slot);
+				occupants.Insert(slot.GetOccupant());
+			}
+		}
+
+		IEntity child = entity.GetChildren();
+		while (child)
+		{
+			if (!CollectControlledShutdownCarrierCompartmentPins(
+				child,
+				slots,
+				occupants,
+				evidence))
+				return false;
+			child = child.GetSibling();
+		}
+		return slots.Count() == occupants.Count();
+	}
+
+	protected bool ValidateControlledShutdownCarrierOccupantScope(
+		out string evidence)
+	{
+		array<IEntity> uniqueCarriers = {};
+		array<string> uniqueCarrierIds = {};
+		foreach (HST_ControlledShutdownRescueCarrierPin carrierPin : m_aControlledShutdownCarrierPins)
+		{
+			if (!carrierPin || !carrierPin.m_Entity || !carrierPin.m_Entity.GetWorld()
+				|| carrierPin.m_sRuntimeId.IsEmpty() || !carrierPin.m_Record
+				|| uniqueCarriers.Find(carrierPin.m_Entity) >= 0
+				|| uniqueCarrierIds.Contains(carrierPin.m_sRuntimeId)
+				|| carrierPin.m_aCompartmentSlots.Count()
+					!= carrierPin.m_aCompartmentOccupants.Count()
+				|| IsControlledShutdownRescueRuntimeProxy(carrierPin.m_Entity)
+				|| IsControlledShutdownRescuePlayerUsingCarrier(carrierPin.m_Entity))
+			{
+				evidence
+					= "exact rescue controlled-shutdown carrier identity, locality, or player safety conflicts";
+				return false;
+			}
+			uniqueCarriers.Insert(carrierPin.m_Entity);
+			uniqueCarrierIds.Insert(carrierPin.m_sRuntimeId);
+
+			array<IEntity> expectedCaptives = {};
+			foreach (HST_ControlledShutdownRescueOperationSamplePin operationPin : m_aControlledShutdownPersistencePins)
+			{
+				foreach (HST_ControlledShutdownRescueCaptiveSamplePin captivePin : operationPin.m_aCaptives)
+				{
+					if (!captivePin || captivePin.m_CarrierEntity != carrierPin.m_Entity
+						|| !captivePin.m_CaptiveEntity)
+						continue;
+					if (expectedCaptives.Find(captivePin.m_CaptiveEntity) >= 0)
+					{
+						evidence
+							= "exact rescue controlled-shutdown carrier captive identity is duplicated";
+						return false;
+					}
+					expectedCaptives.Insert(captivePin.m_CaptiveEntity);
+					if (captivePin.m_CaptiveSlot
+						&& (carrierPin.m_aCompartmentSlots.Find(captivePin.m_CaptiveSlot) < 0
+							|| captivePin.m_CaptiveSlot.GetOccupant()
+								!= captivePin.m_CaptiveEntity))
+					{
+						evidence
+							= "exact rescue controlled-shutdown captive seat is outside its pinned carrier";
+						return false;
+					}
+				}
+			}
+
+			for (int slotIndex; slotIndex < carrierPin.m_aCompartmentSlots.Count(); slotIndex++)
+			{
+				BaseCompartmentSlot slot = carrierPin.m_aCompartmentSlots[slotIndex];
+				IEntity expectedOccupant = carrierPin.m_aCompartmentOccupants[slotIndex];
+				BaseCompartmentManagerComponent manager;
+				if (slot)
+					manager = slot.GetManager();
+				if (!slot || slot.GetVehicle() != carrierPin.m_Entity
+					|| !manager || !manager.GetOwner()
+					|| !IsEntityWithinControlledShutdownCarrierRoot(
+						manager.GetOwner(), carrierPin.m_Entity)
+					|| slot.GetOccupant() != expectedOccupant)
+				{
+					evidence
+						= "exact rescue controlled-shutdown carrier compartment topology changed";
+					return false;
+				}
+				if (expectedOccupant && expectedCaptives.Find(expectedOccupant) < 0)
+				{
+					evidence
+						= "exact rescue controlled-shutdown carrier contains foreign live occupancy";
+					return false;
+				}
+			}
+		}
+		return true;
+	}
+
+	protected bool ApplyControlledShutdownNativePins(
+		HST_CampaignState state,
+		out string evidence)
+	{
+		if (!ValidateControlledShutdownNativeDomainFences(state, evidence)
+			|| !ValidateControlledShutdownCarrierOccupantScope(evidence))
+			return false;
+
+		// Re-run identity, seat, damage, and player topology for every native
+		// captive before touching any carrier. Transform drift is intentionally
+		// repairable from the pins; destruction or topology drift is not.
+		foreach (HST_ControlledShutdownRescueOperationSamplePin operationPin : m_aControlledShutdownPersistencePins)
+		{
+			foreach (HST_ControlledShutdownRescueCaptiveSamplePin captivePin : operationPin.m_aCaptives)
+			{
+				if (!ValidateControlledShutdownCaptiveNativeIdentity(
+					state,
+					operationPin.m_Mission,
+					captivePin,
+					evidence,
+					false))
+					return false;
+			}
+		}
+
+		foreach (HST_ControlledShutdownRescueCarrierPin carrierPin : m_aControlledShutdownCarrierPins)
+		{
+			if (!carrierPin || !carrierPin.m_Entity || !carrierPin.m_Entity.GetWorld()
+				|| IsControlledShutdownRescueRuntimeProxy(carrierPin.m_Entity)
+				|| IsControlledShutdownRescuePlayerUsingCarrier(carrierPin.m_Entity))
+			{
+				evidence
+					= "exact rescue controlled-shutdown carrier became unsafe before quiescence";
+				return false;
+			}
+			carrierPin.m_Entity.SetTransform(carrierPin.m_aTransform);
+			if (!QuiesceControlledShutdownRescueCarrier(carrierPin.m_Entity, evidence))
+				return false;
+		}
+
+		foreach (HST_ControlledShutdownRescueOperationSamplePin operationPin : m_aControlledShutdownPersistencePins)
+		{
+			foreach (HST_ControlledShutdownRescueCaptiveSamplePin captivePin : operationPin.m_aCaptives)
+			{
+				if (!captivePin || !captivePin.m_CaptiveEntity)
+					continue;
+				if (!ValidateControlledShutdownCaptiveNativeIdentity(
+					state,
+					operationPin.m_Mission,
+					captivePin,
+					evidence,
+					false))
+					return false;
+				if (!captivePin.m_FollowComponent.PrepareControlledShutdownQuiescence(evidence))
+					return false;
+				if (!captivePin.m_CarrierEntity)
+				{
+					HST_WorldPositionService.ApplyUprightEntityTransform(
+						captivePin.m_CaptiveEntity,
+						captivePin.m_vCaptivePosition,
+						captivePin.m_vCaptiveAngles);
+				}
+				if (!captivePin.m_FollowComponent.MaintainControlledShutdownQuiescence(evidence))
+					return false;
+				if (!ValidateControlledShutdownCaptiveNativeIdentity(
+					state,
+					operationPin.m_Mission,
+					captivePin,
+					evidence,
+					true))
+					return false;
+			}
+		}
+		return true;
+	}
+
+	protected bool ValidateControlledShutdownCaptiveNativeIdentity(
+		HST_CampaignState state,
+		HST_ActiveMissionState mission,
+		HST_ControlledShutdownRescueCaptiveSamplePin pin,
+		out string evidence,
+		bool requirePinnedPose)
+	{
+		IEntity captiveEntity;
+		IEntity carrierEntity;
+		BaseCompartmentSlot captiveSlot;
+		string observedSeatToken;
+		if (!pin || !m_MissionRuntime
+			|| !m_MissionRuntime.InspectExactRescueRuntimeTopologyReadOnly(
+				state,
+				mission,
+				pin.m_Captive,
+				captiveEntity,
+				carrierEntity,
+				captiveSlot,
+				observedSeatToken,
+				evidence,
+				requirePinnedPose))
+			return false;
+		SCR_DamageManagerComponent captiveDamage;
+		if (captiveEntity)
+		{
+			captiveDamage = SCR_DamageManagerComponent.Cast(
+				captiveEntity.FindComponent(SCR_DamageManagerComponent));
+		}
+		SCR_DamageManagerComponent carrierDamage;
+		if (carrierEntity)
+		{
+			carrierDamage = SCR_DamageManagerComponent.Cast(
+				carrierEntity.FindComponent(SCR_DamageManagerComponent));
+		}
+		if ((captiveDamage
+				&& captiveDamage.GetState() == EDamageState.DESTROYED)
+			|| (carrierDamage
+				&& carrierDamage.GetState() == EDamageState.DESTROYED))
+		{
+			evidence
+				= "exact rescue controlled-shutdown captive or carrier was destroyed after pinning";
+			return false;
+		}
+		if (captiveEntity != pin.m_CaptiveEntity
+			|| carrierEntity != pin.m_CarrierEntity
+			|| captiveSlot != pin.m_CaptiveSlot
+			|| observedSeatToken != pin.m_sObservedSeatToken
+			|| (captiveEntity && (!pin.m_FollowComponent
+				|| pin.m_FollowComponent.GetOwner() != captiveEntity)))
+		{
+			evidence
+				= "exact rescue controlled-shutdown captive native identity or seat topology changed";
+			return false;
+		}
+		return true;
+	}
+
+	protected bool ValidateControlledShutdownCaptiveNativePin(
+		HST_CampaignState state,
+		HST_ActiveMissionState mission,
+		HST_ControlledShutdownRescueCaptiveSamplePin pin,
+		out string evidence)
+	{
+		if (!ValidateControlledShutdownCaptiveNativeIdentity(
+			state,
+			mission,
+			pin,
+			evidence,
+			true))
+			return false;
+		if (!pin.m_CaptiveEntity)
+			return true;
+		if (!pin.m_FollowComponent
+			|| !pin.m_FollowComponent.IsControlledShutdownQuiescenceExact())
+		{
+			evidence
+				= "exact rescue controlled-shutdown captive follower is not quiescent";
+			return false;
+		}
+		if (pin.m_CarrierEntity)
+			return FindControlledShutdownCarrierPin(pin.m_CarrierEntity) != null;
+		return IsExactRescueControlledShutdownPositionExact(
+				pin.m_CaptiveEntity.GetOrigin(),
+				pin.m_vCaptivePosition)
+			&& AreExactRescueControlledShutdownAnglesExact(
+				pin.m_CaptiveEntity.GetYawPitchRoll(),
+				pin.m_vCaptiveAngles);
+	}
+
+	protected bool IsExactRescueControlledShutdownPositionExact(
+		vector first,
+		vector second)
+	{
+		float deltaX = first[0] - second[0];
+		float deltaY = first[1] - second[1];
+		float deltaZ = first[2] - second[2];
+		return deltaX * deltaX + deltaY * deltaY + deltaZ * deltaZ
+			<= 0.0001;
+	}
+
+	protected bool AreExactRescueControlledShutdownAnglesExact(
+		vector first,
+		vector second)
+	{
+		return IsExactRescueControlledShutdownAngleExact(first[0], second[0])
+			&& IsExactRescueControlledShutdownAngleExact(first[1], second[1])
+			&& IsExactRescueControlledShutdownAngleExact(first[2], second[2]);
+	}
+
+	protected bool IsExactRescueControlledShutdownAngleExact(
+		float first,
+		float second)
+	{
+		float difference = Math.AbsFloat(first - second);
+		while (difference >= 360.0)
+			difference -= 360.0;
+		if (difference > 180.0)
+			difference = 360.0 - difference;
+		return difference <= 0.01;
+	}
+
+	protected bool ValidateControlledShutdownCarrierPins(
+		HST_CampaignState state,
+		out string evidence)
+	{
+		if (!ValidateControlledShutdownCarrierOccupantScope(evidence))
+			return false;
+		foreach (HST_ControlledShutdownRescueCarrierPin pin : m_aControlledShutdownCarrierPins)
+		{
+			if (!pin || !pin.m_Entity || !pin.m_Record
+				|| state.FindRuntimeVehicle(pin.m_sRuntimeId) != pin.m_Record
+				|| pin.m_Record.m_sRuntimeKind != "mission_carrier"
+				|| IsControlledShutdownRescuePlayerUsingCarrier(pin.m_Entity)
+				|| !IsControlledShutdownRescueTransformPinned(pin.m_Entity, pin.m_aTransform)
+				|| !IsControlledShutdownRescueVehicleQuiescent(pin.m_Entity))
+			{
+				evidence
+					= "exact rescue controlled-shutdown carrier pin is no longer exact";
+				return false;
+			}
+		}
+		return true;
+	}
+
+	protected bool IsControlledShutdownRescuePlayerUsingCarrier(IEntity carrier)
+	{
+		if (!carrier || !carrier.GetWorld())
+			return true;
+		PlayerManager playerManager = GetGame().GetPlayerManager();
+		if (!playerManager)
+			return true;
+		array<int> playerIds = {};
+		playerManager.GetPlayers(playerIds);
+		foreach (int playerId : playerIds)
+		{
+			array<IEntity> playerEntities = {};
+			IEntity controlled = playerManager.GetPlayerControlledEntity(playerId);
+			IEntity main = SCR_PossessingManagerComponent.GetPlayerMainEntity(playerId);
+			if (controlled)
+				playerEntities.Insert(controlled);
+			if (main && main != controlled)
+				playerEntities.Insert(main);
+			foreach (IEntity playerEntity : playerEntities)
+			{
+				if (!playerEntity || !playerEntity.GetWorld())
+					continue;
+				if (playerEntity == carrier
+					|| IsEntityWithinControlledShutdownCarrierRoot(playerEntity, carrier))
+					return true;
+				SCR_CompartmentAccessComponent access
+					= SCR_CompartmentAccessComponent.Cast(
+						playerEntity.FindComponent(SCR_CompartmentAccessComponent));
+				if (access && ((access.IsInCompartment()
+						&& access.GetVehicle() == carrier)
+					|| access.IsGettingIn() || access.IsGettingOut()
+					|| access.IsSwitchingSeatsAnim()))
+					return true;
+			}
+		}
+		return false;
+	}
+
+	protected bool IsEntityWithinControlledShutdownCarrierRoot(
+		IEntity entity,
+		IEntity root)
+	{
+		IEntity cursor = entity;
+		for (int depth; depth < 64 && cursor; depth++)
+		{
+			if (cursor == root)
+				return true;
+			IEntity parent = cursor.GetParent();
+			if (parent == cursor)
+				return false;
+			cursor = parent;
+		}
+		return false;
+	}
+
+	protected bool QuiesceControlledShutdownRescueCarrier(
+		IEntity carrier,
+		out string evidence)
+	{
+		if (!carrier || !carrier.GetWorld()
+			|| IsControlledShutdownRescueRuntimeProxy(carrier)
+			|| IsControlledShutdownRescuePlayerUsingCarrier(carrier))
+			return false;
+		if (!QuiesceControlledShutdownRescuePhysicsHierarchy(carrier))
+		{
+			evidence
+				= "exact rescue controlled-shutdown carrier physics quiescence failed";
+			return false;
+		}
+		return true;
+	}
+
+	protected bool QuiesceControlledShutdownRescuePhysicsHierarchy(IEntity entity)
+	{
+		if (!entity || !entity.GetWorld()
+			|| IsControlledShutdownRescueRuntimeProxy(entity))
+			return false;
+		BaseVehicleControllerComponent controller
+			= BaseVehicleControllerComponent.Cast(
+				entity.FindComponent(BaseVehicleControllerComponent));
+		if (controller)
+		{
+			controller.Shutdown();
+			controller.StopEngine(false);
+		}
+		CarControllerComponent carController
+			= CarControllerComponent.Cast(
+				entity.FindComponent(CarControllerComponent));
+		if (carController)
+			carController.SetPersistentHandBrake(true);
+		HelicopterControllerComponent helicopterController
+			= HelicopterControllerComponent.Cast(
+				entity.FindComponent(HelicopterControllerComponent));
+		if (helicopterController)
+		{
+			helicopterController.SetPersistentWheelBrake(true);
+			helicopterController.SetAutohoverEnabled(true);
+		}
+		IEntity child = entity.GetChildren();
+		while (child)
+		{
+			if (!QuiesceControlledShutdownRescuePhysicsHierarchy(child))
+				return false;
+			child = child.GetSibling();
+		}
+		Physics physics = entity.GetPhysics();
+		if (physics && physics.IsDynamic())
+		{
+			physics.ClearForces();
+			physics.SetVelocity(vector.Zero);
+			physics.SetAngularVelocity(vector.Zero);
+			physics.SetActive(ActiveState.INACTIVE);
+		}
+		return true;
+	}
+
+	protected bool IsControlledShutdownRescueVehicleQuiescent(IEntity entity)
+	{
+		if (!entity || !entity.GetWorld()
+			|| IsControlledShutdownRescueRuntimeProxy(entity))
+			return false;
+		BaseVehicleControllerComponent controller
+			= BaseVehicleControllerComponent.Cast(
+				entity.FindComponent(BaseVehicleControllerComponent));
+		if (controller && controller.IsEngineOn())
+			return false;
+		CarControllerComponent carController
+			= CarControllerComponent.Cast(
+				entity.FindComponent(CarControllerComponent));
+		if (carController && !carController.GetPersistentHandBrake())
+			return false;
+		HelicopterControllerComponent helicopterController
+			= HelicopterControllerComponent.Cast(
+				entity.FindComponent(HelicopterControllerComponent));
+		if (helicopterController
+			&& (!helicopterController.GetPersistentWheelBrake()
+				|| !helicopterController.GetAutohoverEnabled()))
+			return false;
+		Physics physics = entity.GetPhysics();
+		if (physics && physics.IsDynamic()
+			&& (physics.IsActive()
+				|| !IsControlledShutdownRescueZeroVector(physics.GetVelocity())
+				|| !IsControlledShutdownRescueZeroVector(physics.GetAngularVelocity())))
+			return false;
+		IEntity child = entity.GetChildren();
+		while (child)
+		{
+			if (!IsControlledShutdownRescueVehicleQuiescent(child))
+				return false;
+			child = child.GetSibling();
+		}
+		return true;
+	}
+
+	protected bool IsControlledShutdownRescueTransformPinned(
+		IEntity entity,
+		vector expectedTransform[4])
+	{
+		if (!entity || !entity.GetWorld())
+			return false;
+		vector currentTransform[4];
+		entity.GetTransform(currentTransform);
+		for (int index; index < 4; index++)
+		{
+			if (!IsControlledShutdownRescueVectorNear(
+				currentTransform[index],
+				expectedTransform[index]))
+				return false;
+		}
+		return true;
+	}
+
+	protected bool IsControlledShutdownRescueVectorNear(vector first, vector second)
+	{
+		return Math.AbsFloat(first[0] - second[0]) <= 0.001
+			&& Math.AbsFloat(first[1] - second[1]) <= 0.001
+			&& Math.AbsFloat(first[2] - second[2]) <= 0.001;
+	}
+
+	protected bool IsControlledShutdownRescueZeroVector(vector value)
+	{
+		return Math.AbsFloat(value[0]) <= 0.001
+			&& Math.AbsFloat(value[1]) <= 0.001
+			&& Math.AbsFloat(value[2]) <= 0.001;
+	}
+
+	protected bool IsControlledShutdownRescueRuntimeProxy(IEntity entity)
+	{
+		if (!entity)
+			return true;
+		BaseRplComponent replication
+			= BaseRplComponent.Cast(entity.FindComponent(BaseRplComponent));
+		return replication && replication.IsProxy();
+	}
+
+	protected bool TryResolveUniqueMissionRuntimeProjectionReadOnly(
+		HST_CampaignState state,
+		string projectionId,
+		out HST_MissionRuntimeEntityState projection,
+		out string evidence)
+	{
+		projection = null;
+		if (!state || projectionId.IsEmpty())
+		{
+			evidence = "exact rescue controlled-shutdown durable projection identity is unavailable";
+			return false;
+		}
+		int matches;
+		foreach (HST_MissionRuntimeEntityState candidate : state.m_aMissionRuntimeEntities)
+		{
+			if (!candidate || candidate.m_sRuntimeEntityId != projectionId)
+				continue;
+			matches++;
+			projection = candidate;
+		}
+		if (matches > 1)
+		{
+			evidence = "exact rescue controlled-shutdown durable projection identity is duplicated";
+			return false;
+		}
+		return true;
+	}
+
+	protected bool TryResolveUniqueMissionCarrierReadOnly(
+		HST_CampaignState state,
+		string carrierId,
+		out HST_RuntimeVehicleState carrier,
+		out string evidence)
+	{
+		carrier = null;
+		if (!state)
+			return false;
+		if (carrierId.IsEmpty())
+			return true;
+		int matches;
+		foreach (HST_RuntimeVehicleState candidate : state.m_aRuntimeVehicles)
+		{
+			if (!candidate || candidate.m_sVehicleRuntimeId != carrierId)
+				continue;
+			matches++;
+			carrier = candidate;
+		}
+		if (matches != 1 || !carrier || carrier.m_sRuntimeKind != "mission_carrier")
+		{
+			evidence = "exact rescue controlled-shutdown durable carrier row is absent, duplicate, or foreign";
+			return false;
+		}
+		return true;
+	}
+
+	protected bool CollectControlledShutdownMissionObjectivesReadOnly(
+		HST_CampaignState state,
+		HST_ActiveMissionState mission,
+		array<ref HST_MissionObjectiveState> output,
+		out string evidence)
+	{
+		if (!state || !mission || !output)
+			return false;
+		output.Clear();
+		array<string> objectiveIds = {};
+		foreach (HST_MissionObjectiveState objective : state.m_aMissionObjectives)
+		{
+			if (!objective || objective.m_sMissionInstanceId != mission.m_sInstanceId)
+				continue;
+			if (objective.m_sObjectiveId.IsEmpty()
+				|| objectiveIds.Contains(objective.m_sObjectiveId))
+			{
+				evidence = "exact rescue controlled-shutdown mission objective identity is empty or duplicated";
+				return false;
+			}
+			objectiveIds.Insert(objective.m_sObjectiveId);
+			output.Insert(objective);
+		}
+		return true;
+	}
+
+	protected bool IsPreparedCaptiveCompatibilityExact(HST_MissionAssetState captive)
+	{
+		if (!captive || captive.m_iRescueContractVersion != EXACT_CONTRACT_VERSION)
+			return false;
+		HST_ERescueCaptiveDisposition disposition = captive.m_eRescueDisposition;
+		if (disposition == HST_ERescueCaptiveDisposition.HST_RESCUE_CAPTIVE_DISPOSITION_UNKNOWN)
+			return false;
+		bool picked = disposition != HST_ERescueCaptiveDisposition.HST_RESCUE_CAPTIVE_DISPOSITION_HELD;
+		bool delivered = disposition == HST_ERescueCaptiveDisposition.HST_RESCUE_CAPTIVE_DISPOSITION_EXTRACTED;
+		bool destroyed = disposition == HST_ERescueCaptiveDisposition.HST_RESCUE_CAPTIVE_DISPOSITION_KILLED;
+		bool attached = disposition == HST_ERescueCaptiveDisposition.HST_RESCUE_CAPTIVE_DISPOSITION_FOLLOWING
+			|| disposition == HST_ERescueCaptiveDisposition.HST_RESCUE_CAPTIVE_DISPOSITION_BOARDING
+			|| disposition == HST_ERescueCaptiveDisposition.HST_RESCUE_CAPTIVE_DISPOSITION_BOARDED;
+		string carriedBy;
+		if (attached)
+		{
+			carriedBy = captive.m_sRescueCarrierVehicleId;
+			if (carriedBy.IsEmpty())
+				carriedBy = captive.m_sRescueEscortIdentityId;
+		}
+		string interaction;
+		if (disposition == HST_ERescueCaptiveDisposition.HST_RESCUE_CAPTIVE_DISPOSITION_HELD)
+			interaction = "held";
+		else if (disposition == HST_ERescueCaptiveDisposition.HST_RESCUE_CAPTIVE_DISPOSITION_FREED)
+			interaction = "freed";
+		else if (disposition == HST_ERescueCaptiveDisposition.HST_RESCUE_CAPTIVE_DISPOSITION_FOLLOWING)
+			interaction = "following";
+		else if (disposition == HST_ERescueCaptiveDisposition.HST_RESCUE_CAPTIVE_DISPOSITION_BOARDING)
+			interaction = "boarding";
+		else if (disposition == HST_ERescueCaptiveDisposition.HST_RESCUE_CAPTIVE_DISPOSITION_BOARDED)
+			interaction = "loaded";
+		else if (delivered)
+			interaction = "extracted";
+		else if (destroyed)
+			interaction = "killed";
+		return captive.m_bPickedUp == picked
+			&& captive.m_bDelivered == delivered
+			&& captive.m_bDestroyed == destroyed
+			&& captive.m_bAlive == !destroyed
+			&& captive.m_bAttachedToCarrier == attached
+			&& captive.m_sCarriedByVehicleId == carriedBy
+			&& captive.m_sLastInteraction == interaction
+			&& ((!delivered && !destroyed) || !captive.m_bSpawned);
+	}
+
+	protected bool IsPreparedCaptiveRuntimeProjectionExact(
+		HST_ActiveMissionState mission,
+		HST_MissionAssetState captive,
+		HST_MissionRuntimeEntityState projection)
+	{
+		if (!mission || !captive)
+			return false;
+		if (!projection)
+			return !captive.m_bSpawned;
+		bool killed = captive.m_eRescueDisposition
+			== HST_ERescueCaptiveDisposition.HST_RESCUE_CAPTIVE_DISPOSITION_KILLED;
+		bool extracted = captive.m_eRescueDisposition
+			== HST_ERescueCaptiveDisposition.HST_RESCUE_CAPTIVE_DISPOSITION_EXTRACTED;
+		return projection.m_sRuntimeEntityId == captive.m_sRescueProjectionId
+			&& projection.m_sMissionInstanceId == mission.m_sInstanceId
+			&& projection.m_sKind == captive.m_sKind
+			&& projection.m_sPrefab == captive.m_sPrefab
+			&& projection.m_bSpawned == captive.m_bSpawned
+			&& projection.m_bDestroyed == killed
+			&& projection.m_bRecovered == extracted;
+	}
+
+	protected string BuildControlledShutdownOperationSample(
+		HST_OperationRecordState operation)
+	{
+		if (!operation)
+			return "<absent-operation>";
+		string sample = string.Format(
+			"operation|id=%1|type=%2|contract=%3|owner=%4|actor=%5|issue=%6|confirmation=%7|support=%8|enemy=%9",
+			operation.m_sOperationId,
+			operation.m_eType,
+			operation.m_iContractVersion,
+			operation.m_sOwnerFactionKey,
+			operation.m_sActorIdentityId,
+			operation.m_sIssueRequestId,
+			operation.m_sConfirmationRequestId,
+			operation.m_sSupportRequestId,
+			operation.m_sEnemyOrderId);
+		sample += string.Format(
+			"|mission=%1|patrol=%2|quote=%3|manifest=%4|spawn=%5|force=%6|projection=%7|group=%8|originZone=%9",
+			operation.m_sMissionInstanceId,
+			operation.m_sLocalSecurityPatrolId,
+			operation.m_sQuoteId,
+			operation.m_sManifestId,
+			operation.m_sSpawnResultId,
+			operation.m_sForceId,
+			operation.m_sProjectionId,
+			operation.m_sGroupId,
+			operation.m_sOriginZoneId);
+		sample += string.Format(
+			"|originPosition=%1|assignmentKind=%2|assignmentZone=%3|assignmentPosition=%4|tacticalZone=%5|tacticalPosition=%6|strategicPosition=%7|route=%8|routeHash=%9",
+			operation.m_vOriginPosition,
+			operation.m_sAssignmentKind,
+			operation.m_sAssignmentZoneId,
+			operation.m_vAssignmentPosition,
+			operation.m_sTacticalTargetZoneId,
+			operation.m_vTacticalTargetPosition,
+			operation.m_vStrategicPosition,
+			operation.m_sCurrentRouteId,
+			operation.m_sRouteContractHash);
+		sample += string.Format(
+			"|projectionContract=%1|routeVersion=%2|waypoint=%3|lap=%4|leg=%5|loopStarted=%6|loopCompleted=%7|routeStart=%8|routeEnd=%9",
+			operation.m_iProjectionContractVersion,
+			operation.m_iRouteVersion,
+			operation.m_iRouteWaypointIndex,
+			operation.m_iRouteLapCount,
+			operation.m_iRouteLegSequence,
+			operation.m_iRouteLoopStartedAtSecond,
+			operation.m_iRouteLoopCompletedAtSecond,
+			operation.m_vRouteStartPosition,
+			operation.m_vRouteEndPosition);
+		sample += string.Format(
+			"|routeDistance=%1|routeProgress=%2|speed=%3|strategicUpdated=%4|projectionDecision=%5|restoreSequence=%6|virtualLast=%7|virtualStep=%8|friendlyCarry=%9",
+			operation.m_fRouteTotalDistanceMeters,
+			operation.m_fRouteProgressMeters,
+			operation.m_fStrategicSpeedMetersPerSecond,
+			operation.m_iStrategicLastUpdateSecond,
+			operation.m_iLastProjectionDecisionSecond,
+			operation.m_iLastNormalizedRestoreSequence,
+			operation.m_iVirtualCombatLastStepSecond,
+			operation.m_iVirtualCombatStepIndex,
+			operation.m_iVirtualCombatFriendlyDamageCarry);
+		sample += string.Format(
+			"|hostileCarry=%1|lastFriendly=%2|lastHostile=%3|arrivalCount=%4|arrivalSecond=%5|projectionReason=%6|virtualReason=%7|recall=%8|settlementPolicy=%9",
+			operation.m_iVirtualCombatHostileDamageCarry,
+			operation.m_iLastVirtualFriendlyCount,
+			operation.m_iLastVirtualHostileCount,
+			operation.m_iArrivalConfirmationCount,
+			operation.m_iLastArrivalConfirmationSecond,
+			operation.m_sLastProjectionReason,
+			operation.m_sLastVirtualCombatReason,
+			operation.m_sRecallPolicyId,
+			operation.m_sSettlementPolicyId);
+		sample += string.Format(
+			"|duty=%1|resumeDuty=%2|engagement=%3|materialization=%4|positionAuthority=%5|settlement=%6|terminal=%7|settlementId=%8|terminalReason=%9",
+			operation.m_eDutyState,
+			operation.m_eResumeDutyState,
+			operation.m_eEngagementMode,
+			operation.m_eMaterializationState,
+			operation.m_ePositionAuthority,
+			operation.m_eSettlementState,
+			operation.m_eTerminalResult,
+			operation.m_sSettlementId,
+			operation.m_sTerminalReason);
+		sample += string.Format(
+			"|seed=%1|created=%2|dutyEntered=%3|engagementEntered=%4|materializationEntered=%5|lastContact=%6|lastProgress=%7|settled=%8|revision=%9",
+			operation.m_iDeterministicSeed,
+			operation.m_iCreatedAtSecond,
+			operation.m_iDutyStateEnteredAtSecond,
+			operation.m_iEngagementStateEnteredAtSecond,
+			operation.m_iMaterializationStateEnteredAtSecond,
+			operation.m_iLastContactAtSecond,
+			operation.m_iLastProgressAtSecond,
+			operation.m_iSettledAtSecond,
+			operation.m_iRevision);
+		return sample;
+	}
+
+	protected string BuildControlledShutdownMissionSample(HST_ActiveMissionState mission)
+	{
+		if (!mission)
+			return "<absent-mission>";
+		int gunShopItemCount = -1;
+		if (mission.m_aGunShopItems)
+			gunShopItemCount = mission.m_aGunShopItems.Count();
+		string sample = string.Format(
+			"mission|instance=%1|mission=%2|display=%3|operation=%4|manifest=%5|spawn=%6|settlement=%7|operationContract=%8|radioContract=%9",
+			mission.m_sInstanceId,
+			mission.m_sMissionId,
+			mission.m_sDisplayName,
+			mission.m_sOperationId,
+			mission.m_sManifestId,
+			mission.m_sSpawnResultId,
+			mission.m_sSettlementId,
+			mission.m_iOperationContractVersion,
+			mission.m_iRadioSiteContractVersion);
+		sample += string.Format(
+			"|radioSite=%1|radioRequest=%2|radioRevision=%3|status=%4|runtimeMode=%5|remaining=%6|targetZone=%7|site=%8|targetPosition=%9",
+			mission.m_sRadioSiteId,
+			mission.m_sRadioSiteTransitionRequestId,
+			mission.m_iRadioSiteRevision,
+			mission.m_eStatus,
+			mission.m_eRuntimeMode,
+			mission.m_iRemainingSeconds,
+			mission.m_sTargetZoneId,
+			mission.m_sSiteId,
+			mission.m_vTargetPosition);
+		sample += string.Format(
+			"|extractionPosition=%1|marker=%2|primitive=%3|runtimeType=%4|phase=%5|failure=%6|runtimeEntity=%7|lastEvent=%8|started=%9",
+			mission.m_vRescueExtractionPosition,
+			mission.m_sMarkerId,
+			mission.m_sRuntimePrimitive,
+			mission.m_sRuntimeType,
+			mission.m_sRuntimePhase,
+			mission.m_sRuntimeFailureReason,
+			mission.m_sRuntimeEntityId,
+			mission.m_sLastRuntimeEventKey,
+			mission.m_iStartedAtSecond);
+		sample += string.Format(
+			"|activeUntil=%1|runtimeStarted=%2|hold=%3|eta=%4|counterA=%5|counterB=%6|counterC=%7|requiredCargo=%8|recoveredCargo=%9",
+			mission.m_iActiveUntilSecond,
+			mission.m_iRuntimeStartedAtSecond,
+			mission.m_iRuntimeHoldSeconds,
+			mission.m_iRuntimeETASeconds,
+			mission.m_iRuntimeCounterA,
+			mission.m_iRuntimeCounterB,
+			mission.m_iRuntimeCounterC,
+			mission.m_iRequiredCargoCount,
+			mission.m_iRecoveredCargoCount);
+		sample += string.Format(
+			"|requiredCaptives=%1|extractedCaptives=%2|rescueGraceUntil=%3|requiredVehicles=%4|capturedVehicles=%5|runtimePickups=%6|runtimeDeliveries=%7|runtimeDestroyed=%8|dynamic=%9",
+			mission.m_iRequiredCaptiveCount,
+			mission.m_iExtractedCaptiveCount,
+			mission.m_iRescueGraceUntilSecond,
+			mission.m_iRequiredVehicleCount,
+			mission.m_iCapturedVehicleCount,
+			mission.m_iRuntimePickupCount,
+			mission.m_iRuntimeDeliveryCount,
+			mission.m_iRuntimeDestroyedCount,
+			mission.m_bDynamic);
+		sample += string.Format(
+			"|requested=%1|static=%2|runtimeSpawned=%3|runtimeFallback=%4|cleanup=%5|rescueGrace=%6|createdNotice=%7|completedNotice=%8|failedNotice=%9",
+			mission.m_bRequested,
+			mission.m_bStatic,
+			mission.m_bRuntimeSpawned,
+			mission.m_bRuntimeFallback,
+			mission.m_bRuntimeCleanupComplete,
+			mission.m_bRescueExtractionGrace,
+			mission.m_bCreatedNotificationSent,
+			mission.m_bCompletedNotificationSent,
+			mission.m_bFailedNotificationSent);
+		sample += string.Format(
+			"|expiredNotice=%1|convoyArrival=%2|convoyCrew=%3|convoyVehicle=%4|convoyCargo=%5|convoyExpired=%6|convoySummary=%7|gunShopItems=%8|gunShopSeller=%9",
+			mission.m_bExpiredNotificationSent,
+			mission.m_bConvoyArrivalOutcomeApplied,
+			mission.m_bConvoyCrewEliminatedOutcomeApplied,
+			mission.m_bConvoyVehicleCapturedOutcomeApplied,
+			mission.m_bConvoyCargoDeliveredOutcomeApplied,
+			mission.m_bConvoyExpiredOutcomeApplied,
+			mission.m_sConvoyOutcomeSummary,
+			gunShopItemCount,
+			mission.m_sGunShopSellerAssetId);
+		sample += string.Format(
+			"|gunShopDriver=%1|gunShopVehicle=%2|gunShopMarker=%3|sellerPosition=%4|deliveryPosition=%5|stock=%6|purchase=%7|purchaseNotice=%8|expiryNotice=%9",
+			mission.m_sGunShopDeliveryDriverAssetId,
+			mission.m_sGunShopDeliveryVehicleAssetId,
+			mission.m_sGunShopDeliveryMarkerId,
+			mission.m_vGunShopSellerPosition,
+			mission.m_vGunShopDeliveryPosition,
+			mission.m_bGunShopStockGenerated,
+			mission.m_bGunShopPurchaseMade,
+			mission.m_bGunShopPurchaseNoticeSent,
+			mission.m_bGunShopExpiryNoticeSent);
+		sample += string.Format(
+			"|deliverySpawned=%1|deliveryNotice=%2|deliveryArrived=%3|purchasedTotal=%4|deliveryStarted=%5",
+			mission.m_bGunShopDeliverySpawned,
+			mission.m_bGunShopDeliveryNoticeSent,
+			mission.m_bGunShopDeliveryArrived,
+			mission.m_iGunShopPurchasedTotal,
+			mission.m_iGunShopDeliveryStartedAtSecond);
+		return sample;
+	}
+
+	protected string BuildControlledShutdownGroupSample(HST_ActiveGroupState group)
+	{
+		if (!group)
+			return "<absent-group>";
+		string sample = string.Format(
+			"group|id=%1|operation=%2|manifest=%3|spawn=%4|force=%5|projection=%6|zone=%7|faction=%8|mission=%9",
+			group.m_sGroupId,
+			group.m_sOperationId,
+			group.m_sManifestId,
+			group.m_sSpawnResultId,
+			group.m_sForceId,
+			group.m_sProjectionId,
+			group.m_sZoneId,
+			group.m_sFactionKey,
+			group.m_sMissionInstanceId);
+		sample += string.Format(
+			"|support=%1|enemy=%2|convoy=%3|asset=%4|garrison=%5|qrf=%6|patrol=%7|prefab=%8|vehiclePrefab=%9",
+			group.m_sSupportRequestId,
+			group.m_sEnemyOrderId,
+			group.m_sConvoyElementId,
+			group.m_sMissionAssetId,
+			group.m_sGarrisonZoneId,
+			group.m_sQRFInstanceId,
+			group.m_sLocalSecurityPatrolId,
+			group.m_sPrefab,
+			group.m_sVehiclePrefab);
+		sample += string.Format(
+			"|compositionRequest=%1|compositionIntent=%2|compositionTier=%3|compositionSummary=%4|fallback=%5|spawnFailure=%6|position=%7|route=%8|sourcePosition=%9",
+			group.m_sCompositionRequestId,
+			group.m_sCompositionIntentId,
+			group.m_sCompositionTier,
+			group.m_sCompositionSummary,
+			group.m_sSpawnFallbackMode,
+			group.m_sSpawnFailureReason,
+			group.m_vPosition,
+			group.m_sRouteId,
+			group.m_vSourcePosition);
+		sample += string.Format(
+			"|targetPosition=%1|runtimeEntity=%2|runtimeStatus=%3|infantry=%4|vehicles=%5|originalInfantry=%6|originalVehicles=%7|compositionCost=%8|compositionManpower=%9",
+			group.m_vTargetPosition,
+			group.m_sRuntimeEntityId,
+			group.m_sRuntimeStatus,
+			group.m_iInfantryCount,
+			group.m_iVehicleCount,
+			group.m_iOriginalInfantryCount,
+			group.m_iOriginalVehicleCount,
+			group.m_iCompositionCost,
+			group.m_iCompositionManpower);
+		sample += string.Format(
+			"|compositionVehicles=%1|compositionArmed=%2|spawnedAt=%3|lastSeen=%4|survivorInfantry=%5|survivorVehicles=%6|spawnedAgents=%7|waypoints=%8|maxCrew=%9",
+			group.m_iCompositionVehicleCount,
+			group.m_iCompositionArmedVehicleCount,
+			group.m_iSpawnedAtSecond,
+			group.m_iLastSeenAliveCount,
+			group.m_iSurvivorInfantryCount,
+			group.m_iSurvivorVehicleCount,
+			group.m_iSpawnedAgentCount,
+			group.m_iAssignedWaypointCount,
+			group.m_iMaxObservedCrewAlive);
+		sample += string.Format(
+			"|durableLiving=%1|combatInfantry=%2|mannedVehicles=%3|staticOperators=%4|sampleSecond=%5|lastCasualty=%6|eliminated=%7|revision=%8|everCrewed=%9",
+			group.m_iDurableLivingInfantryCount,
+			group.m_iCombatEffectiveInfantryCount,
+			group.m_iOperationalMannedVehicleCount,
+			group.m_iCombatEffectiveStaticOperatorCount,
+			group.m_iCombatPresenceSampleSecond,
+			group.m_iLastCasualtySecond,
+			group.m_iEliminatedAtSecond,
+			group.m_iLifecycleRevision,
+			group.m_bEverHadLivingCrew);
+		sample += string.Format(
+			"|sampleAuthoritative=%1|sampleReason=%2|everPopulated=%3|spawnCompleted=%4|crewFailed=%5|crewFailure=%6|convoyStage=%7|qrfFlag=%8|spawnAttempted=%9",
+			group.m_bCombatPresenceSampleAuthoritative,
+			group.m_sCombatPresenceSampleReason,
+			group.m_bEverPopulated,
+			group.m_bSpawnCompleted,
+			group.m_bCrewPopulationTerminallyFailed,
+			group.m_sCrewPopulationFailureReason,
+			group.m_sConvoyRuntimeStage,
+			group.m_bQRF,
+			group.m_bSpawnAttempted);
+		sample += string.Format("|spawnedEntity=%1", group.m_bSpawnedEntity);
+		return sample;
+	}
+
+	protected string BuildControlledShutdownCaptiveSample(HST_MissionAssetState captive)
+	{
+		if (!captive)
+			return "<absent-captive>";
+		string sample = string.Format(
+			"captive|id=%1|mission=%2|operation=%3|manifest=%4|slot=%5|vehicleSlot=%6|convoy=%7|kind=%8|role=%9",
+			captive.m_sAssetId,
+			captive.m_sMissionInstanceId,
+			captive.m_sOperationId,
+			captive.m_sManifestId,
+			captive.m_sManifestSlotId,
+			captive.m_sAssignedVehicleSlotId,
+			captive.m_sConvoyElementId,
+			captive.m_sKind,
+			captive.m_sRole);
+		sample += string.Format(
+			"|prefab=%1|entity=%2|carriedBy=%3|interaction=%4|spawned=%5|picked=%6|delivered=%7|destroyed=%8|alive=%9",
+			captive.m_sPrefab,
+			captive.m_sEntityId,
+			captive.m_sCarriedByVehicleId,
+			captive.m_sLastInteraction,
+			captive.m_bSpawned,
+			captive.m_bPickedUp,
+			captive.m_bDelivered,
+			captive.m_bDestroyed,
+			captive.m_bAlive);
+		sample += string.Format(
+			"|attached=%1|outcomeApplied=%2|outcome=%3|demolitionDamage=%4|demolitionRequired=%5|demolitionHits=%6|demolitionSource=%7|demolitionSecond=%8|sourcePosition=%9",
+			captive.m_bAttachedToCarrier,
+			captive.m_bOutcomeApplied,
+			captive.m_sOutcomeKind,
+			captive.m_fDemolitionDamage,
+			captive.m_fDemolitionRequiredDamage,
+			captive.m_iDemolitionHits,
+			captive.m_sLastDemolitionSource,
+			captive.m_iLastDemolitionSecond,
+			captive.m_vSourcePosition);
+		sample += string.Format(
+			"|targetPosition=%1|currentPosition=%2|lastPosition=%3|deadline=%4|cargoCost=%5|interactionRadius=%6|radioContract=%7|radioSite=%8|radioOwnership=%9",
+			captive.m_vTargetPosition,
+			captive.m_vCurrentPosition,
+			captive.m_vLastKnownPosition,
+			captive.m_iDeadlineSecond,
+			captive.m_iCargoCapacityCost,
+			captive.m_iInteractionRadiusMeters,
+			captive.m_iRadioSiteContractVersion,
+			captive.m_sRadioSiteId,
+			captive.m_eRadioSiteTargetOwnership);
+		sample += string.Format(
+			"|radioPrefab=%1|radioPosition=%2|rescueContract=%3|ordinal=%4|disposition=%5|escort=%6|carrier=%7|seat=%8|lastRequest=%9",
+			captive.m_sRadioSiteAuthoredTargetPrefab,
+			captive.m_vRadioSiteAuthoredTargetPosition,
+			captive.m_iRescueContractVersion,
+			captive.m_iRescueOrdinal,
+			captive.m_eRescueDisposition,
+			captive.m_sRescueEscortIdentityId,
+			captive.m_sRescueCarrierVehicleId,
+			captive.m_sRescueCarrierSeatToken,
+			captive.m_sRescueLastCommandRequestId);
+		sample += string.Format(
+			"|lastResult=%1|casualtyReceipt=%2|extractionReceipt=%3|projection=%4|transitionSecond=%5|rescueRevision=%6|projectionGeneration=%7|deathObserved=%8|extractionObserved=%9",
+			captive.m_sRescueLastCommandResult,
+			captive.m_sRescueCasualtyReceiptId,
+			captive.m_sRescueExtractionReceiptId,
+			captive.m_sRescueProjectionId,
+			captive.m_iRescueTransitionSecond,
+			captive.m_iRescueRevision,
+			captive.m_iRescueProjectionGeneration,
+			captive.m_bRescueDeathObserved,
+			captive.m_bRescueExtractionObserved);
+
+		if (!captive.m_aDemolitionEvidenceKeys)
+			sample += "|demolitionEvidence=<null>";
+		else
+		{
+			sample += string.Format(
+				"|demolitionEvidenceCount=%1",
+				captive.m_aDemolitionEvidenceKeys.Count());
+			for (int demolitionIndex = 0; demolitionIndex < captive.m_aDemolitionEvidenceKeys.Count(); demolitionIndex++)
+			{
+				sample += string.Format(
+					"|demolitionEvidence[%1]=%2",
+					demolitionIndex,
+					captive.m_aDemolitionEvidenceKeys[demolitionIndex]);
+			}
+		}
+		if (!captive.m_aRescueCommandReceipts)
+			sample += "|receipts=<null>";
+		else
+		{
+			sample += string.Format(
+				"|receiptCount=%1",
+				captive.m_aRescueCommandReceipts.Count());
+			for (int receiptIndex = 0; receiptIndex < captive.m_aRescueCommandReceipts.Count(); receiptIndex++)
+			{
+				HST_RescueCommandReceiptState receipt
+					= captive.m_aRescueCommandReceipts[receiptIndex];
+				if (!receipt)
+				{
+					sample += string.Format("|receipt[%1]=<null>", receiptIndex);
+					continue;
+				}
+				sample += string.Format(
+					"|receipt[%1].request=%2|actor=%3|command=%4|result=%5|revision=%6",
+					receiptIndex,
+					receipt.m_sRequestId,
+					receipt.m_sActorIdentityId,
+					receipt.m_sCommand,
+					receipt.m_sResult,
+					receipt.m_iRecordedRevision);
+			}
+		}
+		return sample;
+	}
+
+	protected string BuildControlledShutdownObjectiveSample(HST_MissionObjectiveState objective)
+	{
+		if (!objective)
+			return "<absent-objective>";
+		string sample = string.Format(
+			"objective|id=%1|mission=%2|type=%3|label=%4|requirement=%5|target=%6|targetZone=%7|physical=%8|runtime=%9",
+			objective.m_sObjectiveId,
+			objective.m_sMissionInstanceId,
+			objective.m_eType,
+			objective.m_sLabel,
+			objective.m_sRequirementText,
+			objective.m_sTargetId,
+			objective.m_sTargetZoneId,
+			objective.m_sPhysicalEntityId,
+			objective.m_sLinkedRuntimeEntityId);
+		sample += string.Format(
+			"|primitive=%1|position=%2|requiredProgress=%3|currentProgress=%4|hold=%5|requiredHold=%6|currentCount=%7|requiredCount=%8|extractionStarted=%9",
+			objective.m_sRuntimePrimitive,
+			objective.m_vPosition,
+			objective.m_iRequiredProgress,
+			objective.m_iCurrentProgress,
+			objective.m_iHoldSeconds,
+			objective.m_iRequiredHoldSeconds,
+			objective.m_iCurrentCount,
+			objective.m_iRequiredCount,
+			objective.m_bExtractionStarted);
+		sample += string.Format(
+			"|deliveryStarted=%1|complete=%2|failed=%3|cleanup=%4|worldDetected=%5|abstractFallback=%6",
+			objective.m_bDeliveryStarted,
+			objective.m_bComplete,
+			objective.m_bFailed,
+			objective.m_bCleanupComplete,
+			objective.m_bWorldDetected,
+			objective.m_bAbstractFallback);
+		return sample;
+	}
+
+	protected string BuildControlledShutdownRuntimeProjectionSample(
+		HST_MissionRuntimeEntityState projection)
+	{
+		if (!projection)
+			return "<absent-runtime-projection>";
+		return string.Format(
+			"runtimeProjection|id=%1|mission=%2|kind=%3|prefab=%4|position=%5|angles=%6|spawned=%7|destroyed=%8|recovered=%9",
+			projection.m_sRuntimeEntityId,
+			projection.m_sMissionInstanceId,
+			projection.m_sKind,
+			projection.m_sPrefab,
+			projection.m_vPosition,
+			projection.m_vAngles,
+			projection.m_bSpawned,
+			projection.m_bDestroyed,
+			projection.m_bRecovered);
+	}
+
+	protected string BuildControlledShutdownCarrierSample(HST_RuntimeVehicleState carrier)
+	{
+		if (!carrier)
+			return "<absent-carrier>";
+		string sample = string.Format(
+			"carrier|id=%1|prefab=%2|display=%3|faction=%4|zone=%5|kind=%6|sourceKind=%7|position=%8|angles=%9",
+			carrier.m_sVehicleRuntimeId,
+			carrier.m_sPrefab,
+			carrier.m_sDisplayName,
+			carrier.m_sFactionKey,
+			carrier.m_sZoneId,
+			carrier.m_sRuntimeKind,
+			carrier.m_sSourceVehicleKind,
+			carrier.m_vPosition,
+			carrier.m_vAngles);
+		sample += string.Format(
+			"|spawned=%1|detached=%2|deleted=%3|ammo=%4|repair=%5|fuel=%6|reported=%7|undercover=%8|heat=%9",
+			carrier.m_iSpawnedAtSecond,
+			carrier.m_bDetached,
+			carrier.m_bDeleted,
+			carrier.m_bAmmoSource,
+			carrier.m_bRepairSource,
+			carrier.m_bFuelSource,
+			carrier.m_bReported,
+			carrier.m_bCanProvideUndercover,
+			carrier.m_iVehicleHeat);
+		sample += string.Format(
+			"|lastReported=%1|reportedUntil=%2|heatChanged=%3|passengerCompromise=%4|reportedReason=%5|reporterZone=%6",
+			carrier.m_iLastReportedSecond,
+			carrier.m_iReportedUntilSecond,
+			carrier.m_iLastVehicleHeatChangedSecond,
+			carrier.m_iPassengerCompromiseCount,
+			carrier.m_sLastReportedReason,
+			carrier.m_sLastReporterZoneId);
+		return sample;
+	}
+
 	bool PrepareOpenPhysicalAuthorityForPersistence(HST_CampaignState state, out string failure)
 	{
 		failure = "";
-		if (!state || !m_SpawnQueue || !m_SpawnAdapter || !m_PhysicalWar || !m_MissionRuntime)
+		if (!state)
+		{
+			failure = "exact rescue persistence reconciliation state is unavailable";
+			return false;
+		}
+		// Scan the complete exact-rescue scope before any operation can be
+		// reconciled. A later MATERIALIZING row must not be discovered only after an
+		// earlier row has already mutated, and guard spawn state is intentionally
+		// irrelevant to this rejection.
+		if (!ValidateNoOpenMaterializingExactRescue(state, failure))
+			return false;
+		if (m_bControlledShutdownPersistenceSampleApplied)
+			return MaintainControlledShutdownPersistenceSample(state, failure);
+		if (!m_SpawnQueue || !m_SpawnAdapter || !m_PhysicalWar || !m_MissionRuntime)
 		{
 			failure = "exact rescue persistence reconciliation services are unavailable";
 			return false;
@@ -3188,6 +5223,14 @@ class HST_RescuePOWOperationService
 				|| operation.m_iContractVersion != EXACT_CONTRACT_VERSION
 				|| operation.m_eSettlementState != HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_OPEN)
 				continue;
+			if (operation.m_eMaterializationState
+				== HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_MATERIALIZING)
+			{
+				failure = "exact rescue persistence cannot sample MATERIALIZING authority";
+				if (!operation.m_sOperationId.IsEmpty())
+					failure += ": " + operation.m_sOperationId;
+				return false;
+			}
 			HST_ActiveMissionState mission;
 			HST_ForceManifestState manifest;
 			HST_ForceSpawnResultState batch;
@@ -3237,17 +5280,18 @@ class HST_RescuePOWOperationService
 					}
 				}
 				ReconcileObservedCarrierState(state, mission, captive);
-				if (captive.m_eRescueDisposition == HST_ERescueCaptiveDisposition.HST_RESCUE_CAPTIVE_DISPOSITION_BOARDED)
+				if (!IsTerminalCaptiveDisposition(captive.m_eRescueDisposition))
 				{
-					IEntity carrier;
-					string seatToken;
-					vector carrierPosition;
-					string carrierEvidence;
-					if (!m_MissionRuntime.ResolveExactRescueCarrierEvidence(
-						state, mission, captive, carrier, seatToken, carrierPosition, carrierEvidence)
-						|| seatToken.IsEmpty())
+					string poseEvidence;
+					if (!m_MissionRuntime.SampleExactRescueRuntimePoseForPersistence(
+						state,
+						mission,
+						captive,
+						poseEvidence))
 					{
-						failure = "exact rescue boarded captive persistence evidence is unresolved: " + carrierEvidence;
+						failure
+							= "exact rescue captive persistence pose sample is unresolved: "
+								+ poseEvidence;
 						return false;
 					}
 				}

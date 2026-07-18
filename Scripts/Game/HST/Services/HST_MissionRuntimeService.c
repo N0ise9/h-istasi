@@ -1587,9 +1587,11 @@ class HST_MissionRuntimeService
 		if (access && access.IsInCompartment() && occupiedVehicle == carrierEntity)
 		{
 			BaseCompartmentSlot slot = access.GetCompartment();
-			if (!asset.m_sRescueCarrierSeatToken.IsEmpty())
-				seatToken = asset.m_sRescueCarrierSeatToken;
-			else if (slot)
+			// A live occupied slot is the current runtime authority. The durable
+			// token is only a restart fallback when no captive projection exists;
+			// preferring it here would make a legitimate seat change impossible to
+			// reconcile before the strict persistence pass.
+			if (slot)
 				seatToken = BuildExactRescueCarrierSeatToken(slot);
 		}
 		else if (!captiveEntity
@@ -1610,6 +1612,726 @@ class HST_MissionRuntimeService
 		else
 			evidence = "exact rescue carrier and occupied seat resolved from runtime evidence";
 		return true;
+	}
+
+	// The normal persistence pass is the authoritative final live-pose sampler for
+	// an exact rescue captive. Carrier/seat reconciliation runs immediately before
+	// this call; this method then resolves that topology read-only and folds one
+	// matching pose into every compatible DTO. Controlled shutdown later validates
+	// these values read-only.
+	bool SampleExactRescueRuntimePoseForPersistence(
+		HST_CampaignState state,
+		HST_ActiveMissionState mission,
+		HST_MissionAssetState asset,
+		out string evidence)
+	{
+		evidence = "exact rescue persistence pose sample is unavailable";
+		if (!state || !mission || !asset
+			|| !HST_RescuePOWOperationService.IsExactMission(mission)
+			|| !IsExactRescueCaptiveAsset(mission, asset))
+			return false;
+		if (asset.m_eRescueDisposition
+				== HST_ERescueCaptiveDisposition.HST_RESCUE_CAPTIVE_DISPOSITION_EXTRACTED
+			|| asset.m_eRescueDisposition
+				== HST_ERescueCaptiveDisposition.HST_RESCUE_CAPTIVE_DISPOSITION_KILLED)
+		{
+			evidence = "exact rescue terminal captive has no live pose authority to sample";
+			return true;
+		}
+
+		IEntity captiveEntity;
+		IEntity carrierEntity;
+		BaseCompartmentSlot captiveSlot;
+		string observedSeatToken;
+		if (!InspectExactRescueRuntimeTopologyReadOnly(
+				state,
+				mission,
+				asset,
+				captiveEntity,
+				carrierEntity,
+				captiveSlot,
+				observedSeatToken,
+				evidence,
+				false))
+			return false;
+		if (!captiveEntity)
+		{
+			if (!asset.m_bSpawned)
+			{
+				evidence
+					= "exact rescue captive has no live pose authority; durable folded pose retained";
+				return true;
+			}
+			return false;
+		}
+		if (captiveEntity.IsDeleted() || !captiveEntity.GetWorld())
+			return false;
+		SCR_DamageManagerComponent captiveDamage
+			= SCR_DamageManagerComponent.Cast(
+				captiveEntity.FindComponent(SCR_DamageManagerComponent));
+		if (captiveDamage
+			&& captiveDamage.GetState() == EDamageState.DESTROYED)
+			return false;
+
+		IEntity poseAuthority = captiveEntity;
+		HST_RuntimeVehicleState carrierRecord;
+		if (carrierEntity)
+		{
+			if (!IsExactRescueCarrierOperational(carrierEntity)
+				|| !TryResolveUniqueMissionCarrierRecordReadOnly(
+					state,
+					asset.m_sRescueCarrierVehicleId,
+					carrierRecord,
+					evidence)
+				|| !carrierRecord || carrierRecord.m_bDeleted
+				|| carrierRecord.m_sPrefab.IsEmpty())
+				return false;
+			poseAuthority = carrierEntity;
+		}
+
+		string projectionId = asset.m_sRescueProjectionId;
+		if (projectionId.IsEmpty())
+			projectionId = asset.m_sEntityId;
+		HST_MissionRuntimeEntityState runtimeProjection;
+		int runtimeProjectionMatches;
+		foreach (HST_MissionRuntimeEntityState candidateProjection : state.m_aMissionRuntimeEntities)
+		{
+			if (!candidateProjection
+				|| candidateProjection.m_sRuntimeEntityId != projectionId)
+				continue;
+			runtimeProjectionMatches++;
+			if (runtimeProjectionMatches > 1)
+				return false;
+			runtimeProjection = candidateProjection;
+		}
+		if (runtimeProjectionMatches != 1 || !runtimeProjection
+			|| runtimeProjection.m_sRuntimeEntityId != projectionId
+			|| runtimeProjection.m_sMissionInstanceId != mission.m_sInstanceId
+			|| runtimeProjection.m_sKind != asset.m_sKind
+			|| runtimeProjection.m_sPrefab != asset.m_sPrefab)
+			return false;
+		vector position = poseAuthority.GetOrigin();
+		vector angles = HST_WorldPositionService.BuildUprightAnglesFromVector(
+			poseAuthority.GetYawPitchRoll());
+		if (carrierEntity)
+		{
+			carrierRecord.m_vPosition = position;
+			carrierRecord.m_vAngles = angles;
+		}
+		asset.m_bSpawned = true;
+		asset.m_vCurrentPosition = position;
+		asset.m_vLastKnownPosition = position;
+		runtimeProjection.m_vPosition = position;
+		runtimeProjection.m_vAngles = angles;
+		runtimeProjection.m_bSpawned = true;
+		runtimeProjection.m_bDestroyed = false;
+		runtimeProjection.m_bRecovered = false;
+		evidence = "exact rescue live pose folded into captive and runtime projection DTOs";
+		return true;
+	}
+
+	// Controlled-shutdown rescue persistence must inspect the live captive and
+	// carrier topology without invoking the normal repair-oriented resolvers.
+	// Those resolvers can register vehicles, update durable transforms, restore
+	// projections, or clean duplicate bindings. This path deliberately performs
+	// none of those actions. The optional strict pass is used only after the
+	// normal persistence preparation has folded live evidence into durable DTOs.
+	bool InspectExactRescueRuntimeTopologyReadOnly(
+		HST_CampaignState state,
+		HST_ActiveMissionState mission,
+		HST_MissionAssetState asset,
+		out IEntity captiveEntity,
+		out IEntity carrierEntity,
+		out BaseCompartmentSlot captiveSlot,
+		out string observedSeatToken,
+		out string evidence,
+		bool requirePreparedAuthority = false)
+	{
+		captiveEntity = null;
+		carrierEntity = null;
+		captiveSlot = null;
+		observedSeatToken = "";
+		evidence = "exact rescue controlled-shutdown runtime topology is unavailable";
+		if (!state || !mission || !asset
+			|| !HST_RescuePOWOperationService.IsExactMission(mission)
+			|| !IsExactRescueCaptiveAsset(mission, asset))
+			return false;
+
+		string projectionId = asset.m_sRescueProjectionId;
+		if (projectionId.IsEmpty())
+			projectionId = asset.m_sEntityId;
+		if (projectionId.IsEmpty()
+			|| (!asset.m_sRescueProjectionId.IsEmpty()
+			&& !asset.m_sEntityId.IsEmpty()
+			&& asset.m_sRescueProjectionId != asset.m_sEntityId))
+		{
+			evidence = "exact rescue controlled-shutdown captive projection identity conflicts";
+			return false;
+		}
+		if (!TryResolveRuntimeEntityBindingReadOnly(projectionId, captiveEntity, evidence))
+			return false;
+		if (captiveEntity
+			&& (captiveEntity.IsDeleted() || !captiveEntity.GetWorld()
+			|| IsControlledShutdownRuntimeProxyReadOnly(captiveEntity)))
+		{
+			evidence = "exact rescue controlled-shutdown captive projection is deleted, detached, or proxy-local";
+			return false;
+		}
+		if (!captiveEntity && asset.m_bSpawned)
+		{
+			evidence = "exact rescue controlled-shutdown durable captive claims an absent live projection";
+			return false;
+		}
+		if (requirePreparedAuthority && captiveEntity)
+		{
+			SCR_DamageManagerComponent captiveDamage = SCR_DamageManagerComponent.Cast(
+				captiveEntity.FindComponent(SCR_DamageManagerComponent));
+			if (captiveDamage && captiveDamage.GetState() == EDamageState.DESTROYED)
+			{
+				evidence = "exact rescue controlled-shutdown prepared captive still has unresolved death evidence";
+				return false;
+			}
+		}
+
+		SCR_CompartmentAccessComponent captiveAccess;
+		IEntity occupiedVehicle;
+		if (captiveEntity)
+		{
+			captiveAccess = SCR_CompartmentAccessComponent.Cast(
+				captiveEntity.FindComponent(SCR_CompartmentAccessComponent));
+			if (captiveAccess && (captiveAccess.IsGettingIn()
+				|| captiveAccess.IsGettingOut()
+				|| captiveAccess.IsSwitchingSeatsAnim()))
+			{
+				evidence = "exact rescue controlled-shutdown captive compartment transition is still active";
+				return false;
+			}
+			if (captiveAccess && captiveAccess.IsInCompartment())
+			{
+				captiveSlot = captiveAccess.GetCompartment();
+				occupiedVehicle = captiveAccess.GetVehicle();
+				if (!captiveSlot || !occupiedVehicle)
+				{
+					evidence = "exact rescue controlled-shutdown captive compartment topology is incomplete";
+					return false;
+				}
+				observedSeatToken = BuildExactRescueCarrierSeatToken(captiveSlot);
+			}
+		}
+
+		bool carrierDisposition
+			= asset.m_eRescueDisposition
+				== HST_ERescueCaptiveDisposition.HST_RESCUE_CAPTIVE_DISPOSITION_BOARDING
+			|| asset.m_eRescueDisposition
+				== HST_ERescueCaptiveDisposition.HST_RESCUE_CAPTIVE_DISPOSITION_BOARDED;
+		if (!carrierDisposition)
+		{
+			if (!asset.m_sRescueCarrierVehicleId.IsEmpty() || occupiedVehicle)
+			{
+				evidence = "exact rescue controlled-shutdown non-carrier captive retains carrier topology";
+				return false;
+			}
+			if (requirePreparedAuthority && asset.m_bSpawned != (captiveEntity != null))
+			{
+				evidence = "exact rescue controlled-shutdown prepared captive projection flag is not exact";
+				return false;
+			}
+			if (requirePreparedAuthority && captiveEntity
+				&& !IsExactRescuePreparedRuntimePoseExact(
+					state,
+					mission,
+					asset,
+					captiveEntity,
+					null,
+					null))
+			{
+				evidence = "exact rescue controlled-shutdown prepared on-foot captive pose is not exact";
+				return false;
+			}
+			if (!ValidateExactRescueReadOnlyPlayerTopology(
+				state, asset, captiveEntity, null, evidence))
+				return false;
+			evidence = "exact rescue controlled-shutdown on-foot or folded captive topology is read-only exact";
+			return true;
+		}
+
+		if (asset.m_sRescueCarrierVehicleId.IsEmpty() || !captiveEntity || !captiveAccess)
+		{
+			evidence = "exact rescue controlled-shutdown carrier disposition lacks captive or carrier identity";
+			return false;
+		}
+		HST_RuntimeVehicleState carrierRecord;
+		if (!TryResolveUniqueMissionCarrierRecordReadOnly(
+			state, asset.m_sRescueCarrierVehicleId, carrierRecord, evidence))
+			return false;
+
+		if (occupiedVehicle)
+		{
+			if (ResolveEntityRuntimeId(occupiedVehicle) != asset.m_sRescueCarrierVehicleId)
+			{
+				evidence = "exact rescue controlled-shutdown captive occupies a foreign carrier";
+				return false;
+			}
+			carrierEntity = occupiedVehicle;
+		}
+
+		IEntity boundCarrier;
+		if (!TryResolveRuntimeEntityBindingReadOnly(
+			asset.m_sRescueCarrierVehicleId, boundCarrier, evidence))
+			return false;
+		if (boundCarrier)
+		{
+			if (ResolveEntityRuntimeId(boundCarrier) != asset.m_sRescueCarrierVehicleId
+				|| (carrierEntity && carrierEntity != boundCarrier))
+			{
+				evidence = "exact rescue controlled-shutdown carrier binding identity conflicts";
+				return false;
+			}
+			carrierEntity = boundCarrier;
+		}
+
+		IEntity playerCarrier;
+		if (!TryResolveExactRescuePlayerCarrierReadOnly(
+			asset.m_sRescueCarrierVehicleId, playerCarrier, evidence))
+			return false;
+		if (playerCarrier)
+		{
+			if (carrierEntity && carrierEntity != playerCarrier)
+			{
+				evidence = "exact rescue controlled-shutdown player carrier identity is ambiguous";
+				return false;
+			}
+			carrierEntity = playerCarrier;
+		}
+
+		IEntity worldCarrier;
+		if (!TryFindMissionVehicleByRuntimeIdReadOnly(
+			asset.m_sRescueCarrierVehicleId,
+			carrierRecord.m_vPosition,
+			worldCarrier,
+			evidence))
+			return false;
+		if (worldCarrier)
+		{
+			if (carrierEntity && carrierEntity != worldCarrier)
+			{
+				evidence = "exact rescue controlled-shutdown world carrier identity is ambiguous";
+				return false;
+			}
+			carrierEntity = worldCarrier;
+		}
+		if (!carrierEntity || carrierEntity.IsDeleted() || !carrierEntity.GetWorld()
+			|| IsControlledShutdownRuntimeProxyReadOnly(carrierEntity))
+		{
+			evidence = "exact rescue controlled-shutdown carrier root is absent, detached, or proxy-local";
+			return false;
+		}
+		if (requirePreparedAuthority
+			&& (!IsExactRescueCarrierOperational(carrierEntity)
+			|| carrierRecord.m_bDeleted || carrierRecord.m_sPrefab.IsEmpty()))
+		{
+			evidence = "exact rescue controlled-shutdown prepared carrier authority is not operational";
+			return false;
+		}
+		if (requirePreparedAuthority
+			&& !IsExactRescuePreparedRuntimePoseExact(
+				state,
+				mission,
+				asset,
+				captiveEntity,
+				carrierEntity,
+				carrierRecord))
+		{
+			evidence = "exact rescue controlled-shutdown prepared carrier/captive pose is not exact";
+			return false;
+		}
+		if (occupiedVehicle && occupiedVehicle != carrierEntity)
+		{
+			evidence = "exact rescue controlled-shutdown captive and durable carrier roots differ";
+			return false;
+		}
+		if (!ValidateExactRescueReadOnlyPlayerTopology(
+			state, asset, captiveEntity, carrierEntity, evidence))
+			return false;
+
+		if (asset.m_eRescueDisposition
+			== HST_ERescueCaptiveDisposition.HST_RESCUE_CAPTIVE_DISPOSITION_BOARDED)
+		{
+			BaseCompartmentManagerComponent captiveManager;
+			IEntity captiveManagerOwner;
+			if (captiveSlot)
+			{
+				captiveManager = captiveSlot.GetManager();
+				if (captiveManager)
+					captiveManagerOwner = captiveManager.GetOwner();
+			}
+			if (!occupiedVehicle || !captiveSlot || observedSeatToken.IsEmpty()
+				|| (requirePreparedAuthority
+					&& observedSeatToken != asset.m_sRescueCarrierSeatToken))
+			{
+				evidence = "exact rescue controlled-shutdown boarded captive seat authority is not exact";
+				return false;
+			}
+			if (captiveSlot.GetOccupant() != captiveEntity
+				|| !captiveManager || !captiveManagerOwner
+				|| !IsEntityWithinControlledShutdownRoot(
+					captiveManagerOwner,
+					carrierEntity)
+				|| !IsEntityWithinControlledShutdownRoot(
+					occupiedVehicle,
+					carrierEntity))
+			{
+				evidence = "exact rescue controlled-shutdown boarded captive reverse seat/root topology is not exact";
+				return false;
+			}
+		}
+		else if (requirePreparedAuthority && occupiedVehicle)
+		{
+			evidence = "exact rescue controlled-shutdown prepared boarding captive has unresolved occupied-seat evidence";
+			return false;
+		}
+		if (requirePreparedAuthority && !asset.m_bSpawned)
+		{
+			evidence = "exact rescue controlled-shutdown prepared carrier captive is not durably spawned";
+			return false;
+		}
+
+		evidence = "exact rescue controlled-shutdown captive, carrier, and seat topology is read-only exact";
+		return true;
+	}
+
+	protected bool IsExactRescuePreparedRuntimePoseExact(
+		HST_CampaignState state,
+		HST_ActiveMissionState mission,
+		HST_MissionAssetState asset,
+		IEntity captiveEntity,
+		IEntity carrierEntity,
+		HST_RuntimeVehicleState carrierRecord)
+	{
+		if (!state || !mission || !asset || !captiveEntity)
+			return false;
+		IEntity poseAuthority = captiveEntity;
+		if (carrierEntity)
+			poseAuthority = carrierEntity;
+		if (!poseAuthority.GetWorld())
+			return false;
+		vector position = poseAuthority.GetOrigin();
+		vector angles = HST_WorldPositionService.BuildUprightAnglesFromVector(
+			poseAuthority.GetYawPitchRoll());
+		string projectionId = asset.m_sRescueProjectionId;
+		if (projectionId.IsEmpty())
+			projectionId = asset.m_sEntityId;
+		HST_MissionRuntimeEntityState runtimeProjection
+			= state.FindMissionRuntimeEntity(projectionId);
+		if (!runtimeProjection
+			|| runtimeProjection.m_sRuntimeEntityId != projectionId
+			|| runtimeProjection.m_sMissionInstanceId != mission.m_sInstanceId
+			|| !runtimeProjection.m_bSpawned
+			|| runtimeProjection.m_bDestroyed
+			|| runtimeProjection.m_bRecovered
+			|| !IsExactRescueControlledShutdownPositionExact(
+				asset.m_vCurrentPosition,
+				position)
+			|| !IsExactRescueControlledShutdownPositionExact(
+				asset.m_vLastKnownPosition,
+				position)
+			|| !IsExactRescueControlledShutdownPositionExact(
+				runtimeProjection.m_vPosition,
+				position)
+			|| !AreExactRescueControlledShutdownAnglesExact(
+				runtimeProjection.m_vAngles,
+				angles))
+			return false;
+		if (!carrierEntity)
+			return carrierRecord == null;
+		return carrierRecord
+			&& carrierRecord.m_sVehicleRuntimeId
+				== asset.m_sRescueCarrierVehicleId
+			&& IsExactRescueControlledShutdownPositionExact(
+				carrierRecord.m_vPosition,
+				position)
+			&& AreExactRescueControlledShutdownAnglesExact(
+				carrierRecord.m_vAngles,
+				angles);
+	}
+
+	protected bool IsEntityWithinControlledShutdownRoot(
+		IEntity entity,
+		IEntity root)
+	{
+		if (!entity || !root)
+			return false;
+		IEntity cursor = entity;
+		for (int depth; depth < 64 && cursor; depth++)
+		{
+			if (cursor == root)
+				return true;
+			IEntity parent = cursor.GetParent();
+			if (parent == cursor)
+				return false;
+			cursor = parent;
+		}
+		return false;
+	}
+
+	protected bool IsExactRescueControlledShutdownPositionExact(
+		vector first,
+		vector second)
+	{
+		float deltaX = first[0] - second[0];
+		float deltaY = first[1] - second[1];
+		float deltaZ = first[2] - second[2];
+		return deltaX * deltaX + deltaY * deltaY + deltaZ * deltaZ
+			<= 0.0001;
+	}
+
+	protected bool AreExactRescueControlledShutdownAnglesExact(
+		vector first,
+		vector second)
+	{
+		return IsExactRescueControlledShutdownAngleExact(first[0], second[0])
+			&& IsExactRescueControlledShutdownAngleExact(first[1], second[1])
+			&& IsExactRescueControlledShutdownAngleExact(first[2], second[2]);
+	}
+
+	protected bool IsExactRescueControlledShutdownAngleExact(
+		float first,
+		float second)
+	{
+		float difference = Math.AbsFloat(first - second);
+		while (difference >= 360.0)
+			difference -= 360.0;
+		if (difference > 180.0)
+			difference = 360.0 - difference;
+		return difference <= 0.01;
+	}
+
+	protected bool TryResolveRuntimeEntityBindingReadOnly(
+		string runtimeEntityId,
+		out IEntity entity,
+		out string evidence)
+	{
+		entity = null;
+		if (runtimeEntityId.IsEmpty())
+		{
+			evidence = "exact rescue controlled-shutdown runtime binding identity is empty";
+			return false;
+		}
+		if (m_aRuntimeEntityIds.Count() != m_aRuntimeEntities.Count())
+		{
+			evidence = "exact rescue controlled-shutdown runtime binding arrays are misaligned";
+			return false;
+		}
+		int matches;
+		for (int index = 0; index < m_aRuntimeEntityIds.Count(); index++)
+		{
+			if (m_aRuntimeEntityIds[index] != runtimeEntityId)
+				continue;
+			matches++;
+			IEntity candidate = m_aRuntimeEntities[index];
+			if (!candidate || candidate.IsDeleted() || !candidate.GetWorld())
+			{
+				evidence = "exact rescue controlled-shutdown runtime binding contains a dead handle";
+				return false;
+			}
+			if (entity && entity != candidate)
+			{
+				evidence = "exact rescue controlled-shutdown runtime identity maps to multiple live handles";
+				return false;
+			}
+			entity = candidate;
+		}
+		if (matches > 1)
+		{
+			evidence = "exact rescue controlled-shutdown runtime identity has duplicate bindings";
+			return false;
+		}
+		if (entity)
+		{
+			for (int aliasIndex; aliasIndex < m_aRuntimeEntities.Count(); aliasIndex++)
+			{
+				if (m_aRuntimeEntities[aliasIndex] == entity
+					&& m_aRuntimeEntityIds[aliasIndex] != runtimeEntityId)
+				{
+					evidence
+						= "exact rescue controlled-shutdown live handle is aliased by another runtime identity";
+					return false;
+				}
+			}
+		}
+		return true;
+	}
+
+	protected bool TryResolveUniqueMissionCarrierRecordReadOnly(
+		HST_CampaignState state,
+		string carrierId,
+		out HST_RuntimeVehicleState record,
+		out string evidence)
+	{
+		record = null;
+		if (!state || carrierId.IsEmpty())
+			return false;
+		int matches;
+		foreach (HST_RuntimeVehicleState candidate : state.m_aRuntimeVehicles)
+		{
+			if (!candidate || candidate.m_sVehicleRuntimeId != carrierId)
+				continue;
+			matches++;
+			record = candidate;
+		}
+		if (matches != 1 || !record || record.m_sRuntimeKind != "mission_carrier")
+		{
+			evidence = "exact rescue controlled-shutdown carrier durable row is absent, duplicate, or foreign";
+			return false;
+		}
+		return true;
+	}
+
+	protected bool TryResolveExactRescuePlayerCarrierReadOnly(
+		string carrierId,
+		out IEntity carrierEntity,
+		out string evidence)
+	{
+		carrierEntity = null;
+		PlayerManager playerManager = GetGame().GetPlayerManager();
+		if (!playerManager)
+		{
+			evidence = "exact rescue controlled-shutdown player topology manager is unavailable";
+			return false;
+		}
+		array<int> playerIds = {};
+		playerManager.GetPlayers(playerIds);
+		foreach (int playerId : playerIds)
+		{
+			array<IEntity> playerEntities = {};
+			IEntity controlledEntity = playerManager.GetPlayerControlledEntity(playerId);
+			IEntity mainEntity = SCR_PossessingManagerComponent.GetPlayerMainEntity(playerId);
+			if (controlledEntity)
+				playerEntities.Insert(controlledEntity);
+			if (mainEntity && mainEntity != controlledEntity)
+				playerEntities.Insert(mainEntity);
+			foreach (IEntity playerEntity : playerEntities)
+			{
+				if (!playerEntity || playerEntity.IsDeleted() || !playerEntity.GetWorld())
+					continue;
+				IEntity vehicle = CompartmentAccessComponent.GetVehicleIn(playerEntity);
+				if (!vehicle || ResolveEntityRuntimeId(vehicle) != carrierId)
+					continue;
+				if (carrierEntity && carrierEntity != vehicle)
+				{
+					evidence = "exact rescue controlled-shutdown carrier identity resolves through multiple player vehicles";
+					return false;
+				}
+				carrierEntity = vehicle;
+			}
+		}
+		return true;
+	}
+
+	protected bool TryFindMissionVehicleByRuntimeIdReadOnly(
+		string vehicleId,
+		vector nearPosition,
+		out IEntity vehicleEntity,
+		out string evidence)
+	{
+		vehicleEntity = null;
+		if (vehicleId.IsEmpty() || IsZeroVector(nearPosition))
+			return true;
+		BaseWorld world = GetGame().GetWorld();
+		if (!world)
+		{
+			evidence = "exact rescue controlled-shutdown world is unavailable for carrier inspection";
+			return false;
+		}
+		m_aMissionVehicleScanEntities.Clear();
+		world.QueryEntitiesBySphere(
+			nearPosition,
+			30.0,
+			AddMissionVehicleScanCandidate,
+			null,
+			EQueryEntitiesFlags.ALL);
+		array<IEntity> matches = {};
+		foreach (IEntity candidate : m_aMissionVehicleScanEntities)
+		{
+			if (!candidate || candidate.IsDeleted() || !candidate.GetWorld())
+				continue;
+			string prefab;
+			IEntity root = ResolveMissionVehicleRoot(candidate, prefab);
+			if (!root || root.IsDeleted() || !root.GetWorld()
+				|| ResolveEntityRuntimeId(root) != vehicleId || matches.Contains(root))
+				continue;
+			matches.Insert(root);
+		}
+		if (matches.Count() > 1)
+		{
+			evidence = "exact rescue controlled-shutdown carrier world identity is ambiguous";
+			return false;
+		}
+		if (matches.Count() == 1)
+			vehicleEntity = matches[0];
+		return true;
+	}
+
+	protected bool ValidateExactRescueReadOnlyPlayerTopology(
+		HST_CampaignState state,
+		HST_MissionAssetState asset,
+		IEntity captiveEntity,
+		IEntity carrierEntity,
+		out string evidence)
+	{
+		PlayerManager playerManager = GetGame().GetPlayerManager();
+		if (!playerManager)
+		{
+			evidence = "exact rescue controlled-shutdown player topology manager is unavailable";
+			return false;
+		}
+		array<int> playerIds = {};
+		array<IEntity> inspectedEntities = {};
+		playerManager.GetPlayers(playerIds);
+		foreach (int playerId : playerIds)
+		{
+			array<IEntity> playerEntities = {};
+			IEntity controlledEntity = playerManager.GetPlayerControlledEntity(playerId);
+			IEntity mainEntity = SCR_PossessingManagerComponent.GetPlayerMainEntity(playerId);
+			if (controlledEntity)
+				playerEntities.Insert(controlledEntity);
+			if (mainEntity && mainEntity != controlledEntity)
+				playerEntities.Insert(mainEntity);
+			foreach (IEntity playerEntity : playerEntities)
+			{
+				if (!playerEntity || playerEntity.IsDeleted() || !playerEntity.GetWorld()
+					|| inspectedEntities.Contains(playerEntity))
+					continue;
+				inspectedEntities.Insert(playerEntity);
+				if (playerEntity == captiveEntity || playerEntity == carrierEntity)
+				{
+					evidence = "exact rescue controlled-shutdown captive or carrier root is a player-controlled entity";
+					return false;
+				}
+				SCR_CompartmentAccessComponent access = SCR_CompartmentAccessComponent.Cast(
+					playerEntity.FindComponent(SCR_CompartmentAccessComponent));
+				if (!access || (!access.IsGettingIn() && !access.IsGettingOut()
+					&& !access.IsSwitchingSeatsAnim()))
+					continue;
+				// During the first/last transition frames both vehicle accessors can be
+				// null. Reject every player compartment transition so a rescue carrier
+				// cannot be sampled while its occupancy target is unresolved.
+				evidence
+					= HST_PhysicalWarService.CONTROLLED_SHUTDOWN_PLAYER_RELEASE_EVIDENCE
+						+ ": exact rescue player compartment transition is active";
+				return false;
+			}
+		}
+		return true;
+	}
+
+	protected bool IsControlledShutdownRuntimeProxyReadOnly(IEntity entity)
+	{
+		if (!entity)
+			return false;
+		BaseRplComponent replication = BaseRplComponent.Cast(
+			entity.FindComponent(BaseRplComponent));
+		return replication && replication.IsProxy();
 	}
 
 	protected bool IsExactRescueCaptiveAsset(HST_ActiveMissionState mission, HST_MissionAssetState asset)

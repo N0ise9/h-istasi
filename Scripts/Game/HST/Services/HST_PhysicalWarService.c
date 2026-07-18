@@ -168,6 +168,22 @@ class HST_ExactMissionConvoyRosterMutationPlan
 	ref array<ref HST_ForceSpawnSlotResultState> m_aNewCasualtySlots = {};
 }
 
+// Process-local shutdown fence for an HST-owned physical runtime entity. The
+// durable campaign DTO remains the save authority; this snapshot only prevents
+// native AI/physics from changing the already-captured physical sample while a
+// blocking controlled-end checkpoint completes.
+class HST_ControlledShutdownActiveGroupTransformPin
+{
+	IEntity m_Entity;
+	IEntity m_CompartmentVehicle;
+	BaseCompartmentSlot m_CompartmentSlot;
+	AIGroup m_ParentGroup;
+	vector m_aTransform[4];
+	bool m_bGroupRoot;
+	bool m_bMember;
+	bool m_bVehicleRoot;
+}
+
 class HST_PhysicalWarService
 {
 	static const int MAX_ACTIVE_INFANTRY_PER_ZONE = 6;
@@ -276,6 +292,8 @@ class HST_PhysicalWarService
 	static const int ACTIVE_GROUP_ROUTE_MAX_REISSUE_ATTEMPTS = 3;
 	static const int ACTIVE_GROUP_ROUTE_ARRIVAL_SAMPLE_COUNT = 2;
 	static const float ACTIVE_GROUP_ROUTE_LOD_WAKE_SECONDS = 60.0;
+	static const string CONTROLLED_SHUTDOWN_PLAYER_RELEASE_EVIDENCE
+		= "active-group controlled-shutdown player release required";
 	static const float TOWN_POLICE_PATROL_WAYPOINT_RADIUS_METERS = 12.0;
 	static const float TOWN_POLICE_PATROL_FALLBACK_RADIUS_METERS = 75.0;
 
@@ -300,6 +318,22 @@ class HST_PhysicalWarService
 	protected ref array<ref HST_CampaignState> m_aPendingPopulationStates = {};
 	protected ref array<string> m_aRuntimeVehicleGroupIds = {};
 	protected ref array<IEntity> m_aRuntimeVehicleEntities = {};
+	protected ref HST_CampaignState m_ControlledShutdownActiveGroupState;
+	protected ref array<string> m_aControlledShutdownAuthorityGroupIds = {};
+	protected ref array<string> m_aControlledShutdownRuntimeGroupIds = {};
+	protected ref array<IEntity> m_aControlledShutdownRuntimeGroupEntities = {};
+	protected ref array<string> m_aControlledShutdownRuntimeVehicleGroupIds = {};
+	protected ref array<IEntity> m_aControlledShutdownRuntimeVehicleEntities = {};
+	protected ref array<string> m_aControlledShutdownGroupRootIds = {};
+	protected ref array<AIGroup> m_aControlledShutdownGroupRoots = {};
+	protected ref array<string> m_aControlledShutdownMemberGroupIds = {};
+	protected ref array<IEntity> m_aControlledShutdownMembers = {};
+	protected ref array<AIAgent> m_aControlledShutdownAgents = {};
+	protected ref array<string> m_aControlledShutdownVehicleRootGroupIds = {};
+	protected ref array<IEntity> m_aControlledShutdownVehicleRoots = {};
+	protected ref array<ref HST_ControlledShutdownActiveGroupTransformPin> m_aControlledShutdownTransformPins = {};
+	protected bool m_bControlledShutdownActiveGroupQuiescenceExact;
+	protected bool m_bControlledShutdownActiveGroupQuiescenceApplied;
 	protected ref array<ref HST_ExactMissionConvoyOutboundProjectionTransaction> m_aExactMissionConvoyOutboundProjectionTransactions = {};
 	protected ref array<string> m_aExactMissionConvoyMemberMissionIds = {};
 	protected ref array<string> m_aExactMissionConvoyMemberGroupIds = {};
@@ -359,6 +393,1690 @@ class HST_PhysicalWarService
 	{
 		if (combatPresence)
 			m_CombatPresence = combatPresence;
+	}
+
+	bool PrepareControlledShutdownActiveGroupQuiescence(
+		HST_CampaignState state,
+		out string evidence)
+	{
+		evidence = "active-group controlled-shutdown quiescence rejected";
+		if (m_bControlledShutdownActiveGroupQuiescenceApplied)
+		{
+			if (state != m_ControlledShutdownActiveGroupState)
+			{
+				evidence = "active-group controlled-shutdown quiescence is already latched to another campaign state";
+				return false;
+			}
+			return MaintainControlledShutdownActiveGroupQuiescence(state, evidence);
+		}
+
+		ResetControlledShutdownActiveGroupQuiescence();
+		if (!BuildControlledShutdownActiveGroupSnapshot(state, evidence))
+		{
+			ResetControlledShutdownActiveGroupQuiescence();
+			return false;
+		}
+
+		if (!ApplyControlledShutdownActiveGroupQuiescence(evidence))
+			return false;
+		m_bControlledShutdownActiveGroupQuiescenceExact = true;
+		if (!ValidateControlledShutdownActiveGroupQuiescence(state))
+		{
+			m_bControlledShutdownActiveGroupQuiescenceExact = false;
+			evidence = "active-group controlled-shutdown quiescence did not become exact";
+			return false;
+		}
+
+		evidence = BuildControlledShutdownActiveGroupQuiescenceEvidence("exact");
+		return true;
+	}
+
+	bool PreflightControlledShutdownActiveGroupQuiescence(
+		HST_CampaignState state,
+		out string evidence)
+	{
+		evidence = "active-group controlled-shutdown preflight rejected";
+		if (m_bControlledShutdownActiveGroupQuiescenceApplied)
+		{
+			if (state != m_ControlledShutdownActiveGroupState)
+			{
+				evidence = "active-group controlled-shutdown quiescence is already latched to another campaign state";
+				return false;
+			}
+			if (!ValidateControlledShutdownActiveGroupMutationSafety(evidence))
+				return false;
+			evidence = BuildControlledShutdownActiveGroupQuiescenceEvidence("latched preflight");
+			return true;
+		}
+
+		ResetControlledShutdownActiveGroupQuiescence();
+		bool ready = BuildControlledShutdownActiveGroupSnapshot(state, evidence);
+		ResetControlledShutdownActiveGroupQuiescence();
+		return ready;
+	}
+
+	bool MaintainControlledShutdownActiveGroupQuiescence(
+		HST_CampaignState state,
+		out string evidence)
+	{
+		evidence = "active-group controlled-shutdown quiescence maintenance rejected";
+		if (!m_bControlledShutdownActiveGroupQuiescenceApplied
+			|| state != m_ControlledShutdownActiveGroupState)
+		{
+			m_bControlledShutdownActiveGroupQuiescenceExact = false;
+			return false;
+		}
+
+		if (!ApplyControlledShutdownActiveGroupQuiescence(evidence))
+		{
+			m_bControlledShutdownActiveGroupQuiescenceExact = false;
+			return false;
+		}
+		m_bControlledShutdownActiveGroupQuiescenceExact = true;
+		if (!ValidateControlledShutdownActiveGroupQuiescence(state))
+		{
+			m_bControlledShutdownActiveGroupQuiescenceExact = false;
+			return false;
+		}
+
+		evidence = BuildControlledShutdownActiveGroupQuiescenceEvidence("maintained");
+		return true;
+	}
+
+	bool IsControlledShutdownActiveGroupQuiescenceExact(HST_CampaignState state)
+	{
+		return m_bControlledShutdownActiveGroupQuiescenceExact
+			&& ValidateControlledShutdownActiveGroupQuiescence(state);
+	}
+
+	bool HasControlledShutdownActiveGroupQuiescenceApplied()
+	{
+		return m_bControlledShutdownActiveGroupQuiescenceApplied;
+	}
+
+	int GetControlledShutdownActiveGroupQuiescedRootCount()
+	{
+		return m_aControlledShutdownGroupRoots.Count();
+	}
+
+	int GetControlledShutdownActiveGroupQuiescedMemberCount()
+	{
+		return m_aControlledShutdownMembers.Count();
+	}
+
+	int GetControlledShutdownActiveGroupQuiescedVehicleRootCount()
+	{
+		return m_aControlledShutdownVehicleRoots.Count();
+	}
+
+	protected void ResetControlledShutdownActiveGroupQuiescence()
+	{
+		// Once native mutation begins the original pins are the only safe retry
+		// authority. Never discard them or rebuild from partially quiesced state.
+		if (m_bControlledShutdownActiveGroupQuiescenceApplied)
+			return;
+		m_bControlledShutdownActiveGroupQuiescenceExact = false;
+		m_bControlledShutdownActiveGroupQuiescenceApplied = false;
+		m_ControlledShutdownActiveGroupState = null;
+		m_aControlledShutdownAuthorityGroupIds.Clear();
+		m_aControlledShutdownRuntimeGroupIds.Clear();
+		m_aControlledShutdownRuntimeGroupEntities.Clear();
+		m_aControlledShutdownRuntimeVehicleGroupIds.Clear();
+		m_aControlledShutdownRuntimeVehicleEntities.Clear();
+		m_aControlledShutdownGroupRootIds.Clear();
+		m_aControlledShutdownGroupRoots.Clear();
+		m_aControlledShutdownMemberGroupIds.Clear();
+		m_aControlledShutdownMembers.Clear();
+		m_aControlledShutdownAgents.Clear();
+		m_aControlledShutdownVehicleRootGroupIds.Clear();
+		m_aControlledShutdownVehicleRoots.Clear();
+		m_aControlledShutdownTransformPins.Clear();
+	}
+
+	protected bool BuildControlledShutdownActiveGroupSnapshot(
+		HST_CampaignState state,
+		out string evidence)
+	{
+		evidence = "active-group controlled-shutdown snapshot rejected";
+		if (!state
+			|| m_aRuntimeGroupIds.Count() != m_aRuntimeGroupEntities.Count()
+			|| m_aRuntimeVehicleGroupIds.Count() != m_aRuntimeVehicleEntities.Count())
+		{
+			evidence = "active-group runtime registry parallel topology is invalid";
+			return false;
+		}
+
+		m_ControlledShutdownActiveGroupState = state;
+		if (!CollectControlledShutdownPersistenceSampledGroupIds(
+			state,
+			m_aControlledShutdownAuthorityGroupIds,
+			evidence))
+			return false;
+
+		for (int groupIndex; groupIndex < m_aRuntimeGroupIds.Count(); groupIndex++)
+		{
+			string groupId = m_aRuntimeGroupIds[groupIndex];
+			if (!m_aControlledShutdownAuthorityGroupIds.Contains(groupId))
+				continue;
+			IEntity entity = m_aRuntimeGroupEntities[groupIndex];
+			HST_ActiveGroupState activeGroup = state.FindActiveGroup(groupId);
+			if (groupId.IsEmpty() || !activeGroup || activeGroup.m_sGroupId != groupId
+				|| !IsControlledShutdownPersistenceSampledActiveGroup(state, activeGroup)
+				|| !entity || !entity.GetWorld()
+				|| !IsControlledShutdownRuntimeRegistrationExclusive(groupId, entity, false)
+				|| m_aControlledShutdownRuntimeGroupEntities.Find(entity) >= 0)
+			{
+				evidence = "active-group runtime registry contains a missing, duplicated, or non-canonical entity";
+				return false;
+			}
+
+			m_aControlledShutdownRuntimeGroupIds.Insert(groupId);
+			m_aControlledShutdownRuntimeGroupEntities.Insert(entity);
+			if (IsControlledShutdownActiveGroupPlayerEntity(entity))
+			{
+				evidence = CONTROLLED_SHUTDOWN_PLAYER_RELEASE_EVIDENCE
+					+ " | sampled member " + groupId;
+				return false;
+			}
+			if (IsControlledShutdownRuntimeProxy(entity))
+			{
+				evidence = "active-group sampled runtime entity is not locally authoritative "
+					+ groupId;
+				return false;
+			}
+
+			AIGroup group = AIGroup.Cast(entity);
+			if (!group)
+			{
+				if (!RegisterControlledShutdownActiveGroupMember(groupId, entity, evidence)
+					|| !CaptureControlledShutdownActiveGroupTransformPin(entity, false, true, false))
+					return false;
+				continue;
+			}
+
+			m_aControlledShutdownGroupRootIds.Insert(groupId);
+			m_aControlledShutdownGroupRoots.Insert(group);
+			if (!CaptureControlledShutdownActiveGroupTransformPin(
+				group,
+				true,
+				false,
+				false))
+				return false;
+
+			array<AIAgent> agents = {};
+			int agentCount = group.GetAgents(agents);
+			if (agentCount != agents.Count()
+				|| group.GetAgentsCount() != agents.Count())
+			{
+				evidence = "active-group local native member topology is incomplete";
+				return false;
+			}
+			foreach (AIAgent agent : agents)
+			{
+				if (!agent || agent.GetParentGroup() != group)
+				{
+					evidence = "active-group native member has no exact group authority";
+					return false;
+				}
+				IEntity member = agent.GetControlledEntity();
+				if (!member || !member.GetWorld())
+				{
+					evidence = "active-group local native member has no controlled entity";
+					return false;
+				}
+				if (IsControlledShutdownActiveGroupPlayerEntity(member))
+				{
+					evidence = CONTROLLED_SHUTDOWN_PLAYER_RELEASE_EVIDENCE
+						+ " | sampled native member " + groupId;
+					return false;
+				}
+				if (IsControlledShutdownRuntimeProxy(member))
+				{
+					evidence = "active-group sampled native member is not locally authoritative "
+						+ groupId;
+					return false;
+				}
+				if (!RegisterControlledShutdownActiveGroupMember(groupId, member, evidence))
+					return false;
+				if (m_aControlledShutdownAgents.Find(agent) < 0)
+					m_aControlledShutdownAgents.Insert(agent);
+				if (!CaptureControlledShutdownActiveGroupTransformPin(member, false, true, false))
+					return false;
+			}
+		}
+
+		for (int vehicleIndex; vehicleIndex < m_aRuntimeVehicleGroupIds.Count(); vehicleIndex++)
+		{
+			string vehicleGroupId = m_aRuntimeVehicleGroupIds[vehicleIndex];
+			if (!m_aControlledShutdownAuthorityGroupIds.Contains(vehicleGroupId))
+				continue;
+			IEntity vehicle = m_aRuntimeVehicleEntities[vehicleIndex];
+			HST_ActiveGroupState vehicleGroup = state.FindActiveGroup(vehicleGroupId);
+			if (vehicleGroupId.IsEmpty() || !vehicleGroup
+				|| vehicleGroup.m_sGroupId != vehicleGroupId
+				|| !IsControlledShutdownPersistenceSampledActiveGroup(state, vehicleGroup)
+				|| !vehicle || !vehicle.GetWorld()
+				|| !IsControlledShutdownRuntimeRegistrationExclusive(vehicleGroupId, vehicle, true)
+				|| m_aControlledShutdownRuntimeVehicleEntities.Find(vehicle) >= 0
+				|| m_aControlledShutdownRuntimeGroupEntities.Find(vehicle) >= 0)
+			{
+				evidence = "active-group vehicle registry contains a missing, duplicated, or non-canonical sampled root";
+				return false;
+			}
+
+			m_aControlledShutdownRuntimeVehicleGroupIds.Insert(vehicleGroupId);
+			m_aControlledShutdownRuntimeVehicleEntities.Insert(vehicle);
+			if (IsControlledShutdownActiveGroupVehiclePlayerOccupied(vehicle))
+			{
+				evidence = CONTROLLED_SHUTDOWN_PLAYER_RELEASE_EVIDENCE
+					+ " | sampled vehicle " + vehicleGroupId;
+				return false;
+			}
+			if (IsControlledShutdownRuntimeProxy(vehicle))
+			{
+				evidence = "active-group sampled vehicle is not locally authoritative "
+					+ vehicleGroupId;
+				return false;
+			}
+			m_aControlledShutdownVehicleRootGroupIds.Insert(vehicleGroupId);
+			m_aControlledShutdownVehicleRoots.Insert(vehicle);
+			if (!CaptureControlledShutdownActiveGroupTransformPin(vehicle, false, false, true))
+				return false;
+		}
+
+		for (int memberIndex; memberIndex < m_aControlledShutdownMembers.Count(); memberIndex++)
+		{
+			IEntity memberEntity = m_aControlledShutdownMembers[memberIndex];
+			IEntity memberVehicle;
+			BaseCompartmentSlot memberCompartmentSlot;
+			if (!TryResolveControlledShutdownStableCompartmentTopology(
+				memberEntity,
+				memberVehicle,
+				memberCompartmentSlot))
+			{
+				evidence = "active-group sampled member is changing compartments";
+				return false;
+			}
+			if (!memberVehicle)
+			{
+				HST_ControlledShutdownActiveGroupTransformPin onFootPin
+					= FindControlledShutdownActiveGroupTransformPin(memberEntity);
+				if (!onFootPin || onFootPin.m_CompartmentVehicle
+					|| onFootPin.m_CompartmentSlot || memberCompartmentSlot)
+				{
+					evidence = "active-group on-foot member pin has stale compartment authority";
+					return false;
+				}
+				continue;
+			}
+			int registeredVehicleIndex = m_aControlledShutdownVehicleRoots.Find(memberVehicle);
+			HST_ControlledShutdownActiveGroupTransformPin seatedPin
+				= FindControlledShutdownActiveGroupTransformPin(memberEntity);
+			if (!seatedPin || seatedPin.m_CompartmentVehicle != memberVehicle
+				|| !memberCompartmentSlot
+				|| seatedPin.m_CompartmentSlot != memberCompartmentSlot
+				|| memberCompartmentSlot.GetOccupant() != memberEntity
+				|| registeredVehicleIndex < 0
+				|| registeredVehicleIndex >= m_aControlledShutdownVehicleRootGroupIds.Count()
+				|| m_aControlledShutdownVehicleRootGroupIds[registeredVehicleIndex]
+					!= m_aControlledShutdownMemberGroupIds[memberIndex])
+			{
+				evidence = "active-group member occupies a vehicle outside its exact HST runtime registration";
+				return false;
+			}
+		}
+		for (int occupantVehicleIndex; occupantVehicleIndex < m_aControlledShutdownVehicleRoots.Count(); occupantVehicleIndex++)
+		{
+			if (!IsControlledShutdownActiveGroupVehicleOccupantTopologyExact(
+				occupantVehicleIndex))
+			{
+				evidence = "active-group sampled vehicle has foreign or ambiguous compartment occupants";
+				return false;
+			}
+		}
+
+		foreach (string authorityGroupId : m_aControlledShutdownAuthorityGroupIds)
+		{
+			if (!m_aControlledShutdownRuntimeGroupIds.Contains(authorityGroupId)
+				&& !m_aControlledShutdownRuntimeVehicleGroupIds.Contains(authorityGroupId))
+			{
+				evidence = "sampled active-group authority has no registered runtime "
+					+ authorityGroupId;
+				return false;
+			}
+		}
+		if (!ValidateControlledShutdownActiveGroupPlayerSafety(evidence))
+			return false;
+		evidence = BuildControlledShutdownActiveGroupQuiescenceEvidence("prepared");
+		return true;
+	}
+
+	protected bool CollectControlledShutdownPersistenceSampledGroupIds(
+		HST_CampaignState state,
+		array<string> groupIds,
+		out string evidence)
+	{
+		evidence = "active-group controlled-shutdown sampled authority scope rejected";
+		if (!state || !groupIds)
+			return false;
+		groupIds.Clear();
+		foreach (HST_ActiveGroupState activeGroup : state.m_aActiveGroups)
+		{
+			if (IsControlledShutdownPersistenceTransitionGroup(state, activeGroup))
+			{
+				evidence = "active-group persistence authority is changing materialization state";
+				return false;
+			}
+			if (!IsControlledShutdownPersistenceSampledActiveGroup(state, activeGroup))
+				continue;
+			if (activeGroup.m_sGroupId.IsEmpty()
+				|| groupIds.Contains(activeGroup.m_sGroupId))
+			{
+				evidence = "active-group controlled-shutdown sampled authority identity is missing or duplicated";
+				return false;
+			}
+			groupIds.Insert(activeGroup.m_sGroupId);
+		}
+		evidence = string.Format(
+			"active-group controlled-shutdown sampled authority scope %1 group(s)",
+			groupIds.Count());
+		return true;
+	}
+
+	static bool RequiresExhaustiveInfantryPersistenceSampling(
+		HST_CampaignState state)
+	{
+		if (!state)
+			return false;
+
+		foreach (HST_OperationRecordState operation : state.m_aOperations)
+		{
+			if (!operation
+				|| operation.m_eSettlementState
+					!= HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_OPEN
+				|| operation.m_eTerminalResult
+					!= HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_NONE
+				|| (operation.m_eMaterializationState
+						!= HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_PHYSICAL
+					&& operation.m_eMaterializationState
+						!= HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_DEMATERIALIZING))
+				continue;
+
+			bool exactEnemyResponse
+				= (operation.m_eType
+						== HST_EOperationType.HST_OPERATION_TYPE_ENEMY_DEFENSIVE_QRF
+					&& operation.m_iContractVersion
+						== HST_OperationService.EXACT_ENEMY_DEFENSIVE_QRF_CONTRACT_VERSION)
+				|| (operation.m_eType
+						== HST_EOperationType.HST_OPERATION_TYPE_ENEMY_COUNTERATTACK
+					&& operation.m_iContractVersion
+						== HST_OperationService.EXACT_ENEMY_COUNTERATTACK_CONTRACT_VERSION)
+				|| (operation.m_eType
+						== HST_EOperationType.HST_OPERATION_TYPE_ENEMY_GARRISON_REBUILD
+					&& operation.m_iContractVersion
+						== HST_OperationService.EXACT_ENEMY_GARRISON_REBUILD_CONTRACT_VERSION);
+			bool exactEnemyPatrol
+				= operation.m_eType
+					== HST_EOperationType.HST_OPERATION_TYPE_ENEMY_PATROL
+				&& operation.m_iContractVersion
+					== HST_EnemyPatrolOperationService.EXACT_CONTRACT_VERSION;
+			bool exactLocalSecurity
+				= operation.m_eType
+					== HST_EOperationType.HST_OPERATION_TYPE_LOCAL_SECURITY_PATROL
+				&& operation.m_iContractVersion
+					== HST_LocalSecurityOperationService.EXACT_CONTRACT_VERSION;
+			bool exactGarrisonPatrol
+				= operation.m_eType
+					== HST_EOperationType.HST_OPERATION_TYPE_GARRISON_PATROL
+				&& operation.m_iContractVersion
+					== HST_GarrisonPatrolOperationService.EXACT_CONTRACT_VERSION;
+			bool exactMissionGuard
+				= operation.m_eType
+					== HST_EOperationType.HST_OPERATION_TYPE_MISSION_GUARD
+				&& HST_MissionGuardOperationService.IsSupportedExactContractVersion(
+					operation.m_iContractVersion);
+			bool exactPlayerSupport
+				= HST_OperationService.IsExactPlayerSupportOperationType(
+					operation.m_eType)
+				&& operation.m_iContractVersion != 0;
+			if (exactEnemyResponse || exactEnemyPatrol || exactLocalSecurity
+				|| exactGarrisonPatrol || exactMissionGuard
+				|| exactPlayerSupport)
+				return true;
+		}
+		return false;
+	}
+
+	protected bool IsControlledShutdownPersistenceSampledActiveGroup(
+		HST_CampaignState state,
+		HST_ActiveGroupState activeGroup)
+	{
+		if (!state || !activeGroup || activeGroup.m_sGroupId.IsEmpty()
+			|| state.FindActiveGroup(activeGroup.m_sGroupId) != activeGroup
+			|| !activeGroup.m_bSpawnedEntity
+			|| IsTerminalActiveGroupRuntimeStatus(activeGroup))
+			return false;
+
+		HST_ForceSpawnResultState batch
+			= state.FindForceSpawnResult(activeGroup.m_sSpawnResultId);
+		if (RequiresExhaustiveInfantryPersistenceSampling(state)
+			&& batch
+			&& batch.m_eStatus
+				== HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_SUCCEEDED
+			&& !batch.m_bStrategicProjectionHeld
+			&& (GetForceSpawnGroupRoot(activeGroup)
+				|| CountForceSpawnRuntimeMembers(activeGroup) > 0))
+			return true;
+
+		HST_OperationRecordState operation
+			= state.FindOperation(activeGroup.m_sOperationId);
+		if (IsMissionConvoyGroup(activeGroup))
+		{
+			HST_ActiveMissionState mission
+				= state.FindActiveMission(activeGroup.m_sMissionInstanceId);
+			return IsExactMissionConvoyContract(mission)
+				&& operation
+				&& operation.m_eSettlementState
+					== HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_OPEN
+				&& operation.m_eTerminalResult
+					== HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_NONE
+				&& operation.m_eMaterializationState
+					== HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_PHYSICAL;
+		}
+		if (!operation
+			|| operation.m_eSettlementState
+				!= HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_OPEN
+			|| operation.m_eTerminalResult
+				!= HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_NONE
+			|| operation.m_ePositionAuthority
+				!= HST_EOperationPositionAuthority.HST_OPERATION_POSITION_LIVE
+			|| operation.m_eMaterializationState
+				!= HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_PHYSICAL)
+			return false;
+
+		return IsExactEnemyQRFActiveGroup(state, activeGroup)
+			|| IsExactEnemyCounterattackActiveGroup(state, activeGroup)
+			|| IsExactEnemyGarrisonRebuildActiveGroup(state, activeGroup)
+			|| IsExactEnemyPatrolActiveGroup(state, activeGroup)
+			|| IsExactOpenPhysicalLocalSecurityPatrolGroup(state, activeGroup)
+			|| IsExactGarrisonPatrolActiveGroup(state, activeGroup)
+			|| HasOpenPhysicalMissionGuardRuntimeAuthority(state, activeGroup)
+			|| IsExactPlayerSupportActiveGroup(state, activeGroup);
+	}
+
+	protected bool IsControlledShutdownPersistenceTransitionGroup(
+		HST_CampaignState state,
+		HST_ActiveGroupState activeGroup)
+	{
+		if (!state || !activeGroup || activeGroup.m_sGroupId.IsEmpty()
+			|| state.FindActiveGroup(activeGroup.m_sGroupId) != activeGroup
+			|| !activeGroup.m_bSpawnedEntity
+			|| IsTerminalActiveGroupRuntimeStatus(activeGroup))
+			return false;
+
+		HST_OperationRecordState operation
+			= state.FindOperation(activeGroup.m_sOperationId);
+		if (!operation
+			|| operation.m_eSettlementState
+				!= HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_OPEN
+			|| operation.m_eTerminalResult
+				!= HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_NONE
+			|| (operation.m_eMaterializationState
+					!= HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_MATERIALIZING
+				&& operation.m_eMaterializationState
+					!= HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_DEMATERIALIZING))
+			return false;
+
+		if (IsMissionConvoyGroup(activeGroup))
+		{
+			HST_ActiveMissionState mission
+				= state.FindActiveMission(activeGroup.m_sMissionInstanceId);
+			if (IsExactMissionConvoyContract(mission))
+				return true;
+		}
+		if (IsExactEnemyQRFActiveGroup(state, activeGroup)
+			|| IsExactEnemyCounterattackActiveGroup(state, activeGroup)
+			|| IsExactEnemyGarrisonRebuildActiveGroup(state, activeGroup)
+			|| IsExactEnemyPatrolActiveGroup(state, activeGroup)
+			|| IsExactGarrisonPatrolActiveGroup(state, activeGroup)
+			|| IsExactPlayerSupportActiveGroup(state, activeGroup))
+			return true;
+
+		if (IsLocalSecurityPatrolClaimant(state, activeGroup)
+			&& operation.m_eType
+				== HST_EOperationType.HST_OPERATION_TYPE_LOCAL_SECURITY_PATROL
+			&& operation.m_iContractVersion
+				== HST_LocalSecurityOperationService.EXACT_CONTRACT_VERSION
+			&& operation.m_sGroupId == activeGroup.m_sGroupId)
+			return true;
+
+		bool missionGuardClaim
+			= HST_MissionGuardOperationService.IsMissionGuardGroupClaimant(
+				state,
+				activeGroup);
+		bool missionRescueClaim
+			= HST_RescuePOWOperationService.IsMissionRescueGroupClaimant(
+				state,
+				activeGroup);
+		if (!missionGuardClaim && !missionRescueClaim)
+			return false;
+		HST_ActiveMissionState guardedMission
+			= state.FindActiveMission(activeGroup.m_sMissionInstanceId);
+		bool exactMission = missionGuardClaim
+			&& HST_MissionGuardOperationService.IsExactOrQuarantinedMission(
+				guardedMission);
+		exactMission = exactMission || (missionRescueClaim
+			&& HST_RescuePOWOperationService.IsExactOrQuarantinedMission(
+				guardedMission));
+		return exactMission
+			&& operation.m_sGroupId == activeGroup.m_sGroupId
+			&& ((missionGuardClaim
+					&& operation.m_eType
+						== HST_EOperationType.HST_OPERATION_TYPE_MISSION_GUARD)
+				|| (missionRescueClaim
+					&& operation.m_eType
+						== HST_EOperationType.HST_OPERATION_TYPE_MISSION_RESCUE));
+	}
+
+	protected bool IsControlledShutdownRuntimeRegistrationExclusive(
+		string groupId,
+		IEntity entity,
+		bool vehicleRegistry)
+	{
+		if (groupId.IsEmpty() || !entity)
+			return false;
+		int matchCount;
+		for (int groupIndex; groupIndex < m_aRuntimeGroupEntities.Count(); groupIndex++)
+		{
+			if (m_aRuntimeGroupEntities[groupIndex] != entity)
+				continue;
+			if (vehicleRegistry || groupIndex >= m_aRuntimeGroupIds.Count()
+				|| m_aRuntimeGroupIds[groupIndex] != groupId)
+				return false;
+			matchCount++;
+		}
+		for (int vehicleIndex; vehicleIndex < m_aRuntimeVehicleEntities.Count(); vehicleIndex++)
+		{
+			if (m_aRuntimeVehicleEntities[vehicleIndex] != entity)
+				continue;
+			if (!vehicleRegistry || vehicleIndex >= m_aRuntimeVehicleGroupIds.Count()
+				|| m_aRuntimeVehicleGroupIds[vehicleIndex] != groupId)
+				return false;
+			matchCount++;
+		}
+		return matchCount == 1;
+	}
+
+	protected bool RegisterControlledShutdownActiveGroupMember(
+		string groupId,
+		IEntity member,
+		out string evidence)
+	{
+		if (groupId.IsEmpty() || !member || !member.GetWorld()
+			|| IsControlledShutdownActiveGroupPlayerEntity(member)
+			|| IsControlledShutdownRuntimeProxy(member))
+		{
+			evidence = "active-group member is missing or player controlled";
+			return false;
+		}
+
+		int memberIndex = m_aControlledShutdownMembers.Find(member);
+		if (memberIndex >= 0)
+		{
+			if (memberIndex >= m_aControlledShutdownMemberGroupIds.Count()
+				|| m_aControlledShutdownMemberGroupIds[memberIndex] != groupId)
+			{
+				evidence = "active-group member is registered to more than one runtime group";
+				return false;
+			}
+			return true;
+		}
+
+		AIControlComponent control = AIControlComponent.Cast(member.FindComponent(AIControlComponent));
+		if (control)
+		{
+			AIAgent memberAgent = control.GetControlAIAgent();
+			if (!memberAgent || memberAgent.GetControlledEntity() != member)
+			{
+				evidence = "active-group member AI control topology is incomplete";
+				return false;
+			}
+			AIGroup parentGroup = memberAgent.GetParentGroup();
+			if (parentGroup)
+			{
+				int parentIndex = m_aControlledShutdownGroupRoots.Find(parentGroup);
+				if (parentIndex < 0 || parentIndex >= m_aControlledShutdownGroupRootIds.Count()
+					|| m_aControlledShutdownGroupRootIds[parentIndex] != groupId)
+				{
+					evidence = "active-group member belongs to an unregistered or conflicting native group";
+					return false;
+				}
+			}
+			if (m_aControlledShutdownAgents.Find(memberAgent) < 0)
+				m_aControlledShutdownAgents.Insert(memberAgent);
+		}
+
+		m_aControlledShutdownMemberGroupIds.Insert(groupId);
+		m_aControlledShutdownMembers.Insert(member);
+		return true;
+	}
+
+	protected bool CaptureControlledShutdownActiveGroupTransformPin(
+		IEntity entity,
+		bool groupRoot,
+		bool member,
+		bool vehicleRoot)
+	{
+		if (!entity || !entity.GetWorld()
+			|| IsControlledShutdownRuntimeProxy(entity))
+			return false;
+		IEntity compartmentVehicle;
+		BaseCompartmentSlot compartmentSlot;
+		AIGroup parentGroup;
+		if (member
+			&& !TryResolveControlledShutdownStableCompartmentTopology(
+				entity,
+				compartmentVehicle,
+				compartmentSlot))
+			return false;
+		if (member)
+		{
+			AIControlComponent memberControl = AIControlComponent.Cast(
+				entity.FindComponent(AIControlComponent));
+			if (memberControl)
+			{
+				AIAgent memberAgent = memberControl.GetControlAIAgent();
+				if (!memberAgent || memberAgent.GetControlledEntity() != entity)
+					return false;
+				parentGroup = memberAgent.GetParentGroup();
+			}
+		}
+		foreach (HST_ControlledShutdownActiveGroupTransformPin existingPin : m_aControlledShutdownTransformPins)
+		{
+			if (!existingPin || existingPin.m_Entity != entity)
+				continue;
+			if (member && existingPin.m_bMember
+				&& (existingPin.m_CompartmentVehicle != compartmentVehicle
+					|| existingPin.m_CompartmentSlot != compartmentSlot
+					|| existingPin.m_ParentGroup != parentGroup))
+				return false;
+			existingPin.m_bGroupRoot = existingPin.m_bGroupRoot || groupRoot;
+			existingPin.m_bMember = existingPin.m_bMember || member;
+			existingPin.m_bVehicleRoot = existingPin.m_bVehicleRoot || vehicleRoot;
+			if (member)
+			{
+				existingPin.m_CompartmentVehicle = compartmentVehicle;
+				existingPin.m_CompartmentSlot = compartmentSlot;
+				existingPin.m_ParentGroup = parentGroup;
+			}
+			return true;
+		}
+
+		HST_ControlledShutdownActiveGroupTransformPin pin
+			= new HST_ControlledShutdownActiveGroupTransformPin();
+		pin.m_Entity = entity;
+		pin.m_bGroupRoot = groupRoot;
+		pin.m_bMember = member;
+		pin.m_bVehicleRoot = vehicleRoot;
+		pin.m_CompartmentVehicle = compartmentVehicle;
+		pin.m_CompartmentSlot = compartmentSlot;
+		pin.m_ParentGroup = parentGroup;
+		entity.GetTransform(pin.m_aTransform);
+		m_aControlledShutdownTransformPins.Insert(pin);
+		return true;
+	}
+
+	protected HST_ControlledShutdownActiveGroupTransformPin FindControlledShutdownActiveGroupTransformPin(
+		IEntity entity)
+	{
+		foreach (HST_ControlledShutdownActiveGroupTransformPin pin : m_aControlledShutdownTransformPins)
+		{
+			if (pin && pin.m_Entity == entity)
+				return pin;
+		}
+		return null;
+	}
+
+	protected bool TryResolveControlledShutdownStableCompartmentVehicle(
+		IEntity entity,
+		out IEntity vehicle)
+	{
+		BaseCompartmentSlot compartmentSlot;
+		return TryResolveControlledShutdownStableCompartmentTopology(
+			entity,
+			vehicle,
+			compartmentSlot);
+	}
+
+	protected bool TryResolveControlledShutdownStableCompartmentTopology(
+		IEntity entity,
+		out IEntity vehicle,
+		out BaseCompartmentSlot compartmentSlot)
+	{
+		vehicle = null;
+		compartmentSlot = null;
+		if (!entity || !entity.GetWorld())
+			return false;
+		SCR_CompartmentAccessComponent access
+			= SCR_CompartmentAccessComponent.Cast(
+				entity.FindComponent(SCR_CompartmentAccessComponent));
+		if (!access)
+			return true;
+		if (access.IsGettingIn() || access.IsGettingOut()
+			|| access.IsSwitchingSeatsAnim())
+			return false;
+
+		compartmentSlot = access.GetCompartment();
+		if (!compartmentSlot)
+			return !access.IsInCompartment() && !access.GetVehicle();
+		vehicle = compartmentSlot.GetVehicle();
+		return access.IsInCompartment()
+			&& vehicle
+			&& access.GetVehicle() == vehicle
+			&& compartmentSlot.GetOccupant() == entity;
+	}
+
+	protected bool ApplyControlledShutdownActiveGroupQuiescence(
+		out string evidence)
+	{
+		if (!ValidateControlledShutdownActiveGroupMutationSafety(evidence))
+			return false;
+
+		// This is a one-way fence. A retry must continue from these original
+		// identities and transform pins; rebuilding after this point would sample
+		// a partially mutated native runtime.
+		m_bControlledShutdownActiveGroupQuiescenceApplied = true;
+		m_bControlledShutdownActiveGroupQuiescenceExact = false;
+
+		foreach (AIGroup group : m_aControlledShutdownGroupRoots)
+		{
+			if (!ValidateControlledShutdownActiveGroupPlayerSafety(evidence))
+				return false;
+			if (!group || !group.GetWorld()
+				|| IsControlledShutdownRuntimeProxy(group)
+				|| IsControlledShutdownActiveGroupPlayerEntity(group))
+			{
+				evidence = "active-group root authority changed during controlled shutdown";
+				return false;
+			}
+			group.AllowMaxLOD();
+			group.DeactivateAI();
+		}
+
+		foreach (AIAgent agent : m_aControlledShutdownAgents)
+		{
+			IEntity controlledEntity;
+			if (agent)
+				controlledEntity = agent.GetControlledEntity();
+			if (!ValidateControlledShutdownActiveGroupPlayerSafety(evidence))
+				return false;
+			if (!IsControlledShutdownActiveGroupAgentTopologyExact(agent)
+				|| !controlledEntity || !controlledEntity.GetWorld()
+				|| IsControlledShutdownRuntimeProxy(controlledEntity)
+				|| IsControlledShutdownActiveGroupPlayerEntity(controlledEntity))
+			{
+				evidence = "active-group local agent authority changed during controlled shutdown";
+				return false;
+			}
+			agent.AllowMaxLOD();
+			AIControlComponent control = agent.GetControlComponent();
+			if (control)
+				control.DeactivateAI();
+			agent.DeactivateAI();
+		}
+
+		for (int memberIndex; memberIndex < m_aControlledShutdownMembers.Count(); memberIndex++)
+		{
+			IEntity member = m_aControlledShutdownMembers[memberIndex];
+			if (!ValidateControlledShutdownActiveGroupPlayerSafety(evidence))
+				return false;
+			if (!IsControlledShutdownActiveGroupMemberTopologyExact(memberIndex))
+			{
+				evidence = "active-group member authority changed during controlled shutdown";
+				return false;
+			}
+			AIControlComponent memberControl = AIControlComponent.Cast(
+				member.FindComponent(AIControlComponent));
+			if (memberControl)
+				memberControl.DeactivateAI();
+		}
+
+		// Pin selected vehicle roots before on-foot entities. Seated members are
+		// intentionally not transformed or recursively quiesced here; their exact
+		// selected vehicle root is their sole transform/physics authority.
+		foreach (HST_ControlledShutdownActiveGroupTransformPin vehiclePin : m_aControlledShutdownTransformPins)
+		{
+			if (!vehiclePin || !vehiclePin.m_bVehicleRoot)
+				continue;
+			if (!ValidateControlledShutdownActiveGroupPlayerSafety(evidence))
+				return false;
+			if (!IsControlledShutdownActiveGroupPinMutationSafe(vehiclePin))
+			{
+				evidence = "active-group vehicle pin authority changed during controlled shutdown";
+				return false;
+			}
+			vehiclePin.m_Entity.SetTransform(vehiclePin.m_aTransform);
+			QuiesceControlledShutdownActiveGroupVehicle(vehiclePin.m_Entity);
+		}
+
+		foreach (HST_ControlledShutdownActiveGroupTransformPin pin : m_aControlledShutdownTransformPins)
+		{
+			if (!pin || pin.m_bVehicleRoot
+				|| (pin.m_bMember && pin.m_CompartmentVehicle))
+				continue;
+			if (!ValidateControlledShutdownActiveGroupPlayerSafety(evidence))
+				return false;
+			if (!IsControlledShutdownActiveGroupPinMutationSafe(pin))
+			{
+				evidence = "active-group on-foot pin authority changed during controlled shutdown";
+				return false;
+			}
+			pin.m_Entity.SetTransform(pin.m_aTransform);
+			QuiesceControlledShutdownActiveGroupPhysicsHierarchy(pin.m_Entity);
+		}
+
+		evidence = BuildControlledShutdownActiveGroupQuiescenceEvidence("applied");
+		return true;
+	}
+
+	protected bool ValidateControlledShutdownActiveGroupMutationSafety(
+		out string evidence)
+	{
+		evidence = "active-group controlled-shutdown mutation preflight rejected";
+		if (!m_ControlledShutdownActiveGroupState
+			|| m_aControlledShutdownGroupRootIds.Count()
+				!= m_aControlledShutdownGroupRoots.Count()
+			|| m_aControlledShutdownMemberGroupIds.Count()
+				!= m_aControlledShutdownMembers.Count()
+			|| m_aControlledShutdownVehicleRootGroupIds.Count()
+				!= m_aControlledShutdownVehicleRoots.Count()
+			|| !IsControlledShutdownActiveGroupRegistryTopologyExact(
+				m_ControlledShutdownActiveGroupState)
+			|| !ValidateControlledShutdownActiveGroupPlayerSafety(evidence))
+			return false;
+
+		for (int rootIndex; rootIndex < m_aControlledShutdownGroupRoots.Count(); rootIndex++)
+		{
+			AIGroup group = m_aControlledShutdownGroupRoots[rootIndex];
+			if (!group || !group.GetWorld()
+				|| IsControlledShutdownRuntimeProxy(group)
+				|| IsControlledShutdownActiveGroupPlayerEntity(group)
+				|| rootIndex >= m_aControlledShutdownGroupRootIds.Count()
+				|| !m_aControlledShutdownAuthorityGroupIds.Contains(
+					m_aControlledShutdownGroupRootIds[rootIndex]))
+				return false;
+			array<AIAgent> currentAgents = {};
+			int currentAgentCount = group.GetAgents(currentAgents);
+			if (currentAgentCount != currentAgents.Count()
+				|| group.GetAgentsCount() != currentAgents.Count())
+				return false;
+			foreach (AIAgent currentAgent : currentAgents)
+			{
+				if (m_aControlledShutdownAgents.Find(currentAgent) < 0
+					|| !IsControlledShutdownActiveGroupAgentTopologyExact(currentAgent))
+					return false;
+			}
+		}
+
+		foreach (AIAgent agent : m_aControlledShutdownAgents)
+		{
+			if (!IsControlledShutdownActiveGroupAgentTopologyExact(agent))
+				return false;
+		}
+		for (int memberIndex; memberIndex < m_aControlledShutdownMembers.Count(); memberIndex++)
+		{
+			if (!IsControlledShutdownActiveGroupMemberTopologyExact(memberIndex))
+				return false;
+		}
+		for (int vehicleIndex; vehicleIndex < m_aControlledShutdownVehicleRoots.Count(); vehicleIndex++)
+		{
+			IEntity vehicle = m_aControlledShutdownVehicleRoots[vehicleIndex];
+			HST_ControlledShutdownActiveGroupTransformPin vehiclePin
+				= FindControlledShutdownActiveGroupTransformPin(vehicle);
+			if (!vehiclePin || !vehiclePin.m_bVehicleRoot
+				|| !IsControlledShutdownActiveGroupPinMutationSafe(vehiclePin)
+				|| IsControlledShutdownActiveGroupVehiclePlayerOccupied(vehicle))
+				return false;
+		}
+		foreach (HST_ControlledShutdownActiveGroupTransformPin pin : m_aControlledShutdownTransformPins)
+		{
+			if (!IsControlledShutdownActiveGroupPinMutationSafe(pin))
+				return false;
+		}
+		evidence = BuildControlledShutdownActiveGroupQuiescenceEvidence("mutation-safe");
+		return true;
+	}
+
+	protected bool IsControlledShutdownActiveGroupAgentTopologyExact(
+		AIAgent agent)
+	{
+		if (!agent || m_aControlledShutdownAgents.Find(agent) < 0)
+			return false;
+		IEntity member = agent.GetControlledEntity();
+		int memberIndex = m_aControlledShutdownMembers.Find(member);
+		if (memberIndex < 0
+			|| memberIndex >= m_aControlledShutdownMemberGroupIds.Count()
+			|| !member || !member.GetWorld()
+			|| IsControlledShutdownRuntimeProxy(member)
+			|| IsControlledShutdownActiveGroupPlayerEntity(member))
+			return false;
+		AIControlComponent control = AIControlComponent.Cast(
+			member.FindComponent(AIControlComponent));
+		if (!control || control.GetControlAIAgent() != agent)
+			return false;
+		HST_ControlledShutdownActiveGroupTransformPin pin
+			= FindControlledShutdownActiveGroupTransformPin(member);
+		if (!pin || !pin.m_bMember
+			|| agent.GetParentGroup() != pin.m_ParentGroup)
+			return false;
+		AIGroup parentGroup = pin.m_ParentGroup;
+		if (!parentGroup)
+			return !m_aControlledShutdownGroupRootIds.Contains(
+				m_aControlledShutdownMemberGroupIds[memberIndex]);
+		if (!parentGroup.GetWorld())
+			return false;
+		array<AIAgent> currentParentAgents = {};
+		int currentParentAgentCount = parentGroup.GetAgents(currentParentAgents);
+		if (currentParentAgentCount != currentParentAgents.Count()
+			|| parentGroup.GetAgentsCount() != currentParentAgents.Count()
+			|| currentParentAgents.Find(agent) < 0)
+			return false;
+		int rootIndex = m_aControlledShutdownGroupRoots.Find(parentGroup);
+		return rootIndex >= 0
+			&& rootIndex < m_aControlledShutdownGroupRootIds.Count()
+			&& m_aControlledShutdownGroupRootIds[rootIndex]
+				== m_aControlledShutdownMemberGroupIds[memberIndex];
+	}
+
+	protected bool IsControlledShutdownActiveGroupMemberTopologyExact(
+		int memberIndex)
+	{
+		if (memberIndex < 0 || memberIndex >= m_aControlledShutdownMembers.Count()
+			|| memberIndex >= m_aControlledShutdownMemberGroupIds.Count())
+			return false;
+		IEntity member = m_aControlledShutdownMembers[memberIndex];
+		if (!member || !member.GetWorld()
+			|| IsControlledShutdownRuntimeProxy(member)
+			|| IsControlledShutdownActiveGroupPlayerEntity(member))
+			return false;
+		HST_ControlledShutdownActiveGroupTransformPin pin
+			= FindControlledShutdownActiveGroupTransformPin(member);
+		if (!pin || !pin.m_bMember
+			|| !IsControlledShutdownActiveGroupMemberSeatTopologyExact(
+				member,
+				pin.m_CompartmentVehicle,
+				pin.m_CompartmentSlot,
+				m_aControlledShutdownMemberGroupIds[memberIndex]))
+			return false;
+		AIControlComponent control = AIControlComponent.Cast(
+			member.FindComponent(AIControlComponent));
+		AIAgent recordedAgent;
+		foreach (AIAgent candidate : m_aControlledShutdownAgents)
+		{
+			if (candidate && candidate.GetControlledEntity() == member)
+			{
+				if (recordedAgent)
+					return false;
+				recordedAgent = candidate;
+			}
+		}
+		if (!recordedAgent)
+			return !control || !control.GetControlAIAgent();
+		return control && control.GetControlAIAgent() == recordedAgent
+			&& IsControlledShutdownActiveGroupAgentTopologyExact(recordedAgent);
+	}
+
+	protected bool IsControlledShutdownActiveGroupMemberSeatTopologyExact(
+		IEntity member,
+		IEntity expectedVehicle,
+		BaseCompartmentSlot expectedCompartmentSlot,
+		string groupId)
+	{
+		IEntity currentVehicle;
+		BaseCompartmentSlot currentCompartmentSlot;
+		if (!TryResolveControlledShutdownStableCompartmentTopology(
+			member,
+			currentVehicle,
+			currentCompartmentSlot)
+			|| currentVehicle != expectedVehicle
+			|| currentCompartmentSlot != expectedCompartmentSlot)
+			return false;
+		if (!expectedVehicle)
+			return !expectedCompartmentSlot;
+		if (!expectedCompartmentSlot
+			|| expectedCompartmentSlot.GetOccupant() != member
+			|| expectedCompartmentSlot.GetVehicle() != expectedVehicle)
+			return false;
+		int vehicleIndex = m_aControlledShutdownVehicleRoots.Find(expectedVehicle);
+		return vehicleIndex >= 0
+			&& vehicleIndex < m_aControlledShutdownVehicleRootGroupIds.Count()
+			&& m_aControlledShutdownVehicleRootGroupIds[vehicleIndex] == groupId;
+	}
+
+	protected bool IsControlledShutdownActiveGroupVehicleOccupantTopologyExact(
+		int vehicleIndex)
+	{
+		if (vehicleIndex < 0
+			|| vehicleIndex >= m_aControlledShutdownVehicleRoots.Count()
+			|| vehicleIndex >= m_aControlledShutdownVehicleRootGroupIds.Count())
+			return false;
+		IEntity vehicle = m_aControlledShutdownVehicleRoots[vehicleIndex];
+		string groupId = m_aControlledShutdownVehicleRootGroupIds[vehicleIndex];
+		if (!vehicle || !vehicle.GetWorld() || groupId.IsEmpty())
+			return false;
+
+		array<BaseCompartmentManagerComponent> compartmentManagers = {};
+		array<BaseCompartmentSlot> compartmentSlots = {};
+		if (!CollectControlledShutdownActiveGroupVehicleCompartmentTopology(
+			vehicle,
+			compartmentManagers,
+			compartmentSlots))
+			return false;
+
+		int expectedOccupiedSlotCount;
+		foreach (HST_ControlledShutdownActiveGroupTransformPin expectedPin : m_aControlledShutdownTransformPins)
+		{
+			if (!expectedPin)
+				return false;
+			if (!expectedPin.m_bMember
+				|| expectedPin.m_CompartmentVehicle != vehicle)
+				continue;
+			expectedOccupiedSlotCount++;
+			int expectedMemberIndex
+				= m_aControlledShutdownMembers.Find(expectedPin.m_Entity);
+			if (expectedMemberIndex < 0
+				|| expectedMemberIndex
+					>= m_aControlledShutdownMemberGroupIds.Count()
+				|| m_aControlledShutdownMemberGroupIds[expectedMemberIndex]
+					!= groupId
+				|| !expectedPin.m_CompartmentSlot
+				|| compartmentSlots.Find(expectedPin.m_CompartmentSlot) < 0
+				|| expectedPin.m_CompartmentSlot.GetVehicle() != vehicle
+				|| expectedPin.m_CompartmentSlot.GetOccupant()
+					!= expectedPin.m_Entity)
+				return false;
+		}
+
+		int observedOccupiedSlotCount;
+		foreach (BaseCompartmentSlot compartmentSlot : compartmentSlots)
+		{
+			if (!compartmentSlot || compartmentSlot.GetVehicle() != vehicle)
+				return false;
+			IEntity occupant = compartmentSlot.GetOccupant();
+			if (!occupant)
+				continue;
+			observedOccupiedSlotCount++;
+			int occupantMemberIndex
+				= m_aControlledShutdownMembers.Find(occupant);
+			HST_ControlledShutdownActiveGroupTransformPin occupantPin
+				= FindControlledShutdownActiveGroupTransformPin(occupant);
+			if (occupantMemberIndex < 0
+				|| occupantMemberIndex
+					>= m_aControlledShutdownMemberGroupIds.Count()
+				|| m_aControlledShutdownMemberGroupIds[occupantMemberIndex]
+					!= groupId
+				|| !occupant.GetWorld()
+				|| IsControlledShutdownRuntimeProxy(occupant)
+				|| IsControlledShutdownActiveGroupPlayerEntity(occupant)
+				|| !occupantPin || !occupantPin.m_bMember
+				|| occupantPin.m_CompartmentVehicle != vehicle
+				|| occupantPin.m_CompartmentSlot != compartmentSlot)
+				return false;
+		}
+
+		return observedOccupiedSlotCount == expectedOccupiedSlotCount;
+	}
+
+	protected bool CollectControlledShutdownActiveGroupVehicleCompartmentTopology(
+		IEntity entity,
+		array<BaseCompartmentManagerComponent> compartmentManagers,
+		array<BaseCompartmentSlot> compartmentSlots)
+	{
+		if (!entity || !compartmentManagers || !compartmentSlots)
+			return false;
+		array<Managed> entityCompartmentManagers = {};
+		int entityCompartmentManagerCount = entity.FindComponents(
+			BaseCompartmentManagerComponent,
+			entityCompartmentManagers);
+		if (entityCompartmentManagerCount
+			!= entityCompartmentManagers.Count())
+			return false;
+		foreach (Managed component : entityCompartmentManagers)
+		{
+			BaseCompartmentManagerComponent compartmentManager
+				= BaseCompartmentManagerComponent.Cast(component);
+			if (!compartmentManager
+				|| compartmentManager.GetOwner() != entity
+				|| compartmentManagers.Find(compartmentManager) >= 0)
+				return false;
+			compartmentManagers.Insert(compartmentManager);
+			array<BaseCompartmentSlot> managedSlots = {};
+			int managedSlotCount
+				= compartmentManager.GetCompartments(managedSlots);
+			if (managedSlotCount != managedSlots.Count())
+				return false;
+			foreach (BaseCompartmentSlot managedSlot : managedSlots)
+			{
+				if (!managedSlot
+					|| managedSlot.GetManager() != compartmentManager
+					|| compartmentSlots.Find(managedSlot) >= 0)
+					return false;
+				compartmentSlots.Insert(managedSlot);
+			}
+		}
+
+		IEntity child = entity.GetChildren();
+		while (child)
+		{
+			if (!CollectControlledShutdownActiveGroupVehicleCompartmentTopology(
+				child,
+				compartmentManagers,
+				compartmentSlots))
+				return false;
+			child = child.GetSibling();
+		}
+		return true;
+	}
+
+	protected bool IsControlledShutdownActiveGroupPinMutationSafe(
+		HST_ControlledShutdownActiveGroupTransformPin pin)
+	{
+		if (!pin || !pin.m_Entity || !pin.m_Entity.GetWorld()
+			|| (!pin.m_bGroupRoot && !pin.m_bMember && !pin.m_bVehicleRoot)
+			|| IsControlledShutdownRuntimeProxy(pin.m_Entity)
+			|| IsControlledShutdownActiveGroupPlayerEntity(pin.m_Entity))
+			return false;
+		if (pin.m_bMember)
+		{
+			int memberIndex = m_aControlledShutdownMembers.Find(pin.m_Entity);
+			if (memberIndex < 0
+				|| !IsControlledShutdownActiveGroupMemberTopologyExact(memberIndex))
+				return false;
+			if (pin.m_CompartmentVehicle)
+				return true;
+		}
+		if (pin.m_bVehicleRoot)
+		{
+			int vehicleIndex
+				= m_aControlledShutdownVehicleRoots.Find(pin.m_Entity);
+			if (vehicleIndex < 0
+				|| !IsControlledShutdownActiveGroupVehicleOccupantTopologyExact(
+					vehicleIndex))
+				return false;
+		}
+		if (pin.m_bGroupRoot
+			&& m_aControlledShutdownGroupRoots.Find(AIGroup.Cast(pin.m_Entity)) < 0)
+			return false;
+		return IsControlledShutdownActiveGroupPhysicsHierarchyMutationSafe(
+			pin.m_Entity);
+	}
+
+	protected bool IsControlledShutdownActiveGroupPhysicsHierarchyMutationSafe(
+		IEntity entity)
+	{
+		if (!entity || !entity.GetWorld()
+			|| IsControlledShutdownRuntimeProxy(entity)
+			|| IsControlledShutdownActiveGroupPlayerEntity(entity))
+			return false;
+		IEntity child = entity.GetChildren();
+		while (child)
+		{
+			if (!IsControlledShutdownActiveGroupPhysicsHierarchyMutationSafe(child))
+				return false;
+			child = child.GetSibling();
+		}
+		return true;
+	}
+
+	protected void QuiesceControlledShutdownActiveGroupVehicle(IEntity vehicle)
+	{
+		if (!vehicle)
+			return;
+		BaseVehicleControllerComponent controller = BaseVehicleControllerComponent.Cast(
+			vehicle.FindComponent(BaseVehicleControllerComponent));
+		if (controller)
+		{
+			controller.Shutdown();
+			controller.StopEngine(false);
+		}
+		CarControllerComponent carController = CarControllerComponent.Cast(
+			vehicle.FindComponent(CarControllerComponent));
+		if (carController)
+			carController.SetPersistentHandBrake(true);
+		HelicopterControllerComponent helicopterController
+			= HelicopterControllerComponent.Cast(
+				vehicle.FindComponent(HelicopterControllerComponent));
+		if (helicopterController)
+		{
+			helicopterController.SetPersistentWheelBrake(true);
+			helicopterController.SetAutohoverEnabled(true);
+		}
+		QuiesceControlledShutdownActiveGroupPhysicsHierarchy(vehicle);
+	}
+
+	protected void QuiesceControlledShutdownActiveGroupPhysicsHierarchy(IEntity entity)
+	{
+		if (!entity)
+			return;
+		IEntity child = entity.GetChildren();
+		while (child)
+		{
+			QuiesceControlledShutdownActiveGroupPhysicsHierarchy(child);
+			child = child.GetSibling();
+		}
+		Physics physics = entity.GetPhysics();
+		if (!physics || !physics.IsDynamic())
+			return;
+		physics.ClearForces();
+		physics.SetVelocity(vector.Zero);
+		physics.SetAngularVelocity(vector.Zero);
+		physics.SetActive(ActiveState.INACTIVE);
+	}
+
+	protected bool ValidateControlledShutdownActiveGroupQuiescence(
+		HST_CampaignState state)
+	{
+		string playerEvidence;
+		if (!m_bControlledShutdownActiveGroupQuiescenceExact
+			|| !m_bControlledShutdownActiveGroupQuiescenceApplied
+			|| !state || state != m_ControlledShutdownActiveGroupState
+			|| !IsControlledShutdownActiveGroupRegistryTopologyExact(state)
+			|| !ValidateControlledShutdownActiveGroupPlayerSafety(playerEvidence))
+			return false;
+
+		for (int rootIndex; rootIndex < m_aControlledShutdownGroupRoots.Count(); rootIndex++)
+		{
+			AIGroup group = m_aControlledShutdownGroupRoots[rootIndex];
+			if (!group || !group.GetWorld()
+				|| IsControlledShutdownRuntimeProxy(group)
+				|| IsControlledShutdownActiveGroupPlayerEntity(group)
+				|| group.IsAIActivated())
+				return false;
+			array<AIAgent> groupAgents = {};
+			int agentCount = group.GetAgents(groupAgents);
+			if (agentCount != groupAgents.Count()
+				|| group.GetAgentsCount() != groupAgents.Count())
+				return false;
+			foreach (AIAgent agent : groupAgents)
+			{
+				if (!IsControlledShutdownActiveGroupAgentTopologyExact(agent)
+					|| agent.IsAIActivated())
+					return false;
+				AIControlComponent control = agent.GetControlComponent();
+				if (control && control.IsAIActivated())
+					return false;
+			}
+		}
+
+		foreach (AIAgent frozenAgent : m_aControlledShutdownAgents)
+		{
+			if (!IsControlledShutdownActiveGroupAgentTopologyExact(frozenAgent)
+				|| frozenAgent.IsAIActivated())
+				return false;
+			AIControlComponent frozenControl = frozenAgent.GetControlComponent();
+			if (frozenControl && frozenControl.IsAIActivated())
+				return false;
+		}
+
+		for (int memberIndex; memberIndex < m_aControlledShutdownMembers.Count(); memberIndex++)
+		{
+			if (!IsControlledShutdownActiveGroupMemberTopologyExact(memberIndex))
+				return false;
+			IEntity member = m_aControlledShutdownMembers[memberIndex];
+			AIControlComponent memberControl = AIControlComponent.Cast(
+				member.FindComponent(AIControlComponent));
+			if (memberControl && memberControl.IsAIActivated())
+				return false;
+		}
+
+		for (int vehicleIndex; vehicleIndex < m_aControlledShutdownVehicleRoots.Count(); vehicleIndex++)
+		{
+			IEntity vehicle = m_aControlledShutdownVehicleRoots[vehicleIndex];
+			if (IsControlledShutdownRuntimeProxy(vehicle)
+				|| IsControlledShutdownActiveGroupVehiclePlayerOccupied(vehicle)
+				|| !IsControlledShutdownActiveGroupVehicleOccupantTopologyExact(
+					vehicleIndex)
+				|| !IsControlledShutdownActiveGroupVehicleQuiescent(vehicle))
+				return false;
+		}
+		foreach (HST_ControlledShutdownActiveGroupTransformPin pin : m_aControlledShutdownTransformPins)
+		{
+			if (!pin || !pin.m_Entity || !pin.m_Entity.GetWorld()
+				|| IsControlledShutdownRuntimeProxy(pin.m_Entity)
+				|| IsControlledShutdownActiveGroupPlayerEntity(pin.m_Entity))
+				return false;
+			if (pin.m_bMember && pin.m_CompartmentVehicle)
+			{
+				int seatedMemberIndex
+					= m_aControlledShutdownMembers.Find(pin.m_Entity);
+				if (seatedMemberIndex < 0
+					|| seatedMemberIndex >= m_aControlledShutdownMemberGroupIds.Count()
+					|| !IsControlledShutdownActiveGroupMemberSeatTopologyExact(
+						pin.m_Entity,
+						pin.m_CompartmentVehicle,
+						pin.m_CompartmentSlot,
+						m_aControlledShutdownMemberGroupIds[seatedMemberIndex]))
+					return false;
+				continue;
+			}
+			if (!IsControlledShutdownActiveGroupTransformPinned(pin)
+				|| !IsControlledShutdownActiveGroupPhysicsHierarchyQuiescent(
+					pin.m_Entity))
+				return false;
+		}
+		return true;
+	}
+
+	protected bool IsControlledShutdownActiveGroupRegistryTopologyExact(
+		HST_CampaignState state)
+	{
+		if (!state || state != m_ControlledShutdownActiveGroupState
+			|| m_aRuntimeGroupIds.Count() != m_aRuntimeGroupEntities.Count()
+			|| m_aRuntimeVehicleGroupIds.Count() != m_aRuntimeVehicleEntities.Count()
+			|| m_aControlledShutdownRuntimeGroupIds.Count()
+				!= m_aControlledShutdownRuntimeGroupEntities.Count()
+			|| m_aControlledShutdownRuntimeVehicleGroupIds.Count()
+				!= m_aControlledShutdownRuntimeVehicleEntities.Count())
+			return false;
+
+		array<string> currentAuthorityGroupIds = {};
+		string scopeEvidence;
+		if (!CollectControlledShutdownPersistenceSampledGroupIds(
+			state,
+			currentAuthorityGroupIds,
+			scopeEvidence)
+			|| currentAuthorityGroupIds.Count()
+				!= m_aControlledShutdownAuthorityGroupIds.Count())
+			return false;
+		foreach (string currentAuthorityGroupId : currentAuthorityGroupIds)
+		{
+			if (!m_aControlledShutdownAuthorityGroupIds.Contains(
+				currentAuthorityGroupId))
+				return false;
+		}
+
+		int currentScopedGroupCount;
+		for (int groupIndex; groupIndex < m_aRuntimeGroupIds.Count(); groupIndex++)
+		{
+			string groupId = m_aRuntimeGroupIds[groupIndex];
+			if (!currentAuthorityGroupIds.Contains(groupId))
+				continue;
+			IEntity entity = m_aRuntimeGroupEntities[groupIndex];
+			int recordedIndex
+				= m_aControlledShutdownRuntimeGroupEntities.Find(entity);
+			if (recordedIndex < 0
+				|| recordedIndex >= m_aControlledShutdownRuntimeGroupIds.Count()
+				|| m_aControlledShutdownRuntimeGroupIds[recordedIndex] != groupId
+				|| !IsControlledShutdownRuntimeRegistrationExclusive(
+					groupId,
+					entity,
+					false)
+				|| !state.FindActiveGroup(groupId))
+				return false;
+			currentScopedGroupCount++;
+		}
+		if (currentScopedGroupCount
+			!= m_aControlledShutdownRuntimeGroupIds.Count())
+			return false;
+
+		int currentScopedVehicleCount;
+		for (int vehicleIndex; vehicleIndex < m_aRuntimeVehicleGroupIds.Count(); vehicleIndex++)
+		{
+			string vehicleGroupId = m_aRuntimeVehicleGroupIds[vehicleIndex];
+			if (!currentAuthorityGroupIds.Contains(vehicleGroupId))
+				continue;
+			IEntity vehicle = m_aRuntimeVehicleEntities[vehicleIndex];
+			int recordedVehicleIndex
+				= m_aControlledShutdownRuntimeVehicleEntities.Find(vehicle);
+			if (recordedVehicleIndex < 0
+				|| recordedVehicleIndex
+					>= m_aControlledShutdownRuntimeVehicleGroupIds.Count()
+				|| m_aControlledShutdownRuntimeVehicleGroupIds[recordedVehicleIndex]
+					!= vehicleGroupId
+				|| !IsControlledShutdownRuntimeRegistrationExclusive(
+					vehicleGroupId,
+					vehicle,
+					true)
+				|| !state.FindActiveGroup(vehicleGroupId))
+				return false;
+			currentScopedVehicleCount++;
+		}
+		return currentScopedVehicleCount
+			== m_aControlledShutdownRuntimeVehicleGroupIds.Count();
+	}
+
+	protected bool ValidateControlledShutdownActiveGroupPlayerSafety(
+		out string evidence)
+	{
+		evidence = CONTROLLED_SHUTDOWN_PLAYER_RELEASE_EVIDENCE;
+		PlayerManager playerManager = GetGame().GetPlayerManager();
+		if (!playerManager)
+		{
+			evidence += " | player manager unavailable";
+			return false;
+		}
+		array<int> playerIds = {};
+		playerManager.GetPlayers(playerIds);
+		foreach (int playerId : playerIds)
+		{
+			IEntity controlledEntity
+				= playerManager.GetPlayerControlledEntity(playerId);
+			IEntity mainEntity
+				= SCR_PossessingManagerComponent.GetPlayerMainEntity(playerId);
+			if (!IsControlledShutdownPlayerEntitySafe(controlledEntity)
+				|| (mainEntity != controlledEntity
+					&& !IsControlledShutdownPlayerEntitySafe(mainEntity)))
+			{
+				evidence += string.Format(" | player %1 overlaps sampled authority or is changing compartments", playerId);
+				return false;
+			}
+		}
+		foreach (IEntity member : m_aControlledShutdownMembers)
+		{
+			if (IsControlledShutdownActiveGroupPlayerEntity(member))
+			{
+				evidence += " | sampled member";
+				return false;
+			}
+		}
+		foreach (IEntity vehicle : m_aControlledShutdownVehicleRoots)
+		{
+			if (IsControlledShutdownActiveGroupVehiclePlayerOccupied(vehicle))
+			{
+				evidence += " | sampled vehicle";
+				return false;
+			}
+		}
+		evidence = "active-group controlled-shutdown player safety exact";
+		return true;
+	}
+
+	protected bool IsControlledShutdownPlayerEntitySafe(IEntity playerEntity)
+	{
+		if (!playerEntity)
+			return true;
+		if (!playerEntity.GetWorld()
+			|| m_aControlledShutdownMembers.Find(playerEntity) >= 0
+			|| m_aControlledShutdownVehicleRoots.Find(playerEntity) >= 0
+			|| m_aControlledShutdownGroupRoots.Find(AIGroup.Cast(playerEntity)) >= 0)
+			return false;
+		IEntity hierarchyVehicle
+			= CompartmentAccessComponent.GetVehicleIn(playerEntity);
+		if (hierarchyVehicle
+			&& m_aControlledShutdownVehicleRoots.Find(hierarchyVehicle) >= 0)
+			return false;
+		IEntity playerVehicle;
+		if (!TryResolveControlledShutdownStableCompartmentVehicle(
+			playerEntity,
+			playerVehicle))
+			return false;
+		return !playerVehicle
+			|| m_aControlledShutdownVehicleRoots.Find(playerVehicle) < 0;
+	}
+
+	protected bool IsControlledShutdownActiveGroupPlayerEntity(IEntity entity)
+	{
+		if (!entity)
+			return false;
+		PlayerManager playerManager = GetGame().GetPlayerManager();
+		if (!playerManager)
+			return false;
+		array<int> playerIds = {};
+		playerManager.GetPlayers(playerIds);
+		foreach (int playerId : playerIds)
+		{
+			if (playerManager.GetPlayerControlledEntity(playerId) == entity
+				|| SCR_PossessingManagerComponent.GetPlayerMainEntity(playerId)
+					== entity)
+				return true;
+		}
+		return false;
+	}
+
+	protected bool IsControlledShutdownActiveGroupVehiclePlayerOccupied(
+		IEntity vehicle)
+	{
+		if (!vehicle)
+			return false;
+		PlayerManager playerManager = GetGame().GetPlayerManager();
+		if (!playerManager)
+			return false;
+		array<int> playerIds = {};
+		playerManager.GetPlayers(playerIds);
+		foreach (int playerId : playerIds)
+		{
+			IEntity controlledEntity
+				= playerManager.GetPlayerControlledEntity(playerId);
+			IEntity mainEntity
+				= SCR_PossessingManagerComponent.GetPlayerMainEntity(playerId);
+			if (IsControlledShutdownPlayerEntityUsingVehicle(
+					controlledEntity,
+					vehicle)
+				|| (mainEntity != controlledEntity
+					&& IsControlledShutdownPlayerEntityUsingVehicle(
+						mainEntity,
+						vehicle)))
+				return true;
+		}
+		return false;
+	}
+
+	protected bool IsControlledShutdownPlayerEntityUsingVehicle(
+		IEntity playerEntity,
+		IEntity vehicle)
+	{
+		if (!playerEntity || !vehicle)
+			return false;
+		if (playerEntity == vehicle)
+			return true;
+		IEntity playerVehicle;
+		if (!TryResolveControlledShutdownStableCompartmentVehicle(
+			playerEntity,
+			playerVehicle))
+		{
+			playerVehicle = CompartmentAccessComponent.GetVehicleIn(playerEntity);
+			return playerVehicle == vehicle;
+		}
+		return playerVehicle == vehicle;
+	}
+
+	protected bool IsControlledShutdownRuntimeProxy(IEntity entity)
+	{
+		if (!entity)
+			return true;
+		BaseRplComponent replication = BaseRplComponent.Cast(
+			entity.FindComponent(BaseRplComponent));
+		return replication && replication.IsProxy();
+	}
+
+	protected bool IsControlledShutdownActiveGroupVehicleQuiescent(IEntity vehicle)
+	{
+		if (!vehicle || !vehicle.GetWorld())
+			return false;
+		BaseVehicleControllerComponent controller = BaseVehicleControllerComponent.Cast(
+			vehicle.FindComponent(BaseVehicleControllerComponent));
+		if (controller && controller.IsEngineOn())
+			return false;
+		CarControllerComponent carController = CarControllerComponent.Cast(
+			vehicle.FindComponent(CarControllerComponent));
+		if (carController && !carController.GetPersistentHandBrake())
+			return false;
+		HelicopterControllerComponent helicopterController
+			= HelicopterControllerComponent.Cast(
+				vehicle.FindComponent(HelicopterControllerComponent));
+		if (helicopterController
+			&& (!helicopterController.GetPersistentWheelBrake()
+				|| !helicopterController.GetAutohoverEnabled()))
+			return false;
+		return IsControlledShutdownActiveGroupPhysicsHierarchyQuiescent(vehicle);
+	}
+
+	protected bool IsControlledShutdownActiveGroupPhysicsHierarchyQuiescent(
+		IEntity entity)
+	{
+		if (!entity || !entity.GetWorld())
+			return false;
+		Physics physics = entity.GetPhysics();
+		if (physics && physics.IsDynamic())
+		{
+			if (physics.IsActive()
+				|| !IsControlledShutdownActiveGroupZeroVector(physics.GetVelocity())
+				|| !IsControlledShutdownActiveGroupZeroVector(physics.GetAngularVelocity()))
+				return false;
+		}
+		IEntity child = entity.GetChildren();
+		while (child)
+		{
+			if (!IsControlledShutdownActiveGroupPhysicsHierarchyQuiescent(child))
+				return false;
+			child = child.GetSibling();
+		}
+		return true;
+	}
+
+	protected bool IsControlledShutdownActiveGroupTransformPinned(
+		HST_ControlledShutdownActiveGroupTransformPin pin)
+	{
+		if (!pin || !pin.m_Entity || !pin.m_Entity.GetWorld())
+			return false;
+		vector currentTransform[4];
+		pin.m_Entity.GetTransform(currentTransform);
+		for (int transformIndex; transformIndex < 4; transformIndex++)
+		{
+			if (!IsControlledShutdownActiveGroupVectorNear(
+				currentTransform[transformIndex],
+				pin.m_aTransform[transformIndex]))
+				return false;
+		}
+		return true;
+	}
+
+	protected bool IsControlledShutdownActiveGroupZeroVector(vector value)
+	{
+		return Math.AbsFloat(value[0]) <= 0.001
+			&& Math.AbsFloat(value[1]) <= 0.001
+			&& Math.AbsFloat(value[2]) <= 0.001;
+	}
+
+	protected bool IsControlledShutdownActiveGroupVectorNear(
+		vector first,
+		vector second)
+	{
+		return Math.AbsFloat(first[0] - second[0]) <= 0.001
+			&& Math.AbsFloat(first[1] - second[1]) <= 0.001
+			&& Math.AbsFloat(first[2] - second[2]) <= 0.001;
+	}
+
+	protected string BuildControlledShutdownActiveGroupQuiescenceEvidence(
+		string status)
+	{
+		return string.Format(
+			"active-group controlled-shutdown quiescence %1 | roots/members/vehicles/pins %2/%3/%4/%5",
+			status,
+			m_aControlledShutdownGroupRoots.Count(),
+			m_aControlledShutdownMembers.Count(),
+			m_aControlledShutdownVehicleRoots.Count(),
+			m_aControlledShutdownTransformPins.Count());
 	}
 
 	bool HasCombatPresenceRuntimeTopologyChangedSinceLastSample()

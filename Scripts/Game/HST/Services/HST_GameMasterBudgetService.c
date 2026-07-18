@@ -94,6 +94,8 @@ modded class SCR_BaseGameMode
 	static const int CAMPAIGN_END_CHECKPOINT_RETRY_DELAY_MS = 1000;
 	static const int CAMPAIGN_END_TRANSITION_POLL_DELAY_MS = 100;
 	static const int CAMPAIGN_END_CHECKPOINT_LOG_INTERVAL = 30;
+	static const string CAMPAIGN_END_PLAYER_RELEASE_EVIDENCE
+		= "active-group controlled-shutdown player release required";
 	// One ordinary checkpoint may already be in flight when controlled end starts.
 	// Allow that request's 120-second timeout, a full shutdown checkpoint timeout,
 	// and bounded queue/transition margin before failing closed under quiescence.
@@ -107,6 +109,7 @@ modded class SCR_BaseGameMode
 	protected bool m_bHSTCampaignEndCheckpointRetryQueued;
 	protected bool m_bHSTCampaignEndTransitionPollQueued;
 	protected bool m_bHSTCampaignEndCheckpointBlocked;
+	protected bool m_bHSTCampaignEndWaitingForPlayerRelease;
 	protected bool m_bHSTPreserveCampaignSessionDataOnEnd;
 	protected bool m_bHSTUseProfileFallbackOnEnd;
 	protected bool m_bHSTCampaignEndPendingNativeAuthority;
@@ -198,6 +201,7 @@ modded class SCR_BaseGameMode
 		if (!m_bHSTCampaignEndRequested)
 		{
 			m_bHSTCampaignEndRequested = true;
+			SetHSTCampaignEndWaitingForPlayerRelease(false);
 			m_bHSTPreserveCampaignSessionDataOnEnd = false;
 			m_bHSTUseProfileFallbackOnEnd = false;
 			m_HSTPendingCampaignEndData = endData;
@@ -229,6 +233,11 @@ modded class SCR_BaseGameMode
 		if (!m_bHSTCampaignEndRequested || !coordinator)
 			return;
 
+		// A rejected player-release preflight is the only controlled-end state
+		// that temporarily returns gameplay controls. Re-block controls before
+		// every retry so no player can enter a sampled authority while the next
+		// snapshot is being admitted.
+		SetHSTCampaignEndWaitingForPlayerRelease(false);
 		m_iHSTCampaignEndCheckpointAttempts++;
 		coordinator.BeginControlledCampaignEndCheckpointAttempt();
 		m_bHSTCampaignEndPendingNativeAuthority = false;
@@ -239,7 +248,7 @@ modded class SCR_BaseGameMode
 			= coordinator.RequestGracefulShutdownCheckpoint(
 				m_HSTCampaignEndCheckpointCallback);
 		coordinator.ObserveControlledCampaignEndCheckpointRequest(request);
-		bool durableRequestAccepted;
+		bool durableRequestAccepted = false;
 		if (request)
 		{
 			durableRequestAccepted = request.m_bSavePointRequested
@@ -283,7 +292,35 @@ modded class SCR_BaseGameMode
 		string failureEvidence = "checkpoint service unavailable";
 		if (request)
 			failureEvidence = request.m_sEvidence;
+		if (IsHSTCampaignEndPlayerReleaseRequired(request))
+		{
+			SetHSTCampaignEndWaitingForPlayerRelease(true);
+			QueueHSTCampaignEndCheckpointRetry(failureEvidence);
+			return;
+		}
 		QueueHSTCampaignEndCheckpointRetry(failureEvidence);
+	}
+
+	protected bool IsHSTCampaignEndPlayerReleaseRequired(
+		HST_PersistenceCheckpointRequest request)
+	{
+		return request
+			&& !request.m_bControlledShutdownRuntimeQuiescenceApplied
+			&& (request.m_bControlledShutdownPlayerReleaseRequired
+				|| (!request.m_sEvidence.IsEmpty()
+					&& request.m_sEvidence.Contains(
+						CAMPAIGN_END_PLAYER_RELEASE_EVIDENCE)));
+	}
+
+	protected void SetHSTCampaignEndWaitingForPlayerRelease(bool waiting)
+	{
+		bool allowControls = waiting && super.GetAllowControlsTarget();
+		bool changed = m_bHSTCampaignEndWaitingForPlayerRelease != waiting
+			|| m_bAllowControls != allowControls;
+		m_bHSTCampaignEndWaitingForPlayerRelease = waiting;
+		m_bAllowControls = allowControls;
+		if (changed && Replication.IsServer())
+			Replication.BumpMe();
 	}
 
 	protected void OnHSTCampaignEndCheckpointCompleted(bool success)
@@ -385,6 +422,7 @@ modded class SCR_BaseGameMode
 
 	protected void BlockHSTCampaignEndCheckpoint(string evidence)
 	{
+		SetHSTCampaignEndWaitingForPlayerRelease(false);
 		m_bHSTCampaignEndCheckpointRetryQueued = false;
 		m_bHSTCampaignEndTransitionPollQueued = false;
 		m_bHSTCampaignEndCheckpointBlocked = true;
@@ -404,6 +442,7 @@ modded class SCR_BaseGameMode
 	{
 		if (!m_bHSTCampaignEndRequested)
 			return;
+		SetHSTCampaignEndWaitingForPlayerRelease(false);
 		m_bHSTCampaignEndPendingNativeAuthority = nativeAuthorityCommitted;
 		HST_CampaignCoordinatorComponent coordinator
 			= HST_CampaignCoordinatorComponent.GetInstance();
@@ -467,6 +506,7 @@ modded class SCR_BaseGameMode
 
 	protected void ClearHSTCampaignEndCheckpointState()
 	{
+		SetHSTCampaignEndWaitingForPlayerRelease(false);
 		m_bHSTCampaignEndRequested = false;
 		m_bHSTCampaignEndCheckpointPending = false;
 		m_bHSTCampaignEndCheckpointCommitted = false;
@@ -533,8 +573,13 @@ modded class SCR_BaseGameMode
 
 	override protected bool GetAllowControlsTarget()
 	{
-		if (m_bHSTCampaignEndRequested
-			|| m_bHSTPreserveCampaignSessionDataOnEnd
+		if (m_bHSTCampaignEndRequested)
+		{
+			if (m_bHSTCampaignEndWaitingForPlayerRelease)
+				return super.GetAllowControlsTarget();
+			return false;
+		}
+		if (m_bHSTPreserveCampaignSessionDataOnEnd
 			|| m_bHSTUseProfileFallbackOnEnd)
 			return false;
 		return super.GetAllowControlsTarget();

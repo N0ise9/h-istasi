@@ -24798,7 +24798,9 @@ $schema65CivilianPersistenceBlock = Get-ScriptMethodBlock $schema65CivilianText 
 $schema65PersistenceClaimIndex = $schema65CivilianPersistenceBlock.IndexOf('ObservePlayerAmbientVehicleClaims(state)')
 $schema65PersistenceFlushIndex = $schema65CivilianPersistenceBlock.IndexOf('FlushPendingCivilianConsequences(state)')
 $schema65PersistencePendingIndex = $schema65CivilianPersistenceBlock.IndexOf('HasPendingCivilianConsequenceWork()')
-$schema65PersistenceCaptureIndex = $schema65CivilianPersistenceBlock.IndexOf('m_PersistentFieldVehicles.PrepareForCapture(state)')
+$schema65PersistenceCaptureIndex = $schema65CivilianPersistenceBlock.IndexOf(
+	'm_PersistentFieldVehicles.PrepareForCapture(state)',
+	[Math]::Max(0, $schema65PersistencePendingIndex))
 if ($schema65PersistenceClaimIndex -lt 0 -or $schema65PersistenceFlushIndex -lt 0 -or
 	$schema65PersistencePendingIndex -lt 0 -or $schema65PersistenceCaptureIndex -lt 0 -or
 	$schema65PersistenceClaimIndex -gt $schema65PersistenceFlushIndex -or
@@ -42011,6 +42013,48 @@ $ordinaryCoordinatorCheckpointConfigureBlock = Get-ScriptMethodBlock `
 $ordinaryCoordinatorMarkMajorBlock = Get-ScriptMethodBlock `
 	$nativeCoordinatorText `
 	'protected void MarkMajorCampaignChange('
+$ordinaryCoordinatorMutationIngressBlock = Get-ScriptMethodBlock `
+	$nativeCoordinatorText `
+	'protected bool IsControlledCampaignEndMutationIngressBlocked('
+$ordinaryCoordinatorExternalMutationBlock = Get-ScriptMethodBlock `
+	$nativeCoordinatorText `
+	'protected void ObserveControlledCampaignEndExternalMutation('
+$ordinaryCoordinatorGameModeStartBlock = Get-ScriptMethodBlock `
+	$nativeCoordinatorText `
+	'override void OnGameModeStart('
+$ordinaryCoordinatorGameStateChangedBlock = Get-ScriptMethodBlock `
+	$nativeCoordinatorText `
+	'override void OnGameStateChanged('
+$ordinaryCoordinatorPlayerConnectedBlock = Get-ScriptMethodBlock `
+	$nativeCoordinatorText `
+	'override void OnPlayerConnected('
+$ordinaryCoordinatorControllableDestroyedBlock = Get-ScriptMethodBlock `
+	$nativeCoordinatorText `
+	'override void OnControllableDestroyed('
+$ordinaryCoordinatorPlayerDisconnectedBlock = Get-ScriptMethodBlock `
+	$nativeCoordinatorText `
+	'override void OnPlayerDisconnected('
+$ordinaryCoordinatorMissionAssetDestroyedBlock = Get-ScriptMethodBlock `
+	$nativeCoordinatorText `
+	'string RequestServerMissionAssetDestroyed('
+$ordinaryCoordinatorMissionAssetDamageBlock = Get-ScriptMethodBlock `
+	$nativeCoordinatorText `
+	'string RequestServerMissionAssetExplosiveDamage('
+$ordinaryCoordinatorStartMissionBlock = Get-ScriptMethodBlock `
+	$nativeCoordinatorText `
+	'bool StartMission('
+$ordinaryCoordinatorStartMissionInternalBlock = Get-ScriptMethodBlock `
+	$nativeCoordinatorText `
+	'protected bool StartMission_S('
+$ordinaryCoordinatorCommanderAccessBlock = Get-ScriptMethodBlock `
+	$nativeCoordinatorText `
+	'protected bool CanPlayerUseCommanderActions('
+$ordinaryCoordinatorMemberAccessBlock = Get-ScriptMethodBlock `
+	$nativeCoordinatorText `
+	'protected bool CanPlayerUseMemberActions('
+$ordinaryCoordinatorAdminAccessBlock = Get-ScriptMethodBlock `
+	$nativeCoordinatorText `
+	'protected bool CanPlayerUseAdminActions('
 $ordinaryCoordinatorAlphaCommandBlock = Get-ScriptMethodBlock `
 	$nativeCoordinatorText `
 	'bool RequestAlphaUICommand('
@@ -42050,6 +42094,18 @@ $ordinaryGameModeEndTransitionQueueBlock = Get-ScriptMethodBlock `
 $ordinaryGameModeEndTransitionRetryBlock = Get-ScriptMethodBlock `
 	$gameMasterBudgetPatchText `
 	'protected void RetryHSTCampaignEndTransition('
+$ordinaryGameModeEndPlayerReleaseCheckBlock = Get-ScriptMethodBlock `
+	$gameMasterBudgetPatchText `
+	'protected bool IsHSTCampaignEndPlayerReleaseRequired('
+$ordinaryGameModeEndPlayerReleaseStateBlock = Get-ScriptMethodBlock `
+	$gameMasterBudgetPatchText `
+	'protected void SetHSTCampaignEndWaitingForPlayerRelease('
+$ordinaryGameModeEndClearBlock = Get-ScriptMethodBlock `
+	$gameMasterBudgetPatchText `
+	'protected void ClearHSTCampaignEndCheckpointState()'
+$ordinaryGameModeEndAllowControlsBlock = Get-ScriptMethodBlock `
+	$gameMasterBudgetPatchText `
+	'override protected bool GetAllowControlsTarget()'
 $ordinaryGameModeEndPreserveBlock = Get-ScriptMethodBlock `
 	$gameMasterBudgetPatchText `
 	'override protected void HandleOnGameModeEndSaveData('
@@ -42326,7 +42382,9 @@ if ([string]::IsNullOrEmpty($ordinaryCoordinatorControlledEndBeginBlock) -or
 	$ordinaryCoordinatorControlledEndBeginBlock.IndexOf(
 		'm_bControlledCampaignEndDraining = true;') -lt 0 -or
 	$ordinaryCoordinatorControlledEndBeginBlock.IndexOf(
-		'm_bControlledCampaignEndQuiescing = false;') -lt 0 -or
+		'if (m_bControlledCampaignEndQuiescing)') -lt 0 -or
+	$ordinaryCoordinatorControlledEndBeginBlock.IndexOf(
+		'm_bControlledCampaignEndQuiescing = false;') -ge 0 -or
 	$ordinaryCoordinatorControlledEndBeginBlock.IndexOf(
 		'm_bControlledCampaignEndMutationObserved = false;') -lt 0 -or
 	[string]::IsNullOrEmpty($ordinaryCoordinatorControlledEndArmBlock) -or
@@ -42349,6 +42407,98 @@ if ([string]::IsNullOrEmpty($ordinaryCoordinatorControlledEndBeginBlock) -or
 	$ordinaryCoordinatorMarkMajorBlock.IndexOf(
 		'm_bControlledCampaignEndMutationObserved = true;') -lt 0) {
 	throw 'Controlled game-mode end must drain first, arm post-request quiescence with a baseline fingerprint, and reject any late mutation or fingerprint drift'
+}
+if ($ordinaryCoordinatorControlledEndBeginBlock -notmatch
+	'(?s)if\s*\(\s*!m_bControlledCampaignEndQuiescing\s*\)\s*m_bControlledCampaignEndMutationObserved\s*=\s*false;' -or
+	([regex]::Matches(
+		$ordinaryCoordinatorControlledEndBeginBlock,
+		'm_bControlledCampaignEndMutationObserved\s*=\s*false;')).Count -ne 1) {
+	throw 'Controlled-end checkpoint retries must preserve a late-mutation rejection once irreversible quiescence is already latched'
+}
+$ordinaryControlledEndArmLateMutationIndex =
+	$ordinaryCoordinatorControlledEndArmBlock.IndexOf(
+		'if (m_bControlledCampaignEndQuiescing')
+$ordinaryControlledEndArmQuiescingIndex =
+	$ordinaryCoordinatorControlledEndArmBlock.IndexOf(
+		'm_bControlledCampaignEndQuiescing = true;')
+$ordinaryControlledEndArmResetIndex =
+	$ordinaryCoordinatorControlledEndArmBlock.IndexOf(
+		'm_bControlledCampaignEndMutationObserved = false;')
+if ($ordinaryControlledEndArmLateMutationIndex -lt 0 -or
+	$ordinaryCoordinatorControlledEndArmBlock.IndexOf(
+		'&& m_bControlledCampaignEndMutationObserved',
+		$ordinaryControlledEndArmLateMutationIndex) -lt 0 -or
+	$ordinaryControlledEndArmQuiescingIndex -le
+		$ordinaryControlledEndArmLateMutationIndex -or
+	$ordinaryControlledEndArmResetIndex -le
+		$ordinaryControlledEndArmQuiescingIndex -or
+	$ordinaryCoordinatorControlledEndObserveBlock.IndexOf(
+		'm_bControlledCampaignEndMutationObserved = false;') -ge 0) {
+	throw 'Controlled-end arming must reject a preserved late mutation before establishing a fresh baseline, and request observation must never clear that rejection'
+}
+foreach ($ordinaryControlledEndMutationIngressEntry in @(
+		'm_bControlledCampaignEndDraining',
+		'm_bControlledCampaignEndQuiescing'
+	)) {
+	if ([string]::IsNullOrEmpty($ordinaryCoordinatorMutationIngressBlock) -or
+		$ordinaryCoordinatorMutationIngressBlock.IndexOf(
+			$ordinaryControlledEndMutationIngressEntry) -lt 0) {
+		throw "Controlled-end mutation-ingress gate omits a one-way coordinator phase: $ordinaryControlledEndMutationIngressEntry"
+	}
+}
+if ($ordinaryCoordinatorMutationIngressBlock -notmatch
+	'(?s)return\s+m_bControlledCampaignEndDraining\s*\|\|\s*m_bControlledCampaignEndQuiescing\s*;') {
+	throw 'Controlled-end mutation ingress must close for both the drain window and irreversible quiescence'
+}
+foreach ($ordinaryControlledEndExternalMutationEntry in @(
+		'if (!m_bControlledCampaignEndQuiescing)',
+		'm_bControlledCampaignEndMutationObserved = true;',
+		'"controlled campaign end observed a late mutation: " + reason'
+	)) {
+	if ([string]::IsNullOrEmpty($ordinaryCoordinatorExternalMutationBlock) -or
+		$ordinaryCoordinatorExternalMutationBlock.IndexOf(
+			$ordinaryControlledEndExternalMutationEntry) -lt 0) {
+		throw "Controlled-end external mutation observation cannot preserve retry rejection evidence: $ordinaryControlledEndExternalMutationEntry"
+	}
+}
+$ordinaryControlledEndExternalIngressContracts = @(
+	@($ordinaryCoordinatorGameModeStartBlock, 'ObserveControlledCampaignEndExternalMutation("game mode started")'),
+	@($ordinaryCoordinatorGameStateChangedBlock, 'ObserveControlledCampaignEndExternalMutation("game state changed")'),
+	@($ordinaryCoordinatorPlayerConnectedBlock, 'ObserveControlledCampaignEndExternalMutation("player connected")'),
+	@($ordinaryCoordinatorControllableDestroyedBlock, 'ObserveControlledCampaignEndExternalMutation("controllable destroyed")'),
+	@($ordinaryCoordinatorPlayerDisconnectedBlock, 'ObserveControlledCampaignEndExternalMutation("player disconnected")'),
+	@($ordinaryCoordinatorMissionAssetDestroyedBlock, 'ObserveControlledCampaignEndExternalMutation('),
+	@($ordinaryCoordinatorMissionAssetDamageBlock, 'ObserveControlledCampaignEndExternalMutation(')
+)
+foreach ($ordinaryControlledEndExternalIngressContract in
+		$ordinaryControlledEndExternalIngressContracts) {
+	$ordinaryControlledEndIngressBlock =
+		$ordinaryControlledEndExternalIngressContract[0]
+	$ordinaryControlledEndObserveIndex =
+		$ordinaryControlledEndIngressBlock.IndexOf(
+			$ordinaryControlledEndExternalIngressContract[1])
+	$ordinaryControlledEndBlockIndex =
+		$ordinaryControlledEndIngressBlock.IndexOf(
+			'IsControlledCampaignEndMutationIngressBlocked()',
+			[Math]::Max(0, $ordinaryControlledEndObserveIndex))
+	if ([string]::IsNullOrEmpty($ordinaryControlledEndIngressBlock) -or
+		$ordinaryControlledEndObserveIndex -lt 0 -or
+		$ordinaryControlledEndBlockIndex -le $ordinaryControlledEndObserveIndex) {
+		throw 'External lifecycle/casualty ingress must record a post-quiescence mutation before rejecting it at the drain/quiescence gate'
+	}
+}
+foreach ($ordinaryControlledEndDirectIngressBlock in @(
+		$ordinaryCoordinatorStartMissionBlock,
+		$ordinaryCoordinatorStartMissionInternalBlock,
+		$ordinaryCoordinatorCommanderAccessBlock,
+		$ordinaryCoordinatorMemberAccessBlock,
+		$ordinaryCoordinatorAdminAccessBlock
+	)) {
+	if ([string]::IsNullOrEmpty($ordinaryControlledEndDirectIngressBlock) -or
+		$ordinaryControlledEndDirectIngressBlock.IndexOf(
+			'IsControlledCampaignEndMutationIngressBlocked()') -lt 0) {
+		throw 'Direct mission and player-action authorization ingress must close throughout controlled-end draining and quiescence'
+	}
 }
 $ordinaryFrameQuiescenceBlock = Get-ScriptMethodBlock `
 	$nativeFrameBlock 'if (m_bControlledCampaignEndQuiescing)'
@@ -42438,6 +42588,80 @@ foreach ($ordinaryGameModeEndRequestEntry in @(
 	if ([string]::IsNullOrEmpty($ordinaryGameModeEndRequestBlock) -or
 		$ordinaryGameModeEndRequestBlock.IndexOf($ordinaryGameModeEndRequestEntry) -lt 0) {
 		throw "Controlled game-mode end checkpoint request is incomplete: $ordinaryGameModeEndRequestEntry"
+	}
+}
+$ordinaryGameModeEndPlayerReleaseBranch = Get-ScriptMethodBlock `
+	$ordinaryGameModeEndRequestBlock `
+	'if (IsHSTCampaignEndPlayerReleaseRequired(request))'
+foreach ($ordinaryGameModeEndPlayerReleaseEntry in @(
+		'!request.m_bControlledShutdownRuntimeQuiescenceApplied',
+		'm_bControlledShutdownPlayerReleaseRequired',
+		'CAMPAIGN_END_PLAYER_RELEASE_EVIDENCE'
+	)) {
+	if ([string]::IsNullOrEmpty($ordinaryGameModeEndPlayerReleaseCheckBlock) -or
+		$ordinaryGameModeEndPlayerReleaseCheckBlock.IndexOf(
+			$ordinaryGameModeEndPlayerReleaseEntry) -lt 0) {
+		throw "Controlled-end player-release classification is incomplete: $ordinaryGameModeEndPlayerReleaseEntry"
+	}
+}
+foreach ($ordinaryGameModeEndPlayerReleaseBranchEntry in @(
+		'SetHSTCampaignEndWaitingForPlayerRelease(true);',
+		'QueueHSTCampaignEndCheckpointRetry(failureEvidence);',
+		'return;'
+	)) {
+	if ([string]::IsNullOrEmpty($ordinaryGameModeEndPlayerReleaseBranch) -or
+		$ordinaryGameModeEndPlayerReleaseBranch.IndexOf(
+			$ordinaryGameModeEndPlayerReleaseBranchEntry) -lt 0) {
+		throw "A controlled-end player-release rejection must restore native controls and retain the retry bridge: $ordinaryGameModeEndPlayerReleaseBranchEntry"
+	}
+}
+$ordinaryGameModeEndControlsBlockIndex = $ordinaryGameModeEndRequestBlock.IndexOf(
+	'SetHSTCampaignEndWaitingForPlayerRelease(false);')
+$ordinaryGameModeEndControlsBeginIndex = $ordinaryGameModeEndRequestBlock.IndexOf(
+	'BeginControlledCampaignEndCheckpointAttempt()')
+if ($ordinaryGameModeEndControlsBlockIndex -lt 0 -or
+	$ordinaryGameModeEndControlsBeginIndex -le $ordinaryGameModeEndControlsBlockIndex -or
+	$ordinaryGameModeEndRequestBlock.IndexOf(
+		'bool durableRequestAccepted = false;') -lt 0 -or
+	$ordinaryGameModeEndRequestBlock.IndexOf(
+		'm_bHSTCampaignEndRequested = false;') -ge 0) {
+	throw 'Every controlled-end retry must re-block controls before snapshot admission, initialize request acceptance defensively, and retain the end latch'
+}
+foreach ($ordinaryGameModeEndPlayerReleaseStateEntry in @(
+		'waiting && super.GetAllowControlsTarget()',
+		'm_bHSTCampaignEndWaitingForPlayerRelease = waiting;',
+		'm_bAllowControls = allowControls;',
+		'Replication.BumpMe();'
+	)) {
+	if ([string]::IsNullOrEmpty($ordinaryGameModeEndPlayerReleaseStateBlock) -or
+		$ordinaryGameModeEndPlayerReleaseStateBlock.IndexOf(
+			$ordinaryGameModeEndPlayerReleaseStateEntry) -lt 0) {
+		throw "Controlled-end player-release controls must mirror native control authority and replicate: $ordinaryGameModeEndPlayerReleaseStateEntry"
+	}
+}
+$ordinaryGameModeEndWaitingIndex = $ordinaryGameModeEndAllowControlsBlock.IndexOf(
+	'm_bHSTCampaignEndWaitingForPlayerRelease')
+$ordinaryGameModeEndNativeControlsIndex = $ordinaryGameModeEndAllowControlsBlock.IndexOf(
+	'return super.GetAllowControlsTarget();',
+	[Math]::Max(0, $ordinaryGameModeEndWaitingIndex))
+$ordinaryGameModeEndBlockedControlsIndex = $ordinaryGameModeEndAllowControlsBlock.IndexOf(
+	'return false;',
+	[Math]::Max(0, $ordinaryGameModeEndNativeControlsIndex))
+if ([string]::IsNullOrEmpty($ordinaryGameModeEndAllowControlsBlock) -or
+	$ordinaryGameModeEndWaitingIndex -lt 0 -or
+	$ordinaryGameModeEndNativeControlsIndex -le $ordinaryGameModeEndWaitingIndex -or
+	$ordinaryGameModeEndBlockedControlsIndex -le $ordinaryGameModeEndNativeControlsIndex) {
+	throw 'Controlled end must expose only the native control target while player release is required and block controls otherwise'
+}
+foreach ($ordinaryGameModeEndPlayerReleaseClearBlock in @(
+		$ordinaryGameModeEndBlockBlock,
+		$ordinaryGameModeEndContinueBlock,
+		$ordinaryGameModeEndClearBlock
+	)) {
+	if ([string]::IsNullOrEmpty($ordinaryGameModeEndPlayerReleaseClearBlock) -or
+		$ordinaryGameModeEndPlayerReleaseClearBlock.IndexOf(
+			'SetHSTCampaignEndWaitingForPlayerRelease(false);') -lt 0) {
+		throw 'Terminal, transition, and reset paths must clear the controlled-end player-release control window'
 	}
 }
 $ordinaryGameModeRequestIndex = $ordinaryGameModeEndRequestBlock.IndexOf(
@@ -43055,6 +43279,10 @@ $fieldVehicleTrackerText = Get-Content -Raw `
 	'Scripts/Game/HST/Services/HST_PersistentFieldVehicleRuntimeService.c'
 $fieldVehicleCoordinatorText = Get-Content -Raw `
 	'Scripts/Game/HST/Components/HST_CampaignCoordinatorComponent.c'
+$controlledShutdownRescueText = Get-Content -Raw `
+	'Scripts/Game/HST/Services/HST_RescuePOWOperationService.c'
+$controlledShutdownMissionRuntimeText = Get-Content -Raw `
+	'Scripts/Game/HST/Services/HST_MissionRuntimeService.c'
 
 $fieldVehicleCarrierFields = @(
 	'm_sFieldVehiclePrefab',
@@ -43501,15 +43729,47 @@ if ($fieldVehicleDetailedRestoreBlock.IndexOf(
 $fieldVehiclePrepareCaptureBlock = Get-ScriptMethodBlock `
 	$fieldVehicleTrackerText 'bool PrepareForCapture(HST_CampaignState state)'
 $fieldVehicleTrackBlock = Get-ScriptMethodBlock `
-	$fieldVehicleTrackerText 'bool Track(IEntity entity, HST_RuntimeVehicleState record)'
+	$fieldVehicleTrackerText 'bool Track('
+$fieldVehicleUntrackBlock = Get-ScriptMethodBlock `
+	$fieldVehicleTrackerText 'bool Untrack('
+$fieldVehicleBindingScopeLockBlock = Get-ScriptMethodBlock `
+	$fieldVehicleTrackerText 'bool LockControlledShutdownBindingScope('
 $fieldVehicleNativeDetachBlock = Get-ScriptMethodBlock `
 	$fieldVehicleTrackerText 'protected bool DetachNativePersistenceAuthority(IEntity entity)'
 $fieldVehicleNativeCountBlock = Get-ScriptMethodBlock `
 	$fieldVehicleTrackerText 'int CountNativeTrackedDurableRoots(HST_CampaignState state)'
 $fieldVehicleShutdownQuiescenceBlock = Get-ScriptMethodBlock `
 	$fieldVehicleTrackerText 'bool PrepareForControlledShutdown('
+$fieldVehicleShutdownPreflightBlock = Get-ScriptMethodBlock `
+	$fieldVehicleTrackerText 'bool PreflightControlledShutdownQuiescence('
+$fieldVehicleShutdownCandidateBlock = Get-ScriptMethodBlock `
+	$fieldVehicleTrackerText 'protected bool ValidateControlledShutdownCandidateTopology('
+$fieldVehicleShutdownPinBuildBlock = Get-ScriptMethodBlock `
+	$fieldVehicleTrackerText 'protected bool BuildControlledShutdownFencePins('
+$fieldVehicleShutdownFenceIdentityBlock = Get-ScriptMethodBlock `
+	$fieldVehicleTrackerText 'protected bool ValidateControlledShutdownFenceIdentity('
+$fieldVehicleShutdownPinApplyBlock = Get-ScriptMethodBlock `
+	$fieldVehicleTrackerText 'protected bool ApplyControlledShutdownFencePin('
+$fieldVehicleShutdownPinSafetyBlock = Get-ScriptMethodBlock `
+	$fieldVehicleTrackerText 'protected bool ValidateControlledShutdownFencePinMutationSafety('
+$fieldVehicleShutdownPlayerSafetyBlock = Get-ScriptMethodBlock `
+	$fieldVehicleTrackerText 'protected bool ValidateControlledShutdownPlayerSafety('
+$fieldVehicleShutdownPlayerEntityBlock = Get-ScriptMethodBlock `
+	$fieldVehicleTrackerText 'protected bool IsControlledShutdownPlayerEntitySafeForRoots('
+$fieldVehicleShutdownEntityWithinRootsBlock = Get-ScriptMethodBlock `
+	$fieldVehicleTrackerText 'protected bool IsControlledShutdownEntityWithinRoots('
+$fieldVehicleShutdownProxyBlock = Get-ScriptMethodBlock `
+	$fieldVehicleTrackerText 'protected bool IsControlledShutdownRuntimeProxy('
+$fieldVehiclePreparedExactBlock = Get-ScriptMethodBlock `
+	$fieldVehicleTrackerText 'protected bool PreparedBindingMatchesRecordExact('
+$fieldVehiclePinnedRecordExactBlock = Get-ScriptMethodBlock `
+	$fieldVehicleTrackerText 'protected bool IsControlledShutdownRecordAtPinnedTransform('
+$fieldVehiclePinnedRootExactBlock = Get-ScriptMethodBlock `
+	$fieldVehicleTrackerText 'protected bool IsControlledShutdownRootAtPinnedTransform('
+$fieldVehicleAnglesExactBlock = Get-ScriptMethodBlock `
+	$fieldVehicleTrackerText 'protected bool AreControlledShutdownAnglesExact('
 $fieldVehiclePhysicsQuiescenceBlock = Get-ScriptMethodBlock `
-	$fieldVehicleTrackerText 'protected void QuiescePhysicsHierarchy(IEntity entity)'
+	$fieldVehicleTrackerText 'protected bool QuiescePhysicsHierarchy('
 $fieldVehicleGraphBlock = Get-ScriptMethodBlock `
 	$fieldVehicleTrackerText 'bool ValidateDurableStateGraph('
 $fieldVehicleDestroyedCaptureBlock = Get-ScriptMethodBlock `
@@ -43525,6 +43785,12 @@ foreach ($fieldVehicleCaptureEntry in @(
 		$fieldVehiclePrepareCaptureBlock.IndexOf($fieldVehicleCaptureEntry) -lt 0) {
 		throw "Durable field-vehicle capture graph is incomplete: $fieldVehicleCaptureEntry"
 	}
+}
+if ($fieldVehiclePrepareCaptureBlock.IndexOf(
+		'm_bControlledShutdownQuiescenceApplied') -lt 0 -or
+	$fieldVehiclePrepareCaptureBlock.IndexOf(
+		'MaintainControlledShutdownQuiescence(') -lt 0) {
+	throw 'Capture preparation must maintain an applied field-vehicle fence instead of resampling partially quiesced roots'
 }
 foreach ($fieldVehicleNativeAuthorityEntry in @(
 		'PersistenceSystem.GetInstance()',
@@ -43547,29 +43813,255 @@ if ([string]::IsNullOrEmpty($fieldVehicleTrackBlock) -or
 	$fieldVehicleNativeCountBlock.IndexOf('GetTrackedParent(entity)') -lt 0) {
 	throw 'Durable field-vehicle Track/capture proof must reject every native entity-persistence overlap'
 }
+foreach ($fieldVehicleBindingScopeEntry in @(
+		@($fieldVehicleTrackBlock,
+			@('m_bControlledShutdownQuiescenceApplied',
+				'm_bControlledShutdownBindingScopeLocked',
+				'controlledShutdownSnapshotAuthority',
+				'HasExactBinding(entity, record)')),
+		@($fieldVehicleUntrackBlock,
+			@('m_bControlledShutdownBindingScopeLocked',
+				'm_bControlledShutdownQuiescenceApplied',
+				'return false;')),
+		@($fieldVehicleBindingScopeLockBlock,
+			@('m_bControlledShutdownBindingScopeLocked = true;',
+				'return true;'))
+	)) {
+	if ([string]::IsNullOrEmpty($fieldVehicleBindingScopeEntry[0])) {
+		throw 'Controlled-shutdown field binding-scope lock block is missing'
+	}
+	foreach ($fieldVehicleBindingScopeToken in $fieldVehicleBindingScopeEntry[1]) {
+		if ($fieldVehicleBindingScopeEntry[0].IndexOf(
+				$fieldVehicleBindingScopeToken) -lt 0) {
+			throw "Controlled-shutdown field binding scope is not one-way: $fieldVehicleBindingScopeToken"
+		}
+	}
+}
 if ($fieldVehicleTrackerText.IndexOf('StopTracking(entity, false)') -ge 0) {
 	throw 'Durable field-vehicle authority transfer must delete stale native rows rather than preserve them'
 }
-foreach ($fieldVehicleShutdownEntry in @(
-		'PrepareForCapture(state)',
+foreach ($fieldVehicleShutdownPreflightEntry in @(
+		'm_bControlledShutdownQuiescenceApplied',
+		'ValidateControlledShutdownFenceIdentity(state, evidence)',
+		'ValidateControlledShutdownCandidateTopology(',
+		'requirePreparedAuthority'
+	)) {
+	if ([string]::IsNullOrEmpty($fieldVehicleShutdownPreflightBlock) -or
+		$fieldVehicleShutdownPreflightBlock.IndexOf(
+			$fieldVehicleShutdownPreflightEntry) -lt 0) {
+		throw "Durable field-vehicle read-only shutdown preflight is incomplete: $fieldVehicleShutdownPreflightEntry"
+	}
+}
+foreach ($fieldVehicleShutdownCandidateEntry in @(
+		'ValidateDurableStateGraph(',
+		'BindingPrefabMatchesRecord(root, record)',
+		'IsControlledShutdownRuntimeProxy(root)',
+		'ValidateControlledShutdownHierarchyLocality(root, evidence)',
+		'ValidateControlledShutdownPlayerSafety(roots, evidence)',
 		'CountNativeTrackedDurableRoots(state) != 0',
-		'QuiesceControlledShutdownRoot(root)',
-		'IsControlledShutdownRootQuiescent(root)',
-		'm_bControlledShutdownQuiescenceExact'
+		'PreparedBindingMatchesRecordExact(root, record)'
+	)) {
+	if ([string]::IsNullOrEmpty($fieldVehicleShutdownCandidateBlock) -or
+		$fieldVehicleShutdownCandidateBlock.IndexOf(
+			$fieldVehicleShutdownCandidateEntry) -lt 0) {
+		throw "Durable field-vehicle player/locality/topology preflight is incomplete: $fieldVehicleShutdownCandidateEntry"
+	}
+}
+if ($fieldVehicleShutdownCandidateBlock.IndexOf(
+		'BindingMatchesRecord(root, record)') -ge 0 -or
+	$fieldVehicleShutdownPinBuildBlock.IndexOf(
+		'BindingMatchesRecord(root, record)') -ge 0) {
+	throw 'Strict controlled-shutdown field admission must not use the tolerant recovery binding matcher'
+}
+foreach ($fieldVehiclePreparedExactEntry in @(
+		'BindingPrefabMatchesRecord(entity, record)',
+		'IsControlledShutdownPositionExact(',
+		'BuildUprightAnglesFromVector(',
+		'AreControlledShutdownAnglesExact(',
+		'record.m_vAngles',
+		'actualAngles[0]',
+		'expectedAngles[0]'
+	)) {
+	if ([string]::IsNullOrEmpty($fieldVehiclePreparedExactBlock) -or
+		$fieldVehiclePreparedExactBlock.IndexOf(
+			$fieldVehiclePreparedExactEntry) -lt 0) {
+		throw "Strict prepared field-vehicle authority is incomplete: $fieldVehiclePreparedExactEntry"
+	}
+}
+if ($fieldVehiclePreparedExactBlock.IndexOf('actualAngles[1]') -ge 0 -or
+	$fieldVehiclePreparedExactBlock.IndexOf('actualAngles[2]') -ge 0) {
+	throw 'Pre-apply strict field authority must require exact live position/yaw while allowing live pitch/roll to settle onto the upright durable pin'
+}
+foreach ($fieldVehiclePinnedTransformContract in @(
+		@($fieldVehiclePinnedRecordExactBlock,
+			@('pin.m_Record.m_vPosition', 'pin.m_vDurablePosition',
+				'pin.m_Record.m_vAngles', 'pin.m_vDurableAngles',
+				'AreControlledShutdownAnglesExact(')),
+		@($fieldVehiclePinnedRootExactBlock,
+			@('pin.m_Entity.GetOrigin()', 'pin.m_vDurablePosition',
+				'pin.m_Entity.GetYawPitchRoll()', 'pin.m_vDurableAngles',
+				'AreControlledShutdownAnglesExact(')),
+		@($fieldVehicleAnglesExactBlock,
+			@('first[0]', 'second[0]', 'first[1]', 'second[1]',
+				'first[2]', 'second[2]'))
+	)) {
+	if ([string]::IsNullOrEmpty($fieldVehiclePinnedTransformContract[0])) {
+		throw 'Field-vehicle pinned transform exactness helper is missing'
+	}
+	foreach ($fieldVehiclePinnedTransformEntry in `
+			$fieldVehiclePinnedTransformContract[1]) {
+		if ($fieldVehiclePinnedTransformContract[0].IndexOf(
+				$fieldVehiclePinnedTransformEntry) -lt 0) {
+			throw "Field-vehicle terminal transform exactness omits: $fieldVehiclePinnedTransformEntry"
+		}
+	}
+}
+foreach ($fieldVehicleShutdownPrepareEntry in @(
+		'm_bControlledShutdownQuiescenceApplied',
+		'MaintainControlledShutdownQuiescence(state, evidence)',
+		'ValidateControlledShutdownCandidateTopology(state, true, evidence)',
+		'BuildControlledShutdownFencePins(state, evidence)',
+		'm_bControlledShutdownQuiescenceApplied = true;',
+		'm_bControlledShutdownQuiescenceExact = false;'
 	)) {
 	if ([string]::IsNullOrEmpty($fieldVehicleShutdownQuiescenceBlock) -or
 		$fieldVehicleShutdownQuiescenceBlock.IndexOf(
-			$fieldVehicleShutdownEntry) -lt 0) {
-		throw "Durable field-vehicle controlled-shutdown quiescence is incomplete: $fieldVehicleShutdownEntry"
+			$fieldVehicleShutdownPrepareEntry) -lt 0) {
+		throw "Durable field-vehicle one-way shutdown preparation is incomplete: $fieldVehicleShutdownPrepareEntry"
 	}
 }
+if ($fieldVehicleShutdownQuiescenceBlock.IndexOf(
+		'm_bControlledShutdownBindingScopeLocked') -ge 0) {
+	throw 'Field-vehicle PrepareForControlledShutdown must maintain only an applied quiescence fence, not misclassify the earlier binding-scope lock as quiescence'
+}
+$fieldVehiclePinBuildIndex = $fieldVehicleShutdownQuiescenceBlock.IndexOf(
+	'BuildControlledShutdownFencePins(state, evidence)')
+$fieldVehicleAppliedLatchIndex = $fieldVehicleShutdownQuiescenceBlock.IndexOf(
+	'm_bControlledShutdownQuiescenceApplied = true;')
+$fieldVehicleFirstApplyIndex = $fieldVehicleShutdownQuiescenceBlock.IndexOf(
+	'MaintainControlledShutdownQuiescence(state, evidence)',
+	[Math]::Max(0, $fieldVehicleAppliedLatchIndex))
+if ($fieldVehiclePinBuildIndex -lt 0 -or
+	$fieldVehicleAppliedLatchIndex -le $fieldVehiclePinBuildIndex -or
+	$fieldVehicleFirstApplyIndex -le $fieldVehicleAppliedLatchIndex) {
+	throw 'Field-vehicle shutdown must pin original durable authority, latch applied state, and only then mutate roots'
+}
+foreach ($fieldVehiclePinEntry in @(
+		'm_ControlledShutdownState = state;',
+		'pin.m_sRuntimeId = record.m_sVehicleRuntimeId;',
+		'pin.m_Entity = root;',
+		'pin.m_Record = record;',
+		'pin.m_vDurablePosition = record.m_vPosition;',
+		'pin.m_vDurableAngles'
+	)) {
+	if ([string]::IsNullOrEmpty($fieldVehicleShutdownPinBuildBlock) -or
+		$fieldVehicleShutdownPinBuildBlock.IndexOf($fieldVehiclePinEntry) -lt 0) {
+		throw "Field-vehicle shutdown pins must retain original state/root/transform authority: $fieldVehiclePinEntry"
+	}
+}
+$fieldVehicleShutdownMaintainBlock = Get-ScriptMethodBlock `
+	$fieldVehicleTrackerText 'bool MaintainControlledShutdownQuiescence('
+foreach ($fieldVehicleShutdownMaintainEntry in @(
+		'm_bControlledShutdownQuiescenceApplied',
+		'ValidateControlledShutdownFenceIdentity(state, evidence)',
+		'm_bControlledShutdownQuiescenceExact = false;',
+		'ApplyControlledShutdownFencePin(pin, evidence)',
+		'IsControlledShutdownQuiescenceExact(state)'
+	)) {
+	if ([string]::IsNullOrEmpty($fieldVehicleShutdownMaintainBlock) -or
+		$fieldVehicleShutdownMaintainBlock.IndexOf(
+			$fieldVehicleShutdownMaintainEntry) -lt 0) {
+		throw "Durable field-vehicle applied-but-not-exact maintenance is incomplete: $fieldVehicleShutdownMaintainEntry"
+	}
+}
+foreach ($fieldVehicleFenceIdentityEntry in @(
+		'state != m_ControlledShutdownState',
+		'm_aControlledShutdownPins.Count() != m_aRuntimeIds.Count()',
+		'CountNativeTrackedDurableRoots(state) != 0',
+		'ValidateControlledShutdownFencePinIdentity(pin, evidence)',
+		'ValidateControlledShutdownPlayerSafety(roots, evidence)'
+	)) {
+	if ([string]::IsNullOrEmpty($fieldVehicleShutdownFenceIdentityBlock) -or
+		$fieldVehicleShutdownFenceIdentityBlock.IndexOf(
+			$fieldVehicleFenceIdentityEntry) -lt 0) {
+		throw "Field-vehicle shutdown retry must retain its original immutable fence identities: $fieldVehicleFenceIdentityEntry"
+	}
+}
+foreach ($fieldVehiclePinApplyEntry in @(
+		'ValidateControlledShutdownFencePinMutationSafety(pin, evidence)',
+		'HST_WorldPositionService.ApplyUprightEntityTransform(',
+		'QuiesceControlledShutdownRoot(pin, evidence)',
+		'IsControlledShutdownRootAtPinnedTransform(pin)',
+		'IsControlledShutdownRootQuiescent(pin.m_Entity)'
+	)) {
+	if ([string]::IsNullOrEmpty($fieldVehicleShutdownPinApplyBlock) -or
+		$fieldVehicleShutdownPinApplyBlock.IndexOf($fieldVehiclePinApplyEntry) -lt 0) {
+		throw "Field-vehicle shutdown pin application is incomplete: $fieldVehiclePinApplyEntry"
+	}
+}
+foreach ($fieldVehiclePinSafetyEntry in @(
+		'ValidateControlledShutdownFencePinIdentity(pin, evidence)',
+		'ValidateControlledShutdownPlayerSafety(roots, evidence)',
+		'ValidateControlledShutdownHierarchyLocality('
+	)) {
+	if ([string]::IsNullOrEmpty($fieldVehicleShutdownPinSafetyBlock) -or
+		$fieldVehicleShutdownPinSafetyBlock.IndexOf($fieldVehiclePinSafetyEntry) -lt 0) {
+		throw "Every field-vehicle shutdown mutation needs a fresh player/proxy/identity gate: $fieldVehiclePinSafetyEntry"
+	}
+}
+foreach ($fieldVehiclePlayerSafetyEntry in @(
+		'playerManager.GetPlayerControlledEntity(playerId)',
+		'SCR_PossessingManagerComponent.GetPlayerMainEntity(playerId)',
+		'IsControlledShutdownPlayerEntitySafeForRoots(',
+		'HST_PhysicalWarService.CONTROLLED_SHUTDOWN_PLAYER_RELEASE_EVIDENCE'
+	)) {
+	if ([string]::IsNullOrEmpty($fieldVehicleShutdownPlayerSafetyBlock) -or
+		$fieldVehicleShutdownPlayerSafetyBlock.IndexOf(
+			$fieldVehiclePlayerSafetyEntry) -lt 0) {
+		throw "Field-vehicle shutdown player gate is incomplete: $fieldVehiclePlayerSafetyEntry"
+	}
+}
+foreach ($fieldVehiclePlayerEntityEntry in @(
+		'CompartmentAccessComponent.GetVehicleIn(playerEntity)',
+		'SCR_CompartmentAccessComponent',
+		'access.IsGettingIn()',
+		'access.IsGettingOut()',
+		'access.IsSwitchingSeatsAnim()',
+		'access.GetVehicle()',
+		'IsControlledShutdownEntityWithinRoots(accessVehicle, roots)'
+	)) {
+	if ([string]::IsNullOrEmpty($fieldVehicleShutdownPlayerEntityBlock) -or
+		$fieldVehicleShutdownPlayerEntityBlock.IndexOf(
+			$fieldVehiclePlayerEntityEntry) -lt 0) {
+		throw "Field-vehicle shutdown must scope compartment safety to selected durable roots: $fieldVehiclePlayerEntityEntry"
+	}
+}
+foreach ($fieldVehiclePlayerHierarchyEntry in @(
+		'roots.Find(cursor) >= 0',
+		'cursor.GetParent()',
+		'depth < 64'
+	)) {
+	if ([string]::IsNullOrEmpty($fieldVehicleShutdownEntityWithinRootsBlock) -or
+		$fieldVehicleShutdownEntityWithinRootsBlock.IndexOf(
+			$fieldVehiclePlayerHierarchyEntry) -lt 0) {
+		throw "Field-vehicle shutdown must reject player descendants of selected roots: $fieldVehiclePlayerHierarchyEntry"
+	}
+}
+if ([string]::IsNullOrEmpty($fieldVehicleShutdownProxyBlock) -or
+	$fieldVehicleShutdownProxyBlock.IndexOf('BaseRplComponent') -lt 0 -or
+	$fieldVehicleShutdownProxyBlock.IndexOf('replication.IsProxy()') -lt 0) {
+	throw 'Field-vehicle shutdown must reject non-authoritative replication proxies'
+}
 $fieldVehicleQuiesceRootBlock = Get-ScriptMethodBlock `
-	$fieldVehicleTrackerText 'protected void QuiesceControlledShutdownRoot(IEntity root)'
+	$fieldVehicleTrackerText 'protected bool QuiesceControlledShutdownRoot('
 foreach ($fieldVehicleQuiesceRootEntry in @(
+		'ValidateControlledShutdownFencePinMutationSafety(pin, evidence)',
 		'controller.Shutdown()',
 		'controller.StopEngine(false)',
 		'carController.SetPersistentHandBrake(true)',
-		'QuiescePhysicsHierarchy(root)'
+		'helicopterController.SetPersistentWheelBrake(true)',
+		'helicopterController.SetAutohoverEnabled(true)',
+		'QuiescePhysicsHierarchy(root, evidence)'
 	)) {
 	if ([string]::IsNullOrEmpty($fieldVehicleQuiesceRootBlock) -or
 		$fieldVehicleQuiesceRootBlock.IndexOf(
@@ -43580,34 +44072,21 @@ foreach ($fieldVehicleQuiesceRootEntry in @(
 $fieldVehicleShutdownRecheckBlock = Get-ScriptMethodBlock `
 	$fieldVehicleTrackerText 'bool IsControlledShutdownQuiescenceExact(HST_CampaignState state)'
 foreach ($fieldVehicleShutdownRecheckEntry in @(
-		'CountNativeTrackedDurableRoots(state) != 0',
-		'ValidateDurableStateGraph(',
-		'IsControlledShutdownRootQuiescent(entity)',
-		'observedQuiescentRoots'
+		'm_bControlledShutdownQuiescenceApplied',
+		'm_bControlledShutdownQuiescenceExact',
+		'ValidateControlledShutdownFenceIdentity(state, evidence)',
+		'IsControlledShutdownRootAtPinnedTransform(pin)',
+		'IsControlledShutdownRootQuiescent(pin.m_Entity)'
 	)) {
 	if ([string]::IsNullOrEmpty($fieldVehicleShutdownRecheckBlock) -or
 		$fieldVehicleShutdownRecheckBlock.IndexOf(
 			$fieldVehicleShutdownRecheckEntry) -lt 0) {
-		throw "Durable field-vehicle post-commit shutdown quiescence recheck is incomplete: $fieldVehicleShutdownRecheckEntry"
+		throw "Durable field-vehicle terminal exactness recheck is incomplete: $fieldVehicleShutdownRecheckEntry"
 	}
 }
 if ($fieldVehiclePopulateBlock.IndexOf(
 		'IsControlledShutdownQuiescenceExact(state)') -lt 0) {
 	throw 'Durable field-vehicle result population must recheck live shutdown controller/physics authority'
-}
-$fieldVehicleShutdownMaintainBlock = Get-ScriptMethodBlock `
-	$fieldVehicleTrackerText 'bool MaintainControlledShutdownQuiescence('
-foreach ($fieldVehicleShutdownMaintainEntry in @(
-		'CountNativeTrackedDurableRoots(state) != 0',
-		'HST_WorldPositionService.ApplyUprightEntityTransform(',
-		'QuiesceControlledShutdownRoot(entity)',
-		'IsControlledShutdownQuiescenceExact(state)'
-	)) {
-	if ([string]::IsNullOrEmpty($fieldVehicleShutdownMaintainBlock) -or
-		$fieldVehicleShutdownMaintainBlock.IndexOf(
-			$fieldVehicleShutdownMaintainEntry) -lt 0) {
-		throw "Durable field-vehicle controlled-shutdown maintenance is incomplete: $fieldVehicleShutdownMaintainEntry"
-	}
 }
 $fieldVehicleCoordinatorStableBlock = Get-ScriptMethodBlock `
 	$fieldVehicleCoordinatorText 'bool IsControlledCampaignEndCheckpointStable()'
@@ -43619,11 +44098,12 @@ foreach ($fieldVehicleCoordinatorMaintainBlock in @(
 	)) {
 	if ([string]::IsNullOrEmpty($fieldVehicleCoordinatorMaintainBlock) -or
 		$fieldVehicleCoordinatorMaintainBlock.IndexOf(
-			'MaintainControlledCampaignEndVehicleQuiescence(') -lt 0) {
-		throw 'Controlled campaign end must maintain durable vehicle quiescence before callback/stability handoff'
+			'MaintainControlledCampaignEndRuntimeQuiescence(') -lt 0) {
+		throw 'Controlled campaign end must maintain composite runtime quiescence before callback/stability handoff'
 	}
 }
 foreach ($fieldVehiclePhysicsEntry in @(
+		'ValidateControlledShutdownEntityMutationSafety(entity, evidence)',
 		'physics.ClearForces()',
 		'physics.SetVelocity(vector.Zero)',
 		'physics.SetAngularVelocity(vector.Zero)',
@@ -43635,21 +44115,2198 @@ foreach ($fieldVehiclePhysicsEntry in @(
 		throw "Durable field-vehicle shutdown physics quiescence is incomplete: $fieldVehiclePhysicsEntry"
 	}
 }
+$fieldVehicleRootExactBlock = Get-ScriptMethodBlock `
+	$fieldVehicleTrackerText 'protected bool IsControlledShutdownRootQuiescent('
+foreach ($fieldVehicleRootExactEntry in @(
+		'physics.IsActive()',
+		'physics.GetVelocity()',
+		'physics.GetAngularVelocity()',
+		'IsControlledShutdownZeroVector('
+	)) {
+	if ([string]::IsNullOrEmpty($fieldVehicleRootExactBlock) -or
+		$fieldVehicleRootExactBlock.IndexOf($fieldVehicleRootExactEntry) -lt 0) {
+		throw "Field-vehicle exactness must reject dormant non-zero physics authority: $fieldVehicleRootExactEntry"
+	}
+}
 $fieldVehicleCivilianShutdownBlock = Get-ScriptMethodBlock `
 	$ambientCivilianText 'bool PrepareControlledShutdownVehiclePersistence('
+$fieldVehicleCivilianPreflightBlock = Get-ScriptMethodBlock `
+	$ambientCivilianText 'bool PreflightControlledShutdownVehiclePersistence('
+$fieldVehicleCivilianAppliedBlock = Get-ScriptMethodBlock `
+	$ambientCivilianText 'bool HasControlledShutdownVehiclePersistenceApplied()'
+$fieldVehiclePlayerRootCollectionBlock = Get-ScriptMethodBlock `
+	$ambientCivilianText 'protected void CollectPlayerOccupiedVehicleRoots('
+$fieldVehicleClaimObservationBlock = Get-ScriptMethodBlock `
+	$ambientCivilianText 'bool ObservePlayerAmbientVehicleClaims('
+$fieldVehicleAmbientPrepareBlock = Get-ScriptMethodBlock `
+	$ambientCivilianText 'bool PrepareAmbientVehiclePersistence('
+$fieldVehiclePromotionBlock = Get-ScriptMethodBlock `
+	$ambientCivilianText 'protected bool PromoteRuntimeVehicleToPersistentField('
+$fieldVehicleLivingPlayerBlock = Get-ScriptMethodBlock `
+	$fieldVehicleTrackerText 'protected bool HasLivingPlayerOccupant('
 $fieldVehiclePersistenceCheckpointBlock = Get-ScriptMethodBlock `
 	$ambientPersistenceText 'HST_PersistenceCheckpointRequest RequestTypedCheckpointDetailed('
 if ([string]::IsNullOrEmpty($fieldVehicleCivilianShutdownBlock) -or
 	$fieldVehicleCivilianShutdownBlock.IndexOf(
-		'PrepareAmbientVehiclePersistence(state)') -lt 0 -or
-	$fieldVehicleCivilianShutdownBlock.IndexOf(
 		'm_PersistentFieldVehicles.PrepareForControlledShutdown(') -lt 0 -or
+	$fieldVehicleCivilianShutdownBlock.IndexOf(
+		'PrepareAmbientVehiclePersistence(state)') -ge 0 -or
+	[string]::IsNullOrEmpty($fieldVehicleCivilianPreflightBlock) -or
+	$fieldVehicleCivilianPreflightBlock.IndexOf(
+		'PreflightControlledShutdownQuiescence(') -lt 0 -or
+	$fieldVehicleCivilianPreflightBlock.IndexOf(
+		'requirePreparedAuthority') -lt 0 -or
+	[string]::IsNullOrEmpty($fieldVehicleCivilianAppliedBlock) -or
+	$fieldVehicleCivilianAppliedBlock.IndexOf(
+		'HasControlledShutdownQuiescenceApplied()') -lt 0 -or
 	[string]::IsNullOrEmpty($fieldVehiclePersistenceCheckpointBlock) -or
 	$fieldVehiclePersistenceCheckpointBlock.IndexOf(
 		'saveType == ESaveGameType.SHUTDOWN') -lt 0 -or
 	$fieldVehiclePersistenceCheckpointBlock.IndexOf(
 		'PrepareControlledShutdownVehiclePersistence(') -lt 0) {
 	throw 'Typed SHUTDOWN checkpoints must synchronously quiesce durable vehicle controller and physics authority before capture'
+}
+foreach ($fieldVehicleImmutableRetryBlock in @(
+		$fieldVehicleClaimObservationBlock,
+		$fieldVehicleAmbientPrepareBlock
+	)) {
+	if ([string]::IsNullOrEmpty($fieldVehicleImmutableRetryBlock) -or
+		$fieldVehicleImmutableRetryBlock.IndexOf(
+			'HasControlledShutdownQuiescenceApplied()') -lt 0) {
+		throw 'Civilian retry/capture preparation must not promote or resample roots after the field-vehicle fence is applied'
+	}
+}
+foreach ($fieldVehicleBindingLockPromotionBlock in @(
+		$fieldVehicleClaimObservationBlock,
+		$fieldVehiclePromotionBlock
+	)) {
+	if ([string]::IsNullOrEmpty($fieldVehicleBindingLockPromotionBlock) -or
+		$fieldVehicleBindingLockPromotionBlock.IndexOf(
+			'HasControlledShutdownBindingScopeLocked()') -lt 0 -or
+		$fieldVehicleBindingLockPromotionBlock.IndexOf(
+			'HasControlledShutdownQuiescenceApplied()') -lt 0) {
+		throw 'Civilian claim discovery and direct promotion must reject mutation after either controlled-shutdown field latch'
+	}
+}
+foreach ($fieldVehicleTransactionalPromotionEntry in @(
+		'insertRecordAfterTrack = true;',
+		'previousRuntimeKind = vehicle.m_sRuntimeKind;',
+		'previousDetached = vehicle.m_bDetached;',
+		'previousDeleted = vehicle.m_bDeleted;',
+		'!m_PersistentFieldVehicles.Track(entity, vehicle)',
+		'vehicle.m_sRuntimeKind = previousRuntimeKind;',
+		'vehicle.m_bDetached = previousDetached;',
+		'vehicle.m_bDeleted = previousDeleted;',
+		'if (insertRecordAfterTrack)',
+		'state.m_aRuntimeVehicles.Insert(vehicle);'
+	)) {
+	if ([string]::IsNullOrEmpty($fieldVehiclePromotionBlock) -or
+		$fieldVehiclePromotionBlock.IndexOf(
+			$fieldVehicleTransactionalPromotionEntry) -lt 0) {
+		throw "Civilian durable-field promotion is not transactional across Track failure: $fieldVehicleTransactionalPromotionEntry"
+	}
+}
+$fieldVehiclePromotionTrackIndex = $fieldVehiclePromotionBlock.IndexOf(
+	'!m_PersistentFieldVehicles.Track(entity, vehicle)')
+$fieldVehiclePromotionInsertIndex = $fieldVehiclePromotionBlock.IndexOf(
+	'state.m_aRuntimeVehicles.Insert(vehicle);')
+if ($fieldVehiclePromotionTrackIndex -lt 0 -or
+	$fieldVehiclePromotionInsertIndex -le $fieldVehiclePromotionTrackIndex) {
+	throw 'A newly promoted field-vehicle row must remain off-ledger until exact native Track succeeds'
+}
+foreach ($fieldVehicleDualPlayerEntry in @(
+		'playerManager.GetPlayerControlledEntity(playerId)',
+		'SCR_PossessingManagerComponent.GetPlayerMainEntity(playerId)',
+		'mainEntity != controlledEntity'
+	)) {
+	if ([string]::IsNullOrEmpty($fieldVehiclePlayerRootCollectionBlock) -or
+		$fieldVehiclePlayerRootCollectionBlock.IndexOf(
+			$fieldVehicleDualPlayerEntry) -lt 0 -or
+		[string]::IsNullOrEmpty($fieldVehicleLivingPlayerBlock) -or
+		$fieldVehicleLivingPlayerBlock.IndexOf(
+			$fieldVehicleDualPlayerEntry) -lt 0) {
+		throw "Durable vehicle promotion and occupancy checks must inspect both controlled and possessing-player main entities: $fieldVehicleDualPlayerEntry"
+	}
+}
+
+# Nearby durable-root discovery belongs to Persistence's ordered controlled-end
+# transaction. The public preflight is read-only, the adoption seam rebuilds and
+# revalidates its complete plan in the same call, and ordinary snapshots become
+# a no-op once the field fence has published its one-way latch.
+$controlledShutdownLootOrdinarySnapshotBlock = Get-ScriptMethodBlock `
+	$fieldVehicleLootText 'int SnapshotNearbyPersistentVehicles('
+$controlledShutdownLootMutationLockBlock = Get-ScriptMethodBlock `
+	$fieldVehicleLootText 'protected bool IsControlledShutdownVehicleMutationLocked('
+$controlledShutdownLootGarageBlock = Get-ScriptMethodBlock `
+	$fieldVehicleLootText 'string CaptureNearbyVehicleToGarage('
+$controlledShutdownLootLoadBlock = Get-ScriptMethodBlock `
+	$fieldVehicleLootText 'HST_LootResult CollectNearbyLootToVehicle('
+$controlledShutdownLootUnloadBlock = Get-ScriptMethodBlock `
+	$fieldVehicleLootText 'string UnloadNearestVehicleCargoToArsenal('
+$controlledShutdownLootEnsureRecordBlock = Get-ScriptMethodBlock `
+	$fieldVehicleLootText 'protected HST_RuntimeVehicleState EnsureRuntimeVehicleRecord('
+$controlledShutdownLootPreflightBlock = Get-ScriptMethodBlock `
+	$fieldVehicleLootText 'bool PreflightControlledShutdownNearbyPersistentVehicles('
+$controlledShutdownLootSnapshotBlock = Get-ScriptMethodBlock `
+	$fieldVehicleLootText 'bool SnapshotNearbyPersistentVehiclesForControlledShutdown('
+$controlledShutdownLootPlanBuildBlock = Get-ScriptMethodBlock `
+	$fieldVehicleLootText 'protected HST_ControlledShutdownNearbyVehicleSnapshotPlan BuildControlledShutdownNearbyVehicleSnapshotPlan('
+$controlledShutdownLootPlanValidateBlock = Get-ScriptMethodBlock `
+	$fieldVehicleLootText 'protected bool ValidateControlledShutdownNearbyVehicleSnapshotPlan('
+$controlledShutdownLootLatchedPlanValidateBlock = Get-ScriptMethodBlock `
+	$fieldVehicleLootText 'protected bool ValidateLatchedControlledShutdownNearbyVehicleSnapshotPlan('
+$controlledShutdownLootPlanCommitBlock = Get-ScriptMethodBlock `
+	$fieldVehicleLootText 'protected bool CommitControlledShutdownNearbyVehicleSnapshotPlan('
+$controlledShutdownSnapshotCandidateRootsBlock = Get-ScriptMethodBlock `
+	$fieldVehicleTrackerText 'bool ValidateControlledShutdownSnapshotCandidateRoots('
+$controlledShutdownPersistenceLootSetterBlock = Get-ScriptMethodBlock `
+	$ambientPersistenceText 'void SetLootService('
+$controlledShutdownCoordinatorRequestBlock = Get-ScriptMethodBlock `
+	$fieldVehicleCoordinatorText 'HST_PersistenceCheckpointRequest RequestGracefulShutdownCheckpoint('
+$controlledShutdownCoordinatorInitBlock = Get-ScriptMethodBlock `
+	$fieldVehicleCoordinatorText 'override void OnPostInit('
+
+$controlledShutdownOrdinaryFenceIndex =
+	$controlledShutdownLootOrdinarySnapshotBlock.IndexOf(
+		'IsControlledShutdownVehicleMutationLocked()')
+$controlledShutdownOrdinaryNoOpIndex =
+	$controlledShutdownLootOrdinarySnapshotBlock.IndexOf(
+		'return 0;',
+		[Math]::Max(0, $controlledShutdownOrdinaryFenceIndex))
+if ([string]::IsNullOrEmpty($controlledShutdownLootOrdinarySnapshotBlock) -or
+	$controlledShutdownOrdinaryFenceIndex -lt 0 -or
+	$controlledShutdownOrdinaryNoOpIndex -le $controlledShutdownOrdinaryFenceIndex) {
+	throw 'Ordinary nearby-vehicle snapshotting must become a no-op after the field-vehicle shutdown latch applies'
+}
+foreach ($controlledShutdownLootMutationLockEntry in @(
+		'HasControlledShutdownBindingScopeLocked()',
+		'HasControlledShutdownQuiescenceApplied()'
+	)) {
+	if ([string]::IsNullOrEmpty($controlledShutdownLootMutationLockBlock) -or
+		$controlledShutdownLootMutationLockBlock.IndexOf(
+			$controlledShutdownLootMutationLockEntry) -lt 0) {
+		throw "Ordinary Loot mutation lock omits a one-way field latch: $controlledShutdownLootMutationLockEntry"
+	}
+}
+foreach ($controlledShutdownLootOrdinaryMutationBlock in @(
+		$controlledShutdownLootOrdinarySnapshotBlock,
+		$controlledShutdownLootGarageBlock,
+		$controlledShutdownLootLoadBlock,
+		$controlledShutdownLootUnloadBlock
+	)) {
+	if ([string]::IsNullOrEmpty($controlledShutdownLootOrdinaryMutationBlock) -or
+		$controlledShutdownLootOrdinaryMutationBlock.IndexOf(
+			'IsControlledShutdownVehicleMutationLocked()') -lt 0) {
+		throw 'Ordinary nearby snapshot, garage, vehicle-load, and vehicle-unload paths must all reject mutation after binding scope locks'
+	}
+}
+foreach ($controlledShutdownLootEnsureEntry in @(
+		'bool controlledShutdownSnapshotAuthority = false',
+		'IsControlledShutdownVehicleMutationLocked()',
+		'&& !controlledShutdownSnapshotAuthority',
+		'if (controlledShutdownSnapshotAuthority)',
+		'FindControlledShutdownNearbyVehicleSnapshotCandidate(',
+		'm_bControlledShutdownNearbyVehicleSnapshotApplied',
+		'state != m_ControlledShutdownNearbyVehicleSnapshotState',
+		'HasControlledShutdownBindingScopeLocked()',
+		'pinnedCandidate.m_Record != existingRecord',
+		'pinnedCandidate.m_sPrefab != prefabHint'
+	)) {
+	if ([string]::IsNullOrEmpty($controlledShutdownLootEnsureRecordBlock) -or
+		$controlledShutdownLootEnsureRecordBlock.IndexOf(
+			$controlledShutdownLootEnsureEntry) -lt 0) {
+		throw "Loot durable-record mutation is not limited to an explicitly authorized pinned controlled-shutdown candidate: $controlledShutdownLootEnsureEntry"
+	}
+}
+foreach ($controlledShutdownLootPreflightEntry in @(
+		'm_bControlledShutdownNearbyVehicleSnapshotApplied',
+		'ValidateLatchedControlledShutdownNearbyVehicleSnapshotPlan(',
+		'm_ControlledShutdownNearbyVehicleSnapshotPlan',
+		'BuildControlledShutdownNearbyVehicleSnapshotPlan(',
+		'candidateCount = plan.m_aCandidates.Count()',
+		'out string evidence'
+	)) {
+	if ([string]::IsNullOrEmpty($controlledShutdownLootPreflightBlock) -or
+		$controlledShutdownLootPreflightBlock.IndexOf(
+			$controlledShutdownLootPreflightEntry) -lt 0) {
+		throw "Controlled-shutdown nearby-vehicle read-only preflight is incomplete: $controlledShutdownLootPreflightEntry"
+	}
+}
+foreach ($controlledShutdownLootPreflightMutation in @(
+		'EnsureRuntimeVehicleRecord(',
+		'.Track(',
+		'StopTracking(',
+		'DeleteEntityAndChildren(',
+		'ApplyUprightEntityTransform('
+	)) {
+	if ($controlledShutdownLootPreflightBlock.IndexOf(
+			$controlledShutdownLootPreflightMutation) -ge 0 -or
+		$controlledShutdownLootPlanBuildBlock.IndexOf(
+			$controlledShutdownLootPreflightMutation) -ge 0 -or
+		$controlledShutdownLootPlanValidateBlock.IndexOf(
+			$controlledShutdownLootPreflightMutation) -ge 0) {
+		throw "Controlled-shutdown nearby-vehicle discovery/preflight must remain read-only: $controlledShutdownLootPreflightMutation"
+	}
+}
+if ([string]::IsNullOrEmpty($controlledShutdownLootPlanBuildBlock) -or
+	$controlledShutdownLootPlanBuildBlock.IndexOf(
+		'ValidateControlledShutdownNearbyVehicleSnapshotPlan(') -lt 0) {
+	throw 'Each controlled-shutdown nearby-root discovery call must finish with a complete read-only plan re-preflight'
+}
+$controlledShutdownLootSnapshotBuildIndex =
+	$controlledShutdownLootSnapshotBlock.IndexOf(
+		'BuildControlledShutdownNearbyVehicleSnapshotPlan(')
+$controlledShutdownLootSnapshotLatchIndex =
+	$controlledShutdownLootSnapshotBlock.IndexOf(
+		'm_bControlledShutdownNearbyVehicleSnapshotApplied = true;',
+		[Math]::Max(0, $controlledShutdownLootSnapshotBuildIndex))
+$controlledShutdownLootSnapshotScopeLockIndex =
+	$controlledShutdownLootSnapshotBlock.IndexOf(
+		'LockControlledShutdownBindingScope()',
+		[Math]::Max(0, $controlledShutdownLootSnapshotBuildIndex))
+$controlledShutdownLootSnapshotCommitIndex =
+	$controlledShutdownLootSnapshotBlock.IndexOf(
+		'CommitControlledShutdownNearbyVehicleSnapshotPlan(',
+		[Math]::Max(0, $controlledShutdownLootSnapshotBuildIndex))
+$controlledShutdownLootCommitRecheckIndex =
+	$controlledShutdownLootPlanCommitBlock.IndexOf(
+		'ValidateLatchedControlledShutdownNearbyVehicleSnapshotPlan(')
+if ([string]::IsNullOrEmpty($controlledShutdownLootSnapshotBlock) -or
+	$controlledShutdownLootSnapshotBuildIndex -lt 0 -or
+	$controlledShutdownLootSnapshotScopeLockIndex -le
+		$controlledShutdownLootSnapshotBuildIndex -or
+	$controlledShutdownLootSnapshotLatchIndex -le
+		$controlledShutdownLootSnapshotScopeLockIndex -or
+	$controlledShutdownLootSnapshotCommitIndex -le
+		$controlledShutdownLootSnapshotLatchIndex -or
+	[string]::IsNullOrEmpty($controlledShutdownLootPlanCommitBlock) -or
+	$controlledShutdownLootCommitRecheckIndex -lt 0) {
+	throw 'Controlled-shutdown nearby-vehicle adoption must rebuild, re-preflight, and commit one complete plan in the same call'
+}
+foreach ($controlledShutdownLootLatchEntry in @(
+		'm_ControlledShutdownNearbyVehicleSnapshotState = state;',
+		'm_ControlledShutdownNearbyVehicleSnapshotPlan = plan;',
+		'm_bControlledShutdownNearbyVehicleSnapshotApplied = true;',
+		'm_bControlledShutdownNearbyVehicleSnapshotExact = false;'
+	)) {
+	if ($controlledShutdownLootSnapshotBlock.IndexOf(
+			$controlledShutdownLootLatchEntry) -lt 0) {
+		throw "Controlled-shutdown nearby-vehicle plan latch is incomplete: $controlledShutdownLootLatchEntry"
+	}
+}
+foreach ($controlledShutdownLootCommitEntry in @(
+		'ValidateLatchedControlledShutdownNearbyVehicleSnapshotPlan(',
+		'candidate.m_bCommitted',
+		'EnsureRuntimeVehicleRecord(',
+		'candidate.m_Record = record;',
+		'm_PersistentFieldVehicles.Track(',
+		'true',
+		'candidate.m_bCommitted = true;',
+		'm_bControlledShutdownNearbyVehicleSnapshotExact'
+	)) {
+	if ($controlledShutdownLootPlanCommitBlock.IndexOf(
+			$controlledShutdownLootCommitEntry) -lt 0) {
+		throw "Controlled-shutdown nearby-root commit cannot resume exact partial adoption: $controlledShutdownLootCommitEntry"
+	}
+}
+if ($controlledShutdownLootPlanCommitBlock -notmatch
+	'(?s)EnsureRuntimeVehicleRecord\s*\(\s*state\s*,\s*candidate\.m_Root\s*,\s*candidate\.m_Record\s*,\s*candidate\.m_sPrefab\s*,\s*false\s*,\s*false\s*,\s*true\s*\)') {
+	throw 'Controlled-shutdown Loot commit must explicitly authorize only its pinned candidate while leaving ordinary Track disabled'
+}
+foreach ($controlledShutdownLootPlanEntry in @(
+		'candidate.m_Root',
+		'candidate.m_Record',
+		'candidate.m_sIdentityKey',
+		'ResolveRuntimeVehicleRecord(',
+		'ValidateControlledShutdownSnapshotCandidateRoots('
+	)) {
+	if ([string]::IsNullOrEmpty($controlledShutdownLootPlanValidateBlock) -or
+		$controlledShutdownLootPlanValidateBlock.IndexOf(
+			$controlledShutdownLootPlanEntry) -lt 0) {
+		throw "Controlled-shutdown nearby-vehicle plan identity recheck is incomplete: $controlledShutdownLootPlanEntry"
+	}
+}
+foreach ($controlledShutdownCandidateRootEntry in @(
+		'uniqueRoots.Find(root)',
+		'IsControlledShutdownRuntimeProxy(root)',
+		'ValidateControlledShutdownHierarchyLocality(root, evidence)',
+		'persistence.GetTrackedParent(root)',
+		'ValidateControlledShutdownPlayerSafety(uniqueRoots, evidence)'
+	)) {
+	if ([string]::IsNullOrEmpty($controlledShutdownSnapshotCandidateRootsBlock) -or
+		$controlledShutdownSnapshotCandidateRootsBlock.IndexOf(
+			$controlledShutdownCandidateRootEntry) -lt 0) {
+		throw "Controlled-shutdown nearby candidate root safety is incomplete: $controlledShutdownCandidateRootEntry"
+	}
+}
+if ($ambientPersistenceText.IndexOf('protected HST_LootService m_Loot;') -lt 0 -or
+	[string]::IsNullOrEmpty($controlledShutdownPersistenceLootSetterBlock) -or
+	$controlledShutdownPersistenceLootSetterBlock.IndexOf('m_Loot = loot;') -lt 0 -or
+	[string]::IsNullOrEmpty($controlledShutdownCoordinatorInitBlock) -or
+	$controlledShutdownCoordinatorInitBlock.IndexOf(
+		'm_Persistence.SetLootService(m_Loot);') -lt 0) {
+	throw 'Persistence must own the Loot service used by its controlled-shutdown transaction'
+}
+if ([string]::IsNullOrEmpty($controlledShutdownCoordinatorRequestBlock) -or
+	$controlledShutdownCoordinatorRequestBlock.IndexOf(
+		'm_Persistence.RequestShutdownCheckpointDetailed(') -lt 0) {
+	throw 'Coordinator graceful shutdown must delegate the complete transaction to Persistence'
+}
+foreach ($controlledShutdownCoordinatorForbiddenMutation in @(
+		'FlushPendingCivilianConsequences(',
+		'ObservePlayerAmbientVehicleClaims(',
+		'SnapshotNearbyPersistentVehicles(',
+		'MarkMajorCampaignChange(',
+		'PrepareControlledShutdown'
+	)) {
+	if ($controlledShutdownCoordinatorRequestBlock.IndexOf(
+			$controlledShutdownCoordinatorForbiddenMutation) -ge 0) {
+		throw "Coordinator graceful shutdown bridge must remain mutation-free: $controlledShutdownCoordinatorForbiddenMutation"
+	}
+}
+$localSecurityPersistenceText = Get-Content -Raw `
+	'Scripts/Game/HST/Services/HST_LocalSecurityOperationService.c'
+$localSecurityPersistencePrepareBlock = Get-ScriptMethodBlock `
+	$localSecurityPersistenceText `
+	'protected bool PrepareOpenPhysicalAuthority('
+$localSecurityPersistencePositionChangedBlock = Get-ScriptMethodBlock `
+	$localSecurityPersistenceText `
+	'protected bool HasPersistencePositionChanged('
+if ($localSecurityPersistenceText.IndexOf(
+		'PERSISTENCE_POSITION_UPDATE_THRESHOLD_SQ_METERS = 4.0;') -lt 0 -or
+	[string]::IsNullOrEmpty($localSecurityPersistencePrepareBlock) -or
+	$localSecurityPersistencePrepareBlock -notmatch
+		'(?s)bool groupPositionChanged\s*=\s*HasPersistencePositionChanged\s*\(\s*group\.m_vPosition\s*,\s*livePosition\s*\);' -or
+	$localSecurityPersistencePrepareBlock -notmatch
+		'(?s)bool operationPositionChanged\s*=\s*HasPersistencePositionChanged\s*\(\s*operation\.m_vStrategicPosition\s*,\s*livePosition\s*\);' -or
+	$localSecurityPersistencePrepareBlock -notmatch
+		'(?s)if\s*\(groupPositionChanged\)\s*group\.m_vPosition\s*=\s*livePosition\s*;' -or
+	$localSecurityPersistencePrepareBlock -notmatch
+		'(?s)if\s*\(operationPositionChanged\)\s*operation\.m_vStrategicPosition\s*=\s*livePosition\s*;' -or
+	$localSecurityPersistencePrepareBlock -notmatch
+		'(?s)if\s*\(!groupPositionChanged\s*&&\s*!operationPositionChanged\)\s*continue\s*;') {
+	throw 'Local-security persistence preparation must use one consistent two-metre durable-position threshold and skip unchanged authorities'
+}
+$localSecurityPersistenceNoChangeIndex = $localSecurityPersistencePrepareBlock.IndexOf(
+	'if (!groupPositionChanged && !operationPositionChanged)')
+$localSecurityPersistenceProgressIndex = $localSecurityPersistencePrepareBlock.IndexOf(
+	'operation.m_iLastProgressAtSecond =',
+	[Math]::Max(0, $localSecurityPersistenceNoChangeIndex))
+$localSecurityPersistenceRevisionIndex = $localSecurityPersistencePrepareBlock.IndexOf(
+	'operation.m_iRevision++;',
+	[Math]::Max(0, $localSecurityPersistenceProgressIndex))
+if ($localSecurityPersistenceNoChangeIndex -lt 0 -or
+	$localSecurityPersistenceProgressIndex -le $localSecurityPersistenceNoChangeIndex -or
+	$localSecurityPersistenceRevisionIndex -le $localSecurityPersistenceProgressIndex -or
+	([regex]::Matches(
+		$localSecurityPersistencePrepareBlock,
+		'operation\.m_iRevision\+\+;')).Count -ne 1 -or
+	[string]::IsNullOrEmpty($localSecurityPersistencePositionChangedBlock) -or
+	$localSecurityPersistencePositionChangedBlock.IndexOf(
+		'float deltaX = current[0] - observed[0];') -lt 0 -or
+	$localSecurityPersistencePositionChangedBlock.IndexOf(
+		'float deltaZ = current[2] - observed[2];') -lt 0 -or
+	$localSecurityPersistencePositionChangedBlock.IndexOf(
+		'deltaX * deltaX + deltaZ * deltaZ') -lt 0 -or
+	$localSecurityPersistencePositionChangedBlock.IndexOf(
+		'>= PERSISTENCE_POSITION_UPDATE_THRESHOLD_SQ_METERS;') -lt 0) {
+	throw 'Local-security physical-authority refresh must revise durable state exactly once only after a material X/Z position change'
+}
+
+# Exact rescue owns a separate durable-DTO fence. Its runtime inspector is
+# read-only, normal preparation is the sole live sampler, and even an empty
+# rescue scope publishes a process-local one-way latch for retry validation.
+$controlledShutdownRescueRuntimeTopologyBlock = Get-ScriptMethodBlock `
+	$controlledShutdownMissionRuntimeText `
+	'bool InspectExactRescueRuntimeTopologyReadOnly('
+$controlledShutdownRescueCarrierEvidenceBlock = Get-ScriptMethodBlock `
+	$controlledShutdownMissionRuntimeText `
+	'bool ResolveExactRescueCarrierEvidence('
+$controlledShutdownRescuePoseSampleBlock = Get-ScriptMethodBlock `
+	$controlledShutdownMissionRuntimeText `
+	'bool SampleExactRescueRuntimePoseForPersistence('
+$controlledShutdownRescueRuntimeBindingBlock = Get-ScriptMethodBlock `
+	$controlledShutdownMissionRuntimeText `
+	'protected bool TryResolveRuntimeEntityBindingReadOnly('
+$controlledShutdownRescuePreflightBlock = Get-ScriptMethodBlock `
+	$controlledShutdownRescueText `
+	'bool PreflightControlledShutdownPersistenceSample('
+$controlledShutdownRescuePrepareBlock = Get-ScriptMethodBlock `
+	$controlledShutdownRescueText `
+	'bool PrepareControlledShutdownPersistenceSample('
+$controlledShutdownRescueMaintainBlock = Get-ScriptMethodBlock `
+	$controlledShutdownRescueText `
+	'bool MaintainControlledShutdownPersistenceSample('
+$controlledShutdownRescueMaterializingBlock = Get-ScriptMethodBlock `
+	$controlledShutdownRescueText `
+	'protected bool ValidateNoOpenMaterializingExactRescue('
+$controlledShutdownRescueCandidateBlock = Get-ScriptMethodBlock `
+	$controlledShutdownRescueText `
+	'protected bool ValidateControlledShutdownPersistenceCandidate('
+$controlledShutdownRescuePinBuildBlock = Get-ScriptMethodBlock `
+	$controlledShutdownRescueText `
+	'protected bool BuildControlledShutdownPersistencePins('
+$controlledShutdownRescueFenceBlock = Get-ScriptMethodBlock `
+	$controlledShutdownRescueText `
+	'protected bool ValidateControlledShutdownPersistenceFence('
+$controlledShutdownRescueOperationPinBlock = Get-ScriptMethodBlock `
+	$controlledShutdownRescueText `
+	'protected bool ValidateControlledShutdownOperationPin('
+$controlledShutdownRescuePrepareOpenBlock = Get-ScriptMethodBlock `
+	$controlledShutdownRescueText `
+	'bool PrepareOpenPhysicalAuthorityForPersistence('
+$controlledShutdownRescueNativeDomainBlock = Get-ScriptMethodBlock `
+	$controlledShutdownRescueText `
+	'protected bool ValidateControlledShutdownNativeDomainFences('
+$controlledShutdownRescueCarrierPreflightBlock = Get-ScriptMethodBlock `
+	$controlledShutdownRescueText `
+	'protected bool PreflightControlledShutdownCarrierScopesReadOnly('
+$controlledShutdownRescueCarrierCompartmentBlock = Get-ScriptMethodBlock `
+	$controlledShutdownRescueText `
+	'protected bool CollectControlledShutdownCarrierCompartmentPins('
+$controlledShutdownRescueCarrierOccupantScopeBlock = Get-ScriptMethodBlock `
+	$controlledShutdownRescueText `
+	'protected bool ValidateControlledShutdownCarrierOccupantScope('
+$controlledShutdownRescueNativeApplyBlock = Get-ScriptMethodBlock `
+	$controlledShutdownRescueText `
+	'protected bool ApplyControlledShutdownNativePins('
+$controlledShutdownRescueCaptiveNativeIdentityBlock = Get-ScriptMethodBlock `
+	$controlledShutdownRescueText `
+	'protected bool ValidateControlledShutdownCaptiveNativeIdentity('
+$controlledShutdownRescueCaptiveNativePinBlock = Get-ScriptMethodBlock `
+	$controlledShutdownRescueText `
+	'protected bool ValidateControlledShutdownCaptiveNativePin('
+$controlledShutdownRescueCarrierValidateBlock = Get-ScriptMethodBlock `
+	$controlledShutdownRescueText `
+	'protected bool ValidateControlledShutdownCarrierPins('
+$controlledShutdownRescuePlayerCarrierBlock = Get-ScriptMethodBlock `
+	$controlledShutdownRescueText `
+	'protected bool IsControlledShutdownRescuePlayerUsingCarrier('
+$controlledShutdownRescueCarrierHierarchyBlock = Get-ScriptMethodBlock `
+	$controlledShutdownRescueText `
+	'protected bool IsEntityWithinControlledShutdownCarrierRoot('
+$controlledShutdownRescueCarrierQuiesceBlock = Get-ScriptMethodBlock `
+	$controlledShutdownRescueText `
+	'protected bool QuiesceControlledShutdownRescueCarrier('
+$controlledShutdownRescuePhysicsQuiesceBlock = Get-ScriptMethodBlock `
+	$controlledShutdownRescueText `
+	'protected bool QuiesceControlledShutdownRescuePhysicsHierarchy('
+$controlledShutdownRescueVehicleQuiescentBlock = Get-ScriptMethodBlock `
+	$controlledShutdownRescueText `
+	'protected bool IsControlledShutdownRescueVehicleQuiescent('
+$controlledShutdownRescueTransformPinBlock = Get-ScriptMethodBlock `
+	$controlledShutdownRescueText `
+	'protected bool IsControlledShutdownRescueTransformPinned('
+$controlledShutdownFollowPrepareBlock = Get-ScriptMethodBlock `
+	$missionCaptiveFollowComponentText `
+	'bool PrepareControlledShutdownQuiescence('
+$controlledShutdownFollowPreflightBlock = Get-ScriptMethodBlock `
+	$missionCaptiveFollowComponentText `
+	'bool PreflightControlledShutdownQuiescence('
+$controlledShutdownFollowMaintainBlock = Get-ScriptMethodBlock `
+	$missionCaptiveFollowComponentText `
+	'bool MaintainControlledShutdownQuiescence('
+$controlledShutdownFollowExactBlock = Get-ScriptMethodBlock `
+	$missionCaptiveFollowComponentText `
+	'bool IsControlledShutdownQuiescenceExact('
+$controlledShutdownFollowStartBlock = Get-ScriptMethodBlock `
+	$missionCaptiveFollowComponentText `
+	'void StartFollowing('
+$controlledShutdownFollowTickBlock = Get-ScriptMethodBlock `
+	$missionCaptiveFollowComponentText `
+	'protected void FollowTick('
+$controlledShutdownFollowRemoveTickBlock = Get-ScriptMethodBlock `
+	$missionCaptiveFollowComponentText `
+	'protected void RemoveFollowTick('
+$controlledShutdownFollowClearWaypointBlock = Get-ScriptMethodBlock `
+	$missionCaptiveFollowComponentText `
+	'protected void ClearFollowWaypoint('
+$controlledShutdownRescuePositionExactBlock = Get-ScriptMethodBlock `
+	$controlledShutdownRescueText `
+	'protected bool IsExactRescueControlledShutdownPositionExact('
+$controlledShutdownRescueAnglesExactBlock = Get-ScriptMethodBlock `
+	$controlledShutdownRescueText `
+	'protected bool AreExactRescueControlledShutdownAnglesExact('
+$controlledShutdownRescueAngleExactBlock = Get-ScriptMethodBlock `
+	$controlledShutdownRescueText `
+	'protected bool IsExactRescueControlledShutdownAngleExact('
+
+# A live rescue captive's follow actuator is a native authority domain. Its
+# shutdown latch is one-way and every callback/start seam must respect it.
+foreach ($controlledShutdownFollowSurfaceEntry in @(
+		'm_bFollowTickScheduled',
+		'm_bControlledShutdownQuiescenceApplied'
+	)) {
+	if ($missionCaptiveFollowComponentText.IndexOf(
+			$controlledShutdownFollowSurfaceEntry) -lt 0) {
+		throw "Mission captive follow shutdown surface is incomplete: $controlledShutdownFollowSurfaceEntry"
+	}
+}
+if ($missionCaptiveFollowComponentText.IndexOf(
+		'm_bControlledShutdownQuiescenceApplied = false') -ge 0) {
+	throw 'Mission captive follow controlled-shutdown quiescence must be irreversible for the component lifetime'
+}
+foreach ($controlledShutdownFollowIngressBlock in @(
+		$controlledShutdownFollowStartBlock,
+		$controlledShutdownFollowTickBlock
+	)) {
+	if ([string]::IsNullOrEmpty($controlledShutdownFollowIngressBlock) -or
+		$controlledShutdownFollowIngressBlock.IndexOf(
+			'm_bControlledShutdownQuiescenceApplied') -lt 0 -or
+		$controlledShutdownFollowIngressBlock.IndexOf('return;') -lt 0) {
+		throw 'Mission captive follow start and scheduled tick ingress must stop permanently after shutdown quiescence latches'
+	}
+}
+foreach ($controlledShutdownFollowPreflightEntry in @(
+		'IEntity owner = GetOwner();',
+		'!owner || !owner.GetWorld()',
+		'ChimeraCharacter.Cast(owner)',
+		'character.GetCharacterController()',
+		'AIControlComponent.Cast(owner.FindComponent(AIControlComponent))',
+		'control.GetControlAIAgent()'
+	)) {
+	if ([string]::IsNullOrEmpty($controlledShutdownFollowPreflightBlock) -or
+		$controlledShutdownFollowPreflightBlock.IndexOf(
+			$controlledShutdownFollowPreflightEntry) -lt 0) {
+		throw "Mission captive follow read-only shutdown preflight is incomplete: $controlledShutdownFollowPreflightEntry"
+	}
+}
+foreach ($controlledShutdownFollowPreflightMutation in @(
+		'RemoveFollowTick(',
+		'ClearFollowWaypoint(',
+		'DeactivateAI(',
+		'DeactivateAllMembers(',
+		'SetOwnerMovementLocked(',
+		'ClearForces(',
+		'SetVelocity(',
+		'SetAngularVelocity(',
+		'SetActive(',
+		'm_bControlledShutdownQuiescenceApplied = true'
+	)) {
+	if ($controlledShutdownFollowPreflightBlock.IndexOf(
+			$controlledShutdownFollowPreflightMutation) -ge 0) {
+		throw "Mission captive follow shutdown preflight must remain read-only: $controlledShutdownFollowPreflightMutation"
+	}
+}
+foreach ($controlledShutdownFollowPrepareEntry in @(
+		'if (m_bControlledShutdownQuiescenceApplied)',
+		'MaintainControlledShutdownQuiescence(evidence)',
+		'PreflightControlledShutdownQuiescence(evidence)',
+		'm_bControlledShutdownQuiescenceApplied = true;'
+	)) {
+	if ([string]::IsNullOrEmpty($controlledShutdownFollowPrepareBlock) -or
+		$controlledShutdownFollowPrepareBlock.IndexOf(
+			$controlledShutdownFollowPrepareEntry) -lt 0) {
+		throw "Mission captive follow one-way shutdown preparation is incomplete: $controlledShutdownFollowPrepareEntry"
+	}
+}
+$controlledShutdownFollowLatchIndex =
+	$controlledShutdownFollowPrepareBlock.IndexOf(
+		'm_bControlledShutdownQuiescenceApplied = true;')
+$controlledShutdownFollowPreflightIndex =
+	$controlledShutdownFollowPrepareBlock.IndexOf(
+		'PreflightControlledShutdownQuiescence(evidence)')
+$controlledShutdownFollowFirstMaintainIndex =
+	$controlledShutdownFollowPrepareBlock.IndexOf(
+		'MaintainControlledShutdownQuiescence(evidence)',
+		[Math]::Max(0, $controlledShutdownFollowLatchIndex))
+if ($controlledShutdownFollowPreflightIndex -lt 0 -or
+	$controlledShutdownFollowLatchIndex -le
+		$controlledShutdownFollowPreflightIndex -or
+	$controlledShutdownFollowFirstMaintainIndex -le
+		$controlledShutdownFollowLatchIndex) {
+	throw 'Mission captive follow must publish its irreversible latch before the first callback, waypoint, AI, movement, or physics mutation'
+}
+foreach ($controlledShutdownFollowMaintainEntry in @(
+		'RemoveFollowTick()',
+		'ClearFollowWaypoint(group)',
+		'm_bFollowing = false;',
+		'm_FollowTarget = null;',
+		'SetOwnerMovementLocked(owner, true)',
+		'group.DeactivateAllMembers()',
+		'group.DeactivateAI()',
+		'agent.DeactivateAI()',
+		'control.DeactivateAI()',
+		'physics.ClearForces()',
+		'physics.SetVelocity(vector.Zero)',
+		'physics.SetAngularVelocity(vector.Zero)',
+		'physics.SetActive(ActiveState.INACTIVE)',
+		'IsControlledShutdownQuiescenceExact()'
+	)) {
+	if ([string]::IsNullOrEmpty($controlledShutdownFollowMaintainBlock) -or
+		$controlledShutdownFollowMaintainBlock.IndexOf(
+			$controlledShutdownFollowMaintainEntry) -lt 0) {
+		throw "Mission captive follow shutdown maintenance omits native quiescence: $controlledShutdownFollowMaintainEntry"
+	}
+}
+foreach ($controlledShutdownFollowExactEntry in @(
+		'm_bControlledShutdownQuiescenceApplied',
+		'm_bFollowTickScheduled',
+		'm_bFollowing',
+		'm_FollowTarget',
+		'm_WaypointEntity',
+		'IsControlledShutdownZeroVector(m_WaypointPosition)',
+		'controller.GetDisableMovementControls()',
+		'control.IsAIActivated()',
+		'agent.IsAIActivated()',
+		'group.IsAIActivated()',
+		'physics.IsActive()',
+		'physics.GetVelocity()',
+		'physics.GetAngularVelocity()'
+	)) {
+	if ([string]::IsNullOrEmpty($controlledShutdownFollowExactBlock) -or
+		$controlledShutdownFollowExactBlock.IndexOf(
+			$controlledShutdownFollowExactEntry) -lt 0) {
+		throw "Mission captive follow terminal shutdown exactness is incomplete: $controlledShutdownFollowExactEntry"
+	}
+}
+foreach ($controlledShutdownFollowRemoveTickEntry in @(
+		'queue.Remove(FollowTick)',
+		'm_bFollowTickScheduled = false;'
+	)) {
+	if ([string]::IsNullOrEmpty($controlledShutdownFollowRemoveTickBlock) -or
+		$controlledShutdownFollowRemoveTickBlock.IndexOf(
+			$controlledShutdownFollowRemoveTickEntry) -lt 0) {
+		throw "Mission captive follow callback cancellation is incomplete: $controlledShutdownFollowRemoveTickEntry"
+	}
+}
+$controlledShutdownFollowClearEntityIndex =
+	$controlledShutdownFollowClearWaypointBlock.IndexOf(
+		'm_WaypointEntity = null;')
+$controlledShutdownFollowClearPositionIndex =
+	$controlledShutdownFollowClearWaypointBlock.IndexOf(
+		'm_WaypointPosition = "0 0 0";')
+$controlledShutdownFollowClearFirstReturnIndex =
+	$controlledShutdownFollowClearWaypointBlock.IndexOf('return;')
+if ([string]::IsNullOrEmpty($controlledShutdownFollowClearWaypointBlock) -or
+	$controlledShutdownFollowClearEntityIndex -lt 0 -or
+	$controlledShutdownFollowClearPositionIndex -lt 0 -or
+	(($controlledShutdownFollowClearFirstReturnIndex -ge 0) -and
+		($controlledShutdownFollowClearEntityIndex -gt
+			$controlledShutdownFollowClearFirstReturnIndex -or
+		$controlledShutdownFollowClearPositionIndex -gt
+			$controlledShutdownFollowClearFirstReturnIndex)) -or
+	$controlledShutdownFollowClearWaypointBlock -match
+		'(?s)if\s*\(\s*!m_WaypointEntity\s*\)\s*return\s*;') {
+	throw 'Mission captive follow waypoint cleanup must always clear cached entity and position before any null-handle return'
+}
+
+foreach ($controlledShutdownRescueRuntimeEntry in @(
+		'out IEntity captiveEntity',
+		'out IEntity carrierEntity',
+		'out BaseCompartmentSlot captiveSlot',
+		'out string observedSeatToken',
+		'bool requirePreparedAuthority = false',
+		'TryResolveRuntimeEntityBindingReadOnly(',
+		'TryResolveUniqueMissionCarrierRecordReadOnly(',
+		'TryResolveExactRescuePlayerCarrierReadOnly(',
+		'TryFindMissionVehicleByRuntimeIdReadOnly(',
+		'ValidateExactRescueReadOnlyPlayerTopology(',
+		'IsControlledShutdownRuntimeProxyReadOnly(',
+		'captiveAccess.IsGettingIn()',
+		'captiveAccess.IsGettingOut()',
+		'captiveAccess.IsSwitchingSeatsAnim()',
+		'captiveAccess.GetCompartment()',
+		'captiveAccess.GetVehicle()'
+	)) {
+	if ([string]::IsNullOrEmpty($controlledShutdownRescueRuntimeTopologyBlock) -or
+		$controlledShutdownRescueRuntimeTopologyBlock.IndexOf(
+			$controlledShutdownRescueRuntimeEntry) -lt 0) {
+		throw "Exact-rescue controlled-shutdown read-only topology inspection is incomplete: $controlledShutdownRescueRuntimeEntry"
+	}
+}
+foreach ($controlledShutdownRescueLiveSeatEntry in @(
+		'BaseCompartmentSlot slot = access.GetCompartment();',
+		'if (slot)',
+		'seatToken = BuildExactRescueCarrierSeatToken(slot);',
+		'else if (!captiveEntity',
+		'seatToken = asset.m_sRescueCarrierSeatToken;'
+	)) {
+	if ([string]::IsNullOrEmpty($controlledShutdownRescueCarrierEvidenceBlock) -or
+		$controlledShutdownRescueCarrierEvidenceBlock.IndexOf(
+			$controlledShutdownRescueLiveSeatEntry) -lt 0) {
+		throw "Exact-rescue live occupied slot must supersede a stale durable seat token: $controlledShutdownRescueLiveSeatEntry"
+	}
+}
+if ($controlledShutdownRescueRuntimeTopologyBlock -notmatch
+	'(?s)requirePreparedAuthority\s*&&\s*observedSeatToken\s*!=\s*asset\.m_sRescueCarrierSeatToken') {
+	throw 'Exact-rescue seat mismatch must be tolerated for the non-strict sampler and rejected by the strict prepared-authority pass'
+}
+foreach ($controlledShutdownRescuePoseSampleEntry in @(
+		'InspectExactRescueRuntimeTopologyReadOnly(',
+		'false',
+		'IsExactRescueCarrierOperational(carrierEntity)',
+		'TryResolveUniqueMissionCarrierRecordReadOnly(',
+		'carrierRecord.m_bDeleted',
+		'carrierRecord.m_sPrefab.IsEmpty()',
+		'runtimeProjectionMatches++',
+		'runtimeProjectionMatches != 1',
+		'runtimeProjection.m_sRuntimeEntityId != projectionId',
+		'runtimeProjection.m_sMissionInstanceId != mission.m_sInstanceId',
+		'runtimeProjection.m_sKind != asset.m_sKind',
+		'runtimeProjection.m_sPrefab != asset.m_sPrefab',
+		'carrierRecord.m_vPosition = position;',
+		'carrierRecord.m_vAngles = angles;',
+		'asset.m_vCurrentPosition = position;',
+		'asset.m_vLastKnownPosition = position;',
+		'runtimeProjection.m_vPosition = position;',
+		'runtimeProjection.m_vAngles = angles;'
+	)) {
+	if ([string]::IsNullOrEmpty($controlledShutdownRescuePoseSampleBlock) -or
+		$controlledShutdownRescuePoseSampleBlock.IndexOf(
+			$controlledShutdownRescuePoseSampleEntry) -lt 0) {
+		throw "Exact-rescue normal persistence sampler does not fold one read-only validated live pose into the complete durable graph: $controlledShutdownRescuePoseSampleEntry"
+	}
+}
+foreach ($controlledShutdownRescuePoseSamplerMutation in @(
+		'ResolveExactRescueCarrierEvidence(',
+		'UpdateExactRescueCarrierRecord(',
+		'EnsureRestoredMissionCarrierVehicle(',
+		'RegisterRuntimeEntity('
+	)) {
+	if ($controlledShutdownRescuePoseSampleBlock.IndexOf(
+			$controlledShutdownRescuePoseSamplerMutation) -ge 0) {
+		throw "Exact-rescue normal pose sampling must not invoke a mutating runtime resolver: $controlledShutdownRescuePoseSamplerMutation"
+	}
+}
+foreach ($controlledShutdownRescueBindingEntry in @(
+		'm_aRuntimeEntityIds.Count() != m_aRuntimeEntities.Count()',
+		'matches++',
+		'entity && entity != candidate',
+		'matches > 1'
+	)) {
+	if ([string]::IsNullOrEmpty($controlledShutdownRescueRuntimeBindingBlock) -or
+		$controlledShutdownRescueRuntimeBindingBlock.IndexOf(
+			$controlledShutdownRescueBindingEntry) -lt 0) {
+		throw "Exact-rescue read-only runtime identity resolution is incomplete: $controlledShutdownRescueBindingEntry"
+	}
+}
+foreach ($controlledShutdownRescueReadOnlyMutation in @(
+		'RegisterRuntimeEntity(',
+		'UnregisterRuntimeEntity(',
+		'DeleteEntityAndChildren(',
+		'QuarantineOperationAuthority(',
+		'SetOrigin(',
+		'SetTransform('
+	)) {
+	if ($controlledShutdownRescueRuntimeTopologyBlock.IndexOf(
+			$controlledShutdownRescueReadOnlyMutation) -ge 0 -or
+		$controlledShutdownRescueRuntimeBindingBlock.IndexOf(
+			$controlledShutdownRescueReadOnlyMutation) -ge 0) {
+		throw "Exact-rescue controlled-shutdown runtime inspection must remain read-only: $controlledShutdownRescueReadOnlyMutation"
+	}
+}
+foreach ($controlledShutdownRescueMaterializingEntry in @(
+		'IsOpenExactRescueOperation(operation)',
+		'HST_OPERATION_MATERIALIZATION_MATERIALIZING',
+		'exact rescue persistence cannot sample MATERIALIZING authority',
+		'return false;'
+	)) {
+	if ([string]::IsNullOrEmpty($controlledShutdownRescueMaterializingBlock) -or
+		$controlledShutdownRescueMaterializingBlock.IndexOf(
+			$controlledShutdownRescueMaterializingEntry) -lt 0) {
+		throw "Exact-rescue MATERIALIZING persistence rejection is incomplete: $controlledShutdownRescueMaterializingEntry"
+	}
+}
+$controlledShutdownRescueCandidateMaterializingIndex =
+	$controlledShutdownRescueCandidateBlock.IndexOf(
+		'ValidateNoOpenMaterializingExactRescue(state, evidence)')
+$controlledShutdownRescueCandidateContextIndex =
+	$controlledShutdownRescueCandidateBlock.IndexOf('ResolveRuntimeContext(')
+$controlledShutdownRescueOpenMaterializingIndex =
+	$controlledShutdownRescuePrepareOpenBlock.IndexOf(
+		'ValidateNoOpenMaterializingExactRescue(state, failure)')
+$controlledShutdownRescueOpenLatchIndex =
+	$controlledShutdownRescuePrepareOpenBlock.IndexOf(
+		'if (m_bControlledShutdownPersistenceSampleApplied)')
+$controlledShutdownRescueOpenServiceIndex =
+	$controlledShutdownRescuePrepareOpenBlock.IndexOf(
+		'if (!m_SpawnQueue || !m_SpawnAdapter || !m_PhysicalWar || !m_MissionRuntime)')
+$controlledShutdownRescueOpenContextIndex =
+	$controlledShutdownRescuePrepareOpenBlock.IndexOf('ResolveRuntimeContext(')
+if ([string]::IsNullOrEmpty($controlledShutdownRescueCandidateBlock) -or
+	$controlledShutdownRescueCandidateMaterializingIndex -lt 0 -or
+	$controlledShutdownRescueCandidateContextIndex -le
+		$controlledShutdownRescueCandidateMaterializingIndex -or
+	[string]::IsNullOrEmpty($controlledShutdownRescuePrepareOpenBlock) -or
+	$controlledShutdownRescueOpenMaterializingIndex -lt 0 -or
+	$controlledShutdownRescueOpenLatchIndex -le
+		$controlledShutdownRescueOpenMaterializingIndex -or
+	$controlledShutdownRescueOpenServiceIndex -le
+		$controlledShutdownRescueOpenLatchIndex -or
+	$controlledShutdownRescueOpenContextIndex -le
+		$controlledShutdownRescueOpenServiceIndex -or
+	$controlledShutdownRescuePrepareOpenBlock.IndexOf(
+		'return MaintainControlledShutdownPersistenceSample(state, failure);') -lt 0) {
+	throw 'Exact-rescue persistence must reject every MATERIALIZING row before mutation and return through the latched DTO fence before any live resampling'
+}
+if ($controlledShutdownRescueCandidateBlock -notmatch
+	'(?s)mission\.m_aGunShopItems\s*&&\s*mission\.m_aGunShopItems\.Count\(\)\s*!=\s*0') {
+	throw 'Exact-rescue controlled-shutdown validation must treat a null gun-shop array as empty while still rejecting foreign item rows'
+}
+foreach ($controlledShutdownRescuePlayerReleaseEntry in @(
+		'if (carrierEntity',
+		'IsControlledShutdownRescuePlayerUsingCarrier(carrierEntity)',
+		'HST_PhysicalWarService.CONTROLLED_SHUTDOWN_PLAYER_RELEASE_EVIDENCE',
+		'exact rescue mission carrier is player-occupied or a player is changing compartments'
+	)) {
+	if ($controlledShutdownRescueCandidateBlock.IndexOf(
+			$controlledShutdownRescuePlayerReleaseEntry) -lt 0) {
+		throw "Exact-rescue preflight must return canonical player-release evidence before carrier mutation: $controlledShutdownRescuePlayerReleaseEntry"
+	}
+}
+$controlledShutdownRescueCandidateFollowerPreflightIndex =
+	$controlledShutdownRescueCandidateBlock.IndexOf(
+		'PreflightControlledShutdownQuiescence(')
+$controlledShutdownRescueBuildFollowerPreflightIndex =
+	$controlledShutdownRescuePinBuildBlock.IndexOf(
+		'PreflightControlledShutdownQuiescence(')
+$controlledShutdownRescueBuildCaptivePublishIndex =
+	$controlledShutdownRescuePinBuildBlock.IndexOf(
+		'operationPin.m_aCaptives.Insert(captivePin)')
+if ($controlledShutdownRescueCandidateFollowerPreflightIndex -lt 0 -or
+	$controlledShutdownRescueBuildFollowerPreflightIndex -lt 0 -or
+	$controlledShutdownRescueBuildCaptivePublishIndex -le
+		$controlledShutdownRescueBuildFollowerPreflightIndex) {
+	throw 'Exact-rescue candidate and pin builder must read-only preflight every live follower before publishing any captive native pin'
+}
+$controlledShutdownRescueCarrierScopePreflightIndex =
+	$controlledShutdownRescueCandidateBlock.IndexOf(
+		'PreflightControlledShutdownCarrierScopesReadOnly(')
+$controlledShutdownRescueCandidateSuccessIndex =
+	$controlledShutdownRescueCandidateBlock.LastIndexOf('return true;')
+if ($controlledShutdownRescueCarrierScopePreflightIndex -lt 0 -or
+	$controlledShutdownRescueCandidateSuccessIndex -le
+		$controlledShutdownRescueCarrierScopePreflightIndex) {
+	throw 'Exact-rescue candidate validation must complete the full read-only carrier scope preflight before it can admit pin building and the one-way latch'
+}
+$controlledShutdownRescueOpenSampleIndex =
+	$controlledShutdownRescuePrepareOpenBlock.IndexOf(
+		'SampleExactRescueRuntimePoseForPersistence(')
+if ($controlledShutdownRescueOpenSampleIndex -lt 0) {
+	throw 'Exact-rescue normal persistence preparation must invoke the read-only live-pose sampler'
+}
+foreach ($controlledShutdownRescuePostSampleResolver in @(
+		'ReconcileObservedCarrierState(',
+		'ResolveExactRescueCarrierEvidence(',
+		'UpdateExactRescueCarrierRecord(',
+		'EnsureRestoredMissionCarrierVehicle('
+	)) {
+	if ($controlledShutdownRescuePrepareOpenBlock.IndexOf(
+			$controlledShutdownRescuePostSampleResolver,
+			$controlledShutdownRescueOpenSampleIndex) -ge 0) {
+		throw "Exact-rescue persistence must not run a mutating carrier resolver after its final read-only pose sample: $controlledShutdownRescuePostSampleResolver"
+	}
+}
+foreach ($controlledShutdownRescuePreflightEntry in @(
+		'm_bControlledShutdownPersistenceSampleApplied',
+		'ValidateControlledShutdownPersistenceFence(',
+		'ValidateControlledShutdownPersistenceCandidate(',
+		'requirePreparedAuthority'
+	)) {
+	if ([string]::IsNullOrEmpty($controlledShutdownRescuePreflightBlock) -or
+		$controlledShutdownRescuePreflightBlock.IndexOf(
+			$controlledShutdownRescuePreflightEntry) -lt 0) {
+		throw "Exact-rescue controlled-shutdown preflight is incomplete: $controlledShutdownRescuePreflightEntry"
+	}
+}
+if ($controlledShutdownRescuePreflightBlock -notmatch
+	'(?s)if\s*\(\s*m_bControlledShutdownPersistenceSampleApplied\s*\).*?return\s+ValidateControlledShutdownPersistenceFence\s*\(\s*state\s*,\s*evidence\s*,\s*false\s*\)\s*;') {
+	throw 'Applied exact-rescue preflight must validate immutable DTO/native identities without requiring partially applied native quiescence, so retry can reach Maintain'
+}
+foreach ($controlledShutdownRescuePrepareEntry in @(
+		'ValidateControlledShutdownNativeDomainFences(state, evidence)',
+		'ValidateControlledShutdownPersistenceCandidate(state, true, evidence)',
+		'BuildControlledShutdownPersistencePins(state, evidence)',
+		'm_bControlledShutdownPersistenceSampleApplied = true;',
+		'm_bControlledShutdownPersistenceSampleExact = false;',
+		'MaintainControlledShutdownPersistenceSample(state, evidence)'
+	)) {
+	if ([string]::IsNullOrEmpty($controlledShutdownRescuePrepareBlock) -or
+		$controlledShutdownRescuePrepareBlock.IndexOf(
+			$controlledShutdownRescuePrepareEntry) -lt 0) {
+		throw "Exact-rescue one-way durable-sample latch is incomplete: $controlledShutdownRescuePrepareEntry"
+	}
+}
+$controlledShutdownRescuePinIndex =
+	$controlledShutdownRescuePrepareBlock.IndexOf(
+		'BuildControlledShutdownPersistencePins(state, evidence)')
+$controlledShutdownRescueLatchIndex =
+	$controlledShutdownRescuePrepareBlock.IndexOf(
+		'm_bControlledShutdownPersistenceSampleApplied = true;')
+$controlledShutdownRescueMaintainIndex =
+	$controlledShutdownRescuePrepareBlock.IndexOf(
+		'MaintainControlledShutdownPersistenceSample(state, evidence)',
+		[Math]::Max(0, $controlledShutdownRescueLatchIndex))
+if ($controlledShutdownRescuePinIndex -lt 0 -or
+	$controlledShutdownRescueLatchIndex -le $controlledShutdownRescuePinIndex -or
+	$controlledShutdownRescueMaintainIndex -le $controlledShutdownRescueLatchIndex -or
+	$controlledShutdownRescuePrepareBlock -match
+		'm_bControlledShutdownPersistenceSampleApplied\s*=\s*false') {
+	throw 'Exact-rescue shutdown must pin the complete prepared DTO graph, publish a one-way latch, and only then validate maintenance'
+}
+foreach ($controlledShutdownRescueMaintainEntry in @(
+		'm_bControlledShutdownPersistenceSampleApplied',
+		'm_bControlledShutdownPersistenceSampleExact = false;',
+		'ValidateControlledShutdownPersistenceFence(state, evidence, false)',
+		'ApplyControlledShutdownNativePins(state, evidence)',
+		'ValidateControlledShutdownPersistenceFence(state, evidence, true)',
+		'm_bControlledShutdownPersistenceSampleExact = true;'
+	)) {
+	if ([string]::IsNullOrEmpty($controlledShutdownRescueMaintainBlock) -or
+		$controlledShutdownRescueMaintainBlock.IndexOf(
+			$controlledShutdownRescueMaintainEntry) -lt 0) {
+		throw "Exact-rescue durable-sample retry maintenance is incomplete: $controlledShutdownRescueMaintainEntry"
+	}
+}
+$controlledShutdownRescueDTORecheckIndex =
+	$controlledShutdownRescueMaintainBlock.IndexOf(
+		'ValidateControlledShutdownPersistenceFence(state, evidence, false)')
+$controlledShutdownRescueNativeReapplyIndex =
+	$controlledShutdownRescueMaintainBlock.IndexOf(
+		'ApplyControlledShutdownNativePins(state, evidence)')
+$controlledShutdownRescueStrictRecheckIndex =
+	$controlledShutdownRescueMaintainBlock.IndexOf(
+		'ValidateControlledShutdownPersistenceFence(state, evidence, true)')
+$controlledShutdownRescueExactLatchIndex =
+	$controlledShutdownRescueMaintainBlock.IndexOf(
+		'm_bControlledShutdownPersistenceSampleExact = true;')
+if ($controlledShutdownRescueDTORecheckIndex -lt 0 -or
+	$controlledShutdownRescueNativeReapplyIndex -le
+		$controlledShutdownRescueDTORecheckIndex -or
+	$controlledShutdownRescueStrictRecheckIndex -le
+		$controlledShutdownRescueNativeReapplyIndex -or
+	$controlledShutdownRescueExactLatchIndex -le
+		$controlledShutdownRescueStrictRecheckIndex) {
+	throw 'Exact-rescue maintenance must validate immutable DTO identity, reapply native pins, strictly validate native plus DTO authority, and only then publish exactness'
+}
+foreach ($controlledShutdownRescuePinEntry in @(
+		'm_ControlledShutdownPersistenceState = state;',
+		'operationPin.m_Operation = operation;',
+		'operationPin.m_Mission = mission;',
+		'operationPin.m_GuardGroup = group;',
+		'captivePin.m_Captive = captive;',
+		'captivePin.m_RuntimeProjection = runtimeProjection;',
+		'captivePin.m_CarrierRecord = carrierRecord;',
+		'operationPin.m_aObjectives.Insert(objective);',
+		'm_aControlledShutdownPersistencePins.Count()'
+	)) {
+	if ([string]::IsNullOrEmpty($controlledShutdownRescuePinBuildBlock) -or
+		$controlledShutdownRescuePinBuildBlock.IndexOf(
+			$controlledShutdownRescuePinEntry) -lt 0) {
+		throw "Exact-rescue durable DTO reference/scope pinning is incomplete: $controlledShutdownRescuePinEntry"
+	}
+}
+if ($controlledShutdownRescuePinBuildBlock -match
+	'm_aControlledShutdownPersistencePins\.Count\(\)\s*(?:==|<=)\s*0') {
+	throw 'An empty exact-rescue scope must still publish a valid one-way controlled-shutdown DTO fence'
+}
+foreach ($controlledShutdownRescueNativePinSurfaceEntry in @(
+		'class HST_ControlledShutdownRescueCaptiveSamplePin',
+		'HST_MissionCaptiveFollowComponent m_FollowComponent;',
+		'IEntity m_CaptiveEntity;',
+		'IEntity m_CarrierEntity;',
+		'BaseCompartmentSlot m_CaptiveSlot;',
+		'vector m_vCaptivePosition;',
+		'vector m_vCaptiveAngles;',
+		'class HST_ControlledShutdownRescueCarrierPin',
+		'vector m_aTransform[4];',
+		'ref array<BaseCompartmentSlot> m_aCompartmentSlots = {};',
+		'ref array<IEntity> m_aCompartmentOccupants = {};',
+		'm_aControlledShutdownCarrierPins = {};'
+	)) {
+	if ($controlledShutdownRescueText.IndexOf(
+			$controlledShutdownRescueNativePinSurfaceEntry) -lt 0) {
+		throw "Exact-rescue native captive/carrier pin surface is incomplete: $controlledShutdownRescueNativePinSurfaceEntry"
+	}
+}
+foreach ($controlledShutdownRescueNativePinBuildEntry in @(
+		'm_aControlledShutdownCarrierPins.Clear()',
+		'captivePin.m_CaptiveEntity = captiveEntity;',
+		'captivePin.m_CarrierEntity = carrierEntity;',
+		'captivePin.m_CaptiveSlot = captiveSlot;',
+		'captivePin.m_sObservedSeatToken = observedSeatToken;',
+		'captivePin.m_FollowComponent',
+		'HST_MissionCaptiveFollowComponent.Cast(',
+		'captivePin.m_vCaptivePosition = captiveEntity.GetOrigin();',
+		'captivePin.m_vCaptiveAngles',
+		'FindControlledShutdownCarrierPin(pinnedCaptive.m_CarrierEntity)',
+		'existingCarrierPin.m_Record != pinnedCaptive.m_CarrierRecord',
+		'carrierPin.m_Entity.GetTransform(carrierPin.m_aTransform)',
+		'CollectControlledShutdownCarrierCompartmentPins(',
+		'm_aControlledShutdownCarrierPins.Insert(carrierPin)',
+		'ValidateControlledShutdownCarrierOccupantScope(evidence)',
+		'm_ControlledShutdownPersistenceState = state;'
+	)) {
+	if ([string]::IsNullOrEmpty($controlledShutdownRescuePinBuildBlock) -or
+		$controlledShutdownRescuePinBuildBlock.IndexOf(
+			$controlledShutdownRescueNativePinBuildEntry) -lt 0) {
+		throw "Exact-rescue shutdown pinning omits immutable native authority: $controlledShutdownRescueNativePinBuildEntry"
+	}
+}
+foreach ($controlledShutdownRescueNativeDomainEntry in @(
+		'm_PhysicalWar.HasControlledShutdownActiveGroupQuiescenceApplied()',
+		'm_PhysicalWar.IsControlledShutdownActiveGroupQuiescenceExact(state)'
+	)) {
+	if ([string]::IsNullOrEmpty($controlledShutdownRescueNativeDomainBlock) -or
+		$controlledShutdownRescueNativeDomainBlock.IndexOf(
+			$controlledShutdownRescueNativeDomainEntry) -lt 0) {
+		throw "Exact-rescue native pinning must begin behind the exact guard-group fence: $controlledShutdownRescueNativeDomainEntry"
+	}
+}
+foreach ($controlledShutdownRescueCarrierPreflightEntry in @(
+		'carriers.Count() != carrierIds.Count()',
+		'captives.Count() != captiveCarriers.Count()',
+		'captives.Count() != captiveSlots.Count()',
+		'captives.Count() != captiveRequiresSeat.Count()',
+		'!carrier || !carrier.GetWorld()',
+		'carrierIds[carrierIndex].IsEmpty()',
+		'IsControlledShutdownRescueRuntimeProxy(carrier)',
+		'IsControlledShutdownRescuePlayerUsingCarrier(carrier)',
+		'CollectControlledShutdownCarrierCompartmentPins(',
+		'BaseCompartmentManagerComponent manager',
+		'manager = slot.GetManager()',
+		'slot.GetVehicle() != carrier',
+		'!manager.GetOwner()',
+		'IsEntityWithinControlledShutdownCarrierRoot(',
+		'slot.GetOccupant() != occupant',
+		'captives.Find(occupant)',
+		'captiveCarriers[captiveIndex] != carrier',
+		'captiveSlots[captiveIndex] != slot',
+		'observedCaptives.Find(occupant) >= 0',
+		'exact rescue controlled-shutdown carrier contains foreign or ambiguous live occupancy'
+	)) {
+	if ([string]::IsNullOrEmpty($controlledShutdownRescueCarrierPreflightBlock) -or
+		$controlledShutdownRescueCarrierPreflightBlock.IndexOf(
+			$controlledShutdownRescueCarrierPreflightEntry) -lt 0) {
+		throw "Exact-rescue read-only carrier scope preflight is incomplete: $controlledShutdownRescueCarrierPreflightEntry"
+	}
+}
+foreach ($controlledShutdownRescueCarrierPreflightMutation in @(
+		'm_aControlledShutdownPersistencePins',
+		'm_aControlledShutdownCarrierPins',
+		'SetOrigin(',
+		'SetTransform(',
+		'RegisterRuntimeEntity(',
+		'DeleteEntityAndChildren(',
+		'PrepareControlledShutdown',
+		'QuiesceControlledShutdown'
+	)) {
+	if ($controlledShutdownRescueCarrierPreflightBlock.IndexOf(
+			$controlledShutdownRescueCarrierPreflightMutation) -ge 0) {
+		throw "Exact-rescue carrier scope preflight must remain read-only before every one-way latch: $controlledShutdownRescueCarrierPreflightMutation"
+	}
+}
+$controlledShutdownRescueBoardingScopeBlocks =
+	$controlledShutdownRescueCandidateBlock + "`n" +
+	$controlledShutdownRescueCarrierPreflightBlock
+foreach ($controlledShutdownRescueBoardingScopeEntry in @(
+		'candidateCaptiveRequiresSeat.Insert(captiveSlot != null)',
+		'array<bool> candidateCaptiveRequiresSeat',
+		'captiveRequiresSeat,',
+		'if (!captiveRequiresSeat[captiveIndex])',
+		'continue;',
+		'observedCaptives.Find(captives[captiveIndex]) < 0',
+		'exact rescue controlled-shutdown captive is absent from its carrier seat scope'
+	)) {
+	if ($controlledShutdownRescueBoardingScopeBlocks.IndexOf(
+			$controlledShutdownRescueBoardingScopeEntry) -lt 0) {
+		throw "Exact-rescue carrier preflight must allow seatless BOARDING while requiring every observed or BOARDED seat to remain exact: $controlledShutdownRescueBoardingScopeEntry"
+	}
+}
+foreach ($controlledShutdownRescueBoardedTopologyEntry in @(
+		'HST_RESCUE_CAPTIVE_DISPOSITION_BOARDING',
+		'HST_RESCUE_CAPTIVE_DISPOSITION_BOARDED',
+		'if (asset.m_eRescueDisposition',
+		'== HST_ERescueCaptiveDisposition.HST_RESCUE_CAPTIVE_DISPOSITION_BOARDED)',
+		'captiveSlot.GetOccupant() != captiveEntity',
+		'captiveManager = captiveSlot.GetManager()',
+		'IsEntityWithinControlledShutdownRoot(',
+		'else if (requirePreparedAuthority && occupiedVehicle)',
+		'prepared boarding captive has unresolved occupied-seat evidence'
+	)) {
+	if ($controlledShutdownRescueRuntimeTopologyBlock.IndexOf(
+			$controlledShutdownRescueBoardedTopologyEntry) -lt 0) {
+		throw "Exact-rescue runtime inspection must distinguish seatless BOARDING from exact BOARDED/observed seat authority: $controlledShutdownRescueBoardedTopologyEntry"
+	}
+}
+foreach ($controlledShutdownRescueCompartmentEntry in @(
+		'BaseCompartmentManagerComponent',
+		'manager.GetOwner() != entity',
+		'manager.GetCompartments(managedSlots)',
+		'slot.GetManager() != manager',
+		'slots.Find(slot) >= 0',
+		'slots.Insert(slot)',
+		'occupants.Insert(slot.GetOccupant())',
+		'entity.GetChildren()',
+		'CollectControlledShutdownCarrierCompartmentPins(',
+		'child.GetSibling()',
+		'return slots.Count() == occupants.Count();'
+	)) {
+	if ([string]::IsNullOrEmpty($controlledShutdownRescueCarrierCompartmentBlock) -or
+		$controlledShutdownRescueCarrierCompartmentBlock.IndexOf(
+			$controlledShutdownRescueCompartmentEntry) -lt 0) {
+		throw "Exact-rescue carrier must pin the complete recursive compartment/occupant closure: $controlledShutdownRescueCompartmentEntry"
+	}
+}
+foreach ($controlledShutdownRescueOccupantScopeEntry in @(
+		'uniqueCarriers.Find(carrierPin.m_Entity)',
+		'uniqueCarrierIds.Contains(carrierPin.m_sRuntimeId)',
+		'IsControlledShutdownRescueRuntimeProxy(carrierPin.m_Entity)',
+		'IsControlledShutdownRescuePlayerUsingCarrier(carrierPin.m_Entity)',
+		'expectedCaptives.Find(captivePin.m_CaptiveEntity)',
+		'carrierPin.m_aCompartmentSlots.Find(captivePin.m_CaptiveSlot)',
+		'captivePin.m_CaptiveSlot.GetOccupant()',
+		'slot.GetManager()',
+		'slot.GetVehicle() != carrierPin.m_Entity',
+		'manager.GetOwner()',
+		'IsEntityWithinControlledShutdownCarrierRoot(',
+		'slot.GetOccupant() != expectedOccupant',
+		'expectedCaptives.Find(expectedOccupant) < 0'
+	)) {
+	if ([string]::IsNullOrEmpty($controlledShutdownRescueCarrierOccupantScopeBlock) -or
+		$controlledShutdownRescueCarrierOccupantScopeBlock.IndexOf(
+			$controlledShutdownRescueOccupantScopeEntry) -lt 0) {
+		throw "Exact-rescue carrier occupant scope is not immutable and player-safe: $controlledShutdownRescueOccupantScopeEntry"
+	}
+}
+$controlledShutdownRescueFalsePoseIdentityMatches = [regex]::Matches(
+	$controlledShutdownRescueNativeApplyBlock,
+	'(?s)ValidateControlledShutdownCaptiveNativeIdentity\s*\(\s*state\s*,\s*operationPin\.m_Mission\s*,\s*captivePin\s*,\s*evidence\s*,\s*false\s*\)')
+$controlledShutdownRescueStrictPoseIdentityMatches = [regex]::Matches(
+	$controlledShutdownRescueNativeApplyBlock,
+	'(?s)ValidateControlledShutdownCaptiveNativeIdentity\s*\(\s*state\s*,\s*operationPin\.m_Mission\s*,\s*captivePin\s*,\s*evidence\s*,\s*true\s*\)')
+$controlledShutdownRescueCarrierMutationIndex =
+	$controlledShutdownRescueNativeApplyBlock.IndexOf(
+		'carrierPin.m_Entity.SetTransform(carrierPin.m_aTransform)')
+$controlledShutdownRescueCarrierQuiesceIndex =
+	$controlledShutdownRescueNativeApplyBlock.IndexOf(
+		'QuiesceControlledShutdownRescueCarrier(carrierPin.m_Entity, evidence)',
+		[Math]::Max(0, $controlledShutdownRescueCarrierMutationIndex + 1))
+$controlledShutdownRescueFollowerPrepareIndex =
+	$controlledShutdownRescueNativeApplyBlock.IndexOf(
+		'captivePin.m_FollowComponent.PrepareControlledShutdownQuiescence(evidence)')
+$controlledShutdownRescueCaptiveTransformRestoreIndex =
+	$controlledShutdownRescueNativeApplyBlock.IndexOf(
+		'HST_WorldPositionService.ApplyUprightEntityTransform(')
+$controlledShutdownRescueFollowerMaintainIndex =
+	$controlledShutdownRescueNativeApplyBlock.IndexOf(
+		'captivePin.m_FollowComponent.MaintainControlledShutdownQuiescence(evidence)')
+if ($controlledShutdownRescueFalsePoseIdentityMatches.Count -ne 2 -or
+	$controlledShutdownRescueStrictPoseIdentityMatches.Count -ne 1 -or
+	$controlledShutdownRescueCarrierMutationIndex -le
+		$controlledShutdownRescueFalsePoseIdentityMatches[0].Index -or
+	$controlledShutdownRescueCarrierQuiesceIndex -le
+		$controlledShutdownRescueCarrierMutationIndex -or
+	$controlledShutdownRescueFalsePoseIdentityMatches[1].Index -le
+		$controlledShutdownRescueCarrierQuiesceIndex -or
+	$controlledShutdownRescueFollowerPrepareIndex -le
+		$controlledShutdownRescueFalsePoseIdentityMatches[1].Index -or
+	$controlledShutdownRescueCaptiveTransformRestoreIndex -le
+		$controlledShutdownRescueFollowerPrepareIndex -or
+	$controlledShutdownRescueFollowerMaintainIndex -le
+		$controlledShutdownRescueCaptiveTransformRestoreIndex -or
+	$controlledShutdownRescueStrictPoseIdentityMatches[0].Index -le
+		$controlledShutdownRescueFollowerMaintainIndex) {
+	throw 'Exact-rescue native application must sweep every identity with pose tolerance, restore and quiesce pinned carrier/on-foot transforms, then require strict pinned pose'
+}
+foreach ($controlledShutdownRescueNativeApplyEntry in @(
+		'ValidateControlledShutdownNativeDomainFences(state, evidence)',
+		'ValidateControlledShutdownCarrierOccupantScope(evidence)',
+		'IsControlledShutdownRescueRuntimeProxy(carrierPin.m_Entity)',
+		'IsControlledShutdownRescuePlayerUsingCarrier(carrierPin.m_Entity)',
+		'carrierPin.m_Entity.SetTransform(carrierPin.m_aTransform)',
+		'QuiesceControlledShutdownRescueCarrier(carrierPin.m_Entity, evidence)',
+		'ValidateControlledShutdownCaptiveNativeIdentity(',
+		'captivePin.m_FollowComponent.PrepareControlledShutdownQuiescence(evidence)',
+		'HST_WorldPositionService.ApplyUprightEntityTransform(',
+		'captivePin.m_FollowComponent.MaintainControlledShutdownQuiescence(evidence)'
+	)) {
+	if ([string]::IsNullOrEmpty($controlledShutdownRescueNativeApplyBlock) -or
+		$controlledShutdownRescueNativeApplyBlock.IndexOf(
+			$controlledShutdownRescueNativeApplyEntry) -lt 0) {
+		throw "Exact-rescue native retry reapplication is incomplete: $controlledShutdownRescueNativeApplyEntry"
+	}
+}
+foreach ($controlledShutdownRescueCaptiveIdentityEntry in @(
+		'InspectExactRescueRuntimeTopologyReadOnly(',
+		'bool requirePinnedPose',
+		'requirePinnedPose))',
+		'captiveEntity != pin.m_CaptiveEntity',
+		'carrierEntity != pin.m_CarrierEntity',
+		'captiveSlot != pin.m_CaptiveSlot',
+		'observedSeatToken != pin.m_sObservedSeatToken',
+		'pin.m_FollowComponent.GetOwner() != captiveEntity'
+	)) {
+	if ([string]::IsNullOrEmpty($controlledShutdownRescueCaptiveNativeIdentityBlock) -or
+		$controlledShutdownRescueCaptiveNativeIdentityBlock.IndexOf(
+			$controlledShutdownRescueCaptiveIdentityEntry) -lt 0) {
+		throw "Exact-rescue captive native identity pin is incomplete: $controlledShutdownRescueCaptiveIdentityEntry"
+	}
+}
+foreach ($controlledShutdownRescueCaptiveExactEntry in @(
+		'ValidateControlledShutdownCaptiveNativeIdentity(',
+		'pin.m_FollowComponent.IsControlledShutdownQuiescenceExact()',
+		'FindControlledShutdownCarrierPin(pin.m_CarrierEntity)',
+		'pin.m_CaptiveEntity.GetOrigin()',
+		'pin.m_vCaptivePosition',
+		'pin.m_CaptiveEntity.GetYawPitchRoll()',
+		'pin.m_vCaptiveAngles'
+	)) {
+	if ([string]::IsNullOrEmpty($controlledShutdownRescueCaptiveNativePinBlock) -or
+		$controlledShutdownRescueCaptiveNativePinBlock.IndexOf(
+			$controlledShutdownRescueCaptiveExactEntry) -lt 0) {
+		throw "Exact-rescue captive follower/pose terminal pin is incomplete: $controlledShutdownRescueCaptiveExactEntry"
+	}
+}
+foreach ($controlledShutdownRescueLocalPositionEntry in @(
+		'float deltaX = first[0] - second[0];',
+		'float deltaY = first[1] - second[1];',
+		'float deltaZ = first[2] - second[2];',
+		'deltaX * deltaX + deltaY * deltaY + deltaZ * deltaZ',
+		'<= 0.0001'
+	)) {
+	if ([string]::IsNullOrEmpty($controlledShutdownRescuePositionExactBlock) -or
+		$controlledShutdownRescuePositionExactBlock.IndexOf(
+			$controlledShutdownRescueLocalPositionEntry) -lt 0) {
+		throw "Exact-rescue service-local controlled-shutdown position comparison is incomplete: $controlledShutdownRescueLocalPositionEntry"
+	}
+}
+foreach ($controlledShutdownRescueLocalAnglesEntry in @(
+		'IsExactRescueControlledShutdownAngleExact(first[0], second[0])',
+		'IsExactRescueControlledShutdownAngleExact(first[1], second[1])',
+		'IsExactRescueControlledShutdownAngleExact(first[2], second[2])'
+	)) {
+	if ([string]::IsNullOrEmpty($controlledShutdownRescueAnglesExactBlock) -or
+		$controlledShutdownRescueAnglesExactBlock.IndexOf(
+			$controlledShutdownRescueLocalAnglesEntry) -lt 0) {
+		throw "Exact-rescue service-local controlled-shutdown angle comparison is incomplete: $controlledShutdownRescueLocalAnglesEntry"
+	}
+}
+foreach ($controlledShutdownRescueLocalAngleEntry in @(
+		'Math.AbsFloat(first - second)',
+		'while (difference >= 360.0)',
+		'if (difference > 180.0)',
+		'difference = 360.0 - difference;',
+		'return difference <= 0.01;'
+	)) {
+	if ([string]::IsNullOrEmpty($controlledShutdownRescueAngleExactBlock) -or
+		$controlledShutdownRescueAngleExactBlock.IndexOf(
+			$controlledShutdownRescueLocalAngleEntry) -lt 0) {
+		throw "Exact-rescue service-local controlled-shutdown scalar angle comparison is incomplete: $controlledShutdownRescueLocalAngleEntry"
+	}
+}
+if ($controlledShutdownRescueText -match
+	'(?:m_MissionRuntime|HST_MissionRuntimeService)\.(?:Is|Are)ExactRescueControlledShutdown(?:Position|Angles?)Exact') {
+	throw 'Exact-rescue service must use its local pose comparison helpers instead of unresolved protected MissionRuntime methods'
+}
+foreach ($controlledShutdownRescueCarrierValidateEntry in @(
+		'ValidateControlledShutdownCarrierOccupantScope(evidence)',
+		'state.FindRuntimeVehicle(pin.m_sRuntimeId) != pin.m_Record',
+		'pin.m_Record.m_sRuntimeKind != "mission_carrier"',
+		'IsControlledShutdownRescuePlayerUsingCarrier(pin.m_Entity)',
+		'IsControlledShutdownRescueTransformPinned(pin.m_Entity, pin.m_aTransform)',
+		'IsControlledShutdownRescueVehicleQuiescent(pin.m_Entity)'
+	)) {
+	if ([string]::IsNullOrEmpty($controlledShutdownRescueCarrierValidateBlock) -or
+		$controlledShutdownRescueCarrierValidateBlock.IndexOf(
+			$controlledShutdownRescueCarrierValidateEntry) -lt 0) {
+		throw "Exact-rescue carrier terminal pin is incomplete: $controlledShutdownRescueCarrierValidateEntry"
+	}
+}
+foreach ($controlledShutdownRescuePlayerCarrierEntry in @(
+		'playerManager.GetPlayerControlledEntity(playerId)',
+		'SCR_PossessingManagerComponent.GetPlayerMainEntity(playerId)',
+		'main && main != controlled',
+		'IsEntityWithinControlledShutdownCarrierRoot(playerEntity, carrier)',
+		'access.IsInCompartment()',
+		'access.GetVehicle() == carrier',
+		'access.IsGettingIn()',
+		'access.IsGettingOut()',
+		'access.IsSwitchingSeatsAnim()'
+	)) {
+	if ([string]::IsNullOrEmpty($controlledShutdownRescuePlayerCarrierBlock) -or
+		$controlledShutdownRescuePlayerCarrierBlock.IndexOf(
+			$controlledShutdownRescuePlayerCarrierEntry) -lt 0) {
+		throw "Exact-rescue carrier player-safety gate is incomplete: $controlledShutdownRescuePlayerCarrierEntry"
+	}
+}
+foreach ($controlledShutdownRescueCarrierHierarchyEntry in @(
+		'cursor == root',
+		'cursor.GetParent()',
+		'depth < 64'
+	)) {
+	if ([string]::IsNullOrEmpty($controlledShutdownRescueCarrierHierarchyBlock) -or
+		$controlledShutdownRescueCarrierHierarchyBlock.IndexOf(
+			$controlledShutdownRescueCarrierHierarchyEntry) -lt 0) {
+		throw "Exact-rescue player safety must include descendants of the pinned carrier root: $controlledShutdownRescueCarrierHierarchyEntry"
+	}
+}
+foreach ($controlledShutdownRescueCarrierQuiesceEntry in @(
+		'IsControlledShutdownRescueRuntimeProxy(carrier)',
+		'IsControlledShutdownRescuePlayerUsingCarrier(carrier)',
+		'QuiesceControlledShutdownRescuePhysicsHierarchy(carrier)'
+	)) {
+	if ([string]::IsNullOrEmpty($controlledShutdownRescueCarrierQuiesceBlock) -or
+		$controlledShutdownRescueCarrierQuiesceBlock.IndexOf(
+			$controlledShutdownRescueCarrierQuiesceEntry) -lt 0) {
+		throw "Exact-rescue carrier controller/physics shutdown is incomplete: $controlledShutdownRescueCarrierQuiesceEntry"
+	}
+}
+foreach ($controlledShutdownRescuePhysicsQuiesceEntry in @(
+		'IsControlledShutdownRescueRuntimeProxy(entity)',
+		'BaseVehicleControllerComponent.Cast(',
+		'entity.FindComponent(BaseVehicleControllerComponent)',
+		'controller.Shutdown()',
+		'controller.StopEngine(false)',
+		'CarControllerComponent.Cast(',
+		'entity.FindComponent(CarControllerComponent)',
+		'carController.SetPersistentHandBrake(true)',
+		'HelicopterControllerComponent.Cast(',
+		'entity.FindComponent(HelicopterControllerComponent)',
+		'helicopterController.SetPersistentWheelBrake(true)',
+		'helicopterController.SetAutohoverEnabled(true)',
+		'entity.GetChildren()',
+		'QuiesceControlledShutdownRescuePhysicsHierarchy(child)',
+		'child.GetSibling()',
+		'Physics physics = entity.GetPhysics()',
+		'physics.IsDynamic()',
+		'physics.ClearForces()',
+		'physics.SetVelocity(vector.Zero)',
+		'physics.SetAngularVelocity(vector.Zero)',
+		'physics.SetActive(ActiveState.INACTIVE)'
+	)) {
+	if ([string]::IsNullOrEmpty($controlledShutdownRescuePhysicsQuiesceBlock) -or
+		$controlledShutdownRescuePhysicsQuiesceBlock.IndexOf(
+			$controlledShutdownRescuePhysicsQuiesceEntry) -lt 0) {
+		throw "Exact-rescue carrier recursive physics shutdown is incomplete: $controlledShutdownRescuePhysicsQuiesceEntry"
+	}
+}
+foreach ($controlledShutdownRescueVehicleExactEntry in @(
+		'IsControlledShutdownRescueRuntimeProxy(entity)',
+		'BaseVehicleControllerComponent.Cast(',
+		'entity.FindComponent(BaseVehicleControllerComponent)',
+		'controller.IsEngineOn()',
+		'CarControllerComponent.Cast(',
+		'entity.FindComponent(CarControllerComponent)',
+		'carController.GetPersistentHandBrake()',
+		'HelicopterControllerComponent.Cast(',
+		'entity.FindComponent(HelicopterControllerComponent)',
+		'helicopterController.GetPersistentWheelBrake()',
+		'helicopterController.GetAutohoverEnabled()',
+		'Physics physics = entity.GetPhysics()',
+		'physics.IsDynamic()',
+		'physics.IsActive()',
+		'physics.GetVelocity()',
+		'physics.GetAngularVelocity()',
+		'entity.GetChildren()',
+		'IsControlledShutdownRescueVehicleQuiescent(child)',
+		'child.GetSibling()'
+	)) {
+	if ([string]::IsNullOrEmpty($controlledShutdownRescueVehicleQuiescentBlock) -or
+		$controlledShutdownRescueVehicleQuiescentBlock.IndexOf(
+			$controlledShutdownRescueVehicleExactEntry) -lt 0) {
+		throw "Exact-rescue carrier terminal controller/physics exactness is incomplete: $controlledShutdownRescueVehicleExactEntry"
+	}
+}
+$controlledShutdownRescueApplyChildIndex =
+	$controlledShutdownRescuePhysicsQuiesceBlock.IndexOf(
+		'QuiesceControlledShutdownRescuePhysicsHierarchy(child)')
+$controlledShutdownRescueApplyPhysicsIndex =
+	$controlledShutdownRescuePhysicsQuiesceBlock.IndexOf(
+		'Physics physics = entity.GetPhysics()')
+$controlledShutdownRescueValidatePhysicsIndex =
+	$controlledShutdownRescueVehicleQuiescentBlock.IndexOf(
+		'Physics physics = entity.GetPhysics()')
+$controlledShutdownRescueValidateChildIndex =
+	$controlledShutdownRescueVehicleQuiescentBlock.IndexOf(
+		'IsControlledShutdownRescueVehicleQuiescent(child)')
+if ($controlledShutdownRescueApplyChildIndex -lt 0 -or
+	$controlledShutdownRescueApplyPhysicsIndex -le
+		$controlledShutdownRescueApplyChildIndex -or
+	$controlledShutdownRescueValidatePhysicsIndex -lt 0 -or
+	$controlledShutdownRescueValidateChildIndex -le
+		$controlledShutdownRescueValidatePhysicsIndex) {
+	throw 'Exact-rescue carrier native apply and exactness validation must recurse through the same complete hierarchy while owning controller, brake, and dynamic-physics state at every node'
+}
+foreach ($controlledShutdownRescueTransformEntry in @(
+		'vector currentTransform[4]',
+		'entity.GetTransform(currentTransform)',
+		'index < 4',
+		'IsControlledShutdownRescueVectorNear(',
+		'currentTransform[index]',
+		'expectedTransform[index]'
+	)) {
+	if ([string]::IsNullOrEmpty($controlledShutdownRescueTransformPinBlock) -or
+		$controlledShutdownRescueTransformPinBlock.IndexOf(
+			$controlledShutdownRescueTransformEntry) -lt 0) {
+		throw "Exact-rescue carrier must preserve its complete four-vector native transform: $controlledShutdownRescueTransformEntry"
+	}
+}
+foreach ($controlledShutdownRescueFenceEntry in @(
+		'state != m_ControlledShutdownPersistenceState',
+		'openOperationCount != m_aControlledShutdownPersistencePins.Count()',
+		'operationIds.Contains(operationPin.m_sOperationId)',
+		'ValidateControlledShutdownOperationPin(',
+		'requireNativeQuiescence',
+		'ValidateControlledShutdownNativeDomainFences(state, evidence)',
+		'ValidateControlledShutdownCarrierPins(state, evidence)'
+	)) {
+	if ([string]::IsNullOrEmpty($controlledShutdownRescueFenceBlock) -or
+		$controlledShutdownRescueFenceBlock.IndexOf(
+			$controlledShutdownRescueFenceEntry) -lt 0) {
+		throw "Exact-rescue pinned DTO scope/identity recheck is incomplete: $controlledShutdownRescueFenceEntry"
+	}
+}
+foreach ($controlledShutdownRescueOperationNativeFenceEntry in @(
+		'bool requireNativeQuiescence',
+		'if (requireNativeQuiescence',
+		'ValidateControlledShutdownCaptiveNativePin('
+	)) {
+	if ([string]::IsNullOrEmpty($controlledShutdownRescueOperationPinBlock) -or
+		$controlledShutdownRescueOperationPinBlock.IndexOf(
+			$controlledShutdownRescueOperationNativeFenceEntry) -lt 0) {
+		throw "Exact-rescue strict DTO validation omits pinned captive native authority: $controlledShutdownRescueOperationNativeFenceEntry"
+	}
+}
+foreach ($controlledShutdownRescueSampleMethod in @(
+		'BuildControlledShutdownOperationSample(',
+		'BuildControlledShutdownMissionSample(',
+		'BuildControlledShutdownGroupSample(',
+		'BuildControlledShutdownCaptiveSample(',
+		'BuildControlledShutdownRuntimeProjectionSample(',
+		'BuildControlledShutdownCarrierSample(',
+		'BuildControlledShutdownObjectiveSample('
+	)) {
+	if ($controlledShutdownRescuePinBuildBlock.IndexOf(
+			$controlledShutdownRescueSampleMethod) -lt 0 -or
+		$controlledShutdownRescueOperationPinBlock.IndexOf(
+			$controlledShutdownRescueSampleMethod) -lt 0) {
+		throw "Exact-rescue fence must pin and revalidate full durable values: $controlledShutdownRescueSampleMethod"
+	}
+}
+foreach ($controlledShutdownRescueReferenceEntry in @(
+		'state.FindOperation(pin.m_sOperationId) != pin.m_Operation',
+		'mission != pin.m_Mission',
+		'group != pin.m_GuardGroup',
+		'state.FindMissionAsset(captivePin.m_sAssetId) != captivePin.m_Captive',
+		'runtimeProjection != captivePin.m_RuntimeProjection',
+		'carrierRecord != captivePin.m_CarrierRecord',
+		'objectives.Find(objective) < 0'
+	)) {
+	if ([string]::IsNullOrEmpty($controlledShutdownRescueOperationPinBlock) -or
+		$controlledShutdownRescueOperationPinBlock.IndexOf(
+			$controlledShutdownRescueReferenceEntry) -lt 0) {
+		throw "Exact-rescue fence must preserve process-local DTO object identity: $controlledShutdownRescueReferenceEntry"
+	}
+}
+$activeGroupShutdownPhysicalText = Get-Content -Raw `
+	'Scripts/Game/HST/Services/HST_PhysicalWarService.c'
+$activeGroupShutdownPreflightBlock = Get-ScriptMethodBlock `
+	$activeGroupShutdownPhysicalText `
+	'bool PreflightControlledShutdownActiveGroupQuiescence('
+$activeGroupShutdownPrepareBlock = Get-ScriptMethodBlock `
+	$activeGroupShutdownPhysicalText `
+	'bool PrepareControlledShutdownActiveGroupQuiescence('
+$activeGroupShutdownMaintainBlock = Get-ScriptMethodBlock `
+	$activeGroupShutdownPhysicalText `
+	'bool MaintainControlledShutdownActiveGroupQuiescence('
+$activeGroupShutdownValidateBlock = Get-ScriptMethodBlock `
+	$activeGroupShutdownPhysicalText `
+	'protected bool ValidateControlledShutdownActiveGroupQuiescence('
+$activeGroupShutdownSnapshotBlock = Get-ScriptMethodBlock `
+	$activeGroupShutdownPhysicalText `
+	'protected bool BuildControlledShutdownActiveGroupSnapshot('
+$activeGroupShutdownScopeBlock = Get-ScriptMethodBlock `
+	$activeGroupShutdownPhysicalText `
+	'protected bool CollectControlledShutdownPersistenceSampledGroupIds('
+$activeGroupShutdownExhaustiveScopeBlock = Get-ScriptMethodBlock `
+	$activeGroupShutdownPhysicalText `
+	'static bool RequiresExhaustiveInfantryPersistenceSampling('
+$activeGroupShutdownSamplePredicateBlock = Get-ScriptMethodBlock `
+	$activeGroupShutdownPhysicalText `
+	'protected bool IsControlledShutdownPersistenceSampledActiveGroup('
+$activeGroupShutdownApplyBlock = Get-ScriptMethodBlock `
+	$activeGroupShutdownPhysicalText `
+	'protected bool ApplyControlledShutdownActiveGroupQuiescence('
+$activeGroupShutdownMutationSafetyBlock = Get-ScriptMethodBlock `
+	$activeGroupShutdownPhysicalText `
+	'protected bool ValidateControlledShutdownActiveGroupMutationSafety('
+$activeGroupShutdownTopologyBlock = Get-ScriptMethodBlock `
+	$activeGroupShutdownPhysicalText `
+	'protected bool IsControlledShutdownActiveGroupRegistryTopologyExact('
+$activeGroupShutdownPlayerSafetyBlock = Get-ScriptMethodBlock `
+	$activeGroupShutdownPhysicalText `
+	'protected bool ValidateControlledShutdownActiveGroupPlayerSafety('
+$activeGroupShutdownCompartmentBlock = Get-ScriptMethodBlock `
+	$activeGroupShutdownPhysicalText `
+	'protected bool TryResolveControlledShutdownStableCompartmentTopology('
+$activeGroupShutdownCapturePinBlock = Get-ScriptMethodBlock `
+	$activeGroupShutdownPhysicalText `
+	'protected bool CaptureControlledShutdownActiveGroupTransformPin('
+$activeGroupShutdownAgentTopologyBlock = Get-ScriptMethodBlock `
+	$activeGroupShutdownPhysicalText `
+	'protected bool IsControlledShutdownActiveGroupAgentTopologyExact('
+$activeGroupShutdownMemberTopologyBlock = Get-ScriptMethodBlock `
+	$activeGroupShutdownPhysicalText `
+	'protected bool IsControlledShutdownActiveGroupMemberTopologyExact('
+$activeGroupShutdownMemberSeatBlock = Get-ScriptMethodBlock `
+	$activeGroupShutdownPhysicalText `
+	'protected bool IsControlledShutdownActiveGroupMemberSeatTopologyExact('
+$activeGroupShutdownVehicleOccupantBlock = Get-ScriptMethodBlock `
+	$activeGroupShutdownPhysicalText `
+	'protected bool IsControlledShutdownActiveGroupVehicleOccupantTopologyExact('
+$activeGroupShutdownVehicleCompartmentTopologyBlock = Get-ScriptMethodBlock `
+	$activeGroupShutdownPhysicalText `
+	'protected bool CollectControlledShutdownActiveGroupVehicleCompartmentTopology('
+$activeGroupShutdownProxyBlock = Get-ScriptMethodBlock `
+	$activeGroupShutdownPhysicalText `
+	'protected bool IsControlledShutdownRuntimeProxy('
+foreach ($activeGroupShutdownPrepareEntry in @(
+		'm_bControlledShutdownActiveGroupQuiescenceApplied',
+		'MaintainControlledShutdownActiveGroupQuiescence(state, evidence)',
+		'BuildControlledShutdownActiveGroupSnapshot(state, evidence)',
+		'if (!ApplyControlledShutdownActiveGroupQuiescence(evidence))',
+		'ValidateControlledShutdownActiveGroupQuiescence(state)'
+	)) {
+	if ([string]::IsNullOrEmpty($activeGroupShutdownPrepareBlock) -or
+		$activeGroupShutdownPrepareBlock.IndexOf(
+			$activeGroupShutdownPrepareEntry) -lt 0) {
+		throw "Active-group controlled-shutdown prepare is incomplete: $activeGroupShutdownPrepareEntry"
+	}
+}
+foreach ($activeGroupShutdownPreflightEntry in @(
+		'm_bControlledShutdownActiveGroupQuiescenceApplied',
+		'ValidateControlledShutdownActiveGroupMutationSafety(evidence)',
+		'BuildControlledShutdownActiveGroupSnapshot(state, evidence)',
+		'ResetControlledShutdownActiveGroupQuiescence()'
+	)) {
+	if ([string]::IsNullOrEmpty($activeGroupShutdownPreflightBlock) -or
+		$activeGroupShutdownPreflightBlock.IndexOf(
+			$activeGroupShutdownPreflightEntry) -lt 0) {
+		throw "Active-group controlled-shutdown preflight is incomplete: $activeGroupShutdownPreflightEntry"
+	}
+}
+foreach ($activeGroupShutdownMaintainEntry in @(
+		'm_bControlledShutdownActiveGroupQuiescenceApplied',
+		'if (!ApplyControlledShutdownActiveGroupQuiescence(evidence))',
+		'ValidateControlledShutdownActiveGroupQuiescence(state)'
+	)) {
+	if ([string]::IsNullOrEmpty($activeGroupShutdownMaintainBlock) -or
+		$activeGroupShutdownMaintainBlock.IndexOf(
+			$activeGroupShutdownMaintainEntry) -lt 0) {
+		throw "Active-group controlled-shutdown maintenance is incomplete: $activeGroupShutdownMaintainEntry"
+	}
+}
+foreach ($activeGroupShutdownSnapshotEntry in @(
+		'm_aRuntimeGroupIds.Count() != m_aRuntimeGroupEntities.Count()',
+		'm_aRuntimeVehicleGroupIds.Count() != m_aRuntimeVehicleEntities.Count()',
+		'CollectControlledShutdownPersistenceSampledGroupIds(',
+		'm_aControlledShutdownAuthorityGroupIds.Contains(groupId)',
+		'm_aControlledShutdownAuthorityGroupIds.Contains(vehicleGroupId)',
+		'state.FindActiveGroup(groupId)',
+		'IsControlledShutdownRuntimeProxy(entity)',
+		'IsControlledShutdownRuntimeProxy(member)',
+		'IsControlledShutdownRuntimeProxy(vehicle)',
+		'IsControlledShutdownActiveGroupPlayerEntity(member)',
+		'IsControlledShutdownActiveGroupVehiclePlayerOccupied(vehicle)',
+		'TryResolveControlledShutdownStableCompartmentTopology(',
+		'IsControlledShutdownActiveGroupVehicleOccupantTopologyExact(',
+		'CaptureControlledShutdownActiveGroupTransformPin('
+	)) {
+	if ([string]::IsNullOrEmpty($activeGroupShutdownSnapshotBlock) -or
+		$activeGroupShutdownSnapshotBlock.IndexOf(
+			$activeGroupShutdownSnapshotEntry) -lt 0) {
+		throw "Active-group controlled-shutdown topology/player preflight is incomplete: $activeGroupShutdownSnapshotEntry"
+	}
+}
+foreach ($activeGroupShutdownScopeEntry in @(
+		'IsControlledShutdownPersistenceTransitionGroup(state, activeGroup)',
+		'IsControlledShutdownPersistenceSampledActiveGroup(state, activeGroup)',
+		'groupIds.Insert(activeGroup.m_sGroupId)',
+		'activeGroup.m_bSpawnedEntity',
+		'HST_OPERATION_POSITION_LIVE',
+		'HST_OPERATION_MATERIALIZATION_PHYSICAL',
+		'IsExactPlayerSupportActiveGroup(state, activeGroup)'
+	)) {
+	$activeGroupShutdownScopeTarget = $activeGroupShutdownScopeBlock
+	if ($activeGroupShutdownScopeEntry -in @(
+			'activeGroup.m_bSpawnedEntity',
+			'HST_OPERATION_POSITION_LIVE',
+			'HST_OPERATION_MATERIALIZATION_PHYSICAL',
+			'IsExactPlayerSupportActiveGroup(state, activeGroup)')) {
+		$activeGroupShutdownScopeTarget = $activeGroupShutdownSamplePredicateBlock
+	}
+	if ([string]::IsNullOrEmpty($activeGroupShutdownScopeTarget) -or
+		$activeGroupShutdownScopeTarget.IndexOf($activeGroupShutdownScopeEntry) -lt 0) {
+		throw "Active-group controlled-shutdown durable authority scope is incomplete: $activeGroupShutdownScopeEntry"
+	}
+}
+foreach ($activeGroupShutdownExhaustiveScopeEntry in @(
+		'HST_OPERATION_SETTLEMENT_OPEN',
+		'HST_OPERATION_TERMINAL_NONE',
+		'HST_OPERATION_MATERIALIZATION_PHYSICAL',
+		'HST_OPERATION_MATERIALIZATION_DEMATERIALIZING',
+		'EXACT_ENEMY_DEFENSIVE_QRF_CONTRACT_VERSION',
+		'EXACT_ENEMY_COUNTERATTACK_CONTRACT_VERSION',
+		'EXACT_ENEMY_GARRISON_REBUILD_CONTRACT_VERSION',
+		'HST_EnemyPatrolOperationService.EXACT_CONTRACT_VERSION',
+		'HST_LocalSecurityOperationService.EXACT_CONTRACT_VERSION',
+		'HST_GarrisonPatrolOperationService.EXACT_CONTRACT_VERSION',
+		'HST_MissionGuardOperationService.IsSupportedExactContractVersion(',
+		'HST_OperationService.IsExactPlayerSupportOperationType('
+	)) {
+	if ([string]::IsNullOrEmpty($activeGroupShutdownExhaustiveScopeBlock) -or
+		$activeGroupShutdownExhaustiveScopeBlock.IndexOf(
+			$activeGroupShutdownExhaustiveScopeEntry) -lt 0) {
+		throw "Shared exhaustive infantry-persistence scope is incomplete: $activeGroupShutdownExhaustiveScopeEntry"
+	}
+}
+foreach ($activeGroupShutdownSharedScopeUse in @(
+		@($activeGroupShutdownSamplePredicateBlock,
+			'RequiresExhaustiveInfantryPersistenceSampling(state)'),
+		@($ambientPersistencePrepareBlock,
+			'HST_PhysicalWarService.RequiresExhaustiveInfantryPersistenceSampling(')
+	)) {
+	if ([string]::IsNullOrEmpty($activeGroupShutdownSharedScopeUse[0]) -or
+		$activeGroupShutdownSharedScopeUse[0].IndexOf(
+			$activeGroupShutdownSharedScopeUse[1]) -lt 0) {
+		throw "PhysicalWar and Persistence must share exhaustive infantry sampling scope: $($activeGroupShutdownSharedScopeUse[1])"
+	}
+}
+foreach ($activeGroupShutdownGenericBatchEntry in @(
+		'batch.m_eStatus',
+		'HST_FORCE_SPAWN_SUCCEEDED',
+		'!batch.m_bStrategicProjectionHeld',
+		'GetForceSpawnGroupRoot(activeGroup)',
+		'CountForceSpawnRuntimeMembers(activeGroup) > 0'
+	)) {
+	if ($activeGroupShutdownSamplePredicateBlock.IndexOf(
+			$activeGroupShutdownGenericBatchEntry) -lt 0) {
+		throw "Generic successful force-spawn sampling must be gated by the shared exhaustive scope: $activeGroupShutdownGenericBatchEntry"
+	}
+}
+foreach ($activeGroupShutdownApplyEntry in @(
+		'ValidateControlledShutdownActiveGroupMutationSafety(evidence)',
+		'm_bControlledShutdownActiveGroupQuiescenceApplied = true;',
+		'group.AllowMaxLOD()',
+		'group.DeactivateAI()',
+		'memberControl.DeactivateAI()',
+		'agent.DeactivateAI()',
+		'vehiclePin.m_Entity.SetTransform(vehiclePin.m_aTransform)',
+		'QuiesceControlledShutdownActiveGroupVehicle(vehiclePin.m_Entity)',
+		'(pin.m_bMember && pin.m_CompartmentVehicle)',
+		'return true;'
+	)) {
+	if ([string]::IsNullOrEmpty($activeGroupShutdownApplyBlock) -or
+		$activeGroupShutdownApplyBlock.IndexOf(
+			$activeGroupShutdownApplyEntry) -lt 0) {
+		throw "Active-group controlled-shutdown native freeze is incomplete: $activeGroupShutdownApplyEntry"
+	}
+}
+if ($activeGroupShutdownApplyBlock.IndexOf('DeactivateAllMembers(') -ge 0) {
+	throw 'Controlled-shutdown active-group freeze must never bulk-deactivate and delete native members'
+}
+$activeGroupShutdownMutationPreflightIndex = $activeGroupShutdownApplyBlock.IndexOf(
+	'ValidateControlledShutdownActiveGroupMutationSafety(evidence)')
+$activeGroupShutdownLatchIndex = $activeGroupShutdownApplyBlock.IndexOf(
+	'm_bControlledShutdownActiveGroupQuiescenceApplied = true;')
+$activeGroupShutdownFirstMutationIndex = $activeGroupShutdownApplyBlock.IndexOf(
+	'group.AllowMaxLOD()')
+if ($activeGroupShutdownMutationPreflightIndex -lt 0 -or
+	$activeGroupShutdownLatchIndex -le $activeGroupShutdownMutationPreflightIndex -or
+	$activeGroupShutdownFirstMutationIndex -le $activeGroupShutdownLatchIndex) {
+	throw 'Active-group shutdown must prove mutation safety, latch irreversible authority, and only then mutate native AI'
+}
+$activeGroupShutdownVehiclePinIndex = $activeGroupShutdownApplyBlock.IndexOf(
+	'foreach (HST_ControlledShutdownActiveGroupTransformPin vehiclePin')
+$activeGroupShutdownOnFootPinIndex = $activeGroupShutdownApplyBlock.IndexOf(
+	'foreach (HST_ControlledShutdownActiveGroupTransformPin pin')
+$activeGroupShutdownSeatedSkipIndex = $activeGroupShutdownApplyBlock.IndexOf(
+	'(pin.m_bMember && pin.m_CompartmentVehicle)',
+	[Math]::Max(0, $activeGroupShutdownOnFootPinIndex))
+if ($activeGroupShutdownVehiclePinIndex -lt 0 -or
+	$activeGroupShutdownOnFootPinIndex -le $activeGroupShutdownVehiclePinIndex -or
+	$activeGroupShutdownSeatedSkipIndex -le $activeGroupShutdownOnFootPinIndex) {
+	throw 'Active-group shutdown must pin vehicle roots before on-foot roots and must never transform seated members independently'
+}
+foreach ($activeGroupShutdownSafetyEntry in @(
+		'ValidateControlledShutdownActiveGroupPlayerSafety(evidence)',
+		'IsControlledShutdownRuntimeProxy(',
+		'IsControlledShutdownActiveGroupPlayerEntity(',
+		'IsControlledShutdownActiveGroupMemberTopologyExact(',
+		'IsControlledShutdownActiveGroupPinMutationSafe('
+	)) {
+	if ([string]::IsNullOrEmpty($activeGroupShutdownMutationSafetyBlock) -or
+		$activeGroupShutdownMutationSafetyBlock.IndexOf(
+			$activeGroupShutdownSafetyEntry) -lt 0) {
+		throw "Active-group controlled-shutdown mutation/locality safety is incomplete: $activeGroupShutdownSafetyEntry"
+	}
+}
+foreach ($activeGroupShutdownPlayerEntry in @(
+		'out string evidence',
+		'PlayerManager playerManager = GetGame().GetPlayerManager()',
+		'playerManager.GetPlayerControlledEntity(playerId)',
+		'SCR_PossessingManagerComponent.GetPlayerMainEntity(playerId)',
+		'IsControlledShutdownPlayerEntitySafe(controlledEntity)',
+		'IsControlledShutdownActiveGroupVehiclePlayerOccupied(vehicle)'
+	)) {
+	if ([string]::IsNullOrEmpty($activeGroupShutdownPlayerSafetyBlock) -or
+		$activeGroupShutdownPlayerSafetyBlock.IndexOf(
+			$activeGroupShutdownPlayerEntry) -lt 0) {
+		throw "Active-group controlled-shutdown player gate is incomplete: $activeGroupShutdownPlayerEntry"
+	}
+}
+foreach ($activeGroupShutdownCompartmentEntry in @(
+		'SCR_CompartmentAccessComponent',
+		'out BaseCompartmentSlot compartmentSlot',
+		'access.IsGettingIn()',
+		'access.IsGettingOut()',
+		'access.IsSwitchingSeatsAnim()',
+		'compartmentSlot = access.GetCompartment()',
+		'vehicle = compartmentSlot.GetVehicle()',
+		'access.GetVehicle() == vehicle',
+		'compartmentSlot.GetOccupant() == entity'
+	)) {
+	if ([string]::IsNullOrEmpty($activeGroupShutdownCompartmentBlock) -or
+		$activeGroupShutdownCompartmentBlock.IndexOf(
+			$activeGroupShutdownCompartmentEntry) -lt 0) {
+		throw "Active-group controlled-shutdown compartment gate is incomplete: $activeGroupShutdownCompartmentEntry"
+	}
+}
+if ([string]::IsNullOrEmpty($activeGroupShutdownCapturePinBlock) -or
+	$activeGroupShutdownCapturePinBlock.IndexOf('m_CompartmentVehicle') -lt 0 -or
+	$activeGroupShutdownCapturePinBlock.IndexOf('m_CompartmentSlot') -lt 0 -or
+	$activeGroupShutdownCapturePinBlock.IndexOf('m_ParentGroup') -lt 0 -or
+	$activeGroupShutdownCapturePinBlock.IndexOf('entity.GetTransform(pin.m_aTransform)') -lt 0 -or
+	$activeGroupShutdownPhysicalText.IndexOf(
+		'BaseCompartmentSlot m_CompartmentSlot;') -lt 0 -or
+	[string]::IsNullOrEmpty($activeGroupShutdownAgentTopologyBlock) -or
+	$activeGroupShutdownAgentTopologyBlock.IndexOf(
+		'agent.GetParentGroup() != pin.m_ParentGroup') -lt 0 -or
+	$activeGroupShutdownAgentTopologyBlock.IndexOf(
+		'parentGroup.GetAgents(currentParentAgents)') -lt 0 -or
+	$activeGroupShutdownAgentTopologyBlock.IndexOf(
+		'currentParentAgents.Find(agent) < 0') -lt 0 -or
+	[string]::IsNullOrEmpty($activeGroupShutdownMemberTopologyBlock) -or
+	$activeGroupShutdownMemberTopologyBlock.IndexOf(
+		'pin.m_CompartmentVehicle') -lt 0 -or
+	$activeGroupShutdownMemberTopologyBlock.IndexOf(
+		'pin.m_CompartmentSlot') -lt 0) {
+	throw 'Active-group shutdown member pins must retain exact seat and native parent-group topology'
+}
+foreach ($activeGroupShutdownSeatEntry in @(
+		'currentVehicle != expectedVehicle',
+		'currentCompartmentSlot != expectedCompartmentSlot',
+		'expectedCompartmentSlot.GetOccupant() != member',
+		'expectedCompartmentSlot.GetVehicle() != expectedVehicle',
+		'm_aControlledShutdownVehicleRoots.Find(expectedVehicle)'
+	)) {
+	if ([string]::IsNullOrEmpty($activeGroupShutdownMemberSeatBlock) -or
+		$activeGroupShutdownMemberSeatBlock.IndexOf(
+			$activeGroupShutdownSeatEntry) -lt 0) {
+		throw "Active-group shutdown exact seat identity is incomplete: $activeGroupShutdownSeatEntry"
+	}
+}
+foreach ($activeGroupShutdownOccupantEntry in @(
+		'CollectControlledShutdownActiveGroupVehicleCompartmentTopology(',
+		'expectedPin.m_CompartmentSlot',
+		'compartmentSlots.Find(expectedPin.m_CompartmentSlot)',
+		'compartmentSlot.GetOccupant()',
+		'm_aControlledShutdownMembers.Find(occupant)',
+		'occupantPin.m_CompartmentSlot != compartmentSlot',
+		'observedOccupiedSlotCount == expectedOccupiedSlotCount'
+	)) {
+	if ([string]::IsNullOrEmpty($activeGroupShutdownVehicleOccupantBlock) -or
+		$activeGroupShutdownVehicleOccupantBlock.IndexOf(
+			$activeGroupShutdownOccupantEntry) -lt 0) {
+		throw "Active-group shutdown occupied-slot closure is incomplete: $activeGroupShutdownOccupantEntry"
+	}
+}
+foreach ($activeGroupShutdownCompartmentClosureEntry in @(
+		'entity.FindComponents(',
+		'BaseCompartmentManagerComponent',
+		'compartmentManager.GetOwner() != entity',
+		'compartmentManager.GetCompartments(managedSlots)',
+		'managedSlot.GetManager() != compartmentManager',
+		'entity.GetChildren()',
+		'CollectControlledShutdownActiveGroupVehicleCompartmentTopology(',
+		'child.GetSibling()'
+	)) {
+	if ([string]::IsNullOrEmpty(
+			$activeGroupShutdownVehicleCompartmentTopologyBlock) -or
+		$activeGroupShutdownVehicleCompartmentTopologyBlock.IndexOf(
+			$activeGroupShutdownCompartmentClosureEntry) -lt 0) {
+		throw "Active-group shutdown recursive compartment-manager closure is incomplete: $activeGroupShutdownCompartmentClosureEntry"
+	}
+}
+foreach ($activeGroupShutdownGroupMembershipEntry in @(
+		'group.GetAgents(currentAgents)',
+		'group.GetAgentsCount() != currentAgents.Count()',
+		'm_aControlledShutdownAgents.Find(currentAgent) < 0',
+		'IsControlledShutdownActiveGroupAgentTopologyExact(currentAgent)'
+	)) {
+	if ([string]::IsNullOrEmpty($activeGroupShutdownMutationSafetyBlock) -or
+		$activeGroupShutdownMutationSafetyBlock.IndexOf(
+			$activeGroupShutdownGroupMembershipEntry) -lt 0) {
+		throw "Active-group shutdown reverse native-group membership proof is incomplete: $activeGroupShutdownGroupMembershipEntry"
+	}
+}
+foreach ($activeGroupShutdownGroupRootPinEntry in @(
+		'm_aControlledShutdownGroupRootIds.Insert(groupId)',
+		'm_aControlledShutdownGroupRoots.Insert(group)',
+		'CaptureControlledShutdownActiveGroupTransformPin(',
+		'group,'
+	)) {
+	if ([string]::IsNullOrEmpty($activeGroupShutdownSnapshotBlock) -or
+		$activeGroupShutdownSnapshotBlock.IndexOf(
+			$activeGroupShutdownGroupRootPinEntry) -lt 0) {
+		throw "Active-group shutdown must retain a transform pin for every sampled native group root: $activeGroupShutdownGroupRootPinEntry"
+	}
+}
+if ([string]::IsNullOrEmpty($activeGroupShutdownProxyBlock) -or
+	$activeGroupShutdownProxyBlock.IndexOf('BaseRplComponent') -lt 0 -or
+	$activeGroupShutdownProxyBlock.IndexOf('replication.IsProxy()') -lt 0 -or
+	$activeGroupShutdownValidateBlock.IndexOf('GetServerAgentsCount()') -ge 0) {
+	throw 'Active-group controlled shutdown must reject replication proxies without requiring remote server-agent rows to equal local agent topology'
+}
+foreach ($activeGroupShutdownValidateEntry in @(
+		'm_bControlledShutdownActiveGroupQuiescenceApplied',
+		'IsControlledShutdownActiveGroupRegistryTopologyExact(state)',
+		'ValidateControlledShutdownActiveGroupPlayerSafety(playerEvidence)',
+		'group.IsAIActivated()',
+		'agent.IsAIActivated()',
+		'(pin.m_bMember && pin.m_CompartmentVehicle)',
+		'IsControlledShutdownActiveGroupTransformPinned(pin)',
+		'IsControlledShutdownActiveGroupVehicleQuiescent(vehicle)'
+	)) {
+	if ([string]::IsNullOrEmpty($activeGroupShutdownValidateBlock) -or
+		$activeGroupShutdownValidateBlock.IndexOf(
+			$activeGroupShutdownValidateEntry) -lt 0) {
+		throw "Active-group controlled-shutdown exact recheck is incomplete: $activeGroupShutdownValidateEntry"
+	}
+}
+foreach ($activeGroupShutdownTopologyEntry in @(
+		'CollectControlledShutdownPersistenceSampledGroupIds(',
+		'currentAuthorityGroupIds.Contains(groupId)',
+		'currentAuthorityGroupIds.Contains(vehicleGroupId)',
+		'currentScopedGroupCount',
+		'currentScopedVehicleCount',
+		'IsControlledShutdownRuntimeRegistrationExclusive('
+	)) {
+	if ([string]::IsNullOrEmpty($activeGroupShutdownTopologyBlock) -or
+		$activeGroupShutdownTopologyBlock.IndexOf(
+			$activeGroupShutdownTopologyEntry) -lt 0) {
+		throw "Active-group shutdown topology recheck must remain scoped to persistence-sampled authorities: $activeGroupShutdownTopologyEntry"
+	}
+}
+if ($activeGroupShutdownTopologyBlock -match
+	'm_aRuntime(Group|VehicleGroup)Ids\.Count\(\)\s*!=\s*m_aControlledShutdownRuntime') {
+	throw 'Active-group shutdown topology must not require unrelated runtime registries to match the persistence-sampled snapshot'
+}
+$activeGroupShutdownCoordinatorCompositeBlock = Get-ScriptMethodBlock `
+	$fieldVehicleCoordinatorText `
+	'protected bool MaintainControlledCampaignEndRuntimeQuiescence('
+if ([string]::IsNullOrEmpty($activeGroupShutdownCoordinatorCompositeBlock) -or
+	$activeGroupShutdownCoordinatorCompositeBlock.IndexOf(
+		'MaintainControlledShutdownNearbyPersistentVehicleSnapshot(') -lt 0 -or
+	$activeGroupShutdownCoordinatorCompositeBlock.IndexOf(
+		'MaintainControlledShutdownVehiclePersistence(') -lt 0 -or
+	$activeGroupShutdownCoordinatorCompositeBlock.IndexOf(
+		'MaintainControlledShutdownActiveGroupQuiescence(') -lt 0 -or
+	$activeGroupShutdownCoordinatorCompositeBlock.IndexOf(
+		'MaintainControlledShutdownPersistenceSample(') -lt 0 -or
+	$activeGroupShutdownCoordinatorCompositeBlock.IndexOf(
+		'return nearbyVehicleMaintained && activeGroupMaintained') -lt 0 -or
+	$activeGroupShutdownCoordinatorCompositeBlock.IndexOf(
+		'&& vehicleMaintained && rescueMaintained;') -lt 0) {
+	throw 'Controlled campaign end composite quiescence must maintain nearby-root adoption, active groups, field vehicles, and the exact-rescue DTO fence'
+}
+$activeGroupShutdownRequestFlagBlock = Get-ScriptMethodBlock `
+	$ambientPersistenceText `
+	'protected void StampControlledShutdownRequestFlags('
+foreach ($activeGroupShutdownRequestFlagEntry in @(
+		'm_bControlledShutdownRuntimeQuiescenceApplied',
+		'HasControlledShutdownActiveGroupQuiescenceApplied()',
+		'HasControlledShutdownVehiclePersistenceApplied()',
+		'HasControlledShutdownPersistenceSampleApplied()',
+		'activeGroupApplied || fieldVehicleApplied || rescueApplied',
+		'm_bControlledShutdownPlayerReleaseRequired',
+		'!request.m_bControlledShutdownRuntimeQuiescenceApplied',
+		'fieldVehicleEvidence.Contains(',
+		'lootEvidence.Contains(',
+		'rescueEvidence.Contains(',
+		'CONTROLLED_SHUTDOWN_PLAYER_RELEASE_EVIDENCE'
+	)) {
+	if ([string]::IsNullOrEmpty($activeGroupShutdownRequestFlagBlock) -or
+		$activeGroupShutdownRequestFlagBlock.IndexOf(
+			$activeGroupShutdownRequestFlagEntry) -lt 0) {
+		throw "Controlled-shutdown request-state classification is incomplete: $activeGroupShutdownRequestFlagEntry"
+	}
+}
+$controlledShutdownLootPreflightIndex = $fieldVehiclePersistenceCheckpointBlock.IndexOf(
+	'PreflightControlledShutdownNearbyPersistentVehicles(')
+$controlledShutdownRescueInitialPreflightIndex =
+	$fieldVehiclePersistenceCheckpointBlock.IndexOf(
+		'PreflightControlledShutdownPersistenceSample(',
+		[Math]::Max(0, $controlledShutdownLootPreflightIndex))
+$fieldVehicleInitialShutdownPreflightIndex = $fieldVehiclePersistenceCheckpointBlock.IndexOf(
+	'PreflightControlledShutdownVehiclePersistence(',
+	[Math]::Max(0, $controlledShutdownRescueInitialPreflightIndex))
+$activeGroupShutdownPreflightIndex = $fieldVehiclePersistenceCheckpointBlock.IndexOf(
+	'PreflightControlledShutdownActiveGroupQuiescence(',
+	[Math]::Max(0, $fieldVehicleInitialShutdownPreflightIndex))
+$controlledShutdownPreLatchPrepareIndex =
+	$fieldVehiclePersistenceCheckpointBlock.IndexOf(
+		'PrepareStateForCapture(',
+		[Math]::Max(0, $activeGroupShutdownPreflightIndex))
+$controlledShutdownPreparedLootPreflightIndex =
+	$fieldVehiclePersistenceCheckpointBlock.IndexOf(
+		'PreflightControlledShutdownNearbyPersistentVehicles(',
+		[Math]::Max(0, $controlledShutdownPreLatchPrepareIndex + 1))
+$controlledShutdownPreparedRescuePreflightIndex =
+	$fieldVehiclePersistenceCheckpointBlock.IndexOf(
+		'PreflightControlledShutdownPersistenceSample(',
+		[Math]::Max(0, $controlledShutdownPreparedLootPreflightIndex + 1))
+$fieldVehiclePreparedBeforeLatchPreflightIndex =
+	$fieldVehiclePersistenceCheckpointBlock.IndexOf(
+		'PreflightControlledShutdownVehiclePersistence(',
+		[Math]::Max(0, $controlledShutdownPreparedRescuePreflightIndex + 1))
+$activeGroupPreparedBeforeLatchPreflightIndex =
+	$fieldVehiclePersistenceCheckpointBlock.IndexOf(
+		'PreflightControlledShutdownActiveGroupQuiescence(',
+		[Math]::Max(0, $fieldVehiclePreparedBeforeLatchPreflightIndex + 1))
+$controlledShutdownLootAdoptionIndex = $fieldVehiclePersistenceCheckpointBlock.IndexOf(
+	'SnapshotNearbyPersistentVehiclesForControlledShutdown(',
+	[Math]::Max(0, $activeGroupPreparedBeforeLatchPreflightIndex + 1))
+$controlledShutdownPostLatchPrepareIndex = $fieldVehiclePersistenceCheckpointBlock.IndexOf(
+	'PrepareStateForCapture(',
+	[Math]::Max(0, $controlledShutdownLootAdoptionIndex))
+$fieldVehiclePreparedShutdownPreflightIndex = $fieldVehiclePersistenceCheckpointBlock.IndexOf(
+	'PreflightControlledShutdownVehiclePersistence(',
+	[Math]::Max(0, $controlledShutdownPostLatchPrepareIndex + 1))
+$controlledShutdownRescuePreparedPreflightIndex =
+	$fieldVehiclePersistenceCheckpointBlock.IndexOf(
+		'PreflightControlledShutdownPersistenceSample(',
+		[Math]::Max(0, $fieldVehiclePreparedShutdownPreflightIndex + 1))
+$activeGroupShutdownPrepareIndex = $fieldVehiclePersistenceCheckpointBlock.IndexOf(
+	'PrepareControlledShutdownActiveGroupQuiescence(')
+$activeGroupShutdownVehiclePrepareIndex = $fieldVehiclePersistenceCheckpointBlock.IndexOf(
+	'PrepareControlledShutdownVehiclePersistence(')
+$controlledShutdownRescuePrepareIndex = $fieldVehiclePersistenceCheckpointBlock.IndexOf(
+	'PrepareControlledShutdownPersistenceSample(')
+$activeGroupShutdownCaptureIndex = $fieldVehiclePersistenceCheckpointBlock.IndexOf(
+	'CaptureAndTrackState(state, "captured before checkpoint")')
+
+if ($controlledShutdownLootPreflightIndex -lt 0 -or
+	$controlledShutdownRescueInitialPreflightIndex -le
+		$controlledShutdownLootPreflightIndex -or
+	$fieldVehicleInitialShutdownPreflightIndex -le
+		$controlledShutdownRescueInitialPreflightIndex -or
+	$activeGroupShutdownPreflightIndex -le $fieldVehicleInitialShutdownPreflightIndex -or
+	$controlledShutdownPreLatchPrepareIndex -le $activeGroupShutdownPreflightIndex -or
+	$controlledShutdownPreparedLootPreflightIndex -le
+		$controlledShutdownPreLatchPrepareIndex -or
+	$controlledShutdownPreparedRescuePreflightIndex -le
+		$controlledShutdownPreparedLootPreflightIndex -or
+	$fieldVehiclePreparedBeforeLatchPreflightIndex -le
+		$controlledShutdownPreparedRescuePreflightIndex -or
+	$activeGroupPreparedBeforeLatchPreflightIndex -le
+		$fieldVehiclePreparedBeforeLatchPreflightIndex -or
+	$controlledShutdownLootAdoptionIndex -le
+		$activeGroupPreparedBeforeLatchPreflightIndex -or
+	$controlledShutdownPostLatchPrepareIndex -le $controlledShutdownLootAdoptionIndex -or
+	$fieldVehiclePreparedShutdownPreflightIndex -le $controlledShutdownPostLatchPrepareIndex -or
+	$controlledShutdownRescuePreparedPreflightIndex -le
+		$fieldVehiclePreparedShutdownPreflightIndex -or
+	$activeGroupShutdownPrepareIndex -le
+		$controlledShutdownRescuePreparedPreflightIndex -or
+	$activeGroupShutdownVehiclePrepareIndex -le $activeGroupShutdownPrepareIndex -or
+	$controlledShutdownRescuePrepareIndex -le
+		$activeGroupShutdownVehiclePrepareIndex -or
+	$activeGroupShutdownCaptureIndex -le $controlledShutdownRescuePrepareIndex) {
+	throw 'Typed SHUTDOWN ordering must be initial Loot/rescue/field/active preflight, first full preparation, prepared Loot/rescue/field/active read-only preflight, Loot adoption, post-latch full preparation, strict field/rescue preflight, active/field/rescue apply, then capture'
+}
+if (([regex]::Matches(
+		$fieldVehiclePersistenceCheckpointBlock,
+		'PrepareStateForCapture\s*\(')).Count -ne 2 -or
+	$fieldVehiclePersistenceCheckpointBlock.IndexOf(
+		'"controlled-shutdown admission before nearby scope lock"',
+		[Math]::Max(0, $controlledShutdownPreLatchPrepareIndex)) -lt 0 -or
+	$fieldVehiclePersistenceCheckpointBlock.IndexOf(
+		'"controlled-shutdown prepared authority after nearby scope lock"',
+		[Math]::Max(0, $controlledShutdownPostLatchPrepareIndex)) -lt 0) {
+	throw 'Controlled shutdown must retain exactly its conditional pre-latch and unconditional retry-time post-latch full PrepareStateForCapture passes'
+}
+$controlledShutdownPreparedReadOnlyPreflightLength =
+	$controlledShutdownLootAdoptionIndex -
+	$controlledShutdownPreLatchPrepareIndex
+$controlledShutdownPreparedReadOnlyPreflightSlice =
+	$fieldVehiclePersistenceCheckpointBlock.Substring(
+		$controlledShutdownPreLatchPrepareIndex,
+		$controlledShutdownPreparedReadOnlyPreflightLength)
+if (([regex]::Matches(
+		$controlledShutdownPreparedReadOnlyPreflightSlice,
+		'(?s)PreflightControlledShutdownNearbyPersistentVehicles\s*\(\s*state\s*,\s*preparedNearbyVehicleCandidateCount\s*,\s*controlledShutdownLootEvidence\s*\)')).Count -ne 1 -or
+	([regex]::Matches(
+		$controlledShutdownPreparedReadOnlyPreflightSlice,
+		'(?s)PreflightControlledShutdownPersistenceSample\s*\(\s*state\s*,\s*controlledShutdownRescueEvidence\s*,\s*true\s*\)')).Count -ne 1 -or
+	([regex]::Matches(
+		$controlledShutdownPreparedReadOnlyPreflightSlice,
+		'(?s)PreflightControlledShutdownVehiclePersistence\s*\(\s*state\s*,\s*controlledShutdownVehicleEvidence\s*,\s*true\s*\)')).Count -ne 1 -or
+	([regex]::Matches(
+		$controlledShutdownPreparedReadOnlyPreflightSlice,
+		'(?s)PreflightControlledShutdownActiveGroupQuiescence\s*\(\s*state\s*,\s*controlledShutdownActiveGroupEvidence\s*\)')).Count -ne 1 -or
+	$controlledShutdownPreparedReadOnlyPreflightSlice -match
+		'(?:SnapshotNearbyPersistentVehiclesForControlledShutdown|PrepareControlledShutdown(?:ActiveGroupQuiescence|VehiclePersistence|PersistenceSample))\s*\(') {
+	throw 'The first full preparation must be followed by exactly one complete read-only prepared Loot/rescue/field/active preflight before nearby scope adoption publishes its latch'
+}
+$controlledShutdownStrictPreflightPatterns = @(
+	'(?s)PreflightControlledShutdownVehiclePersistence\s*\(\s*state\s*,\s*controlledShutdownVehicleEvidence\s*,\s*true\s*\)',
+	'(?s)PreflightControlledShutdownPersistenceSample\s*\(\s*state\s*,\s*controlledShutdownRescueEvidence\s*,\s*true\s*\)',
+	'(?s)PreflightControlledShutdownVehiclePersistence\s*\(\s*state\s*,\s*controlledShutdownVehicleEvidence\s*,\s*false\s*\)',
+	'(?s)PreflightControlledShutdownPersistenceSample\s*\(\s*state\s*,\s*controlledShutdownRescueEvidence\s*,\s*false\s*\)'
+)
+foreach ($controlledShutdownStrictPreflightPattern in
+	$controlledShutdownStrictPreflightPatterns) {
+	if ($fieldVehiclePersistenceCheckpointBlock -notmatch
+		$controlledShutdownStrictPreflightPattern) {
+		throw "Controlled-shutdown initial/strict preflight mode is incomplete: $controlledShutdownStrictPreflightPattern"
+	}
+}
+$controlledShutdownFenceAppliedIndex =
+	$fieldVehiclePersistenceCheckpointBlock.IndexOf(
+		'bool controlledShutdownFenceApplied')
+$controlledShutdownNearbySnapshotAppliedIndex =
+	$fieldVehiclePersistenceCheckpointBlock.IndexOf(
+		'bool controlledShutdownNearbySnapshotApplied',
+		[Math]::Max(0, $controlledShutdownFenceAppliedIndex))
+$controlledShutdownMissingLootLatchIndex =
+	$fieldVehiclePersistenceCheckpointBlock.IndexOf(
+		'if (controlledShutdownFenceApplied',
+		[Math]::Max(0, $controlledShutdownNearbySnapshotAppliedIndex))
+$controlledShutdownNearbyResumeGateIndex =
+	$fieldVehiclePersistenceCheckpointBlock.IndexOf(
+		'if (controlledShutdownNearbySnapshotApplied',
+		[Math]::Max(0, $controlledShutdownRescueInitialPreflightIndex))
+$controlledShutdownNearbyResumeActivePreflightIndex =
+	$fieldVehiclePersistenceCheckpointBlock.IndexOf(
+		'PreflightControlledShutdownActiveGroupQuiescence(',
+		[Math]::Max(0, $controlledShutdownNearbyResumeGateIndex + 1))
+$controlledShutdownNearbyResumeCommitIndex =
+	$fieldVehiclePersistenceCheckpointBlock.IndexOf(
+		'SnapshotNearbyPersistentVehiclesForControlledShutdown(',
+		[Math]::Max(0, $controlledShutdownNearbyResumeActivePreflightIndex + 1))
+$controlledShutdownPreLatchGateIndex =
+	$fieldVehiclePersistenceCheckpointBlock.IndexOf(
+		'if (!controlledShutdownNearbySnapshotApplied',
+		[Math]::Max(0, $activeGroupShutdownPreflightIndex + 1))
+$controlledShutdownPreparedReadOnlyGateIndex =
+	$fieldVehiclePersistenceCheckpointBlock.IndexOf(
+		'if (!controlledShutdownNearbySnapshotApplied',
+		[Math]::Max(0, $controlledShutdownPreLatchPrepareIndex + 1))
+$controlledShutdownFreshAdoptionGateIndex =
+	$fieldVehiclePersistenceCheckpointBlock.IndexOf(
+		'if (!controlledShutdownNearbySnapshotApplied',
+		[Math]::Max(0, $activeGroupPreparedBeforeLatchPreflightIndex + 1))
+foreach ($controlledShutdownFenceSource in @(
+		'HasControlledShutdownActiveGroupQuiescenceApplied()',
+		'HasControlledShutdownVehiclePersistenceApplied()',
+		'HasControlledShutdownPersistenceSampleApplied()',
+		'HasControlledShutdownNearbyPersistentVehicleSnapshotApplied()',
+		'controlledShutdownFenceApplied',
+		'controlledShutdownNearbySnapshotApplied',
+		'IsControlledShutdownNearbyPersistentVehicleSnapshotExact()'
+	)) {
+	if ($fieldVehiclePersistenceCheckpointBlock.IndexOf(
+			$controlledShutdownFenceSource) -lt 0) {
+		throw "Controlled-shutdown retry scope-expansion guard is incomplete: $controlledShutdownFenceSource"
+	}
+}
+if ($controlledShutdownFenceAppliedIndex -lt 0 -or
+	$controlledShutdownNearbySnapshotAppliedIndex -le
+		$controlledShutdownFenceAppliedIndex -or
+	$controlledShutdownMissingLootLatchIndex -le
+		$controlledShutdownNearbySnapshotAppliedIndex -or
+	$controlledShutdownLootPreflightIndex -le
+		$controlledShutdownMissingLootLatchIndex -or
+	$controlledShutdownNearbyResumeGateIndex -le
+		$controlledShutdownRescueInitialPreflightIndex -or
+	$controlledShutdownNearbyResumeActivePreflightIndex -le
+		$controlledShutdownNearbyResumeGateIndex -or
+	$controlledShutdownNearbyResumeCommitIndex -le
+		$controlledShutdownNearbyResumeActivePreflightIndex -or
+	$fieldVehicleInitialShutdownPreflightIndex -le
+		$controlledShutdownNearbyResumeCommitIndex -or
+	$controlledShutdownPreLatchGateIndex -le $activeGroupShutdownPreflightIndex -or
+	$controlledShutdownPreLatchPrepareIndex -le $controlledShutdownPreLatchGateIndex -or
+	$controlledShutdownPreparedReadOnlyGateIndex -le
+		$controlledShutdownPreLatchPrepareIndex -or
+	$controlledShutdownPreparedLootPreflightIndex -le
+		$controlledShutdownPreparedReadOnlyGateIndex -or
+	$controlledShutdownFreshAdoptionGateIndex -le
+		$activeGroupPreparedBeforeLatchPreflightIndex -or
+	$controlledShutdownLootAdoptionIndex -le
+		$controlledShutdownFreshAdoptionGateIndex) {
+	throw 'Nearby durable-root retries must resume only the latched plan before field preflight, while fresh adoption remains behind separate first-preparation, complete prepared-preflight, and nearby-snapshot gates'
+}
+if ($fieldVehiclePersistenceCheckpointBlock.IndexOf(
+		'if (!controlledShutdownFenceApplied)') -ge 0 -or
+	$fieldVehiclePersistenceCheckpointBlock -notmatch
+		'(?s)controlledShutdownFenceApplied\s*&&\s*!controlledShutdownNearbySnapshotApplied' -or
+	$fieldVehiclePersistenceCheckpointBlock -notmatch
+		'(?s)if\s*\(\s*!controlledShutdownNearbySnapshotApplied\s*&&\s*!PrepareStateForCapture\s*\(' -or
+	$fieldVehiclePersistenceCheckpointBlock -notmatch
+		'(?s)if\s*\(\s*!controlledShutdownNearbySnapshotApplied\s*\)\s*\{\s*int\s+snapshottedNearbyVehicles' -or
+	$fieldVehiclePersistenceCheckpointBlock -notmatch
+		'(?s)controlledShutdownNearbySnapshotApplied\s*=\s*true;\s*\}\s*.*?if\s*\(\s*!PrepareStateForCapture\s*\(') {
+	throw 'Controlled shutdown must remove the obsolete runtime-fence fresh-adoption gate, fail closed on fence-without-Loot-latch, and repeat the full post-latch preparation on every retry'
+}
+$activeGroupShutdownCoordinatorBeginBlock = Get-ScriptMethodBlock `
+	$fieldVehicleCoordinatorText `
+	'void BeginControlledCampaignEndCheckpointAttempt()'
+$activeGroupShutdownCoordinatorObserveBlock = Get-ScriptMethodBlock `
+	$fieldVehicleCoordinatorText `
+	'void ObserveControlledCampaignEndCheckpointRequest('
+$activeGroupShutdownCoordinatorFrameBlock = Get-ScriptMethodBlock `
+	$fieldVehicleCoordinatorText `
+	'override void EOnFrame('
+$activeGroupShutdownCoordinatorEndTickBlock = Get-ScriptMethodBlock `
+	$fieldVehicleCoordinatorText `
+	'protected void TickOrdinaryCampaignEndBridgeStage('
+if ([string]::IsNullOrEmpty($activeGroupShutdownCoordinatorBeginBlock) -or
+	$activeGroupShutdownCoordinatorBeginBlock.IndexOf(
+		'if (m_bControlledCampaignEndQuiescing)') -lt 0 -or
+	$activeGroupShutdownCoordinatorBeginBlock.IndexOf(
+		'm_bControlledCampaignEndQuiescing = false;') -ge 0 -or
+	[string]::IsNullOrEmpty($activeGroupShutdownCoordinatorObserveBlock) -or
+	$activeGroupShutdownCoordinatorObserveBlock.IndexOf(
+		'request.m_bControlledShutdownRuntimeQuiescenceApplied') -lt 0 -or
+	$activeGroupShutdownCoordinatorObserveBlock.IndexOf(
+		'm_bControlledCampaignEndQuiescing = true;') -lt 0) {
+	throw 'Controlled-end retries must preserve the irreversible runtime-quiescence latch and observe it from every checkpoint request'
+}
+$activeGroupShutdownFrameQuiescenceBlock = Get-ScriptMethodBlock `
+	$activeGroupShutdownCoordinatorFrameBlock `
+	'if (m_bControlledCampaignEndQuiescing)'
+foreach ($activeGroupShutdownCoordinatorMaintainBlock in @(
+		$activeGroupShutdownFrameQuiescenceBlock,
+		$fieldVehicleCoordinatorStableBlock,
+		$activeGroupShutdownCoordinatorEndTickBlock
+	)) {
+	if ([string]::IsNullOrEmpty($activeGroupShutdownCoordinatorMaintainBlock) -or
+		$activeGroupShutdownCoordinatorMaintainBlock.IndexOf(
+			'MaintainControlledCampaignEndRuntimeQuiescence(') -lt 0) {
+		throw 'Controlled-end frame, stability, and callback-timeout paths must all maintain the latched composite runtime fence'
+	}
+}
+if ($activeGroupShutdownCoordinatorEndTickBlock.IndexOf(
+		'm_Persistence.TickPendingCheckpoint(timeSlice);') -lt 0 -or
+	$activeGroupShutdownCoordinatorEndTickBlock.IndexOf(
+		'm_fOrdinaryCampaignPersistenceSaveCompletionElapsedSeconds') -lt 0 -or
+	$activeGroupShutdownCoordinatorEndTickBlock.IndexOf(
+		'ORDINARY_CAMPAIGN_PERSISTENCE_SAVE_COMPLETION_TIMEOUT_SECONDS') -lt 0) {
+	throw 'Controlled-end quiescence maintenance must remain bounded by the ordinary checkpoint completion timeout while persistence keeps ticking'
 }
 if ([string]::IsNullOrEmpty($fieldVehicleDestroyedCaptureBlock) -or
 	$fieldVehicleDestroyedCaptureBlock.IndexOf('record.m_bDeleted = true;') -lt 0 -or

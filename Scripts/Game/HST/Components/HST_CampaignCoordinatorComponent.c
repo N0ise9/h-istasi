@@ -917,7 +917,11 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				m_PersistentFieldVehicles);
 		m_Loot = new HST_LootService();
 		if (m_Loot)
+		{
 			m_Loot.SetPersistentFieldVehicleRuntimeService(m_PersistentFieldVehicles);
+			if (m_Persistence)
+				m_Persistence.SetLootService(m_Loot);
+		}
 		m_PersistentFieldVehicleRestartProof
 			= new HST_PersistentFieldVehicleRestartProofService();
 		m_BuildMode = new HST_BuildModeService();
@@ -1355,6 +1359,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	override void OnGameModeStart()
 	{
 		super.OnGameModeStart();
+		ObserveControlledCampaignEndExternalMutation("game mode started");
+		if (IsControlledCampaignEndMutationIngressBlocked())
+			return;
 		if (!m_bCampaignPersistenceBootstrapComplete)
 			return;
 		ArmPlayerSpawnSweep(4);
@@ -1364,6 +1371,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	override void OnGameStateChanged(SCR_EGameModeState state)
 	{
 		super.OnGameStateChanged(state);
+		ObserveControlledCampaignEndExternalMutation("game state changed");
+		if (IsControlledCampaignEndMutationIngressBlocked())
+			return;
 		if (!m_bCampaignPersistenceBootstrapComplete)
 			return;
 		ArmPlayerSpawnSweep(4);
@@ -1374,6 +1384,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	{
 		super.OnPlayerConnected(playerId);
 		ObserveControlledCampaignEndExternalMutation("player connected");
+		if (IsControlledCampaignEndMutationIngressBlocked())
+			return;
 		if (!m_bCampaignPersistenceBootstrapComplete)
 			return;
 		ArmPlayerSpawnSweep(4);
@@ -1388,6 +1400,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	{
 		super.OnControllableDestroyed(instigatorContextData);
 		ObserveControlledCampaignEndExternalMutation("controllable destroyed");
+		if (IsControlledCampaignEndMutationIngressBlocked())
+			return;
 		if (!Replication.IsServer() || !m_State || !m_Civilians)
 			return;
 		m_Civilians.ObserveAmbientCivilianDestroyed(
@@ -1399,6 +1413,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	{
 		super.OnPlayerDisconnected(playerId, cause, timeout);
 		ObserveControlledCampaignEndExternalMutation("player disconnected");
+		if (IsControlledCampaignEndMutationIngressBlocked())
+			return;
 		if (!m_bCampaignPersistenceBootstrapComplete)
 			return;
 		HandlePlayerDisconnectedAuthority(playerId);
@@ -1507,16 +1523,18 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		}
 		if (m_bControlledCampaignEndQuiescing)
 		{
-			string vehicleQuiescenceEvidence;
-			if (!MaintainControlledCampaignEndVehicleQuiescence(
-				vehicleQuiescenceEvidence))
-			{
-				m_sControlledCampaignEndStabilityEvidence
-					= vehicleQuiescenceEvidence;
-				return;
-			}
+			string runtimeQuiescenceEvidence;
+			bool runtimeQuiescenceMaintained
+				= MaintainControlledCampaignEndRuntimeQuiescence(
+					runtimeQuiescenceEvidence);
 			if (m_Persistence)
 				m_Persistence.TickPendingCheckpoint(timeSlice);
+			if (!runtimeQuiescenceMaintained)
+			{
+				m_sControlledCampaignEndStabilityEvidence
+					= runtimeQuiescenceEvidence;
+				return;
+			}
 			return;
 		}
 
@@ -3316,17 +3334,35 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	void BeginControlledCampaignEndCheckpointAttempt()
 	{
 		m_bControlledCampaignEndDraining = true;
-		m_bControlledCampaignEndQuiescing = false;
-		m_bControlledCampaignEndMutationObserved = false;
+		if (!m_bControlledCampaignEndQuiescing)
+			m_bControlledCampaignEndMutationObserved = false;
 		m_bOrdinaryCampaignPersistenceEndBridgeTransitionPrepared = false;
 		m_sControlledCampaignEndBaselineFingerprint = "";
-		m_sControlledCampaignEndStabilityEvidence
-			= "controlled campaign end is draining toward a capturable checkpoint";
+		if (m_bControlledCampaignEndQuiescing)
+		{
+			if (!m_bControlledCampaignEndMutationObserved)
+			{
+				m_sControlledCampaignEndStabilityEvidence
+					= "controlled campaign end runtime quiescence remains latched for checkpoint retry";
+			}
+		}
+		else
+		{
+			m_sControlledCampaignEndStabilityEvidence
+				= "controlled campaign end is draining toward a capturable checkpoint";
+		}
 	}
 
 	bool ArmControlledCampaignEndCheckpointQuiescence()
 	{
+		if (m_bControlledCampaignEndQuiescing
+			&& m_bControlledCampaignEndMutationObserved)
+			return false;
 		m_bControlledCampaignEndQuiescing = true;
+		// The accepted capture is the authority for this attempt. Any synchronous
+		// pre-capture reconciliation is already represented by that capture; only
+		// mutations observed after this fresh baseline must reject the transition.
+		m_bControlledCampaignEndMutationObserved = false;
 		if (!m_Persistence || !m_State)
 		{
 			m_bControlledCampaignEndMutationObserved = true;
@@ -3362,12 +3398,12 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (m_sControlledCampaignEndBaselineFingerprint.IsEmpty()
 			|| !m_Persistence || !m_State)
 			return false;
-		string vehicleQuiescenceEvidence;
-		if (!MaintainControlledCampaignEndVehicleQuiescence(
-			vehicleQuiescenceEvidence))
+		string runtimeQuiescenceEvidence;
+		if (!MaintainControlledCampaignEndRuntimeQuiescence(
+			runtimeQuiescenceEvidence))
 		{
 			m_sControlledCampaignEndStabilityEvidence
-				= vehicleQuiescenceEvidence;
+				= runtimeQuiescenceEvidence;
 			return false;
 		}
 
@@ -3402,21 +3438,74 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return m_bControlledCampaignEndDraining;
 	}
 
+	protected bool IsControlledCampaignEndMutationIngressBlocked()
+	{
+		return m_bControlledCampaignEndDraining
+			|| m_bControlledCampaignEndQuiescing;
+	}
+
 	string GetControlledCampaignEndStabilityEvidence()
 	{
 		return m_sControlledCampaignEndStabilityEvidence;
 	}
 
-	protected bool MaintainControlledCampaignEndVehicleQuiescence(
+	protected bool MaintainControlledCampaignEndRuntimeQuiescence(
 		out string evidence)
 	{
 		evidence
-			= "controlled campaign end durable vehicle quiescence authority unavailable";
-		if (!m_Civilians || !m_State)
+			= "controlled campaign end runtime quiescence authority unavailable";
+		if (!m_State)
 			return false;
-		return m_Civilians.MaintainControlledShutdownVehiclePersistence(
-			m_State,
-			evidence);
+
+		string nearbyVehicleEvidence;
+		bool nearbyVehicleMaintained = m_Loot
+			&& m_Loot.MaintainControlledShutdownNearbyPersistentVehicleSnapshot(
+				m_State,
+				nearbyVehicleEvidence);
+		if (nearbyVehicleEvidence.IsEmpty())
+		{
+			nearbyVehicleEvidence
+				= "controlled campaign end nearby field-vehicle snapshot authority unavailable";
+		}
+
+		string activeGroupEvidence;
+		bool activeGroupMaintained = m_PhysicalWar
+			&& m_PhysicalWar.MaintainControlledShutdownActiveGroupQuiescence(
+				m_State,
+				activeGroupEvidence);
+		if (activeGroupEvidence.IsEmpty())
+		{
+			activeGroupEvidence
+				= "controlled campaign end active-group quiescence authority unavailable";
+		}
+
+		string vehicleEvidence;
+		bool vehicleMaintained = m_Civilians
+			&& m_Civilians.MaintainControlledShutdownVehiclePersistence(
+				m_State,
+				vehicleEvidence);
+		if (vehicleEvidence.IsEmpty())
+		{
+			vehicleEvidence
+				= "controlled campaign end field-vehicle quiescence authority unavailable";
+		}
+
+		string rescueEvidence;
+		bool rescueMaintained = m_RescuePOWOperations
+			&& m_RescuePOWOperations.MaintainControlledShutdownPersistenceSample(
+				m_State,
+				rescueEvidence);
+		if (rescueEvidence.IsEmpty())
+		{
+			rescueEvidence
+				= "controlled campaign end rescue persistence fence authority unavailable";
+		}
+
+		evidence = nearbyVehicleEvidence + " | " + activeGroupEvidence
+			+ " | " + vehicleEvidence
+			+ " | " + rescueEvidence;
+		return nearbyVehicleMaintained && activeGroupMaintained
+			&& vehicleMaintained && rescueMaintained;
 	}
 
 	protected bool IsOrdinaryCampaignEndBridgeProofActive()
@@ -3431,6 +3520,22 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	void ObserveControlledCampaignEndCheckpointRequest(
 		HST_PersistenceCheckpointRequest request)
 	{
+		if (request
+			&& request.m_bControlledShutdownRuntimeQuiescenceApplied)
+		{
+			m_bControlledCampaignEndQuiescing = true;
+			if (!m_bControlledCampaignEndMutationObserved)
+			{
+				m_sControlledCampaignEndStabilityEvidence
+					= "controlled campaign end runtime quiescence latched by checkpoint attempt";
+			}
+		}
+		else if (request
+			&& request.m_bControlledShutdownPlayerReleaseRequired)
+		{
+			m_sControlledCampaignEndStabilityEvidence
+				= request.m_sEvidence;
+		}
 		if (!IsOrdinaryCampaignEndBridgeProofActive())
 			return;
 		string evidence;
@@ -3632,28 +3737,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	{
 		if (!Replication.IsServer() || !m_State || !m_Persistence)
 			return null;
-		bool preCaptureChanged;
-		if (m_Civilians)
-		{
-			preCaptureChanged
-				= m_Civilians.FlushPendingCivilianConsequences(m_State);
-			if (m_Civilians.ObservePlayerAmbientVehicleClaims(m_State))
-				preCaptureChanged = true;
-		}
-		if (m_Loot)
-		{
-			int snapshottedFieldVehicles
-				= m_Loot.SnapshotNearbyPersistentVehicles(m_State);
-			if (snapshottedFieldVehicles > 0)
-			{
-				preCaptureChanged = true;
-				m_State.m_sLastVehicleTargetStatus = string.Format(
-					"persistent field vehicle shutdown snapshot %1",
-					snapshottedFieldVehicles);
-			}
-		}
-		if (preCaptureChanged)
-			MarkMajorCampaignChange(false);
+		// Persistence owns the complete controlled-shutdown transaction. Keeping
+		// this bridge mutation-free guarantees that player/locality/topology
+		// preflights run before nearby-root adoption or any irreversible fence.
 		return m_Persistence.RequestShutdownCheckpointDetailed(
 			m_State,
 			completionObserver);
@@ -3677,7 +3763,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 	bool StartMission(string missionId, string targetZoneId = "")
 	{
-		if (!Replication.IsServer())
+		if (!Replication.IsServer()
+			|| IsControlledCampaignEndMutationIngressBlocked())
 			return false;
 
 		return StartMission_S(missionId, targetZoneId);
@@ -6331,6 +6418,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return "Partisan mission | server required";
 		ObserveControlledCampaignEndExternalMutation(
 			"mission asset destruction callback");
+		if (IsControlledCampaignEndMutationIngressBlocked())
+			return "Partisan mission | failed: controlled campaign end mutation ingress blocked";
 
 		if (!m_MissionRuntime)
 			return "Partisan mission | service not ready";
@@ -6444,6 +6533,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return "Partisan mission | server required";
 		ObserveControlledCampaignEndExternalMutation(
 			"mission asset damage callback");
+		if (IsControlledCampaignEndMutationIngressBlocked())
+			return "Partisan mission | failed: controlled campaign end mutation ingress blocked";
 
 		if (!m_MissionRuntime)
 			return "Partisan mission | service not ready";
@@ -12233,16 +12324,18 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		}
 		if (m_bControlledCampaignEndQuiescing && m_Persistence)
 		{
-			string vehicleQuiescenceEvidence;
-			if (!MaintainControlledCampaignEndVehicleQuiescence(
-				vehicleQuiescenceEvidence))
+			string runtimeQuiescenceEvidence;
+			bool runtimeQuiescenceMaintained
+				= MaintainControlledCampaignEndRuntimeQuiescence(
+					runtimeQuiescenceEvidence);
+			m_Persistence.TickPendingCheckpoint(timeSlice);
+			if (!runtimeQuiescenceMaintained)
 			{
 				FailOrdinaryCampaignPersistenceStage(
 					m_OrdinaryCampaignPersistencePendingResult,
-					vehicleQuiescenceEvidence);
+					runtimeQuiescenceEvidence);
 				return;
 			}
-			m_Persistence.TickPendingCheckpoint(timeSlice);
 		}
 
 		HST_PersistenceCheckpointRequest checkpoint
@@ -53445,7 +53538,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 	protected bool StartMission_S(string missionId, string targetZoneId, bool forceDebug = false)
 	{
-		if (!m_State)
+		if (!m_State || IsControlledCampaignEndMutationIngressBlocked())
 			return false;
 
 		HST_ActiveMissionState mission;
@@ -54850,7 +54943,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 	protected bool CanPlayerUseCommanderActions(int playerId)
 	{
-		if (!m_Authorization)
+		if (IsControlledCampaignEndMutationIngressBlocked()
+			|| !m_Authorization)
 			return false;
 
 		HST_PlayerState player = RefreshRuntimePlayerAuthority(playerId, "commander check");
@@ -54859,13 +54953,16 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 	protected bool CanPlayerUseMemberActions(int playerId)
 	{
+		if (IsControlledCampaignEndMutationIngressBlocked())
+			return false;
 		HST_PlayerState player = RefreshRuntimePlayerAuthority(playerId, "member check");
 		return IsRuntimeMember(player);
 	}
 
 	protected bool CanPlayerUseAdminActions(int playerId)
 	{
-		if (!m_Authorization || !m_State)
+		if (IsControlledCampaignEndMutationIngressBlocked()
+			|| !m_Authorization || !m_State)
 			return false;
 
 		HST_PlayerState player = RefreshRuntimePlayerAuthority(playerId, "admin check");
