@@ -3255,3 +3255,45 @@ Consequences:
   JIP/reconnect, long soak, abrupt termination, arbitrary rescue and mission
   families, other force graphs, and broader active-world persistence remain
   independent certification gates.
+
+## CRI-056 - Give Focused Engine Profiles A Self-Contained Typed Case
+
+- Status: Accepted and sealed; scoped proof complete
+- Date: 2026-07-18
+
+Context: The `force_authority` runner selected only combat-presence, ownership-
+transition, and town-influence assertions, but recorded the broader 300-
+assertion force case. All selected assertions could pass while unrelated,
+unselected assertions still made the parent case fail. Additional fixture defects
+also obscured the intended authority boundaries: temporary injected services
+were not retained strongly, migration candidates were compared against mutable
+outputs, and malformed-save tests changed live result references rather than the
+captured save copy.
+
+Decision: A focused profile must build and finalize one dedicated typed case
+whose assertion set exactly matches its advertised scope. The
+`force_authority` case owns only the 9 combat-presence, 14 ownership-transition,
+and 12 town-influence assertions. The runner validates that exact set plus build
+provenance, artifact stability, state isolation, errors, crashes, and owned
+cleanup. Direct political influence admission submits its exact receipt to the
+canonical ownership service, which persists later valid work as queued and owns
+FIFO execution; the outer fallback scan retains the one-new-fallback-command-
+per-pass fence.
+
+Consequences:
+
+- Campaign Schema 71 and runtime-settings Schema 24 remain unchanged. The
+  sealed implementation/source identity is
+  `32727238d74b29905c68e5a80bb5897dfdc783c0`, UTC
+  `2026-07-18T16:34:38Z`, label
+  `schema71-settings24-focused-force-authority`.
+- Foundation passes 874 references. Stamped Workbench validation passes 5,846
+  files/11,899 classes at CRC `cad640f3`, with zero HST, script, or hard errors
+  and exact-zero owned cleanup.
+- The focused case passes all 35 targeted assertions and all 87 counted
+  conditions. All 18 tracked state-diff rows remain zero; script and Partisan
+  errors, crashes, and artifact drift are zero, and owned cleanup is exact-zero.
+- `CertificationPassed:false` is intentional. A focused profile may prove its
+  typed case but may not claim Full Campaign Debug, native-world,
+  persistence/restart, packaged server/client, multiplayer/network/JIP/
+  reconnect, performance, or soak certification.

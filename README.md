@@ -240,89 +240,31 @@ The validation ladder is intentionally cumulative:
 5. Real profile save, process restart, reload, and reprojection
 6. Packaged dedicated-server/client, multiplayer, reconnect, JIP, and soak proof
 
-Registered focused engine autotests provide deterministic checks for selected
-campaign-authority subsystems. They do not prove the `HST_Dev` coordinator,
+Separately registered focused engine autotests provide deterministic checks for
+selected campaign-authority subsystems. They are distinct from the guarded
+`HST_Dev` focused profile summarized below and do not prove that coordinator,
 Full Campaign Debug, world integration, persistence, restart, packaging, or
-network behavior. Test identities and run evidence belong in the Campaign
+network behavior. Exact test identities and run evidence belong in the Campaign
 Debug verification audit rather than this project overview.
 
 The current implementation stamp is
-`60596bf77d056b9e63ed1bbbf4d11c1941330fe6`, UTC
-`2026-07-18T14:12:51Z`, label
-`schema71-settings24-mixed-native-shutdown-restart`. Foundation validation
-passes 874 references. Stamped Workbench validation loads 5,846 files and
-11,899 classes at CRC `9a79a33a` with zero hard errors and zero owned cleanup
-residue.
-The focused authority testcase passes 1/1 with 41/41 exact conditions, an empty
-failed list, and exact native-v1/native-v2/invalid-fingerprint/future-envelope
-classification at 1/1/1/1.
+`32727238d74b29905c68e5a80bb5897dfdc783c0`, UTC
+`2026-07-18T16:34:38Z`, label
+`schema71-settings24-focused-force-authority`. Foundation validation passes 874
+references. Stamped Workbench validation loads 5,846 files and 11,899 classes
+at CRC `cad640f3` with zero hard errors and exact-zero owned cleanup.
 
-Controlled shutdown is now an ordered native-authority fence. Read-only
-readiness checks run before any one-way retention latch, state preparation is
-followed by a second complete preflight before the first subsystem latch, and
-the coordinator rejects new campaign ingress while draining. Retained loot,
-rescue, field-vehicle, and active-force graphs are pinned, quiesced, and
-revalidated on retry before persistence commits the shutdown checkpoint. This
-checkpoint changes neither Campaign Schema 71 nor runtime-settings Schema 24.
+The latest focused engine checkpoint passes all 35 targeted state-only
+assertions for combat presence, ownership transitions, and town influence, with
+87/87 counted conditions, an 18/0 state diff, stable artifacts, zero errors or
+crashes, and exact-zero owned cleanup. This does not constitute Full Campaign Debug or live/
+native, persistence/restart, packaged server/client, multiplayer/network/JIP,
+performance, or soak certification.
 
-The final strict five-process fresh-start proof passes periodic `AUTO`, typed
-`MANUAL`, blocking `SHUTDOWN`, native no-save restore, and profile-fallback
-no-save restore. The journal advances generations 1 -> 2 -> 3 and finishes with
-canonical generation 3, two valid slots, and an exact parent chain; both restore
-stages keep it read-only. Its field fixture reproduces the exact live-vehicle
-and destruction-tombstone state through both recovery sources. All five
-processes pass with every owned cleanup counter at zero. A separate three-stage
-native-over-stale-journal proof passes 3/3, selects native authority, preserves
-both journal files byte-for-byte with an exact chain, and also leaves cleanup at
-zero. The administrative-reset stale-native proof also passes 3/3: it selects
-the newer generation-3 JSON reset over deliberately stale native authority in a
-read-only final process, preserves the exact two-slot chain and proof carrier,
-rejects overlap without mutation, and leaves cleanup at zero.
-
-The shutdown stage also proves one exact mixed-native rescue graph: a real
-replicated carrier, three captives in `FOLLOWING`, seatless `BOARDING`, and
-stable-seat `BOARDED` states, one two-member guard group, a rejected and cleaned
-foreign occupant, and a real player occupant released before the final retry.
-Native and profile-fallback restart both recover the old durable carrier key
-onto the fresh replicated root, retain the exact seat token and logical
-fingerprint, rematerialize the same guard survivors, and preserve live/durable
-pose within the explicit restart tolerance. The five-process result is still a
-scoped regression proof, not certification of every native shutdown topology or
-adversarial branch.
-
-A separate guarded three-process exact enemy-garrison-rebuild proof now crosses
-the `delivery_pending` cut through the production JSON journal. Prepare freezes
-the route at 225/300 meters with 9 accepted members, 8 living members, and one
-confirmed casualty. Recover advances the final 75 meters and applies delivery
-once: the exact survivor manifest remains held by the destination garrison,
-aggregate infantry is not incremented a second time, and the original resource
-debit receives one zero-refund settlement receipt. Replay is a semantic no-op.
-The journal ends with canonical generation 1 and recovery generation 2; replay
-changes neither slot. Every owned process, profile, guard, temporary, and spill
-cleanup counter returns to zero.
-
-The companion `physical_live_fold` cut starts from the same nine accepted slots,
-eight living slots, one prior casualty, and `225/300m` route state. Production
-authority crosses `VIRTUAL -> MATERIALIZING -> PHYSICAL/LIVE` with one native
-root, nine adapter handles, and eight living runtime members. The observed root
-moves 2.759m and closes 0.539m on its target before the production
-`PHYSICAL -> DEMATERIALIZING -> VIRTUAL` fold. That fold retains the exact eight
-survivors and one casualty with zero runtime residue; generation-1 persistence,
-generation-2 recovery, and read-only/no-op replay all pass with cleanup zero.
-
-Together these proofs close the exact rebuild fixture's `delivery_pending` and
-`physical_live_fold` restart cuts, including its scoped native handoff, measured
-movement, production fold, and survivor continuity. They do not prove natural
-full-route travel or combat, other force families, unrelated mixed-native
-mission graphs, multiplayer, JIP/reconnect, or soak. The focused
-garrison-rebuild autotest also retains a
-base-game reload/JUnit harness gap, so this checkpoint does not claim a fresh
-focused-test result from that harness.
-
-This proves the scoped fixture, not full fuel, partial-damage, attachment, or
-physical-trunk parity. Arbitrary vehicle breadth, Workshop server/client,
-migration breadth, markers, performance, and the broader runtime gates above
-remain open.
+Separate guarded evidence also covers selected journal recovery, controlled
+shutdown, mixed-native restoration, and exact garrison-rebuild cuts. See the
+[Campaign Debug verification audit](docs/HST_CAMPAIGN_DEBUG_VERIFICATION_AUDIT.md)
+for exact identities, results, and remaining gates.
 
 Do not promote a narrower validation rung to broader runtime proof. When testing
 a packaged build, capture the build identity, server/client logs, debug

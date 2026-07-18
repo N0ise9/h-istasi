@@ -2,8 +2,40 @@
 
 Campaign Schema 71 and runtime-settings Schema 24 are current. Current
 implementation/source identity is
-`60596bf77d056b9e63ed1bbbf4d11c1941330fe6`, UTC `2026-07-18T14:12:51Z`, label
-`schema71-settings24-mixed-native-shutdown-restart`.
+`32727238d74b29905c68e5a80bb5897dfdc783c0`, UTC `2026-07-18T16:34:38Z`, label
+`schema71-settings24-focused-force-authority`.
+
+## Current Focused Force-Authority Engine Mechanics
+
+- A focused profile must build and finalize a self-contained typed case. Do not
+  validate a selected assertion subset against a parent case that also owns
+  unrelated assertions; case status would then report false failures outside
+  the selected scope.
+- Retain strong references to every injected fixture service for the complete
+  engine/report lifetime. A temporary service object can otherwise disappear
+  while a dependent fixture still holds only a weak reference.
+- Admit a valid later political ownership intent to the canonical ownership
+  service even when an earlier top-level receipt remains unresolved. That
+  service persists the exact later receipt as queued and owns FIFO ordering. The
+  outer fallback scan alone owns the one-new-fallback-command-per-pass fence.
+- Score town migration candidates against an immutable FIA/occupier target pair,
+  not the mutable output candidate being updated while alternatives are tested.
+- To prove restore quarantine, call `Capture()` first and corrupt only the copied
+  save DTO. Mutating live result references tests the wrong boundary because the
+  captured save remains canonical.
+- Preserve parent-before-child order in nested quarantine fixtures and inject
+  exactly one intended saved-boundary defect. Report restore and quarantine
+  evidence separately, and use explicit sub-evidence instead of a long shared
+  scalar that can be truncated by reporting limits.
+
+The focused engine case passes 35/35 targeted assertions: combat presence 9/9,
+ownership transitions 14/14, and town influence 12/12. It counts 87/87 exact
+conditions, preserves all 18 tracked state-diff rows at zero, and reports zero
+script or Partisan errors, crashes, artifact drift, or owned cleanup. Stamped
+Workbench validation passes 5,846 files/11,899 classes at CRC `cad640f3` with
+zero hard errors. This is isolated state-only deterministic fixture evidence,
+not Full Campaign Debug, native-world, persistence/restart, packaged server/
+client, network/JIP/reconnect, multiplayer, performance, or soak proof.
 
 ## Current Controlled-Shutdown Native Fence
 
@@ -58,8 +90,8 @@ normal render-bubble fold can return it to strategic hold.
 Shutdown and both restore stages retain exactly 3 captives, 1 carrier, 1 active
 group, 2 living guards, and 3 adapter handles. Journal generations advance
 1 -> 2 -> 3; both restore verifiers are read-only; and every guarded process,
-profile, proof, and spill cleanup counter is exactly zero. Current source
-evidence is Foundation 874 and stamped Workbench validation at 5,846 files/
+  profile, proof, and spill cleanup counter is exactly zero. That mixed-native
+  checkpoint's evidence is Foundation 874 and stamped Workbench validation at 5,846 files/
 11,899 classes, CRC `9a79a33a`, with zero hard errors. This closes the scoped
 mixed-native shutdown/restart fixture, not package/live multiplayer, JIP,
 reconnect, or long-soak certification; those remain open.
@@ -163,12 +195,12 @@ reconnect, or long-soak certification; those remain open.
   deltas. Never expand that boundary to broad `.gitignore` patterns. Spill
   snapshots remain unchanged and continue to observe every cleanup artifact.
 
-Current sealed evidence is Foundation 874 and stamped Workbench validation at
+The retained journal/shutdown checkpoint evidence is Foundation 874 and stamped Workbench validation at
 5,846 files/11,899 classes, CRC `9a79a33a`, with zero hard errors and exact-zero
 owned cleanup. The focused journal testcase passes 1/1 with
 zero failures/errors/skips, an empty failed list, 41/41 exact authority
 conditions, and native-v1/native-v2/invalid-fingerprint/future-envelope cases at
-1/1/1/1. The ordinary persistence chain passes 5/5 on the current shutdown
+  1/1/1/1. The ordinary persistence chain passes 5/5 on that shutdown
 build and advances generations
 1 -> 2 -> 3, finishes at canonical generation 3 with two valid slots and an
 exact chain, keeps native and profile-fallback restores read-only, preserves
@@ -5693,12 +5725,12 @@ This file is for practical engine/script behavior, not project planning. Keep en
   and matching parent/child mode. Later activation may build current markers, but
   must not rewrite that receipt flag or backfill historical marker fields.
 
-- A frozen linked-town support event remains an exact influence fact when a later
-  pristine queued top-level receipt already owns the town's reciprocal active
-  backlink. Apply that fact once, suppress only immediate political threshold
-  reconciliation, and leave every other support-policy failure retry-visible.
-  The periodic civilian pass reconciles the threshold after FIFO ownership work
-  drains; this avoids a cyclic parent/child wait without dropping the event.
+- A frozen linked-town support event remains an exact influence fact. Apply it
+  once and call canonical political reconciliation immediately. The ownership
+  service must correlate already represented intent or admit the exact later
+  receipt as queued even when earlier top-level work is unresolved. Only the
+  periodic fallback scan waits for FIFO drain; this avoids a cyclic parent/child
+  wait without dropping or duplicating the event.
 
 - Freeze support authority as the canonical sorted set of every linked town plus
   every town within 1,500 m. Restore must recompute the exact set;
@@ -5966,6 +5998,11 @@ This file is for practical engine/script behavior, not project planning. Keep en
   after this run. Packaged
   classification, cache/performance, save/restart, and multiplayer proof remain
   open.
+
+- The later focused `force_authority` engine profile passes all nine registered
+  combat-presence assertions. That closes the deterministic state-only fixture
+  boundary, not native character/seat/platform classification, active-world
+  consumers, serialization/restart, performance, or multiplayer proof.
 
 ## One-Second Runtime Hot-Path Repair
 
@@ -6972,7 +7009,7 @@ This file is for practical engine/script behavior, not project planning. Keep en
   `4ac1c5610eccc1c4f750055dc169b1063be38143`, UTC
   `2026-07-17T20:52:03Z`, label
   `schema71-settings24-garrison-rebuild-physical-fold`. Both guarded cuts were
-  rerun successfully on the current controlled-shutdown identity
+  rerun successfully on the then-current controlled-shutdown identity
   `60596bf77d056b9e63ed1bbbf4d11c1941330fe6`. The separate focused CLI reload
   still produces no JUnit record, so it is not a focused PASS.
 

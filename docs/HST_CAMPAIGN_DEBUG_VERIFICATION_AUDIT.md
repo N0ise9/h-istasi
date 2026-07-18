@@ -2,10 +2,32 @@
 
 Campaign Schema 71 and runtime-settings Schema 24 are current. Current
 implementation/source identity is
-`60596bf77d056b9e63ed1bbbf4d11c1941330fe6`, UTC `2026-07-18T14:12:51Z`, label
-`schema71-settings24-mixed-native-shutdown-restart`. Foundation passes 874
+`32727238d74b29905c68e5a80bb5897dfdc783c0`, UTC `2026-07-18T16:34:38Z`, label
+`schema71-settings24-focused-force-authority`. Foundation passes 874
 references. Final stamped Workbench validation passes 5,846 files/11,899
-classes at CRC `9a79a33a`, with zero hard errors and exact-zero owned cleanup.
+classes at CRC `cad640f3`, with zero hard errors and exact-zero owned cleanup.
+
+## Current Focused Force-Authority Engine Checkpoint
+
+The focused `force_authority` engine profile passes its registered case and all
+35 targeted assertions: combat presence 9/9, ownership transitions 14/14, and
+town influence 12/12. The report counts 87/87 exact conditions, all 18 tracked
+state-diff rows remain zero, and the guarded run reports zero script or Partisan
+errors, zero crashes, stable artifacts, and exact-zero owned cleanup.
+
+The profile now finalizes a dedicated typed case containing exactly those three
+assertion groups. It does not reuse the broader 300-assertion force case and then
+mistake unselected assertions for focused failures. Ownership fixtures retain
+their injected services for the report lifetime; migration comparison uses an
+immutable target pair; direct political admission submits its exact receipt to
+canonical ownership ordering; and malformed shared-event fixtures mutate copied
+save rows after `Capture()`.
+
+This is engine-executed deterministic fixture/state-only evidence.
+`CertificationPassed:false` is intentional because the focused profile cannot
+claim full Campaign Debug certification. It does not prove native entity
+behavior, persistence/restart, packaged/live server-client execution,
+multiplayer/network/JIP/reconnect, performance, or soak.
 
 ## Current Controlled-Shutdown Native Fence
 
@@ -197,7 +219,7 @@ commit verifies, the reset remains authoritative even if native staging,
 completion, or timeout fails; that is degraded native repair, not grounds for
 rolling live state back to the old campaign.
 
-Current sealed evidence:
+Retained journal/shutdown checkpoint evidence:
 
 - Foundation validation passes 874 references. Stamped Workbench validation
   loads 5,846 files and 11,899 classes at CRC `9a79a33a`, with zero hard errors
@@ -2293,7 +2315,8 @@ later source slice, sealing source, or publishing a build does not waive them.
   100/25/400 producing `+100`/`+200`/`+50` basis points. FIA must be strictly
   above `8000` for resistance ownership or strictly below `4000` for enemy
   ownership; equality does not cross a boundary. Every flip delegates to
-  `HST_OwnershipTransitionService`. This is source inspection, not runtime proof.
+  `HST_OwnershipTransitionService`. The dedicated focused engine case now passes
+  this deterministic state-only boundary; native/world behavior remains open.
 - Pre-64 normalization reconciles legacy signed zone support and civilian pairs
   once, preserves population, and does not replay old events. Current duplicate,
   missing, orphaned, malformed, inconsistent, or event-linked authority
@@ -2362,10 +2385,10 @@ later source slice, sealing source, or publishing a build does not waive them.
   `.schema63_restore`, `.malformed_fail_cold`, and
   `.deterministic_diagnostics`. The restore fixture invalidates process-local
   samples, migrates pre-63 state to `COLD`, preserves valid current cooling and
-  bounded diagnostics, and makes malformed current authority fail `COLD`. None
-  of these assertions has executed in Campaign Debug yet, and the state-only
-  fixture does not prove native seat, damage, movement, cache, serialization, or
-  process-restart behavior.
+  bounded diagnostics, and makes malformed current authority fail `COLD`. All
+  nine assertions pass in the focused engine profile. They have not executed as
+  part of Full Campaign Debug, and the state-only fixture does not prove native
+  seat, damage, movement, cache, serialization, or process-restart behavior.
 - Schema 62 now provides one canonical ownership-transition source path for
   military capture, mission capture, political support, admin, debug seed, and
   migration repair. Its deterministic proof covers capture, bidirectional
@@ -2375,8 +2398,9 @@ later source slice, sealing source, or publishing a build does not waive them.
   setup no-marker history through activation, exact support target/prefix and
   derived receipt correlation corruption, persistence deadline/re-arm, all cause
   routes, non-patrol/orphan/late exact-security fail-close,
-  migration/quarantine, and retention. Those assertions have not yet run in a
-  Campaign Debug or packaged server/client session.
+  migration/quarantine, and retention. All 14 assertions pass in the focused
+  engine profile. They have not yet run in Full Campaign Debug or a packaged
+  server/client session.
 - Accepted ownership work has an explicit durable checklist. Exact patrol and
   aggregate security retirement, hostile-runtime cleanup, new security, and
   frozen support consequences precede the owner/revision write. Later town,
@@ -2391,10 +2415,11 @@ later source slice, sealing source, or publishing a build does not waive them.
   pre-owner status alone is not valid restore authority. A live packaged save/
   restart test must still prove the retry boundary
   and that no intermediate owner/marker state escapes.
-- An earlier parent's exact linked-town support event still records its one
-  influence fact when a later pristine receipt owns that town backlink. Only
-  political threshold reconciliation defers; the periodic civilian pass resumes
-  it after FIFO ownership work drains.
+- An exact linked-town support event records its influence fact once and calls
+  canonical ownership reconciliation immediately. If an earlier top-level row
+  is unresolved, the ownership service correlates already represented intent or
+  persists the exact later receipt as queued. Only the periodic fallback scan
+  waits for FIFO work to drain.
 - Current source keeps command-menu control counts, labels, tones, capture rows,
   and income on resolver-first published authority during retry. A retained
   marker only corroborates exact resolved owner/source revision; it cannot lead
@@ -3680,9 +3705,9 @@ Unproven or incomplete against the pasted contract:
 | Schema-69 exact enemy counterattack | Newly admitted contract-`1` counterattacks retain one frozen infantry aggregate, one charged pool, direct virtual travel, deterministic combat, casualty-preserving projection, canonical ownership, return, and proportional settlement. Schema-neutral restore correlates canonical request-ID-or-operation-source ownership rows against the full receipt fingerprint and legal lifecycle before runtime ownership reconciliation. The eighth restart cut proves raw-to-normalized pending restore, exactly-once owner completion, one production tick to raw/restored `RETURNING`, and replay with canonical overwrite denied and file identity unchanged. Invalid authority still quarantines without fabricated effects. | Implementation/source `7eb0a98977c523f6713a9e2088eab7ba20a333fd`, UTC `2026-07-16T17:12:17Z`, label `schema70-settings24-counterattack-owner-applied-restart`, stamp `8947b2668655fcb58d8339c8b3f77541c39661bc`, keeps Schema 70/settings 24. Final stamped Foundation passes 819; Workbench passes 5,832/11,835 at CRC `417e9910`; and all eight chains pass 24/24 stages with exact fingerprints and cleanup. Exact QRF/rebuild normalization remains static-only here. Package/live/network, migration, markers, performance, and soak remain open. |
 | Schema-70 exact enemy garrison rebuild and preceding QRF prepared recovery | Newly admitted contract-`1` rebuilds preflight one capacity-bounded frozen infantry roster and source/target ownership capability before one 10-support debit, then build one reciprocal order/operation/manifest/batch/group graph or roll back exactly. Casualties persist across virtual/physical transfer. Delivery links survivors as held garrison authority under an `OPEN`/`ON_STATION` operation with a zero-delta receipt and no aggregate double count; later terminal retirement refunds zero. Historical rows remain contract `0`, while malformed/orphan current authority quarantines at `-70` with claimant-wide process holds and retention pins. Exact defensive QRFs persist `PREPARED` intent, stage a complete unapplied tuple, validate debit/claimants/survivors, apply or replay the QRF-shaped refund, publish the applied receipt last, and finalize operation/order tails. | The preceding exact-QRF checkpoint passes its focused case and guarded before-refund/after-refund/after-receipt fresh-process matrix with exact replay and cleanup. At that historical checkpoint, native source selection and world/physical behavior remained open for both families. The current `delivery_pending` and `physical_live_fold` sections above now close exact garrison JSON delivery plus scoped native materialize/move/fold/restart; they do not close defensive-QRF native realization, natural route/contact combat, broader package/live/network/JIP/reconnect, migration/markers, performance, or soak. |
 | Provisional Partisan profile-tree migration | `$profile:Partisan` is the only generated-data root. Before consumers run, arbitrary nested retired files use verified staging, destination recheck, canonical or file/directory conflict archival, final byte comparison, and only then source deletion. Directories delete deepest first; completion requires the retired root to be absent. Same-process calls are guarded and supported startup is single-writer because cross-process atomic promotion/locking is unavailable. | Foundation/all-target Workbench pass. Latest package proved canonical generation only and had no retired tree. Packaged nested-file, identical/different-conflict, directory-conflict, empty-directory/root-removal, semantic settings/save migration, and restart proof remain open. |
-| Ownership transition | Schema-62 source fixtures exercise all cause routes, FIFO/pristine restore, replay/conflict/stale handling, interrupted restore, staged full-marker rollback, resolver fail-close/unsafe-row purge, setup history, exact correlations, persistence re-arm, nested release, restart, security, migration, and retention. Schema 64 routes strict political threshold intent through this same transaction; Schema 66 preflights and retires exact local-security authority before owner publication. | Execute the proof, then package-test local-security casualty reconciliation/non-loss retirement, zero resistance police/roadblocks, queued political intent, exact consequences, real persistence resume, rendered marker/menu/GM/notification coherence, multiplayer/reconnect/JIP, and all callers. No town support, legacy projection, or generic security cleanup may bypass these owners. |
-| Combat presence and zone heat | Sealed Schema-63 source wires one shared cached service into capture, missions, HQ, civilians, and enemy strategy; its state-only proof covers empty vehicles, authoritative count separation, rejected stale/terminal/quarantined rows, exact heat timing/rebound and pre-cooling HOT guard, pre-63 cold migration, bounded valid cooling restore, malformed-current fail-cold, physical-sample invalidation, and deterministic bounded diagnostics. Foundation passes at 681 references; normal Workbench open compiled/created 5,788 files/11,670 classes at CRC `a40056c5` without HST script errors or a crash, and explicit validation passes for all five configurations. | The assertions have not run. Native runtime must prove conscious/unconscious, dismounted/cargo/pilot/turret, armed/unarmed, mobile/static, destroyed/burning/immobile, registered/stale classification; fail-closed authority gaps and strict player filtering; allocation/cache invalidation/order; virtual casualties; all consumers; exact 30-second cooling; real save/restart; and no save-dirty or stutter regression. |
-| Town influence and political Map/War | The preceding sealed Schema-64/settings-23 source checkpoint wires one canonical town service, save validator, and pure Map/War projection. The sealed Schema-65 delta extends exact event identity with aggression target/delta/before/after evidence. Sealed Schema 67 requires the matching aggression mutation to enter the canonical per-enemy mutation authority rather than a direct pool write. | Execute the existing fixtures plus Schema-67 town-event-to-aggression receipt replay/conflict/restart cases. Prove pre-64/pre-65/pre-67 migration order, `-64`/`-65`/`-67` quarantine, separate occupier/invader state, stable-ID exhaustion, every caller, no owner bypass, real serialization/restart, rendered rows, due-expiry cost, and no stutter. |
+| Ownership transition | Schema-62 routes every cause through one ordered receipt; Schema 64 submits strict political intent to that same owner, and Schema 66 preflights exact local-security authority before publication. The focused engine profile passes all 14 ownership assertions, including FIFO/pristine restore, replay/conflict/stale handling, nested publication, exact correlation, migration, quarantine, and retention. | This is isolated state-only fixture evidence. Package-test active-world security/economy/event consequences, real persistence resume, rendered marker/menu/GM/notification coherence, multiplayer/reconnect/JIP, and all callers. No town support, projection, or generic security cleanup may bypass this owner. |
+| Combat presence and zone heat | Schema 63 wires one shared cached service into capture, missions, HQ, civilians, and enemy strategy. The focused engine profile passes all 9 combat-presence assertions for empty vehicles, physical/virtual separation, rejected rows, heat lifecycle, migration/restore, malformed fail-cold, and deterministic diagnostics. | Native runtime must still prove occupant/platform classification, fail-closed gaps/player filtering, allocation/cache invalidation, all consumers, exact cooling, real save/restart, and no save-dirty or stutter regression. |
+| Town influence and political Map/War | Schema 64 owns canonical support/population/contact/flip authority and pure Map/War projection; later schemas extend exact aggression evidence and canonical enemy mutation. The focused engine profile passes all 12 town-influence assertions, including scaling/equality, owner delegation, distinct enemy support, migration, current restore, quarantine, and legacy support projection. | Prove production/native callers, pre-64/pre-65/pre-67 real migration order, serialization/restart, contact and rendered Map/War rows, JIP/reconnect, due-expiry cost, performance, and no stutter. |
 | Active-group lifecycle | Deterministic `active_group_lifecycle.*` cases prove one mixed-QRF personnel-terminal transition, linked QRF failure, zero capture pressure, terminal-before-unresolved marker ordering, replay no-op, schema-48 roundtrip, and living-mixed/vehicle-only controls. | Physical neutral-salvage detachment, entity/handle cleanup, player capture, dedicated replication, ownership-flip behavior, and process restart remain external runtime gaps. |
 | Physical AI combat | Timed `physical_combat.ai_contact` probe spawns temporary resistance/enemy active groups in the player render bubble, proves native faction hostility, assigns opposing search-and-destroy waypoints, samples live counts/distance through the normal physical-war tick, requires live-count loss during the hostile-contact window, and cleans all temporary groups/waypoints. | This does not yet prove support-arrival combat, primitive area-clearing combat, or multi-wave Petros/counterattack resolution. |
 | Missions and primitives | All-mission start/runtime/cleanup cases, primitive-specific probes for kill/destroy/recover/deliver/rescue/hold/clear, exact reward assertions, mission cleanup checks, and explicit admin-cleanup WARN classification. | Natural player driving/path travel, mission-owned hostile combat/area clearing, and true runtime completion for every mission remain partial. |
@@ -3693,7 +3718,7 @@ Unproven or incomplete against the pasted contract:
 | Markers/UI/native markers | Prior command/model/native-handle assertions plus the Schema-61 stream and Schema-62 protocol-2 source revision. The Schema-66 repair protects system markers. The owner-client probe mutates and deletes a tracked campaign marker, runs and retries final production repair, proves canonical system ownership/non-removability, stable registry/static count, exactly one instance, and isolated player-marker edit/removal/cleanup. | The probe compiles in current Workbench validation but has not executed. Run it, then republish and attempt campaign-marker delete/move/edit on host/client; prove bounded self-heal, player-marker isolation, host/two-client equality, atomicity, no duplicate set, map reopen, reconnect/late join, and cleanup. |
 | Background war/escalation/campaign end | Controlled commander tick, POI target assertions, resource spending, low/mid/high pressure windows, short repeated background-war commander/resource cycle, aggression decay, forced victory/loss terminal snapshots. | Extended autonomous occupier-vs-invader soak and heavier support eligibility across varied POIs remain open. |
 | Render bubbles | One clean zone far/near/leave activation and cleanup timeout through physical-war update, expired player-bound mission asset near/far/player-carrier bubble policy assertions, and expired convoy contact near/far preserve/delete cleanup policy assertions. Sealed Schema 63 uses activation radius for entry and the larger deactivation radius for exit. | The existing runtime artifact predates that hysteresis. Re-execute boundary crossings, rendered inspection, stutter profiling, and multiple zone-type windows. |
-| Persistence | Baseline typed persistence and seeded smoke roundtrip exist. R26 retains exact-QRF prepared recovery. Schema 71 adds the verified two-slot journal, monotonic checkpoint/restore ordering, exact native-envelope payload identity, degraded profile-only recovery, write-ahead admin reset, and fail-closed future/split-brain/broken-chain handling. Blocking shutdown repeats all prepared-graph/player preflights before one-way nearby/active-group/vehicle/rescue latches, freezes mutating coordinator ingress, and pins DTO plus native captive/carrier/seat/player/controller/physics topology for retry maintenance. The focused journal testcase remains 1/1 with 41/41 exact booleans. The ordinary chain passes 5/5 and generations 1 -> 2 -> 3, keeps native/profile verification read-only, preserves exact field-vehicle authority, and proves the mixed-native rejection/release protocol plus `FOLLOWING`, seatless `BOARDING`, stable-seat `BOARDED`, durable old-ID-to-fresh-root binding, frozen fingerprint with separate 3 m/3 degree pose bounds, and ordered guard rematerialization. All post-prepare stages retain 3 captives/1 carrier/1 group/2 living/3 handles and exact-zero cleanup. Native-over-stale-journal and administrative-reset chains remain exact. Both garrison cuts pass fresh-process prepare/recover/replay: `delivery_pending` applies once and replays read-only; `physical_live_fold` preserves 9 accepted/8 living/1 casualty through one root/nine handles/eight native members, observed movement/closure, exact production fold, restart, and replay. Current source passes Foundation 874 and Workbench 5,846 files/11,899 classes at CRC `9a79a33a`, with zero hard errors. | Generic `persistence.real_restart` remains BLOCKED in the integrated one-button suite despite the guarded ordinary closure, and the separate live `SCRIPTED`-at-debounce stage was not run. The mixed-native fixture is scoped controlled-shutdown/restart evidence, not packaged live multiplayer, JIP, reconnect, broad failure-injection, performance, or soak certification. Broader package/live/network authority, arbitrary affected-save migration/conflict breadth, other force families, natural garrison route/combat, multi-writer/off-device recovery, local-security/event/vehicle breadth, and markers remain open. The journal is crash-tolerant rather than atomic, and arbitrary old QRF partial rows remain fail-closed. |
+| Persistence | Baseline typed persistence and seeded smoke roundtrip exist. R26 retains exact-QRF prepared recovery. Schema 71 adds the verified two-slot journal, monotonic checkpoint/restore ordering, exact native-envelope payload identity, degraded profile-only recovery, write-ahead admin reset, and fail-closed future/split-brain/broken-chain handling. Blocking shutdown repeats all prepared-graph/player preflights before one-way nearby/active-group/vehicle/rescue latches, freezes mutating coordinator ingress, and pins DTO plus native captive/carrier/seat/player/controller/physics topology for retry maintenance. The focused journal testcase remains 1/1 with 41/41 exact booleans. The ordinary chain passes 5/5 and generations 1 -> 2 -> 3, keeps native/profile verification read-only, preserves exact field-vehicle authority, and proves the mixed-native rejection/release protocol plus `FOLLOWING`, seatless `BOARDING`, stable-seat `BOARDED`, durable old-ID-to-fresh-root binding, frozen fingerprint with separate 3 m/3 degree pose bounds, and ordered guard rematerialization. All post-prepare stages retain 3 captives/1 carrier/1 group/2 living/3 handles and exact-zero cleanup. Native-over-stale-journal and administrative-reset chains remain exact. Both garrison cuts pass fresh-process prepare/recover/replay: `delivery_pending` applies once and replays read-only; `physical_live_fold` preserves 9 accepted/8 living/1 casualty through one root/nine handles/eight native members, observed movement/closure, exact production fold, restart, and replay. The retained mixed-native checkpoint passed Foundation 874 and Workbench 5,846 files/11,899 classes at CRC `9a79a33a`, with zero hard errors. | Generic `persistence.real_restart` remains BLOCKED in the integrated one-button suite despite the guarded ordinary closure, and the separate live `SCRIPTED`-at-debounce stage was not run. The mixed-native fixture is scoped controlled-shutdown/restart evidence, not packaged live multiplayer, JIP, reconnect, broad failure-injection, performance, or soak certification. Broader package/live/network authority, arbitrary affected-save migration/conflict breadth, other force families, natural garrison route/combat, multi-writer/off-device recovery, local-security/event/vehicle breadth, and markers remain open. The journal is crash-tolerant rather than atomic, and arbitrary old QRF partial rows remain fail-closed. |
 | Cleanup/stalls | Prefixed persisted cleanup, tagged world cleanup, post-case leak probes, typed enemy-order settlement, and stall evidence for several physical categories. R23 remains the dated QRF-defect reproduction; R24 first restored clean typed cleanup while isolating the validator mismatch. R26 is the historical comparison: settled 0, failures 0, open tracked orders 0, runtime claimants 0, open-order leak 0 -> 0, and an exact-zero tracked-state diff. | World-scope restoration remains intentionally BLOCKED pending a disposable-session restart. Arbitrary untagged leftovers cannot be removed; stall evidence is not yet uniform for every physical category. |
 
 ## Implemented Evidence

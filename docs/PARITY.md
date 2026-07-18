@@ -2,9 +2,25 @@
 
 Campaign Schema 71 and runtime-settings Schema 24 are current. The current
 sealed implementation/source identity is
-`60596bf77d056b9e63ed1bbbf4d11c1941330fe6`, UTC `2026-07-18T14:12:51Z`, label
-`schema71-settings24-mixed-native-shutdown-restart`.
-This stamp includes the passing mixed-native evidence below.
+`32727238d74b29905c68e5a80bb5897dfdc783c0`, UTC `2026-07-18T16:34:38Z`, label
+`schema71-settings24-focused-force-authority`.
+This stamp adds the focused force-authority checkpoint and retains the passing
+mixed-native evidence below.
+
+## Current Focused Force-Authority Parity Boundary
+
+The focused engine profile passes all 35 targeted state-only assertions:
+combat presence 9/9, ownership transitions 14/14, and town influence 12/12. Its
+typed case is `PASS`, all 87 counted conditions are proven, all 18 tracked state-
+diff rows remain zero, artifacts are stable, errors and crashes are zero, and
+owned cleanup is exact-zero. Stamped Workbench validation passes at 5,846 files/11,899
+classes and CRC `cad640f3` with zero hard errors.
+
+This closes deterministic fixture parity for those exact boundaries only.
+`CertificationPassed:false` intentionally prevents a focused profile from
+claiming full certification. Native-world classification and consequences,
+persistence/restart, rendered client projection, packaged server/client,
+multiplayer/network/JIP/reconnect, performance, and soak parity remain open.
 
 ## Current Controlled-Shutdown Native Fence Parity Boundary
 
@@ -111,7 +127,7 @@ native-active checkpoints still advance the journal only after the matching
 successful native callback. Fallback-only ordinary writes remain synchronous;
 failed ordinary native completion writes no JSON.
 
-Final stamped evidence passes Foundation at 874 references and Workbench at
+The retained journal/shutdown stamped evidence passes Foundation at 874 references and Workbench at
 5,846 files/11,899 classes and CRC `9a79a33a`, with zero hard errors and cleanup
 residue. The focused journal-authority testcase passes 1/1 with 41/41 exact
 booleans, zero failures/errors/skips, an empty failed list, and native-load
@@ -1371,10 +1387,10 @@ Debug and packaged-runtime gates remain open.
   marker/menu/GM/notification publication to their parent. Later valid top-level
   requests are admitted as pristine accepted/needs-retry receipts and execute in
   array order before any domain mutation. Exact mission, political, admin, and
-  migration intent therefore survives the fence and restart. An earlier exact
-  linked-town support fact still commits once when a later pristine town receipt
-  owns the backlink; only political threshold reconciliation waits for FIFO drain
-  and the periodic civilian pass. Queued followers remain valid only while every
+  migration intent therefore survives the fence and restart. An exact linked-
+  town support fact commits once and submits threshold intent immediately; the
+  service correlates existing intent or queues its exact receipt behind earlier
+  work, while only the periodic fallback scan waits for FIFO drain. Queued followers remain valid only while every
   later unresolved top-level receipt is pristine, not merely pre-owner. Ordinary
   rebuilds ignore queued pre-owner receipts, while active owner-applied and completed
   unreleased receipts retain their prior owner/revision; command UI ownership
@@ -1680,15 +1696,17 @@ Debug and packaged-runtime gates remain open.
 ## Current Verification Boundary
 
 - Campaign Schema 71/runtime-settings 24 is the current contract. The sealed
-  implementation/source is `60596bf77d056b9e63ed1bbbf4d11c1941330fe6`, UTC
-  `2026-07-18T14:12:51Z`, label
-  `schema71-settings24-mixed-native-shutdown-restart`, implements the two-generation
-  recovery journal, monotonic native/journal order, journal-authoritative
-  administrative reset, the controlled-shutdown native fence, and both exact
-  rebuild restart cuts and the passing mixed-native extension.
-  Foundation passes 874; Workbench passes 5,846/11,899 at
-  CRC `9a79a33a` with zero hard errors and cleanup; the focused journal testcase
-  passes 1/1, 41/41 exact booleans, an
+  implementation/source is `32727238d74b29905c68e5a80bb5897dfdc783c0`, UTC
+  `2026-07-18T16:34:38Z`, label
+  `schema71-settings24-focused-force-authority`. It adds the dedicated focused
+  combat-presence/ownership-transition/town-influence engine case and retains
+  the two-generation recovery journal, controlled-shutdown native fence, exact
+  rebuild cuts, and mixed-native restart evidence. Foundation passes 874;
+  Workbench passes 5,846/11,899 at CRC `cad640f3` with zero hard errors and
+  exact-zero cleanup. The focused force-authority case passes 35/35 targeted and
+  87/87 counted conditions with 18/0 state diff and zero errors/crashes/cleanup.
+  This is state-only fixture evidence, not full certification. The earlier
+  focused journal testcase passes 1/1, 41/41 exact booleans, an
   empty failed list, and native-load v1/v2/bad/future at 1/1/1/1; the
   ordinary five-process chain passes generations 1 -> 2 -> 3, canonical
   generation 3, two valid slots, an exact chain, read-only native/profile-

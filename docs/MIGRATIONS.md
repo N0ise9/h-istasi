@@ -1,9 +1,25 @@
 # Campaign Save Migrations
 
 Current implementation/source identity is
-`60596bf77d056b9e63ed1bbbf4d11c1941330fe6`, UTC `2026-07-18T14:12:51Z`, label
-`schema71-settings24-mixed-native-shutdown-restart`. Campaign Schema 71 and
+`32727238d74b29905c68e5a80bb5897dfdc783c0`, UTC `2026-07-18T16:34:38Z`, label
+`schema71-settings24-focused-force-authority`. Campaign Schema 71 and
 runtime-settings Schema 24 are current.
+
+## Current Focused Force-Authority Proof - No Schema Change
+
+This checkpoint adds no serialized field, enum ordinal, envelope, settings
+field, or force-contract version. Campaign Schema remains 71 and runtime-
+settings Schema remains 24. The migration scorer now compares candidates
+against an immutable FIA/occupier target pair, and quarantine proofs mutate the
+copied save DTO after `Capture()`. Those corrections validate existing Schema-62
+ownership and Schema-64 town-migration authority without changing serialized
+shape.
+
+The focused engine case passes the 14 ownership-transition and 12 town-influence
+assertions within its 35/35 targeted result. This is deterministic state-only
+fixture evidence, not a real older-save process-restart matrix; arbitrary save
+history, native persistence, packaged server/client, network/JIP/reconnect, and
+multiplayer migration proof remain open.
 
 ## Current Mixed-Native Shutdown/Restart Proof - No Schema Change
 
@@ -101,7 +117,7 @@ native staging. Once that write-ahead generation verifies, it remains the
 newer recovery authority; later native failure is degraded replica repair and
 cannot restore the pre-reset campaign.
 
-The sealed checkpoint passes Foundation at 874 references and stamped Workbench
+The retained mixed-native shutdown checkpoint passes Foundation at 874 references and stamped Workbench
 validation at 5,846 files/11,899 classes, CRC `9a79a33a`, with zero hard errors
 and zero owned cleanup residue. The focused authority proof passes 1/1 with an empty failed list,
 41/41 exact cases, and native-v1/native-v2/invalid-fingerprint/future-envelope
