@@ -1,5 +1,11 @@
 # Partisan Feature Checklist
 
+> Release-closure authority: [`CURRENT_STATUS.md`](CURRENT_STATUS.md) is the
+> generated current decision/evidence surface, and
+> [`ANTISTASI_CE311_PARITY_MATRIX.md`](ANTISTASI_CE311_PARITY_MATRIX.md) is the
+> generated behavioral specification. Chronological checkpoints below retain
+> scoped evidence but do not supersede those generated files.
+
 Campaign Schema 71 and runtime-settings Schema 24 are current. The current
 sealed implementation/source identity is
 `32727238d74b29905c68e5a80bb5897dfdc783c0`, UTC
@@ -7,6 +13,26 @@ sealed implementation/source identity is
 `schema71-settings24-focused-force-authority`.
 This stamp includes the focused force-authority checkpoint and retains the
 passing mixed-native proof described below.
+
+## Current Release-Closure Gate 0
+
+- [x] Freeze Campaign Schema 71 and runtime-settings Schema 24 for
+  stabilization work. A later schema change requires a data-loss, hard
+  lifetime-limit, or release-blocking persistence justification plus migration
+  proof.
+- [x] Generate one short `CURRENT_STATUS.md` from checked data and current
+  source identities.
+- [x] Pin CE 3.11.1 commit
+  `6e4226d3863ca8673535386c2fff8b6e08a806c4` in a machine-backed behavioral
+  matrix.
+- [x] Inventory all 39 configured/runtime missions, all 177 routed command
+  action IDs, and all 17 concrete contextual action classes; fail generation
+  on source/manifest drift or a missing contract mapping.
+- [x] Separate scoped focused evidence from the older red Full Campaign Debug
+  result and keep the release decision `NO-GO`.
+- [ ] Build and retain one immutable release-candidate package with exact Git,
+  embedded implementation, Workbench, package, addon, server, and client
+  identities. This is Gate 1, not evidence inherited from Gate 0.
 
 ## Current Focused Force-Authority Engine Checkpoint
 
@@ -1145,7 +1171,12 @@ safe across save, restart, reconnect, and long sessions
 honest about unavailable base-game assets
 ```
 
-## Status Legend
+## Historical Feature-Maturity Legend
+
+The labels in this section remain useful for the detailed feature inventory,
+but they are not proof rungs. Current release claims use only the generated
+`implemented -> state-proven -> native-proven -> restart-proven ->
+mp-jip-proven -> soak-proven -> certified` vocabulary.
 
 | Status | Meaning |
 | --- | --- |
@@ -1158,7 +1189,7 @@ honest about unavailable base-game assets
 | Needs Runtime Proof | The source path exists, but required compile/startup and/or isolated runtime evidence is still missing; the row names the open gate. |
 | Unsafe On Live State | A debug or migration path can persist destructive test mutations and must be isolated before use on valuable state. |
 
-## Current Delivery Gate — Campaign Runtime Integrity
+## Campaign Runtime Integrity Delivery Gate
 
 `Designed` means the contract and dependency order are recorded. `Implemented`
 means the named production slice exists. `Verified` means an appropriate proof
@@ -1177,7 +1208,7 @@ passed, all 18 state deltas were zero, and every guarded error and cleanup
 counter was zero. That historical source passed Foundation at 808 references
 and stamped PC Game validation at 5,830 files/11,822 classes and CRC `e836e3b4`.
 
-The current Schema-71 checkpoint also has separate final stamped focused and
+An earlier Schema-71 journal checkpoint has separate final stamped focused and
 fresh-process evidence rather than new integrated-suite totals: Foundation
 passes 851 references; Workbench passes 5,842/11,862 at CRC `c4bc4b3d`; the
 focused journal testcase passes 1/1, all 41 exact booleans, and the native-load

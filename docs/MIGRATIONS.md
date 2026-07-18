@@ -1,9 +1,20 @@
 # Campaign Save Migrations
 
+> [`CURRENT_STATUS.md`](CURRENT_STATUS.md) is the generated current release
+> surface. This file remains the detailed migration record; historical schema
+> checkpoints do not imply release certification.
+
 Current implementation/source identity is
 `32727238d74b29905c68e5a80bb5897dfdc783c0`, UTC `2026-07-18T16:34:38Z`, label
 `schema71-settings24-focused-force-authority`. Campaign Schema 71 and
 runtime-settings Schema 24 are current.
+
+Schema 71/settings 24 are frozen for release stabilization. A schema advance is
+permitted only to prevent data loss, remove a hard campaign-lifetime cutoff, or
+repair a release-blocking persistence defect. It must include the durable-data
+justification, supported-window decision, and migration/fault fixture before
+merge. Generated status, parity, packaging, proof, UI, and source-shape changes
+do not justify a schema advance.
 
 ## Current Focused Force-Authority Proof - No Schema Change
 

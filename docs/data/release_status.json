@@ -1,0 +1,170 @@
+{
+  "schemaVersion": 1,
+  "statusAsOfUtc": "2026-07-18T16:34:38Z",
+  "releaseStage": "development alpha",
+  "releaseDecision": "NO-GO",
+  "auditedRevision": "25dedb3e82ad516c28826830bc1e06a2d3940f53",
+  "baseline": {
+    "campaignSchema": 71,
+    "runtimeSettingsSchema": 24,
+    "embeddedImplementationSha": "32727238d74b29905c68e5a80bb5897dfdc783c0",
+    "embeddedBuildUtc": "2026-07-18T16:34:38Z",
+    "embeddedBuildLabel": "schema71-settings24-focused-force-authority"
+  },
+  "artifact": {
+    "releaseCandidateBuilt": false,
+    "packageSha256": "",
+    "packageVersion": "",
+    "addonGuid": "",
+    "serverVersion": "",
+    "clientVersion": "",
+    "note": "No immutable release-candidate package has been built from the stabilization baseline. Package, addon, server, and client identities are therefore not yet certifiable."
+  },
+  "evidence": {
+    "foundation": {
+      "status": "passed",
+      "sourceSha": "32727238d74b29905c68e5a80bb5897dfdc783c0",
+      "referenceCount": 874,
+      "summary": "The retained source/resource contract gate passed for the embedded implementation identity."
+    },
+    "workbench": {
+      "status": "passed",
+      "sourceSha": "32727238d74b29905c68e5a80bb5897dfdc783c0",
+      "fileCount": 5846,
+      "classCount": 11899,
+      "crc": "cad640f3",
+      "summary": "ScriptEditor validation completed with zero first-party hard errors for the embedded implementation identity."
+    },
+    "focusedForceAuthority": {
+      "status": "passed-noncertifying",
+      "sourceSha": "32727238d74b29905c68e5a80bb5897dfdc783c0",
+      "caseCount": 35,
+      "passedCases": 35,
+      "countedConditions": 87,
+      "passedConditions": 87,
+      "certificationPassed": false,
+      "summary": "State-only combat-presence, ownership-transition, and town-influence fixtures passed; native world, package, network, restart breadth, performance, and soak remain outside this result."
+    },
+    "fullCampaignDebug": {
+      "status": "historical-failed",
+      "sourceSha": "7c8b9c27b4ee553664fa2b44aea4a8d53c7123a5",
+      "runId": "seed1985_t0_p1_u1784134163",
+      "totalCases": 687,
+      "pass": 583,
+      "warn": 50,
+      "fail": 46,
+      "blocked": 7,
+      "skipped": 1,
+      "requiredAssertions": 5685,
+      "provenAssertions": 5537,
+      "failedAssertions": 134,
+      "blockedAssertions": 14,
+      "certificationPassed": false,
+      "summary": "This is the newest completed full-suite evidence retained in the repository, but it is red and predates the audited revision. A current-artifact rerun is required before any failure is treated as current or resolved."
+    }
+  },
+  "proofRungs": [
+    {
+      "id": "static-source-resource",
+      "label": "Static/source/resource contracts",
+      "status": "passed",
+      "summary": "Retained Foundation evidence is green for the embedded implementation; the new release-spec drift check must remain green on later revisions."
+    },
+    {
+      "id": "compile-configuration",
+      "label": "Enforce compile and configuration",
+      "status": "passed",
+      "summary": "Retained Workbench evidence is green for the embedded implementation identity, not for a release package."
+    },
+    {
+      "id": "deterministic-service",
+      "label": "Deterministic service contracts",
+      "status": "partial",
+      "summary": "Selected focused fixtures pass, but aggregate autotest registration and the full current suite are incomplete."
+    },
+    {
+      "id": "native-engine-world",
+      "label": "Native engine-world behavior",
+      "status": "partial",
+      "summary": "Scoped native and fresh-process cuts exist; natural movement, full active-world behavior, UI rendering, and broad entity classification remain open."
+    },
+    {
+      "id": "packaged-dedicated",
+      "label": "Packaged dedicated server",
+      "status": "not-run",
+      "summary": "No immutable release-candidate package identity is retained for the audited revision."
+    },
+    {
+      "id": "multiplayer-jip",
+      "label": "Multiple clients, reconnect, and JIP",
+      "status": "not-run",
+      "summary": "Host, two-client, reconnect, late-join, and packet-disruption convergence are not certified."
+    },
+    {
+      "id": "restart-fault",
+      "label": "Fresh-process restart and fault injection",
+      "status": "partial",
+      "summary": "Selected journal, shutdown, field-vehicle, exact-QRF, counterattack, and rebuild cuts pass; the arbitrary full campaign graph and fault matrix remain open."
+    },
+    {
+      "id": "performance-soak",
+      "label": "Performance and long soak",
+      "status": "not-run",
+      "summary": "The reported one-second hitch and long-campaign capacity limits have no current immutable-package soak evidence."
+    },
+    {
+      "id": "canary",
+      "label": "Canary release",
+      "status": "blocked",
+      "summary": "Blocked by every lower unproven release rung."
+    },
+    {
+      "id": "stable-certification",
+      "label": "Stable certification",
+      "status": "blocked",
+      "summary": "No current matrix row is certified."
+    }
+  ],
+  "activeBlockers": [
+    {
+      "id": "STATUS-001",
+      "category": "AUTH",
+      "summary": "No single immutable package and evidence bundle identifies every proof rung."
+    },
+    {
+      "id": "STATUS-002",
+      "category": "PERSIST",
+      "summary": "The newest completed Full Campaign Debug result is historical and red; current failures and blockers are not yet reclassified on the audited source."
+    },
+    {
+      "id": "STATUS-003",
+      "category": "UI",
+      "summary": "Known command-menu and modal-map defects remain open until source correction plus rendered packaged-client proof."
+    },
+    {
+      "id": "STATUS-004",
+      "category": "MOVE",
+      "summary": "Natural sustained infantry and convoy travel, identical-waypoint suppression, and measured no-stutter behavior are not proven."
+    },
+    {
+      "id": "STATUS-005",
+      "category": "PROJ",
+      "summary": "Campaign read-model convergence is not proven with host, two clients, reconnect, JIP, restart, and marker-cap boundaries."
+    },
+    {
+      "id": "STATUS-006",
+      "category": "PERF",
+      "summary": "The one-second hitch and bounded-history admission cliffs remain unclosed."
+    },
+    {
+      "id": "STATUS-007",
+      "category": "MISSION",
+      "summary": "Configured mission breadth still exceeds mission-specific CE 3.11.1 behavioral parity and proof."
+    },
+    {
+      "id": "STATUS-008",
+      "category": "SEC",
+      "summary": "Development proof and destructive diagnostic surfaces have not yet been separated from the release package."
+    }
+  ]
+}

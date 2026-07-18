@@ -1,0 +1,969 @@
+{
+  "schemaVersion": 1,
+  "baseline": {
+    "name": "Antistasi Community Edition",
+    "version": "3.11.1",
+    "tagCommit": "6e4226d3863ca8673535386c2fff8b6e08a806c4",
+    "releaseUrl": "https://github.com/official-antistasi-community/A3-Antistasi/releases/tag/3.11.1",
+    "sourceUrl": "https://github.com/official-antistasi-community/A3-Antistasi/tree/6e4226d3863ca8673535386c2fff8b6e08a806c4",
+    "guideUrl": "https://official-antistasi-community.github.io/A3-Antistasi-Docs/reference_guide/reference_guide_index.html"
+  },
+  "proofVocabulary": [
+    {
+      "id": "implemented",
+      "meaning": "A production source path exists."
+    },
+    {
+      "id": "state-proven",
+      "meaning": "A deterministic service or state fixture passes."
+    },
+    {
+      "id": "native-proven",
+      "meaning": "Ordinary engine entities and callbacks pass."
+    },
+    {
+      "id": "restart-proven",
+      "meaning": "A new process restores the exact scenario."
+    },
+    {
+      "id": "mp-jip-proven",
+      "meaning": "Packaged server, clients, reconnect, and late join converge."
+    },
+    {
+      "id": "soak-proven",
+      "meaning": "Behavior and performance remain bounded over the declared duration and load."
+    },
+    {
+      "id": "certified",
+      "meaning": "Every required lower proof rung passes on one unchanged package."
+    }
+  ],
+  "dispositions": [
+    "exact",
+    "partial",
+    "legacy",
+    "missing",
+    "deferred",
+    "deliberate-divergence",
+    "development-only"
+  ],
+  "contractRows": [
+    {
+      "id": "setup-campaign",
+      "domain": "Setup, faction choice, campaign slots, parameters, solo and co-op",
+      "priority": "P0",
+      "upstreamChangeHistory": "CE 3.11.0 added true single-player behavior; CE 3.11.1 is the pinned baseline.",
+      "upstreamEvidence": [
+        "https://official-antistasi-community.github.io/A3-Antistasi-Docs/beginners_guide/raw_beginners_guide.html",
+        "https://github.com/official-antistasi-community/A3-Antistasi/releases/tag/3.11.1"
+      ],
+      "observableContract": "A new campaign exposes explicit faction, parameter, commander, membership, solo/co-op, and starting-position rules before durable play begins.",
+      "formulaContract": "Starting resources, player scaling, initial ownership, and setup restrictions must be recorded as pinned data rather than inferred from labels.",
+      "reforgerAdaptation": "Use Reforger lobby, role, and pause capabilities; any missing single-player time-control behavior must be a visible scope decision.",
+      "partisanStateOwner": "HST_CampaignState setup, player, faction, HQ, and preset fields",
+      "partisanServiceOwner": "HST_CampaignBootstrapService and HST_PlayerLifecycleService",
+      "physicalBehavior": "Setup creates only the authored/runtime entities owned by the accepted campaign choices.",
+      "virtualBehavior": "The strategic graph exists before any render-bubble projection.",
+      "transactionPolicy": "Starting balances and grants are typed once-only bootstrap facts.",
+      "persistenceMigration": "Setup completion, chosen factions, parameters, and identities survive restart without replay.",
+      "clientProjection": "Every client and late joiner sees the same setup completion, commander, factions, and starting state.",
+      "disposition": "partial",
+      "proofIds": ["foundation.setup", "campaign_debug.setup", "external.setup_mp_jip"],
+      "blockingMilestone": "Gate 8 resistance progression and Gate 10 complete-campaign validation"
+    },
+    {
+      "id": "hq-command-economy",
+      "domain": "HQ, Petros, commander, membership, rank, points, personal and faction money",
+      "priority": "P0",
+      "upstreamChangeHistory": "CE 3.11.1 retains the CE 3.11.x commander, HQ, Petros, and split player/faction economy model.",
+      "upstreamEvidence": [
+        "https://official-antistasi-community.github.io/A3-Antistasi-Docs/reference_guide/concepts_info/concepts/hq_attack.html",
+        "https://official-antistasi-community.github.io/A3-Antistasi-Docs/reference_guide/reference_guide_index.html"
+      ],
+      "observableContract": "Players can distinguish personal authority and money from faction authority and money, while HQ and Petros create meaningful campaign risk.",
+      "formulaContract": "Rank, points, election, income, HQ discovery, Petros loss, and rebuild values require golden CE 3.11.1 fixtures.",
+      "reforgerAdaptation": "Backend identities and Reforger role/locality rules replace Arma 3 player-object assumptions.",
+      "partisanStateOwner": "HST_CampaignState player, commander, economy, HQ, and Petros records",
+      "partisanServiceOwner": "HST_PlayerLifecycleService, HST_EconomyService, and HST_HQService",
+      "physicalBehavior": "HQ assets and Petros are native projections with exact ownership and lifecycle callbacks.",
+      "virtualBehavior": "HQ knowledge, threat, attack preparation, and recovery continue without nearby players.",
+      "transactionPolicy": "Personal and faction mutations require separate stable ledger identities and once-only settlement.",
+      "persistenceMigration": "Identity, membership, balances, HQ threat, Petros state, and pending consequences restore exactly.",
+      "clientProjection": "Authorized clients receive clear commander/member state, balances, HQ threat, and disabled reasons.",
+      "disposition": "partial",
+      "proofIds": ["campaign_debug.members", "campaign_debug.economy", "campaign_debug.phase22", "external.hq_restart"],
+      "blockingMilestone": "Gate 8 resistance progression"
+    },
+    {
+      "id": "locations-ownership",
+      "domain": "Location taxonomy, map graph, ownership, flags, garrisons, and facilities",
+      "priority": "P0",
+      "upstreamChangeHistory": "CE 3.11.0 expanded invader town capture and persistent strategic assets.",
+      "upstreamEvidence": [
+        "https://official-antistasi-community.github.io/A3-Antistasi-Docs/reference_guide/concepts_info/concepts/map_markers.html",
+        "https://github.com/official-antistasi-community/A3-Antistasi/releases/tag/3.11.1"
+      ],
+      "observableContract": "Every strategic location has one stable identity and one owner; military sites change through physical control and publish every consequence once.",
+      "formulaContract": "Location values, capture conditions, garrison policy, and war-level contribution must match the pinned rules or an approved adaptation.",
+      "reforgerAdaptation": "Everon authored locations and Game Master markers replace Arma 3 marker topology while retaining the same strategic cause and effect.",
+      "partisanStateOwner": "HST_CampaignState zone, route, garrison, ownership receipt, and strategic-event records",
+      "partisanServiceOwner": "HST_OwnershipTransitionService and HST_ZoneCaptureService",
+      "physicalBehavior": "Native defenders, flags, authored markers, vehicles, and assets follow one accepted transition revision.",
+      "virtualBehavior": "Off-screen ownership, garrison policy, and strategic consequences use the same revisioned receipt.",
+      "transactionPolicy": "Capture rewards, losses, and enemy commitments settle once from the transition receipt.",
+      "persistenceMigration": "Owner, revision, pending transition, garrison policy, and legacy location aliases restore without duplicate side effects.",
+      "clientProjection": "Host, clients, reconnect, and JIP converge on authored and projected owner state.",
+      "disposition": "partial",
+      "proofIds": ["focused.ownership_transition", "campaign_debug.phase17", "external.figari_ownership_mp_jip_restart"],
+      "blockingMilestone": "Gate 5 strategic truth and living Everon"
+    },
+    {
+      "id": "town-politics",
+      "domain": "Town population, three-way support, political flips, HR, tax, and police",
+      "priority": "P0",
+      "upstreamChangeHistory": "CE 3.11.x retains political town capture and enemy-town police; invader town capture is part of the current baseline.",
+      "upstreamEvidence": [
+        "https://official-antistasi-community.github.io/A3-Antistasi-Docs/reference_guide/concepts_info/concepts/gaining_losing_city_support.html",
+        "https://official-antistasi-community.github.io/A3-Antistasi-Docs/reference_guide/concepts_info/concepts/benefits_of_controlling_a_town.html"
+      ],
+      "observableContract": "Towns change side through population support rather than a generic military hold, and enemy police retire when resistance ownership is accepted.",
+      "formulaContract": "Population, faction support, event magnitude/expiry, flip threshold, HR, and tax formulas require golden fixtures.",
+      "reforgerAdaptation": "The current policy intentionally creates no automatic resistance police; resistance security must come from explicit garrison policy unless a divergence is approved.",
+      "partisanStateOwner": "HST_CampaignState town influence, civilian consequence, local-security, zone, and ownership records",
+      "partisanServiceOwner": "HST_TownInfluenceService, HST_StrategicService, and HST_LocalSecurityOperationService",
+      "physicalBehavior": "Town civilians and enemy local security move, react, suffer exact casualties, and retire on owner change.",
+      "virtualBehavior": "Support events, income, political flips, and security epochs advance without player proximity.",
+      "transactionPolicy": "Aid, casualties, missions, taxes, HR, and ownership consequences settle once through their domain authorities.",
+      "persistenceMigration": "Population, three-way support, event history, epoch, casualties, and owner transition restore exactly.",
+      "clientProjection": "Map/War rows, town details, markers, and notifications use the same support and ownership revisions.",
+      "disposition": "partial",
+      "proofIds": ["focused.town_influence", "focused.combat_presence", "external.living_towns", "external.figari_mp_jip_restart"],
+      "blockingMilestone": "Gate 5 strategic truth and living Everon"
+    },
+    {
+      "id": "facilities-income",
+      "domain": "Resources, factories, seaports, airfields, radio sites, banks, and roadblocks",
+      "priority": "P0",
+      "upstreamChangeHistory": "CE 3.11.0 added or expanded persistent strategic assets, logistics distinctions, and garage/economy behavior.",
+      "upstreamEvidence": [
+        "https://official-antistasi-community.github.io/A3-Antistasi-Docs/reference_guide/concepts_info/concepts/radio_towers.html",
+        "https://official-antistasi-community.github.io/A3-Antistasi-Docs/reference_guide/reference_guide_index.html"
+      ],
+      "observableContract": "Each facility has a distinct strategic value, lifecycle, income/logistics consequence, and enemy response rather than acting as a generic capture-progress source.",
+      "formulaContract": "Income multipliers, airfield restrictions, radio effects, roadblock effects, and facility-specific rewards require pinned fixtures.",
+      "reforgerAdaptation": "Only stock Reforger assets with a safe native lifecycle are enabled; unavailable strategic asset families are explicit deferrals.",
+      "partisanStateOwner": "HST_CampaignState zones, facilities, radio sites, strategic events, and economy records",
+      "partisanServiceOwner": "HST_StrategicService, HST_RadioSiteLifecycleService, and HST_BuildModeService",
+      "physicalBehavior": "Facility assets bind to stable authored/generated entities and accept native destruction, repair, capture, and construction evidence.",
+      "virtualBehavior": "Income, rebuild, radio, and roadblock effects continue from durable strategic state.",
+      "transactionPolicy": "Every income, rebuild, purchase, loss, and mission effect has a typed once-only transaction.",
+      "persistenceMigration": "Facility lifecycle, asset identity, destruction epoch, and pending settlement restore exactly.",
+      "clientProjection": "Facility state, task, marker, report, and disabled reason converge for all clients.",
+      "disposition": "partial",
+      "proofIds": ["focused.radio_lifecycle", "campaign_debug.facilities", "external.facility_restart_mp_jip"],
+      "blockingMilestone": "Gate 7 mission parity and Gate 8 progression"
+    },
+    {
+      "id": "enemy-strategy",
+      "domain": "War level, aggression, attack/support resources, planning, QRFs, counterattacks, and reinforcements",
+      "priority": "P0",
+      "upstreamChangeHistory": "CE 3.11.0 made counterattacks budget-backed and reinforcements physically interceptable; CE 3.11.1 is the pinned correction level.",
+      "upstreamEvidence": [
+        "https://official-antistasi-community.github.io/A3-Antistasi-Docs/reference_guide/concepts_info/concepts/war_level.html",
+        "https://official-antistasi-community.github.io/A3-Antistasi-Docs/reference_guide/concepts_info/concepts/aggto_system_change.html",
+        "https://official-antistasi-community.github.io/A3-Antistasi-Docs/reference_guide/reference_guide_index.html"
+      ],
+      "observableContract": "Occupier and invader plan and spend separately, fight each other and the resistance, and continue campaigning off-screen.",
+      "formulaContract": "War-level thresholds, aggression, budget cadence, target choice, composition, attack timing, debit, refund, and settlement require golden fixtures.",
+      "reforgerAdaptation": "Reforger strategic simulation owns off-screen movement; native groups are projections of budget-backed orders.",
+      "partisanStateOwner": "HST_CampaignState enemy resource pools, planning receipts, orders, operations, routes, and settlements",
+      "partisanServiceOwner": "HST_EnemyStrategicResourceService, HST_EnemyPlanningAuthorityService, and HST_EnemyCommanderService",
+      "physicalBehavior": "Budget-backed forces materialize exact rosters and reconcile native casualties and outcomes.",
+      "virtualBehavior": "Planning, travel, combat, rebuilding, and return advance with no nearby player.",
+      "transactionPolicy": "Commit, debit, cancellation, survivor settlement, and refund share stable order and transaction identities.",
+      "persistenceMigration": "Pools, aggression, planning cadence, commitments, routes, casualties, and receipts restore without replay.",
+      "clientProjection": "Players see only authorized intel, but operation markers/tasks remain revision-consistent across clients.",
+      "disposition": "partial",
+      "proofIds": ["focused.enemy_resources", "focused.enemy_planning", "focused.counterattack", "external.autonomous_enemy_soak"],
+      "blockingMilestone": "Gate 6 autonomous enemy campaign"
+    },
+    {
+      "id": "resistance-forces-supports",
+      "domain": "Resistance squads, garrisons, training, supports, recall, statics, and construction",
+      "priority": "P0",
+      "upstreamChangeHistory": "CE 3.11.x includes persistent resistance forces, training, high command, support restrictions, and recent rebel-aircraft behavior.",
+      "upstreamEvidence": [
+        "https://official-antistasi-community.github.io/A3-Antistasi-Docs/reference_guide/concepts_info/concepts/supportSystem.html",
+        "https://official-antistasi-community.github.io/A3-Antistasi-Docs/reference_guide/concepts_info/concepts/train_fia.html",
+        "https://github.com/official-antistasi-community/A3-Antistasi/releases/tag/3.11.1"
+      ],
+      "observableContract": "One accepted quote produces one immutable roster and exact cost; survivors retain duty, route, casualties, marker count, recall, and refund across projection and restart.",
+      "formulaContract": "Composition, training cap, cost, ETA, support cooldown, recall, and refund formulas require pinned fixtures.",
+      "reforgerAdaptation": "Native AI movement and high-command UI may differ, but strategic assignment and exact force accounting may not.",
+      "partisanStateOwner": "HST_CampaignState force manifests, quotes, spawn results, operations, routes, groups, supports, garrisons, and ledger rows",
+      "partisanServiceOwner": "HST_ForcePlanningService, HST_OperationService, HST_SupportRequestService, and family operation services",
+      "physicalBehavior": "Exact living slots materialize once, run a bounded route, react to engagement, resume assignment, and retire on proven last death.",
+      "virtualBehavior": "Duty, route, contact, casualty, return, recall, and settlement advance independent of player proximity.",
+      "transactionPolicy": "Quote, reserve, commit, cancel, failure, casualty, recall, return, and archive share stable identities and exact ceilings.",
+      "persistenceMigration": "Every supported force restores one manifest, living roster, assignment, route cursor, projection owner, marker, and settlement owner.",
+      "clientProjection": "UI quantity/cost/ETA, marker living count, notification, recall choice, and disabled reason derive from the authoritative records.",
+      "disposition": "partial",
+      "proofIds": ["focused.force_authority", "focused.paid_qrf", "focused.search_destroy", "external.figari_force_restart_mp_jip"],
+      "blockingMilestone": "Gate 3 one reliable force runtime"
+    },
+    {
+      "id": "mission-portfolio",
+      "domain": "Mission selection, shared lifecycle, tasking, expiry, cleanup, and consequences",
+      "priority": "P0",
+      "upstreamChangeHistory": "CE 3.11.1 mission behavior includes fixes inherited from 3.11.0 and 3.11.1; category labels alone are not parity.",
+      "upstreamEvidence": [
+        "https://official-antistasi-community.github.io/A3-Antistasi-Docs/reference_guide/reference_guide_index.html",
+        "https://github.com/official-antistasi-community/A3-Antistasi/tree/6e4226d3863ca8673535386c2fff8b6e08a806c4"
+      ],
+      "observableContract": "Every enabled mission has its own objective branches, assets, AI behavior, success, failure, expiry, cleanup, and strategic consequences.",
+      "formulaContract": "Mission selection, difficulty, duration, rewards, penalties, aggression, support, attack timing, and player scaling are pinned per mission.",
+      "reforgerAdaptation": "Mission presentation and native adapter may change for Everon, while the strategic causal graph remains equivalent.",
+      "partisanStateOwner": "HST_CampaignState mission, objective, asset, task, marker, event, and transaction records",
+      "partisanServiceOwner": "HST_MissionService, HST_MissionRuntimeService, and mission-specific operation/lifecycle services",
+      "physicalBehavior": "Required native assets and actors exist, behave, and publish authoritative evidence without synthetic completion.",
+      "virtualBehavior": "Eligible missions and traveling forces progress off-screen where the upstream behavior permits it.",
+      "transactionPolicy": "Success, each failure branch, expiry, salvage, and delayed outcomes settle once through typed authorities.",
+      "persistenceMigration": "Every nonterminal phase, asset binding, consequence window, and task state survives restart.",
+      "clientProjection": "Tasks, markers, briefings, progress, outcomes, and JIP snapshots agree for every client.",
+      "disposition": "partial",
+      "proofIds": ["campaign_debug.missions", "external.mission_specific_mp_jip_restart"],
+      "blockingMilestone": "Gate 7 mission-by-mission behavior parity"
+    },
+    {
+      "id": "mission-assassination",
+      "domain": "Assassination missions",
+      "priority": "P0",
+      "upstreamChangeHistory": "Pinned to CE 3.11.1 mission definitions and consequences.",
+      "upstreamEvidence": ["https://official-antistasi-community.github.io/A3-Antistasi-Docs/reference_guide/reference_guide_index.html"],
+      "observableContract": "Officer, traitor, and special-operations targets have distinct admission, guards, success/failure, escape/expiry, and strategic effects.",
+      "formulaContract": "Rewards, aggression, HQ knowledge, points, and target/guard difficulty are mission-specific.",
+      "reforgerAdaptation": "Stock characters and Everon sites replace unavailable content while retaining distinct targets and consequences.",
+      "partisanStateOwner": "Mission, HVT asset, exact guard operation, consequence, and settlement records",
+      "partisanServiceOwner": "HST_MissionRuntimeService and assassination guard operation services",
+      "physicalBehavior": "Separate HVT and exact guard projections use native death/deletion authority.",
+      "virtualBehavior": "Expiry and strategic state continue while off-screen; the HVT is never duplicated by projection.",
+      "transactionPolicy": "Each target outcome settles one mission-specific reward or penalty.",
+      "persistenceMigration": "HVT, guard roster, expiry, and consequence restore exactly.",
+      "clientProjection": "Target task and marker state converge through JIP and restart.",
+      "disposition": "partial",
+      "proofIds": ["focused.assassination_guards", "campaign_debug.assassination", "external.assassination_restart_mp_jip"],
+      "blockingMilestone": "Gate 7 Tier A missions"
+    },
+    {
+      "id": "mission-conquest",
+      "domain": "Conquest and facility-acquisition missions",
+      "priority": "P0",
+      "upstreamChangeHistory": "Pinned to CE 3.11.1 location and mission behavior.",
+      "upstreamEvidence": ["https://official-antistasi-community.github.io/A3-Antistasi-Docs/reference_guide/reference_guide_index.html"],
+      "observableContract": "Town politics and military-site control remain distinct; a generic clear-and-hold reward cannot substitute for facility-specific strategic behavior.",
+      "formulaContract": "Admission, war-level restriction, defense, hold, ownership, reward, aggression, and facility consequences are location-specific.",
+      "reforgerAdaptation": "Everon site geometry changes physical objectives without merging political and military capture rules.",
+      "partisanStateOwner": "Mission, objective, combat-presence, ownership-transition, facility, and settlement records",
+      "partisanServiceOwner": "HST_MissionRuntimeService, HST_CombatPresenceService, and HST_OwnershipTransitionService",
+      "physicalBehavior": "Conscious hostile presence and valid control conditions drive the objective.",
+      "virtualBehavior": "Ownership is never granted by player-distance suspension or an empty asset.",
+      "transactionPolicy": "The canonical ownership receipt owns rewards and strategic side effects once.",
+      "persistenceMigration": "Hold progress, presence state, pending owner transition, and consequence restore exactly.",
+      "clientProjection": "Objective, owner, authored marker, projected marker, and Map/War row share one revision.",
+      "disposition": "legacy",
+      "proofIds": ["focused.ownership_transition", "external.conquest_specific_mp_jip_restart"],
+      "blockingMilestone": "Gate 7 Tier A missions"
+    },
+    {
+      "id": "mission-convoy",
+      "domain": "Money, reinforcement, supply, ammo, prisoner, and armored convoys",
+      "priority": "P0",
+      "upstreamChangeHistory": "CE 3.11.1 includes convoy server-execution corrections; CE 3.11.0 requires real interceptable reinforcements and distinct logistics cargo.",
+      "upstreamEvidence": [
+        "https://official-antistasi-community.github.io/A3-Antistasi-Docs/reference_guide/reference_guide_index.html",
+        "https://github.com/official-antistasi-community/A3-Antistasi/releases/tag/3.11.1"
+      ],
+      "observableContract": "A convoy moves without nearby players, materializes exact vehicles/crew/cargo, can be intercepted, and settles its mission-specific payload and strategic effects.",
+      "formulaContract": "Composition, route, difficulty, money/cargo/captive outcome, attack timing, support, aggression, points, and failure are convoy-specific.",
+      "reforgerAdaptation": "Server-local Reforger drivers, seats, road routes, and obstruction recovery replace Arma 3 vehicle-locality technique.",
+      "partisanStateOwner": "Mission convoy operation, route, manifest, vehicles, groups, cargo/captive, objective, and settlement records",
+      "partisanServiceOwner": "HST_MissionConvoyOperationService, HST_ConvoyVehicleControlAdapter, and HST_ConvoyOutcomeService",
+      "physicalBehavior": "Exact vehicles, drivers, seats, spacing, movement, contact, salvage, and cleanup use native evidence.",
+      "virtualBehavior": "Staging and route progress continue with no client nearby and reconcile with physical progress.",
+      "transactionPolicy": "Mission-specific payload, reward, failure, aggression, resource, and salvage outcomes settle once.",
+      "persistenceMigration": "Every staging, virtual, materializing, physical, contact, folding, arrival, and settlement phase restores exactly.",
+      "clientProjection": "Task, convoy marker, route status, asset outcome, and JIP/restart state converge.",
+      "disposition": "partial",
+      "proofIds": ["focused.mission_convoy", "campaign_debug.convoy", "external.convoy_natural_route_restart_mp_jip"],
+      "blockingMilestone": "Gate 7 Tier A missions"
+    },
+    {
+      "id": "mission-destroy",
+      "domain": "Destroy, sabotage, radio, cache, and armor missions",
+      "priority": "P0",
+      "upstreamChangeHistory": "CE 3.11.x retains mission-specific radio, armor, and sabotage consequences rather than one generic destroy reward.",
+      "upstreamEvidence": [
+        "https://official-antistasi-community.github.io/A3-Antistasi-Docs/reference_guide/concepts_info/concepts/radio_towers.html",
+        "https://official-antistasi-community.github.io/A3-Antistasi-Docs/reference_guide/reference_guide_index.html"
+      ],
+      "observableContract": "The intended physical asset must be destroyed or captured through its declared branch, with mission-specific strategic effects and no ambient-equipment false positive.",
+      "formulaContract": "Radio timing/aggression, armor branch rewards/penalties, facility sabotage, and failure consequences are distinct.",
+      "reforgerAdaptation": "Stock destructible assets and explicit damage-authority adapters replace unavailable target classes.",
+      "partisanStateOwner": "Mission target assets, radio lifecycle, damage witnesses, vehicle capture, objectives, and settlements",
+      "partisanServiceOwner": "HST_MissionRuntimeService, HST_RadioSiteLifecycleService, and HST_MissionObjectiveService",
+      "physicalBehavior": "Native damage/destruction/capture evidence binds to the intended stable asset.",
+      "virtualBehavior": "Expiry and strategic rebuild state continue off-screen without inventing destruction.",
+      "transactionPolicy": "Success, capture alternative, failure, expiry, and strategic effects settle once per target epoch.",
+      "persistenceMigration": "Target binding, damage evidence, radio epoch, branch, and consequence restore exactly.",
+      "clientProjection": "Task, marker, target status, branch, and result converge after JIP/restart.",
+      "disposition": "partial",
+      "proofIds": ["focused.radio_lifecycle", "campaign_debug.destroy", "external.destroy_specific_restart_mp_jip"],
+      "blockingMilestone": "Gate 7 Tier A missions"
+    },
+    {
+      "id": "mission-logistics",
+      "domain": "Bank, cache, factory, seaport, airfield, ammo-truck, and weapons-truck logistics",
+      "priority": "P0",
+      "upstreamChangeHistory": "CE 3.11.0 distinguishes weapons and ammo logistics and expands vehicle-ammo economy.",
+      "upstreamEvidence": [
+        "https://official-antistasi-community.github.io/A3-Antistasi-Docs/reference_guide/reference_guide_index.html",
+        "https://github.com/official-antistasi-community/A3-Antistasi/releases/tag/3.11.1"
+      ],
+      "observableContract": "Cargo, vehicle, source, delivery, interception, success, failure, and strategic effect differ by logistics mission.",
+      "formulaContract": "Cargo counts, rewards, support shifts, aggression, unlocks, ammo/fuel/repair effects, and failure penalties are mission-specific.",
+      "reforgerAdaptation": "Reforger inventory and vehicle storage APIs replace Arma 3 cargo handling while retaining finite, typed quantities.",
+      "partisanStateOwner": "Mission assets, cargo ownership, carrier binding, vehicle state, arsenal/logistics, objectives, and settlement records",
+      "partisanServiceOwner": "HST_MissionRuntimeService, HST_ArsenalService, and vehicle/logistics services",
+      "physicalBehavior": "Exact cargo or vehicle is picked up, carried, delivered, lost, or captured through native interaction.",
+      "virtualBehavior": "Mission expiry and enemy strategic consequences continue off-screen; player-bound cargo does not teleport.",
+      "transactionPolicy": "Cargo transfer, rewards, penalties, unlocks, and strategic effects settle once.",
+      "persistenceMigration": "Cargo, carrier, vehicle, delivery, expiry, and transaction state restore exactly.",
+      "clientProjection": "Task, asset marker, carried/delivered status, and outcome converge for clients/JIP.",
+      "disposition": "legacy",
+      "proofIds": ["campaign_debug.logistics", "external.logistics_specific_restart_mp_jip"],
+      "blockingMilestone": "Gate 7 Tier A missions"
+    },
+    {
+      "id": "mission-rescue",
+      "domain": "POW and refugee rescue missions",
+      "priority": "P0",
+      "upstreamChangeHistory": "Pinned to CE 3.11.1 per-captive rescue behavior and consequences.",
+      "upstreamEvidence": ["https://official-antistasi-community.github.io/A3-Antistasi-Docs/reference_guide/reference_guide_index.html"],
+      "observableContract": "Each captive has an exact identity and lifecycle from guard state through release, following/boarding, extraction, loss, reward, and cleanup.",
+      "formulaContract": "Money, HR, town support, aggression, points, and partial/failure outcome scale per rescued or lost captive where the baseline requires it.",
+      "reforgerAdaptation": "Reforger following, compartment seating, and ownership callbacks replace Arma 3 captive locality behavior.",
+      "partisanStateOwner": "Mission captive assets, exact guard operation, follow/seat bindings, extraction, objectives, and settlements",
+      "partisanServiceOwner": "HST_RescuePOWOperationService and HST_MissionRuntimeService",
+      "physicalBehavior": "Captives and guards use exact native identities, seating/following, death/deletion, and extraction evidence.",
+      "virtualBehavior": "Guards remain strategic projections; player-bound freed captives follow an explicit off-screen policy.",
+      "transactionPolicy": "Per-captive and mission terminal outcomes settle once without fixed-count invention.",
+      "persistenceMigration": "Captive status, carrier/seat, guard roster, extraction, and reward window restore exactly.",
+      "clientProjection": "Captive count, state, task, marker, and outcome converge after reconnect/JIP/restart.",
+      "disposition": "partial",
+      "proofIds": ["focused.rescue_pow", "campaign_debug.rescue", "external.rescue_restart_mp_jip"],
+      "blockingMilestone": "Gate 7 Tier A missions"
+    },
+    {
+      "id": "mission-dynamic",
+      "domain": "Defend Petros, tower rebuild, city battle, minor task, and gun-shop missions",
+      "priority": "P0",
+      "upstreamChangeHistory": "Pinned to CE 3.11.1 dynamic-event behavior and inherited 3.11.x campaign pressure rules.",
+      "upstreamEvidence": [
+        "https://official-antistasi-community.github.io/A3-Antistasi-Docs/reference_guide/concepts_info/concepts/hq_attack.html",
+        "https://official-antistasi-community.github.io/A3-Antistasi-Docs/reference_guide/reference_guide_index.html"
+      ],
+      "observableContract": "Each dynamic event is triggered by real campaign state, persists its nonterminal phases, and applies its distinct success/failure consequence.",
+      "formulaContract": "Trigger chance, HQ knowledge, timing, composition, shop inventory/prices, support, aggression, and loss consequences are event-specific.",
+      "reforgerAdaptation": "Everon sites and Reforger interaction UI adapt presentation without replacing campaign causality with admin or synthetic timers.",
+      "partisanStateOwner": "Dynamic mission, HQ/Petros, radio rebuild, town battle, gun-shop inventory, objective, and transaction records",
+      "partisanServiceOwner": "HST_MissionService, HST_MissionRuntimeService, HST_HQService, and HST_RadioSiteLifecycleService",
+      "physicalBehavior": "Required attackers, defenders, targets, sellers, inventory, and interactions are native and authoritative.",
+      "virtualBehavior": "Threat, admission, expiry, travel, and strategic consequences continue off-screen where applicable.",
+      "transactionPolicy": "Event admission, purchase, reward, penalty, and cleanup settle exactly once.",
+      "persistenceMigration": "Trigger, inventory, objective, runtime binding, and consequence windows restore exactly.",
+      "clientProjection": "Tasks, shop actions, markers, HQ threat, and outcomes converge for clients/JIP.",
+      "disposition": "partial",
+      "proofIds": ["campaign_debug.dynamic", "focused.radio_lifecycle", "external.dynamic_restart_mp_jip"],
+      "blockingMilestone": "Gate 7 Tier A and Tier B missions"
+    },
+    {
+      "id": "mission-support",
+      "domain": "City supplies and support missions",
+      "priority": "P0",
+      "upstreamChangeHistory": "Pinned to CE 3.11.1 support-mission political and aggression consequences.",
+      "upstreamEvidence": [
+        "https://official-antistasi-community.github.io/A3-Antistasi-Docs/reference_guide/concepts_info/concepts/gaining_losing_city_support.html",
+        "https://official-antistasi-community.github.io/A3-Antistasi-Docs/reference_guide/reference_guide_index.html"
+      ],
+      "observableContract": "Supplies reach a contacted town through a real delivery lifecycle and change the intended political/aggression state rather than acting as generic cash.",
+      "formulaContract": "Cargo, town support shifts, enemy support shifts, aggression, success, and failure are pinned to the baseline.",
+      "reforgerAdaptation": "Everon delivery sites and Reforger inventory interactions adapt the physical layer only.",
+      "partisanStateOwner": "Mission cargo, town influence, civilian consequence, objective, and settlement records",
+      "partisanServiceOwner": "HST_MissionRuntimeService and HST_TownInfluenceService",
+      "physicalBehavior": "Exact supplies are collected and delivered to the target town.",
+      "virtualBehavior": "Expiry and political consequence timing continue without player proximity; cargo does not teleport.",
+      "transactionPolicy": "Delivery or failure publishes one political/aggression settlement and any approved economy entry.",
+      "persistenceMigration": "Cargo, target town, delivery, expiry, and political effect restore exactly.",
+      "clientProjection": "Task, cargo, town, support change, and result converge after JIP/restart.",
+      "disposition": "legacy",
+      "proofIds": ["campaign_debug.support_mission", "external.city_supplies_restart_mp_jip"],
+      "blockingMilestone": "Gate 7 Tier A missions"
+    },
+    {
+      "id": "civilians-undercover",
+      "domain": "Civilians, traffic, theft, casualties, undercover, wanted state, police, and roadblocks",
+      "priority": "P0",
+      "upstreamChangeHistory": "CE 3.11.1 includes civilian-car locality corrections and retains police/undercover rules.",
+      "upstreamEvidence": [
+        "https://official-antistasi-community.github.io/A3-Antistasi-Docs/reference_guide/reference_guide_index.html",
+        "https://github.com/official-antistasi-community/A3-Antistasi/releases/tag/3.11.1"
+      ],
+      "observableContract": "Towns feel alive while bounded civilians and traffic move, react, and affect politics; undercover status changes from gear, weapons, vehicles, roads, police, heat, and actions.",
+      "formulaContract": "Actor budgets, support consequences, wanted/heat timing, scans, detection, theft, casualties, and roadblock rules require pinned fixtures.",
+      "reforgerAdaptation": "Reforger AI, vehicle seats, road navigation, and perception replace Arma 3 locality and scan mechanics.",
+      "partisanStateOwner": "HST_CampaignState civilian zones, actor slots, consequence receipts, undercover, heat, security, and town influence",
+      "partisanServiceOwner": "HST_CivilianService, HST_CivilianConsequenceService, and undercover/security services",
+      "physicalBehavior": "Pedestrians and traffic walk/drive, panic/recover, respect ownership, and publish exact theft/casualty/security evidence.",
+      "virtualBehavior": "Budgets, rotation, heat, political effects, and security epochs persist without native actor leakage.",
+      "transactionPolicy": "Aid, theft, casualty, scan, exposure, and political consequences settle once.",
+      "persistenceMigration": "Actor slots, consequence receipts, heat, wanted state, security casualties, and town effects restore exactly.",
+      "clientProjection": "Undercover state, reasons, town support, security, and notifications agree for owner and observers as authorized.",
+      "disposition": "partial",
+      "proofIds": ["focused.ambient", "focused.civilian_consequence", "campaign_debug.phase20_21", "external.living_towns_soak"],
+      "blockingMilestone": "Gate 5 strategic truth and living Everon"
+    },
+    {
+      "id": "intel-network",
+      "domain": "Intel, reveal, interrogation, informants, prisoners, radio, and intelligence network",
+      "priority": "P0",
+      "upstreamChangeHistory": "CE 3.11.1 retains intelligence-driven reveal, radio, prisoner, and HQ knowledge systems.",
+      "upstreamEvidence": ["https://official-antistasi-community.github.io/A3-Antistasi-Docs/reference_guide/reference_guide_index.html"],
+      "observableContract": "Players gain imperfect, durable intelligence through intended actions; it reveals appropriate locations/operations and affects HQ/radio pressure.",
+      "formulaContract": "Intel chance, amount, reveal scope/duration, interrogation/informant effects, radio modifiers, and HQ knowledge require pinned fixtures.",
+      "reforgerAdaptation": "Reforger task and marker projection present intel while server authority retains hidden truth.",
+      "partisanStateOwner": "Intel, reveal, radio, prisoner, HQ knowledge, marker, and event records",
+      "partisanServiceOwner": "HST_MissionService, HST_RadioSiteLifecycleService, and future dedicated intel authority",
+      "physicalBehavior": "Intel objects, prisoners, radios, and interactions publish server-authoritative evidence.",
+      "virtualBehavior": "Reveal expiry, radio effects, and enemy knowledge continue from strategic time.",
+      "transactionPolicy": "Intel grant, spend, reveal, interrogation, and consequence require stable once-only identities.",
+      "persistenceMigration": "Intel balances, reveals, radio state, prisoners, and knowledge restore exactly.",
+      "clientProjection": "Only authorized intel is projected, with consistent markers/tasks after reconnect/JIP.",
+      "disposition": "missing",
+      "proofIds": ["external.intel_restart_mp_jip"],
+      "blockingMilestone": "Gate 8 resistance progression"
+    },
+    {
+      "id": "arsenal-garage-logistics",
+      "domain": "Arsenal, unlocks, loot, loadouts, garage, vehicle ammo, fuel, repair, salvage, and cargo",
+      "priority": "P0",
+      "upstreamChangeHistory": "CE 3.11.0 expanded vehicle-ammo economy, distinct logistics trucks, persistent strategic assets, and garage combat lock.",
+      "upstreamEvidence": [
+        "https://official-antistasi-community.github.io/A3-Antistasi-Docs/reference_guide/reference_guide_index.html",
+        "https://github.com/official-antistasi-community/A3-Antistasi/releases/tag/3.11.1"
+      ],
+      "observableContract": "Loot and finite quantities drive unlocks and AI equipment; vehicles and cargo retain exact capacity, damage, fuel, ammo, attachments, ownership, storage, salvage, and combat restrictions.",
+      "formulaContract": "Unlock thresholds, capacity, garage slots, purchase/sale, combat lock, ammo/fuel/repair, salvage, and training-loadout rules require golden fixtures.",
+      "reforgerAdaptation": "Reforger inventory, loadout, replication, damage, fuel, turret, and compartment APIs replace Arma 3 storage mechanics.",
+      "partisanStateOwner": "Arsenal items, vehicle cargo, garage/runtime/field vehicles, loadouts, transactions, and mission cargo records",
+      "partisanServiceOwner": "HST_ArsenalService, HST_LoadoutEditorService, and vehicle persistence/logistics services",
+      "physicalBehavior": "Native items, cargo, vehicles, attachments, fuel, damage, ammo, crew, and interaction map to exact durable identities.",
+      "virtualBehavior": "Stored and off-screen vehicles/cargo retain strategic state without duplicate native roots.",
+      "transactionPolicy": "Loot, withdraw, purchase, sale, capture, storage, redeploy, repair, rearm, fuel, and salvage use typed once-only mutations.",
+      "persistenceMigration": "Items, quantities, unlocks, loadouts, vehicles, cargo, damage/fuel/ammo, and bindings restore exactly.",
+      "clientProjection": "Arsenal, loadout, garage, cargo, costs, capacity, and disabled reasons converge for clients.",
+      "disposition": "partial",
+      "proofIds": ["campaign_debug.phase14_15", "focused.field_vehicle_restart", "external.logistics_soak_mp_jip"],
+      "blockingMilestone": "Gate 8 resistance progression"
+    },
+    {
+      "id": "respawn-travel",
+      "domain": "Respawn, incapacitation, revive, death penalties, and fast travel",
+      "priority": "P0",
+      "upstreamChangeHistory": "Pinned to CE 3.11.1 player lifecycle and travel restrictions.",
+      "upstreamEvidence": ["https://official-antistasi-community.github.io/A3-Antistasi-Docs/reference_guide/reference_guide_index.html"],
+      "observableContract": "Death, incapacitation, revive, equipment/economy penalty, respawn choice, and fast travel are predictable and cannot bypass combat or operations.",
+      "formulaContract": "Timers, penalties, eligibility, destination control, combat distance, operation restrictions, and player scaling require pinned fixtures.",
+      "reforgerAdaptation": "Reforger character lifecycle and deployment UI replace Arma 3 respawn mechanics.",
+      "partisanStateOwner": "Player lifecycle, incapacitation, penalty, spawn, location control, combat presence, and travel request records",
+      "partisanServiceOwner": "HST_PlayerSpawnService, HST_PlayerLifecycleService, and future travel authority",
+      "physicalBehavior": "Native death/revive/respawn and travel placement are server-authoritative and safe.",
+      "virtualBehavior": "Eligibility and penalties use durable strategic state rather than client presence.",
+      "transactionPolicy": "Death penalties and travel costs settle once per accepted lifecycle transition.",
+      "persistenceMigration": "Pending incapacitation, penalty, respawn, and travel requests restore or fail safely.",
+      "clientProjection": "Players receive exact eligibility, cost, destination, denial, and lifecycle state.",
+      "disposition": "missing",
+      "proofIds": ["external.player_lifecycle_mp_restart"],
+      "blockingMilestone": "Gate 8 resistance progression"
+    },
+    {
+      "id": "persistence-network-admin",
+      "domain": "Save, restart, migration, reconnect, JIP, admin controls, security, backup, and rollback",
+      "priority": "P0",
+      "upstreamChangeHistory": "CE 3.11.1 remains a persistent multiplayer campaign baseline; Partisan adds explicit recovery and authority requirements for Reforger.",
+      "upstreamEvidence": [
+        "https://github.com/official-antistasi-community/A3-Antistasi/tree/6e4226d3863ca8673535386c2fff8b6e08a806c4",
+        "https://official-antistasi-community.github.io/A3-Antistasi-Docs/reference_guide/reference_guide_index.html"
+      ],
+      "observableContract": "Save/restart, reconnect, late join, duplicate request, fault recovery, backup, upgrade, and rollback never invent, duplicate, refill, lose, or replay campaign facts.",
+      "formulaContract": "Schema support windows, checkpoint cadence, history bounds, idempotency horizon, timeout, retry, and retention are explicit contracts.",
+      "reforgerAdaptation": "Reforger persistence callbacks and RPC ownership are wrapped by server authority, a two-generation journal, and fail-closed source selection.",
+      "partisanStateOwner": "HST_CampaignState and HST_CampaignSaveData plus journal, command receipt, projection epoch, and migration records",
+      "partisanServiceOwner": "HST_PersistenceService, HST_CampaignProfileSaveJournalService, HST_CampaignCommandService, and HST_ClientProjectionService",
+      "physicalBehavior": "Native runtime is quiesced, captured, restored, rebound, or safely rejected around checkpoints and process changes.",
+      "virtualBehavior": "The full strategic graph serializes as one coherent authority snapshot.",
+      "transactionPolicy": "Commands and settlements retain durable idempotency beyond detailed-history compaction.",
+      "persistenceMigration": "A declared public schema window has golden saves; unsupported or conflicting state fails with a safe actionable reason.",
+      "clientProjection": "Clients resynchronize revisioned state after join, reconnect, restore, packet gaps, and stale epochs.",
+      "disposition": "partial",
+      "proofIds": ["focused.profile_journal", "focused.controlled_shutdown", "external.full_graph_fault_mp_jip"],
+      "blockingMilestone": "Gate 9 full graph persistence and fault tolerance"
+    },
+    {
+      "id": "victory-loss-balance",
+      "domain": "Victory, loss, pacing, difficulty, and player-count scaling",
+      "priority": "P0",
+      "upstreamChangeHistory": "Pinned to CE 3.11.1 campaign completion and 3.11.x economy/pacing behavior.",
+      "upstreamEvidence": [
+        "https://official-antistasi-community.github.io/A3-Antistasi-Docs/reference_guide/concepts_info/concepts/war_level.html",
+        "https://official-antistasi-community.github.io/A3-Antistasi-Docs/reference_guide/reference_guide_index.html"
+      ],
+      "observableContract": "A weak resistance can progress through meaningful scarcity to a legitimate victory or loss without admin mutation, across declared player counts and difficulties.",
+      "formulaContract": "Income, HR, support, war level, aggression, mission cadence, enemy spend, training, unlocks, casualties, victory, loss, and player scaling require completed-campaign evidence.",
+      "reforgerAdaptation": "Everon geography and available stock content may alter pacing inputs, with every tolerance or divergence recorded.",
+      "partisanStateOwner": "Campaign phase/end, ownership, town, economy, war level, enemy, progression, and event records",
+      "partisanServiceOwner": "HST_StrategicService and the authoritative domain services feeding campaign outcome",
+      "physicalBehavior": "Natural play outcomes, not admin commands or synthetic timers, produce the strategic state used for completion.",
+      "virtualBehavior": "Enemy and economy cadence continue off-screen so completion does not depend on player proximity.",
+      "transactionPolicy": "Every progression and end-state mutation has a traceable typed source and once-only settlement.",
+      "persistenceMigration": "Long campaigns, completion, loss, and post-end state restore without reopening or replay.",
+      "clientProjection": "All clients see the same progression, pacing read model, victory/loss transition, and final summary.",
+      "disposition": "partial",
+      "proofIds": ["campaign_debug.phase24", "external.complete_campaigns", "external.balance_profiles"],
+      "blockingMilestone": "Gate 10 balance and complete-campaign validation"
+    },
+    {
+      "id": "ui-projection",
+      "domain": "Menus, map targeting, markers, tasks, reports, notifications, and rendered accessibility",
+      "priority": "P0",
+      "upstreamChangeHistory": "CE 3.11.1 supplies the player-observable behavior; Reforger requires a native UI and revisioned projection adaptation.",
+      "upstreamEvidence": ["https://official-antistasi-community.github.io/A3-Antistasi-Docs/reference_guide/reference_guide_index.html"],
+      "observableContract": "Every enabled action works end to end or has a precise disabled reason; modal input is atomic; every client sees the same authoritative campaign read model.",
+      "formulaContract": "Capacity, priority, pagination, text length, resolution, localization, input-state, revision, ACK, gap, and resync behavior are explicit.",
+      "reforgerAdaptation": "Reforger widgets, input contexts, Game Master markers, RPCs, and client-native map markers implement the presentation layer.",
+      "partisanStateOwner": "Server read models, marker records, projection epochs/revisions, tasks, notifications, and command receipts",
+      "partisanServiceOwner": "HST_CommandUIService, HST_ClientProjectionService, HST_MapMarkerService, and HST_ClientMarkerProjectionService",
+      "physicalBehavior": "Rendered layouts, pointer/keyboard input, authored markers, and native client markers are exercised in ordinary packaged clients.",
+      "virtualBehavior": "The server read model remains authoritative regardless of whether a client UI is open.",
+      "transactionPolicy": "UI retries and duplicate activations cannot reapply a command; presentation text never decides command success.",
+      "persistenceMigration": "Projection epochs and durable read-model sources restore; clients resnapshot rather than persisting stale local truth.",
+      "clientProjection": "Host, two clients, reconnect, JIP, missing/duplicate/delayed/reordered packets, capacity, and restart converge.",
+      "disposition": "partial",
+      "proofIds": ["focused.marker_projection", "campaign_debug.phase23", "external.rendered_ui", "external.projection_mp_jip"],
+      "blockingMilestone": "Gate 2 immediate regressions and Gate 4 one campaign view"
+    },
+    {
+      "id": "development-diagnostics",
+      "domain": "Development proofs, Campaign Debug, destructive admin diagnostics, and release-surface separation",
+      "priority": "P0",
+      "upstreamChangeHistory": "Partisan-specific release engineering control; no upstream gameplay parity claim.",
+      "upstreamEvidence": ["https://github.com/official-antistasi-community/A3-Antistasi/tree/6e4226d3863ca8673535386c2fff8b6e08a806c4"],
+      "observableContract": "Development fixtures remain selectable and retained for engineering, while the release package exposes only safe production observability and authorized administration.",
+      "formulaContract": "Release allow/deny symbol lists, command permissions, profile isolation, timeouts, cleanup, and evidence retention are machine-validated.",
+      "reforgerAdaptation": "Use separate project/package boundaries or compile guards supported by the Reforger toolchain.",
+      "partisanStateOwner": "No production gameplay state owner; diagnostic state is disposable and explicitly scoped.",
+      "partisanServiceOwner": "Development addon/test runners and release-package audit",
+      "physicalBehavior": "Diagnostics may create native fixtures only inside owned disposable scopes with exact cleanup.",
+      "virtualBehavior": "Synthetic state never becomes ordinary campaign authority.",
+      "transactionPolicy": "Destructive or mutating diagnostics require trusted admin scope and cannot ship as ordinary player actions.",
+      "persistenceMigration": "Development artifacts are not accepted as public campaign state unless a production migration explicitly owns them.",
+      "clientProjection": "No development-only action or fixture is visible in the release client.",
+      "disposition": "development-only",
+      "proofIds": ["foundation.release_package_audit", "external.release_pak_forbidden_symbols"],
+      "blockingMilestone": "Gate 1 immutable package and PR 3 development/release separation"
+    }
+  ],
+  "missionCategoryRows": {
+    "HST_MISSION_ASSASSINATION": "mission-assassination",
+    "HST_MISSION_CONQUEST": "mission-conquest",
+    "HST_MISSION_CONVOY": "mission-convoy",
+    "HST_MISSION_DESTROY": "mission-destroy",
+    "HST_MISSION_LOGISTICS": "mission-logistics",
+    "HST_MISSION_RESCUE": "mission-rescue",
+    "HST_MISSION_DYNAMIC": "mission-dynamic",
+    "HST_MISSION_SUPPORT": "mission-support"
+  },
+  "missionOverrides": {
+    "convoy_money": {
+      "disposition": "partial",
+      "gap": "Current configured fixed money/town-support reward does not match the pinned money-convoy economy, attack-delay, aggression, and point consequences."
+    },
+    "rescue_pows": {
+      "disposition": "partial",
+      "gap": "Exact captive/guard authority exists, but the configured fixed three-captive reward does not yet implement per-captive CE 3.11.1 scaling and full consequences."
+    },
+    "destroy_radio_tower": {
+      "disposition": "partial",
+      "gap": "A narrow exact radio lifecycle exists, but the configured generic cash/capture reward does not yet reproduce the pinned radio attack-timing and aggression purpose."
+    },
+    "destroy_or_steal_armor": {
+      "disposition": "legacy",
+      "gap": "The current generic destroy runtime and fixed reward do not yet prove distinct steal/destroy branches, support, attack timing, aggression, points, and failure penalties."
+    },
+    "support_city_supplies": {
+      "disposition": "legacy",
+      "gap": "The current fixed cash/support configuration does not yet prove the pinned three-way support and aggression consequences or full failure branch."
+    },
+    "assassinate_officer": {
+      "disposition": "partial",
+      "gap": "Exact guard authority is narrow; mission-specific native, restart, MP/JIP, points, and strategic consequence proof remains open."
+    },
+    "assassinate_traitor": {
+      "disposition": "partial",
+      "gap": "Exact guard authority is narrow; escape/failure-to-HQ-pressure behavior and full proof ladder remain open."
+    },
+    "assassinate_specops": {
+      "disposition": "partial",
+      "gap": "Exact guard authority is narrow; complete mission-specific formulas and full proof ladder remain open."
+    },
+    "dynamic_stop_tower_rebuild": {
+      "disposition": "partial",
+      "gap": "A focused same-epoch radio rebuild cut exists; ordinary packaged admission, full consequences, restart, and MP/JIP remain open."
+    },
+    "dynamic_gun_shop": {
+      "disposition": "partial",
+      "gap": "A bounded shop/inventory path exists, but CE 3.11.1 formula crosswalk and packaged persistence/client proof remain open."
+    }
+  },
+  "commandActionIds": [
+    "activate_zone",
+    "add_storage_item",
+    "admin_campaign_debug_cancel",
+    "admin_campaign_debug_cleanup",
+    "admin_campaign_debug_status",
+    "admin_force_composition_report",
+    "admin_force_self_commander",
+    "admin_grant",
+    "admin_marker_native_report",
+    "admin_persistence_smoke_report",
+    "admin_persistence_smoke_test",
+    "admin_phase14_report",
+    "admin_phase14_seed_blocked",
+    "admin_phase14_seed_finite",
+    "admin_phase14_seed_threshold",
+    "admin_phase15_report",
+    "admin_phase15_seed_garage",
+    "admin_phase15_seed_source",
+    "admin_phase16_report",
+    "admin_phase16_seed",
+    "admin_phase16_train",
+    "admin_phase17_force_counterattack",
+    "admin_phase17_force_progress",
+    "admin_phase17_report",
+    "admin_phase17_seed_capture",
+    "admin_phase18_report",
+    "admin_phase18_resolve_now",
+    "admin_phase18_seed_counterattack",
+    "admin_phase18_seed_rebuild",
+    "admin_phase18_seed_roadblock",
+    "admin_phase19_force_eta",
+    "admin_phase19_report",
+    "admin_phase19_seed_enemy_ground",
+    "admin_phase19_seed_fia_ground",
+    "admin_phase19_seed_fia_supply",
+    "admin_phase20_clear_heat",
+    "admin_phase20_report",
+    "admin_phase20_seed_heat",
+    "admin_phase20_seed_town",
+    "admin_phase20_seed_undercover",
+    "admin_phase21_apply_undercover",
+    "admin_phase21_clear_heat",
+    "admin_phase21_military_vehicle",
+    "admin_phase21_police",
+    "admin_phase21_report",
+    "admin_phase21_roadblock",
+    "admin_phase21_weapon_fire",
+    "admin_phase22_kill_petros",
+    "admin_phase22_queue_attack",
+    "admin_phase22_report",
+    "admin_phase22_seed_hq_knowledge",
+    "admin_phase22_start_defense",
+    "admin_phase22_succeed_defense",
+    "admin_phase23_failed_action_sample",
+    "admin_phase23_marker_audit",
+    "admin_phase23_ui_coverage",
+    "admin_phase24_force_loss",
+    "admin_phase24_force_victory",
+    "admin_phase24_report",
+    "admin_phase24_seed_early",
+    "admin_phase24_seed_late",
+    "admin_phase24_seed_mid",
+    "admin_purge_hst_native_markers",
+    "admin_run_campaign_debug",
+    "admin_seed_persistence_test_state",
+    "admin_spawn_placement_report",
+    "apply",
+    "award_small",
+    "call_supply",
+    "cancel_garrison_quote",
+    "cancel_support",
+    "cancel_support_quote",
+    "capture_zone",
+    "checkpoint",
+    "civilian_aid",
+    "complete_mission",
+    "confirm_garrison_quote",
+    "confirm_support_quote",
+    "deactivate_zone",
+    "debug_mission",
+    "debug_mission_id",
+    "delete_loadout",
+    "foundation_status",
+    "garage_capture_nearby",
+    "garage_redeploy",
+    "gun_shop_buy",
+    "gun_shop_open",
+    "gun_shop_sell",
+    "income_now",
+    "inspect_active_missions",
+    "inspect_arsenal",
+    "inspect_balance",
+    "inspect_campaign",
+    "inspect_campaign_end",
+    "inspect_capture",
+    "inspect_civilians",
+    "inspect_content",
+    "inspect_convoy_runtime",
+    "inspect_economy",
+    "inspect_garage",
+    "inspect_hq_threat",
+    "inspect_loadout_editor",
+    "inspect_markers",
+    "inspect_mission",
+    "inspect_mission_runtime",
+    "inspect_mission_summary",
+    "inspect_missions",
+    "inspect_objectives",
+    "inspect_persistence",
+    "inspect_recruitment",
+    "inspect_support",
+    "inspect_town_support",
+    "inspect_undercover",
+    "inspect_vehicle_cargo",
+    "inspect_zone_composition",
+    "inspect_zones",
+    "load_loadout",
+    "loadout_add_item",
+    "loadout_apply",
+    "loadout_clear_draft",
+    "loadout_delete",
+    "loadout_editor_close",
+    "loadout_remove_slot",
+    "loadout_save",
+    "loadout_select",
+    "loadout_set_quantity",
+    "loot_nearby",
+    "member_accept",
+    "member_promote_commander",
+    "member_promote_commander_choose",
+    "member_remove",
+    "mission_asset_deliver",
+    "mission_asset_load",
+    "mission_asset_sabotage",
+    "mission_asset_unload",
+    "mission_captive_extract",
+    "mission_captive_follow",
+    "mission_category",
+    "mission_random",
+    "mission_vehicle_capture",
+    "mission_zone",
+    "move_hq",
+    "move_hq_here",
+    "new_campaign",
+    "noop",
+    "petros_deploy_hq_here",
+    "petros_relocate_hq",
+    "progress_mission",
+    "progress_zone",
+    "rebuild_hq_assets",
+    "recruit_zone",
+    "remove_attachment",
+    "remove_garrison",
+    "remove_node_item",
+    "remove_storage_item",
+    "save_loadout",
+    "set_attachment",
+    "set_node_item",
+    "setup_hideout",
+    "support_fire",
+    "support_gbu",
+    "support_kh55",
+    "support_qrf",
+    "support_recall",
+    "support_recall_choose",
+    "support_roadblock",
+    "support_search",
+    "support_umpk",
+    "train_troops",
+    "train_troops_report",
+    "undercover_check",
+    "undercover_clear",
+    "undercover_eligibility",
+    "undercover_request",
+    "vehicle_collect_loot",
+    "vehicle_unload_loot",
+    "withdraw_arsenal"
+  ],
+  "contextualActionClasses": [
+    {
+      "class": "HST_MissionCaptiveFreeAction",
+      "rowId": "mission-rescue"
+    },
+    {
+      "class": "HST_MissionCaptiveFollowAction",
+      "rowId": "mission-rescue"
+    },
+    {
+      "class": "HST_MissionCaptiveExtractAction",
+      "rowId": "mission-rescue"
+    },
+    {
+      "class": "HST_MissionCargoLoadAction",
+      "rowId": "mission-logistics"
+    },
+    {
+      "class": "HST_MissionCargoUnloadAction",
+      "rowId": "mission-logistics"
+    },
+    {
+      "class": "HST_MissionCargoDeliverAction",
+      "rowId": "mission-logistics"
+    },
+    {
+      "class": "HST_GunShopOpenAction",
+      "rowId": "mission-dynamic"
+    },
+    {
+      "class": "HST_MissionConvoyRecoverPayloadAction",
+      "rowId": "mission-convoy"
+    },
+    {
+      "class": "HST_MissionConvoyCaptureVehicleAction",
+      "rowId": "mission-convoy"
+    },
+    {
+      "class": "HST_MissionDestroyTargetSabotageAction",
+      "rowId": "mission-destroy"
+    },
+    {
+      "class": "HST_MissionHVTConfirmAction",
+      "rowId": "mission-assassination"
+    },
+    {
+      "class": "HST_PetrosCommandMenuAction",
+      "rowId": "ui-projection"
+    },
+    {
+      "class": "HST_PetrosMoveBaseHereAction",
+      "rowId": "hq-command-economy"
+    },
+    {
+      "class": "HST_PetrosArsenalMenuAction",
+      "rowId": "arsenal-garage-logistics"
+    },
+    {
+      "class": "HST_HQArsenalLoadoutEditorAction",
+      "rowId": "arsenal-garage-logistics"
+    },
+    {
+      "class": "HST_VehicleCollectLootAction",
+      "rowId": "arsenal-garage-logistics"
+    },
+    {
+      "class": "HST_VehicleUnloadLootAction",
+      "rowId": "arsenal-garage-logistics"
+    }
+  ],
+  "actionRules": [
+    {
+      "pattern": "^admin_(run_campaign_debug|campaign_debug_|persistence_|seed_|phase|force_|spawn_|marker_|purge_)",
+      "rowId": "development-diagnostics",
+      "surface": "development-admin"
+    },
+    {
+      "pattern": "^(activate_zone|deactivate_zone|capture_zone|progress_zone|debug_mission|debug_mission_id|award_small|income_now)$",
+      "rowId": "development-diagnostics",
+      "surface": "development-admin"
+    },
+    {
+      "pattern": "^(support_gbu|support_umpk|support_kh55)$",
+      "rowId": "resistance-forces-supports",
+      "surface": "remove-before-release",
+      "disposition": "legacy"
+    },
+    {
+      "pattern": "^(support_.*|call_supply|cancel_support|confirm_support_quote|cancel_support_quote)$",
+      "rowId": "resistance-forces-supports",
+      "surface": "player"
+    },
+    {
+      "pattern": "^(confirm_garrison_quote|cancel_garrison_quote|remove_garrison|recruit_zone|train_troops|train_troops_report|inspect_recruitment|inspect_support)$",
+      "rowId": "resistance-forces-supports",
+      "surface": "player"
+    },
+    {
+      "pattern": "^(mission_.*|progress_mission|complete_mission|inspect_mission|inspect_missions|inspect_active_missions|inspect_mission_runtime|inspect_mission_summary|inspect_convoy_runtime|inspect_objectives)$",
+      "rowId": "mission-portfolio",
+      "surface": "player"
+    },
+    {
+      "pattern": "^gun_shop_",
+      "rowId": "mission-dynamic",
+      "surface": "player"
+    },
+    {
+      "pattern": "^(undercover_.*|inspect_undercover|inspect_civilians|civilian_aid)$",
+      "rowId": "civilians-undercover",
+      "surface": "player"
+    },
+    {
+      "pattern": "^inspect_town_support$",
+      "rowId": "town-politics",
+      "surface": "player"
+    },
+    {
+      "pattern": "^(garage_.*|vehicle_.*|loot_nearby|withdraw_arsenal|loadout_.*|load_loadout|save_loadout|delete_loadout|apply|add_storage_item|remove_storage_item|set_node_item|remove_node_item|set_attachment|remove_attachment|inspect_arsenal|inspect_garage|inspect_vehicle_cargo|inspect_loadout_editor)$",
+      "rowId": "arsenal-garage-logistics",
+      "surface": "player"
+    },
+    {
+      "pattern": "^(member_.*|admin_grant|inspect_hq_threat|rebuild_hq_assets|inspect_economy|move_hq|move_hq_here|petros_deploy_hq_here|petros_relocate_hq|setup_hideout)$",
+      "rowId": "hq-command-economy",
+      "surface": "player-or-authorized-admin"
+    },
+    {
+      "pattern": "^new_campaign$",
+      "rowId": "setup-campaign",
+      "surface": "authorized-admin"
+    },
+    {
+      "pattern": "^(checkpoint|inspect_persistence)$",
+      "rowId": "persistence-network-admin",
+      "surface": "player-or-authorized-admin"
+    },
+    {
+      "pattern": "^(inspect_campaign_end|inspect_balance)$",
+      "rowId": "victory-loss-balance",
+      "surface": "player"
+    },
+    {
+      "pattern": "^(inspect_capture|inspect_content|inspect_zones|inspect_zone_composition)$",
+      "rowId": "locations-ownership",
+      "surface": "player"
+    },
+    {
+      "pattern": "^(foundation_status|inspect_campaign|inspect_markers|noop)$",
+      "rowId": "ui-projection",
+      "surface": "player-observability"
+    }
+  ]
+}

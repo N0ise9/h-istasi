@@ -1,5 +1,10 @@
 # Partisan Architecture
 
+> Current release status and the strict proof ladder are generated in
+> [`CURRENT_STATUS.md`](CURRENT_STATUS.md). Behavioral ownership and adaptation
+> requirements are generated in
+> [`ANTISTASI_CE311_PARITY_MATRIX.md`](ANTISTASI_CE311_PARITY_MATRIX.md).
+
 Current sealed implementation/source identity:
 `32727238d74b29905c68e5a80bb5897dfdc783c0`, UTC
 `2026-07-18T16:34:38Z`, label

@@ -1,5 +1,11 @@
 # Partisan Capability Map
 
+> This is the detailed implementation/evidence inventory. The generated
+> CE 3.11.1 product specification is
+> [`ANTISTASI_CE311_PARITY_MATRIX.md`](ANTISTASI_CE311_PARITY_MATRIX.md), and
+> [`CURRENT_STATUS.md`](CURRENT_STATUS.md) is the sole short current decision
+> surface. Historical boundaries below do not supersede either generated file.
+
 Campaign Schema 71 and runtime-settings Schema 24 are current. The current
 sealed implementation/source identity is
 `32727238d74b29905c68e5a80bb5897dfdc783c0`, UTC `2026-07-18T16:34:38Z`, label

@@ -1,9 +1,39 @@
 # Partisan Enfusion / Enforce Notes
 
+> Release-closure authority: [`CURRENT_STATUS.md`](CURRENT_STATUS.md) is the
+> generated current decision/evidence surface, and
+> [`ANTISTASI_CE311_PARITY_MATRIX.md`](ANTISTASI_CE311_PARITY_MATRIX.md) is the
+> generated behavioral specification. Mechanics below remain implementation
+> guidance and scoped evidence, not an upward certification claim.
+
 Campaign Schema 71 and runtime-settings Schema 24 are current. Current
 implementation/source identity is
 `32727238d74b29905c68e5a80bb5897dfdc783c0`, UTC `2026-07-18T16:34:38Z`, label
 `schema71-settings24-focused-force-authority`.
+
+## Current Release-Closure Mechanics
+
+- Keep the persisted model at Campaign Schema 71/settings 24 while closing
+  runtime and certification gates. Proof-only, documentation, UI, packaging,
+  or source-shape work is not a schema reason.
+- Treat checkout Git HEAD and the embedded implementation stamp as separate
+  identities. The current stamp intentionally identifies the implementation
+  parent of its documentation/stamp commit; a release manifest must record
+  both and the exact relationship instead of requiring equality.
+- `tools/update-release-docs.ps1` derives the embedded stamp and both schemas
+  from source, checks the audited revision is an ancestor of the checkout,
+  compares the 39 config/runtime mission IDs, and exact-compares explicit
+  manifests for 177 routed command actions and 17 contextual action classes.
+- Generated coverage is classification, not certification. A matrix row can
+  be `partial`, `legacy`, or `missing` even when its source path and action are
+  present.
+- A tracked Markdown file cannot contain the hash of the commit that contains
+  itself. The generator therefore records the audited gameplay revision in the
+  document and prints live checkout HEAD; Gate 1 must bind exact post-checkout
+  HEAD and package SHA-256 in an external retained release manifest.
+- The newest completed Full Campaign Debug evidence is older than the audited
+  source and remains red. Do not patch its individual failures until a current
+  artifact rerun classifies them.
 
 ## Current Focused Force-Authority Engine Mechanics
 

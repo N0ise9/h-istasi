@@ -1,5 +1,12 @@
 # Partisan Campaign Debug Verification Audit
 
+> Release-closure authority: [`CURRENT_STATUS.md`](CURRENT_STATUS.md) is the
+> generated current decision/evidence surface, and
+> [`ANTISTASI_CE311_PARITY_MATRIX.md`](ANTISTASI_CE311_PARITY_MATRIX.md) is the
+> generated behavioral specification. Runs below are chronological retained
+> evidence; no older run is current merely because it is the latest completed
+> result of its kind.
+
 Campaign Schema 71 and runtime-settings Schema 24 are current. Current
 implementation/source identity is
 `32727238d74b29905c68e5a80bb5897dfdc783c0`, UTC `2026-07-18T16:34:38Z`, label
@@ -1204,9 +1211,10 @@ cleanup case requires zero settlement failures, zero tracked open orders, and
 zero exact runtime claimants before prefixed records may be removed. These
 mechanisms have exact-tree static, Workbench, and R10 runtime proof.
 
-## Latest Full Campaign Debug Runtime Evidence Before The Restart Proof
+## Historical Full Campaign Debug Evidence Requiring A Current-Artifact Rerun
 
-The latest completed full-suite run is `seed1985_t0_p1_u1784134163`, using the
+The newest completed full-suite evidence retained here is
+`seed1985_t0_p1_u1784134163`, using the
 preceding build `7c8b9c27b4ee553664fa2b44aea4a8d53c7123a5` and label
 `schema70-settings24-phase24-owner-snapshot`. It executed 687 cases: 583 PASS,
 50 WARN, 46 FAIL, 7 BLOCKED, and 1 SKIPPED. Certification proved 5,537 of 5,685
@@ -3600,20 +3608,18 @@ The current `Run Campaign Debug` implementation is a useful certification scaffo
 
 It does not yet satisfy the full pasted contract for a complete one-button in-game verification suite. Large areas remain partial state/runtime probes or are not represented at all.
 
-## Completion Verification Snapshot
+## Historical Completion Verification Snapshot
 
-Source contract rechecked against the current campaign-runtime-integrity delivery
-gate. Historical checkpoint details remain below for diagnosis, but the Current
-Runtime Evidence section above supersedes their totals.
+This section records an older R10 checkpoint for diagnosis only. The generated
+`CURRENT_STATUS.md` supersedes its totals and reports the newer retained
+full-suite result separately from the current focused evidence.
 
-Current verification result: **not complete and not safe to run on live state**.
-The admin controls, profiles, typed result layer, structured artifacts, prefixed
-cleanup, and many scoped probes are implemented. Exact-tree R10 ended at 558
-PASS, 61 WARN, 54 FAIL, and 7 BLOCKED, with 5,415 of 5,591 required assertions
-proven. Cross-case defense leakage, marker-backing false positives, and the three
-Phase 22 proof defects are closed, but the remaining physical/runtime failures
-and external gates still prevent certification. Implementation breadth must not
-be reported as certification.
+Historical R10 result: **not complete and not safe to run on live state**. The
+admin controls, profiles, typed result layer, structured artifacts, prefixed
+cleanup, and many scoped probes were implemented. R10 ended at 558 PASS, 61
+WARN, 54 FAIL, and 7 BLOCKED, with 5,415 of 5,591 required assertions proven.
+Later source corrections do not convert that historical result into a pass;
+the current artifact still needs a full rerun and every external proof rung.
 
 Evidence checked in code:
 
@@ -3867,7 +3873,7 @@ Unproven or incomplete against the pasted contract:
 - Cleanup/stall coverage is not universal: untagged debug leftovers cannot be deterministically removed, cleanup depends on debug spawn paths naming physical entities, and some physical categories still lack stall evidence dumps.
 - Some rows are intentionally classifier-backed action/observation evidence rather than feature-specific physical probes; these should be replaced with narrower typed cases when they represent real mechanics rather than reports.
 
-## Latest r11 Petros/Faction Follow-up
+## Historical r11 Petros/Faction Follow-up
 
 - The latest inspected runtime artifacts were still r10 and proved Petros could fail before any command-menu interaction: first-run HQ setup spawned and attached Petros, then the runtime character was removed on the next proof tick and retried repeatedly.
 - The post-restart r10 artifact proved a separate debug-rebuild bug: the HQ rebuild command cleared Petros, but the Petros respawn debounce still blocked the replacement in the same short debug window.

@@ -1,11 +1,36 @@
 # Partisan Phase Plan
 
+> Release work is now gate-driven. [`CURRENT_STATUS.md`](CURRENT_STATUS.md)
+> carries the generated current decision and proof ladder;
+> [`ANTISTASI_CE311_PARITY_MATRIX.md`](ANTISTASI_CE311_PARITY_MATRIX.md) carries
+> the generated CE 3.11.1 behavior contract. Numbered historical phases below
+> remain implementation context rather than certification state.
+
 Campaign Schema 71 and runtime-settings Schema 24 are current. The current
 sealed implementation/source identity is
 `32727238d74b29905c68e5a80bb5897dfdc783c0`, UTC `2026-07-18T16:34:38Z`, label
 `schema71-settings24-focused-force-authority`.
 This stamp adds the focused force-authority checkpoint and retains the passing
 mixed-native work described below.
+
+## Release-Closure Gate Order
+
+The active plan is no longer feature-phase expansion. Work proceeds in this
+dependency order, with at most two runtime families in flight:
+
+1. Gate 0: generated current truth, pinned CE 3.11.1 behavior contracts, schema
+   freeze, and explicit unsupported surfaces.
+2. Gate 1: build once, retain one immutable package, bind every evidence rung
+   to its Git/package/toolchain identity, and rerun the current suite.
+3. Gates 2-6: immediate UI regressions, one exact force runtime, one client
+   view, one strategic/town truth, and one autonomous enemy campaign.
+4. Gates 7-10: mission-by-mission behavior, resistance progression, full-graph
+   persistence/fault tolerance, and complete-campaign balance.
+5. Gate 11: cumulative canary and stable certification on the unchanged
+   artifact.
+
+`CURRENT_STATUS.md` declares the active release decision; this file retains the
+detailed implementation order and historical rationale.
 
 ## Current Focused Force-Authority Plan Checkpoint
 

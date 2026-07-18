@@ -1,5 +1,10 @@
 # Partisan UI Rewrite Audit
 
+> Current release status and UI proof gaps are summarized in
+> [`CURRENT_STATUS.md`](CURRENT_STATUS.md); CE 3.11.1 player-observable contracts
+> are generated in
+> [`ANTISTASI_CE311_PARITY_MATRIX.md`](ANTISTASI_CE311_PARITY_MATRIX.md).
+
 Original audit: 2026-06-25
 
 Current-state synchronization: 2026-07-12

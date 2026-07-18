@@ -49601,4 +49601,7 @@ Write-Host "Exact enemy defensive-QRF shared-report focused engine-autotest wiri
 
 Write-Host "Schema-70 exact enemy garrison-rebuild frozen capacity, reciprocal admission, selected ownership ABA rejection, virtual/physical casualty continuity, delivered held authority, zero-refund terminal settlement, proportional prearrival refund, prepared/settled crash resume, conservative migration, claimant-wide malformed/orphan process-runtime quarantine, quarantine retention, restore, and focused autotest wiring OK"
 
+& (Join-Path $PSScriptRoot "update-release-docs.ps1") -Check
+Write-Host "Generated current-status, CE 3.11.1 contract, mission, command-action, and contextual-action coverage OK"
+
 Write-Host "Partisan foundation validation passed"

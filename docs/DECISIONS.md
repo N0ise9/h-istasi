@@ -3297,3 +3297,46 @@ Consequences:
   typed case but may not claim Full Campaign Debug, native-world,
   persistence/restart, packaged server/client, multiplayer/network/JIP/
   reconnect, performance, or soak certification.
+
+## CRI-057 - Freeze Schema 71 And Generate One Release Truth Surface
+
+- Status: Accepted
+- Date: 2026-07-18
+
+Context: Current evidence was distributed across large chronological documents
+whose scoped checkpoints used several overlapping meanings of "current",
+"verified", and "complete". The newest focused 35/35 state fixture is green,
+while the newest completed Full Campaign Debug result is older and red. The
+repository also exposed 39 mission IDs, a large dynamic command surface, and
+contextual world actions without one machine-backed CE 3.11.1 behavioral
+crosswalk. Further schema and feature expansion would increase that
+certification gap.
+
+Decision: Freeze Campaign Schema 71 and runtime-settings Schema 24 while the
+release-closure gates run. Permit a schema advance only for data loss, a hard
+campaign-lifetime cutoff, or a release-blocking persistence defect with its
+migration proof. Make `docs/data/release_status.json` and
+`docs/data/antistasi_ce311_parity.json` the checked data sources for generated
+`CURRENT_STATUS.md` and `ANTISTASI_CE311_PARITY_MATRIX.md`. Require deterministic
+generation and Foundation drift checks. Exact-compare the 39 config/runtime
+mission IDs, the explicit routed command-action manifest, and the explicit
+concrete contextual-action manifest; every surface maps to a behavioral
+contract even when its disposition is legacy, missing, or development-only.
+
+Keep checkout Git HEAD and embedded implementation identity separate. A commit
+cannot embed its own hash in tracked content, and stamp commits intentionally
+identify their implementation parent. Gate 1 must therefore retain both
+identities, their relation, dirty state, toolchain versions/hashes, Workbench
+CRC, schemas, package hashes, and evidence hashes in one candidate manifest.
+
+Consequences:
+
+- The current release decision is `NO-GO` development alpha.
+- The focused force-authority result remains valid only for its state fixture;
+  it does not supersede the older red integrated run or certify a package.
+- Source or config additions that create a new mission, routed command, or
+  contextual action fail the release-doc check until explicitly classified.
+- Chronological documents retain useful mechanics and evidence, but the two
+  generated documents own current status and the pinned behavior contract.
+- Gate 1 must build a fresh Schema-71 candidate. A cached or older-schema
+  package cannot inherit current source evidence.
