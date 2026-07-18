@@ -83,6 +83,15 @@ implementation/source identity is
   `f27e637b`. Its manifest also seals both standard and both diagnostic runtime
   executable identities. This candidate is active for runtime proof; the first
   remains sealed, superseded evidence.
+- The accepted packaged focused set uses clean classifier-aware harness HEAD
+  `b3fc1e6f56d9cf8805bac1702a54e0b5284e0043` without changing candidate bytes.
+  Five exact staged packed mounts produced JUnit 5/0/0/0 and 40/40 rehashed
+  envelope files with every cleanup/spill counter zero. A successful focused
+  run is not required to be hard-diagnostic-free: the accepted aggregate is 11
+  = 10 exact stock post-result filter messages + 1 exact intentional journal
+  fault injection + 0 unapproved. Require `HardDiagnosticFree:false`, valid
+  classification, and all twelve classifier self-checks per run together;
+  never reduce this evidence to a blanket zero-error claim.
 - When retaining an in-process PowerShell validation transcript, do not merge
   every host stream into the success pipeline with `*>&1`. That remaps
   `Write-Host` output emitted inside helper calls and can contaminate values a

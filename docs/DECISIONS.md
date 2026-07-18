@@ -3510,3 +3510,38 @@ Consequences:
   recorded commit and file hash. It does not change the sealed package,
   manifest, ready seal, or add-on bytes and therefore does not create another
   package candidate.
+
+## CRI-062 - Accept The Classifier-Bound Packaged Focused Set
+
+- Status: Accepted
+- Date: 2026-07-18
+
+Context: CRI-061 made hard-diagnostic classification part of focused-run
+success without changing the sealed candidate. The five preliminary sidecars
+could not be promoted because their earlier harness did not enforce that
+predicate. The same five package-bound cases therefore had to rerun under one
+clean, committed classifier-aware harness.
+
+Decision: Accept the second five-case set under harness HEAD
+`b3fc1e6f56d9cf8805bac1702a54e0b5284e0043` as the packaged deterministic-
+service rung for candidate `partisan-rc-b8deddc4b631-20260718T213322Z` and
+package SHA-256
+`82e1fd0bf7c3404b7fe842fa84efd10f225bf82fc76c11502b9a684b63f4f329`.
+All five exact staged packed mounts passed with JUnit 5/0/0/0. All 40 envelope
+files rehashed, cleanup and spill residue were zero, and the exact diagnostic
+census was 11 = 10 approved stock + 1 approved intentional journal injection +
+0 unapproved. Record `HardDiagnosticFree:false` alongside valid classification
+rather than describing the set as error-free. Retain the first five sidecars as
+preliminary, superseded-for-acceptance evidence.
+
+Consequences:
+
+- The deterministic-service rung is `passed-noncertifying`; no native-world,
+  Full Campaign Debug, dedicated, multiplayer/JIP, restart breadth,
+  performance, soak, canary, or stable-certification result is implied.
+- The tracked portable summary binds the exact five envelope hashes and the
+  clean runner/module identities. Release-document generation rehashes and
+  cross-checks that summary against the active candidate and status totals.
+- Current Full Campaign Debug is the next evidence gate against the same
+  unchanged package. A valid but red integrated report remains diagnostic
+  evidence and must not be called a pass.

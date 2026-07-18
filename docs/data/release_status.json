@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "statusAsOfUtc": "2026-07-18T21:36:44Z",
+  "statusAsOfUtc": "2026-07-18T22:15:02Z",
   "releaseStage": "development alpha",
   "releaseDecision": "NO-GO",
   "auditedRevision": "25dedb3e82ad516c28826830bc1e06a2d3940f53",
@@ -29,7 +29,7 @@
     "workbenchCrc": "f27e637b",
     "serverVersion": "1.7.0.54",
     "clientVersion": "1.7.0.54",
-    "note": "The single replacement candidate is sealed and active for runtime use. It contains the focused-suite registration repair and exact standard plus diagnostic runtime identities; the first candidate remains retained superseded evidence, and no result may mix their package identities."
+    "note": "The single replacement candidate is sealed and active for runtime use. Its classifier-aware five-case packaged focused set is accepted as a non-certifying service rung; the first candidate remains retained superseded evidence, and no result may mix their package identities."
   },
   "evidence": {
     "foundation": {
@@ -45,6 +45,34 @@
       "classCount": 11899,
       "crc": "f27e637b",
       "summary": "PC, PS4, PS5, XBOX_ONE, and XBOX_SERIES validation passed with one common CRC, zero first-party hard errors, and zero cleanup or monitored-boundary residue for the candidate source HEAD."
+    },
+    "packagedFocusedAutotests": {
+      "status": "passed-noncertifying",
+      "summaryPath": "docs/evidence/focused-autotest/partisan-rc-b8deddc4b631-20260718T213322Z.json",
+      "summarySha256": "8bb36919f0649e0f48fad50305878ec883cf98a0021323ba1442017f1aa113b8",
+      "candidateId": "partisan-rc-b8deddc4b631-20260718T213322Z",
+      "candidateSourceHead": "b8deddc4b6314936b7ea04f36a35784622a46da6",
+      "packageSha256": "82e1fd0bf7c3404b7fe842fa84efd10f225bf82fc76c11502b9a684b63f4f329",
+      "manifestSha256": "c88d363423008bcba2366afa8d458613bf539c549969bcae73cd82e5cd9402a5",
+      "readySha256": "6518c536e7104f21af81c94c4959a66587c4efe67bf2339001489dcddad00d87",
+      "harnessGitHead": "b3fc1e6f56d9cf8805bac1702a54e0b5284e0043",
+      "focusedRunnerSha256": "dc3e8db039801470884148f72ef7f2e00fad58670c9ee370675f847a1c87920e",
+      "candidateModuleSha256": "2c827fc6cc965813d95c77a4eb063b5adc79025ce3fdc8bca8d3ea2788b57dc2",
+      "caseCount": 5,
+      "passedCases": 5,
+      "junitTests": 5,
+      "junitFailures": 0,
+      "junitErrors": 0,
+      "junitSkipped": 0,
+      "hardDiagnosticClassifierChecksPerRun": 12,
+      "hardDiagnosticFree": false,
+      "hardDiagnosticCount": 11,
+      "approvedStockFilterDiagnosticCount": 10,
+      "approvedIntentionalFaultDiagnosticCount": 1,
+      "unapprovedHardDiagnosticCount": 0,
+      "envelopeFileCount": 40,
+      "cleanupAndSpillZero": true,
+      "summary": "All five individually named service suites passed against the exact staged packed candidate with 5/0/0/0 JUnit totals, valid exact diagnostic classification, zero unapproved hard diagnostics, 40 rehashed envelope files, and zero cleanup or spill residue. This does not certify any higher proof rung."
     },
     "focusedForceAuthority": {
       "status": "passed-noncertifying",
@@ -90,8 +118,8 @@
     {
       "id": "deterministic-service",
       "label": "Deterministic service contracts",
-      "status": "partial",
-      "summary": "Selected focused fixtures pass and the active replacement contains all five service-only suite registrations, but individually registered packaged JUnit results have not run yet."
+      "status": "passed-noncertifying",
+      "summary": "All five release-critical service suites passed individually against the exact staged packed candidate with 5/0/0/0 JUnit totals, exact classified diagnostics, and zero residue. This scoped rung does not inherit into native-world or later gates."
     },
     {
       "id": "native-engine-world",
@@ -140,7 +168,7 @@
     {
       "id": "STATUS-001",
       "category": "AUTH",
-      "summary": "The replacement candidate is sealed and runtime-eligible with exact package and tool identities; current focused, Campaign Debug, dedicated, multiplayer/JIP, restart, performance, and soak rungs remain pending."
+      "summary": "The replacement candidate is sealed and runtime-eligible with exact package and tool identities, and its packaged focused service rung passed; Campaign Debug, dedicated, multiplayer/JIP, restart breadth, performance, and soak remain pending."
     },
     {
       "id": "STATUS-002",
@@ -176,11 +204,6 @@
       "id": "STATUS-008",
       "category": "SEC",
       "summary": "Development proof and destructive diagnostic surfaces have not yet been separated from the release package."
-    },
-    {
-      "id": "STATUS-009",
-      "category": "TEST",
-      "summary": "The active replacement includes the empty-world override for all five service-only focused suites; five individually retained packaged JUnit results are still required."
     }
   ]
 }

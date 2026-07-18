@@ -49,10 +49,20 @@ exact packed mounts, and zero cleanup/spill residue, but those sidecars remain
 preliminary: the runner retained hard diagnostics without binding them to its
 success predicate. The harness now rejects all script/engine errors except the
 exact ordered stock post-result pair and the profile-journal case's single
-in-suite, non-mutating failure injection. The next evidence boundary is the same
-five runs under that committed classifier-aware harness, followed by current
-Full Campaign Debug. Until then, the historical failed integrated result below
-remains the honest suite status.
+in-suite, non-mutating failure injection.
+
+The classifier-aware rerun is accepted under clean harness HEAD
+`b3fc1e6f56d9cf8805bac1702a54e0b5284e0043`. All five named cases consumed the
+unchanged active package, produced exact packed-mount attestations, and passed
+with aggregate JUnit 5/0/0/0. Their 40 retained envelope files independently
+rehashed; all cleanup and spill counters were zero. The hard-diagnostic census
+was 11 = 10 approved stock + 1 approved intentional journal injection + 0
+unapproved, so `HardDiagnosticFree:false` and classification-valid are both
+required truths. The tracked portable summary SHA-256 is
+`8bb36919f0649e0f48fad50305878ec883cf98a0021323ba1442017f1aa113b8`.
+This is accepted non-certifying deterministic-service evidence. Current Full
+Campaign Debug is the next evidence boundary; until it runs, the historical
+failed integrated result below remains the honest full-suite status.
 
 ## Historical Focused Force-Authority Engine Checkpoint
 

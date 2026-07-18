@@ -35,14 +35,20 @@ vector preflight plus negative consumer suite pass; a real run must additionally
 attest the engine-owned packed mount. Three service-only suites were found to
 inherit a stock base-only world transition that could unload their packaged
 test type; all three now return an empty world like the two already-correct
-suites. This is a test-registration repair, not new gameplay parity. The active
-replacement now contains it, but the five individually named packaged results
-still must pass under the classifier-aware harness before they can be claimed.
-Their first all-five execution produced passing JUnit and exact package-mount
-evidence, but remains preliminary because hard diagnostics were not yet part of
-the pass predicate. The runner now approves only the exact stock post-result
-pair plus the profile-journal case's proven non-mutating fault injection and
-fails every other script/engine error.
+suites. This is a test-registration repair, not new gameplay parity. The first
+all-five execution produced passing JUnit and exact package-mount evidence, but
+remains preliminary because hard diagnostics were not yet part of the pass
+predicate. The runner now approves only the exact stock post-result pair plus
+the profile-journal case's proven non-mutating fault injection and fails every
+other script/engine error.
+
+The accepted classifier-aware set passed all five individually named suites
+against the active replacement with JUnit 5/0/0/0, exact packed mounts, 40/40
+envelope files rehashed, and zero cleanup/spill residue. Its diagnostic census
+was 11 = 10 approved stock + 1 approved intentional + 0 unapproved. That closes
+the scoped packaged deterministic-service parity rung as non-certifying; it
+does not close native-world, Full Campaign Debug, dedicated, multiplayer/JIP,
+restart breadth, performance, or soak parity.
 
 ## Current Controlled-Shutdown Native Fence Parity Boundary
 

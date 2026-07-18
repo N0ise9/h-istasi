@@ -24,6 +24,15 @@ envelope binds raw-file hashes to candidate, package, manifest, ready seal,
 harness, runtime-tool, result, and cleanup identities. Only a deliberately
 selected portable summary may later be tracked here.
 
+The accepted classifier-aware five-case summary for the active candidate is
+`focused-autotest/partisan-rc-b8deddc4b631-20260718T213322Z.json`. It binds the
+five external envelope hashes, exact candidate and harness identities, per-case
+JUnit and diagnostic counts, aggregate totals, rehash status, and cleanup/spill
+status without copying machine-local paths or mutable raw logs into the
+repository. The raw sidecars remain external and immutable.
+Repository attributes also keep these tracked summary JSON files on canonical
+LF endings so the status-recorded digest remains stable across checkouts.
+
 If a package defect requires a rebuild, the older record remains byte-identical
 and is described as retained superseded evidence. It remains available for
 archive validation and consumer preflight, but not current runtime proof. No

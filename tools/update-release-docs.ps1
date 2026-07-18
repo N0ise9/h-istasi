@@ -344,6 +344,10 @@ $workbenchSha = ""
 $workbenchCrc = ""
 $serverVersion = ""
 $clientVersion = ""
+$packagedFocused = $null
+$packagedFocusedSummaryPath = ""
+$packagedFocusedSummarySha = ""
+$packagedFocusedHarnessHead = ""
 if ($releaseCandidateBuilt) {
 	$runtimeUseDisposition = Require-Text $status.artifact.runtimeUseDisposition "release_status.artifact.runtimeUseDisposition"
 	if ($runtimeUseDisposition -cnotin @("active-runtime-candidate", "supersede-before-runtime")) {
@@ -566,6 +570,260 @@ if ($releaseCandidateBuilt) {
 		throw "The tracked release-candidate ready seal differs from release status."
 	}
 
+	$packagedFocused = Get-ObjectPropertyValue $status.evidence "packagedFocusedAutotests"
+	$deterministicServiceRungs = @($status.proofRungs | Where-Object {
+		[string] (Get-ObjectPropertyValue $_ "id") -ceq "deterministic-service"
+	})
+	if ($deterministicServiceRungs.Count -ne 1) {
+		throw "Release status must contain exactly one deterministic-service proof rung."
+	}
+	$deterministicServiceRungStatus = [string] (Get-ObjectPropertyValue `
+		$deterministicServiceRungs[0] `
+		"status")
+	if ($null -eq $packagedFocused) {
+		if ($deterministicServiceRungStatus -cin @("passed", "passed-noncertifying")) {
+			throw "A passed deterministic-service rung requires packaged focused-autotest evidence."
+		}
+	}
+	else {
+	if ($deterministicServiceRungStatus -cne "passed-noncertifying") {
+		throw "Packaged focused-autotest evidence requires a passed-noncertifying deterministic-service rung."
+	}
+	if ([string] (Get-ObjectPropertyValue $packagedFocused "status") -cne "passed-noncertifying") {
+		throw "Packaged focused-autotest evidence must be passed-noncertifying."
+	}
+
+	$packagedFocusedSummaryPath = Require-RepoRelativePath `
+		(Get-ObjectPropertyValue $packagedFocused "summaryPath") `
+		"release_status.evidence.packagedFocusedAutotests.summaryPath"
+	$packagedFocusedSummarySha = Require-Sha256 `
+		(Get-ObjectPropertyValue $packagedFocused "summarySha256") `
+		"release_status.evidence.packagedFocusedAutotests.summarySha256"
+	$packagedFocusedHarnessHead = Require-Text `
+		(Get-ObjectPropertyValue $packagedFocused "harnessGitHead") `
+		"release_status.evidence.packagedFocusedAutotests.harnessGitHead"
+	if ($packagedFocusedHarnessHead -cnotmatch '^[0-9a-f]{40}$') {
+		throw "The packaged focused harness HEAD must be a lowercase full Git SHA."
+	}
+
+	$packagedFocusedSummaryFullPath = [IO.Path]::GetFullPath(
+		(Join-Path $root $packagedFocusedSummaryPath))
+	if (-not $packagedFocusedSummaryFullPath.StartsWith(
+		$repositoryPrefix,
+		[StringComparison]::OrdinalIgnoreCase) -or
+		-not (Test-Path -LiteralPath $packagedFocusedSummaryFullPath -PathType Leaf)) {
+		throw "The tracked packaged focused summary is missing or outside the repository."
+	}
+	$packagedFocusedSummaryItem = Get-Item -LiteralPath $packagedFocusedSummaryFullPath -Force
+	if (($packagedFocusedSummaryItem.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+		throw "The tracked packaged focused summary must not be a reparse point."
+	}
+	$actualPackagedFocusedSummarySha = (Get-FileHash `
+		-LiteralPath $packagedFocusedSummaryFullPath `
+		-Algorithm SHA256).Hash.ToLowerInvariant()
+	if ($actualPackagedFocusedSummarySha -cne $packagedFocusedSummarySha.ToLowerInvariant()) {
+		throw "The packaged focused summary SHA-256 does not match release status."
+	}
+
+	$packagedFocusedSummaryText = Get-Content -Raw -LiteralPath $packagedFocusedSummaryFullPath
+	if ($packagedFocusedSummaryText -match '(?i)[A-Z]:[\\/]') {
+		throw "The tracked packaged focused summary contains a local absolute path."
+	}
+	$packagedFocusedSummary = $packagedFocusedSummaryText | ConvertFrom-Json
+	$focusedSummaryCandidate = Get-ObjectPropertyValue $packagedFocusedSummary "candidate"
+	$focusedSummaryHarness = Get-ObjectPropertyValue $packagedFocusedSummary "harness"
+	$focusedSummaryResult = Get-ObjectPropertyValue $packagedFocusedSummary "result"
+	$focusedSummaryCases = @(Get-ObjectPropertyValue $packagedFocusedSummary "cases")
+	$focusedSummaryPreliminary = Get-ObjectPropertyValue $packagedFocusedSummary "preliminaryRuns"
+	if ([int] (Get-ObjectPropertyValue $packagedFocusedSummary "schemaVersion") -ne 1 -or
+		[string] (Get-ObjectPropertyValue $packagedFocusedSummary "evidenceKind") -cne "packaged-focused-autotest-set" -or
+		$null -eq $focusedSummaryCandidate -or
+		$null -eq $focusedSummaryHarness -or
+		$null -eq $focusedSummaryResult -or
+		$focusedSummaryCases.Count -ne 5 -or
+		$null -eq $focusedSummaryPreliminary) {
+		throw "The tracked packaged focused summary is structurally incomplete."
+	}
+
+	if ([string] (Get-ObjectPropertyValue $packagedFocused "candidateId") -cne $candidateId -or
+		[string] (Get-ObjectPropertyValue $packagedFocused "candidateSourceHead") -cne $candidateSourceHead -or
+		[string] (Get-ObjectPropertyValue $packagedFocused "packageSha256") -cne $packageSha -or
+		[string] (Get-ObjectPropertyValue $packagedFocused "manifestSha256") -cne $candidateManifestSha -or
+		[string] (Get-ObjectPropertyValue $packagedFocused "readySha256") -cne $candidateReadySha -or
+		[string] (Get-ObjectPropertyValue $focusedSummaryCandidate "candidateId") -cne $candidateId -or
+		[string] (Get-ObjectPropertyValue $focusedSummaryCandidate "candidateSourceHead") -cne $candidateSourceHead -or
+		[string] (Get-ObjectPropertyValue $focusedSummaryCandidate "packageSha256") -cne $packageSha -or
+		[string] (Get-ObjectPropertyValue $focusedSummaryCandidate "manifestSha256") -cne $candidateManifestSha -or
+		[string] (Get-ObjectPropertyValue $focusedSummaryCandidate "readySha256") -cne $candidateReadySha -or
+		[string] (Get-ObjectPropertyValue $focusedSummaryCandidate "workbenchCrc") -cne $workbenchCrc) {
+		throw "Packaged focused evidence differs from the active candidate identity."
+	}
+
+	$focusedRunnerSha = Require-Sha256 `
+		(Get-ObjectPropertyValue $packagedFocused "focusedRunnerSha256") `
+		"release_status.evidence.packagedFocusedAutotests.focusedRunnerSha256"
+	$focusedCandidateModuleSha = Require-Sha256 `
+		(Get-ObjectPropertyValue $packagedFocused "candidateModuleSha256") `
+		"release_status.evidence.packagedFocusedAutotests.candidateModuleSha256"
+	if ([string] (Get-ObjectPropertyValue $focusedSummaryHarness "gitHead") -cne $packagedFocusedHarnessHead -or
+		(Get-ObjectPropertyValue $focusedSummaryHarness "dirty") -isnot [bool] -or
+		[bool] (Get-ObjectPropertyValue $focusedSummaryHarness "dirty") -or
+		[string] (Get-ObjectPropertyValue $focusedSummaryHarness "focusedRunnerSha256") -cne $focusedRunnerSha -or
+		[string] (Get-ObjectPropertyValue $focusedSummaryHarness "candidateModuleSha256") -cne $focusedCandidateModuleSha) {
+		throw "Packaged focused evidence does not bind one clean exact harness."
+	}
+
+	$expectedFocusedSuites = @{
+		"HST_TEST_EnemyCounterattackAuthority" = "HST_EnemyCounterattackAutotestSuite"
+		"HST_TEST_EnemyGarrisonRebuildAuthority" = "HST_EnemyGarrisonRebuildAutotestSuite"
+		"HST_TEST_EnemyPlanningCommitmentAuthority" = "HST_EnemyPlanningCommitmentAutotestSuite"
+		"HST_TEST_EnemyQRFAuthority" = "HST_EnemyQRFAutotestSuite"
+		"HST_TEST_CampaignProfileJournalAuthority" = "HST_CampaignProfileJournalAuthorityAutotestSuite"
+	}
+	$focusedCaseNames = @($focusedSummaryCases | ForEach-Object {
+		[string] (Get-ObjectPropertyValue $_ "testCase")
+	})
+	Assert-UniqueStrings $focusedCaseNames "Packaged focused testcase IDs"
+	Assert-EqualSet @($expectedFocusedSuites.Keys) $focusedCaseNames "Packaged focused testcase IDs"
+
+	$focusedEnvelopeHashes = @()
+	$focusedRunIds = @()
+	$focusedJunitTests = 0
+	$focusedJunitFailures = 0
+	$focusedJunitErrors = 0
+	$focusedJunitSkipped = 0
+	$focusedHardDiagnostics = 0
+	$focusedStockDiagnostics = 0
+	$focusedIntentionalDiagnostics = 0
+	$focusedUnapprovedDiagnostics = 0
+	$focusedEnvelopeFileCount = 0
+	$focusedClassifierChecksPerRun = [int] (Get-ObjectPropertyValue `
+		$packagedFocused `
+		"hardDiagnosticClassifierChecksPerRun")
+	if ($focusedClassifierChecksPerRun -le 0) {
+		throw "Packaged focused evidence must record a positive classifier self-check count."
+	}
+	foreach ($focusedCase in $focusedSummaryCases) {
+		$focusedCaseName = Require-Text `
+			(Get-ObjectPropertyValue $focusedCase "testCase") `
+			"packaged focused testcase ID"
+		$focusedRunId = Require-Text `
+			(Get-ObjectPropertyValue $focusedCase "runId") `
+			"packaged focused run ID"
+		$focusedEnvelopeSha = Require-Sha256 `
+			(Get-ObjectPropertyValue $focusedCase "envelopeSha256") `
+			"packaged focused envelope SHA-256"
+		$focusedCaseHardDiagnostics = [int] (Get-ObjectPropertyValue $focusedCase "hardDiagnosticCount")
+		$focusedCaseStockDiagnostics = [int] (Get-ObjectPropertyValue $focusedCase "approvedStockFilterDiagnosticCount")
+		$focusedCaseIntentionalDiagnostics = [int] (Get-ObjectPropertyValue $focusedCase "approvedIntentionalFaultDiagnosticCount")
+		$focusedCaseUnapprovedDiagnostics = [int] (Get-ObjectPropertyValue $focusedCase "unapprovedHardDiagnosticCount")
+		$focusedCaseHardDiagnosticFree = Get-ObjectPropertyValue $focusedCase "hardDiagnosticFree"
+		if ([string] (Get-ObjectPropertyValue $focusedCase "suiteClass") -cne
+			[string] $expectedFocusedSuites[$focusedCaseName] -or
+			$focusedRunId -cnotmatch '^\d{8}T\d{6}Z-[0-9a-f]{32}$' -or
+			(Get-ObjectPropertyValue $focusedCase "success") -isnot [bool] -or
+			-not [bool] (Get-ObjectPropertyValue $focusedCase "success") -or
+			(Get-ObjectPropertyValue $focusedCase "candidateBoundaryVerified") -isnot [bool] -or
+			-not [bool] (Get-ObjectPropertyValue $focusedCase "candidateBoundaryVerified") -or
+			(Get-ObjectPropertyValue $focusedCase "mountPacked") -isnot [bool] -or
+			-not [bool] (Get-ObjectPropertyValue $focusedCase "mountPacked") -or
+			[int] (Get-ObjectPropertyValue $focusedCase "fileCount") -le 0 -or
+			[int] (Get-ObjectPropertyValue $focusedCase "junitTests") -ne 1 -or
+			[int] (Get-ObjectPropertyValue $focusedCase "junitFailures") -ne 0 -or
+			[int] (Get-ObjectPropertyValue $focusedCase "junitErrors") -ne 0 -or
+			[int] (Get-ObjectPropertyValue $focusedCase "junitSkipped") -ne 0 -or
+			[int] (Get-ObjectPropertyValue $focusedCase "hardDiagnosticClassifierChecks") -ne
+				$focusedClassifierChecksPerRun -or
+			(Get-ObjectPropertyValue $focusedCase "hardDiagnosticClassificationValid") -isnot [bool] -or
+			-not [bool] (Get-ObjectPropertyValue $focusedCase "hardDiagnosticClassificationValid") -or
+			$focusedCaseHardDiagnosticFree -isnot [bool] -or
+			[bool] $focusedCaseHardDiagnosticFree -ne ($focusedCaseHardDiagnostics -eq 0) -or
+			$focusedCaseHardDiagnostics -lt 0 -or
+			$focusedCaseStockDiagnostics -lt 0 -or
+			$focusedCaseIntentionalDiagnostics -lt 0 -or
+			$focusedCaseUnapprovedDiagnostics -ne 0 -or
+			$focusedCaseHardDiagnostics -ne
+				($focusedCaseStockDiagnostics + $focusedCaseIntentionalDiagnostics +
+					$focusedCaseUnapprovedDiagnostics) -or
+			(Get-ObjectPropertyValue $focusedCase "cleanupAndSpillZero") -isnot [bool] -or
+			-not [bool] (Get-ObjectPropertyValue $focusedCase "cleanupAndSpillZero") -or
+			(Get-ObjectPropertyValue $focusedCase "envelopeFilesRehashed") -isnot [bool] -or
+			-not [bool] (Get-ObjectPropertyValue $focusedCase "envelopeFilesRehashed")) {
+			throw "Packaged focused testcase $focusedCaseName does not satisfy the accepted result contract."
+		}
+		Require-Text (Get-ObjectPropertyValue $focusedCase "startedUtc") "packaged focused started UTC" | Out-Null
+		Require-Text (Get-ObjectPropertyValue $focusedCase "completedUtc") "packaged focused completed UTC" | Out-Null
+		$focusedRunIds += $focusedRunId
+		$focusedEnvelopeHashes += $focusedEnvelopeSha
+		$focusedJunitTests += [int] (Get-ObjectPropertyValue $focusedCase "junitTests")
+		$focusedJunitFailures += [int] (Get-ObjectPropertyValue $focusedCase "junitFailures")
+		$focusedJunitErrors += [int] (Get-ObjectPropertyValue $focusedCase "junitErrors")
+		$focusedJunitSkipped += [int] (Get-ObjectPropertyValue $focusedCase "junitSkipped")
+		$focusedHardDiagnostics += $focusedCaseHardDiagnostics
+		$focusedStockDiagnostics += $focusedCaseStockDiagnostics
+		$focusedIntentionalDiagnostics += $focusedCaseIntentionalDiagnostics
+		$focusedUnapprovedDiagnostics += $focusedCaseUnapprovedDiagnostics
+		$focusedEnvelopeFileCount += [int] (Get-ObjectPropertyValue $focusedCase "fileCount")
+	}
+	Assert-UniqueStrings $focusedRunIds "Packaged focused run IDs"
+	Assert-UniqueStrings $focusedEnvelopeHashes "Packaged focused envelope hashes"
+
+	if ([string] (Get-ObjectPropertyValue $focusedSummaryResult "status") -cne "passed-noncertifying" -or
+		[int] (Get-ObjectPropertyValue $focusedSummaryResult "caseCount") -ne 5 -or
+		[int] (Get-ObjectPropertyValue $focusedSummaryResult "passedCases") -ne 5 -or
+		[int] (Get-ObjectPropertyValue $focusedSummaryResult "junitTests") -ne $focusedJunitTests -or
+		[int] (Get-ObjectPropertyValue $focusedSummaryResult "junitFailures") -ne $focusedJunitFailures -or
+		[int] (Get-ObjectPropertyValue $focusedSummaryResult "junitErrors") -ne $focusedJunitErrors -or
+		[int] (Get-ObjectPropertyValue $focusedSummaryResult "junitSkipped") -ne $focusedJunitSkipped -or
+		[int] (Get-ObjectPropertyValue $focusedSummaryResult "hardDiagnosticClassifierChecksPerRun") -ne
+			$focusedClassifierChecksPerRun -or
+		(Get-ObjectPropertyValue $focusedSummaryResult "hardDiagnosticClassificationValid") -isnot [bool] -or
+		-not [bool] (Get-ObjectPropertyValue $focusedSummaryResult "hardDiagnosticClassificationValid") -or
+		(Get-ObjectPropertyValue $focusedSummaryResult "hardDiagnosticFree") -isnot [bool] -or
+		[bool] (Get-ObjectPropertyValue $focusedSummaryResult "hardDiagnosticFree") -ne
+			($focusedHardDiagnostics -eq 0) -or
+		[int] (Get-ObjectPropertyValue $focusedSummaryResult "hardDiagnosticCount") -ne $focusedHardDiagnostics -or
+		[int] (Get-ObjectPropertyValue $focusedSummaryResult "approvedStockFilterDiagnosticCount") -ne $focusedStockDiagnostics -or
+		[int] (Get-ObjectPropertyValue $focusedSummaryResult "approvedIntentionalFaultDiagnosticCount") -ne $focusedIntentionalDiagnostics -or
+		[int] (Get-ObjectPropertyValue $focusedSummaryResult "unapprovedHardDiagnosticCount") -ne $focusedUnapprovedDiagnostics -or
+		[int] (Get-ObjectPropertyValue $focusedSummaryResult "envelopeFileCount") -ne $focusedEnvelopeFileCount -or
+		(Get-ObjectPropertyValue $focusedSummaryResult "candidateBoundaryVerified") -isnot [bool] -or
+		-not [bool] (Get-ObjectPropertyValue $focusedSummaryResult "candidateBoundaryVerified") -or
+		(Get-ObjectPropertyValue $focusedSummaryResult "allMountsPacked") -isnot [bool] -or
+		-not [bool] (Get-ObjectPropertyValue $focusedSummaryResult "allMountsPacked") -or
+		(Get-ObjectPropertyValue $focusedSummaryResult "allCleanupAndSpillZero") -isnot [bool] -or
+		-not [bool] (Get-ObjectPropertyValue $focusedSummaryResult "allCleanupAndSpillZero") -or
+		(Get-ObjectPropertyValue $focusedSummaryResult "allEnvelopeFilesRehashed") -isnot [bool] -or
+		-not [bool] (Get-ObjectPropertyValue $focusedSummaryResult "allEnvelopeFilesRehashed") -or
+		[string] (Get-ObjectPropertyValue $focusedSummaryPreliminary "status") -cne "superseded-for-acceptance") {
+		throw "The packaged focused aggregate does not equal its five accepted runs."
+	}
+
+	if ([int] (Get-ObjectPropertyValue $packagedFocused "caseCount") -ne 5 -or
+		[int] (Get-ObjectPropertyValue $packagedFocused "passedCases") -ne 5 -or
+		[int] (Get-ObjectPropertyValue $packagedFocused "junitTests") -ne $focusedJunitTests -or
+		[int] (Get-ObjectPropertyValue $packagedFocused "junitFailures") -ne $focusedJunitFailures -or
+		[int] (Get-ObjectPropertyValue $packagedFocused "junitErrors") -ne $focusedJunitErrors -or
+		[int] (Get-ObjectPropertyValue $packagedFocused "junitSkipped") -ne $focusedJunitSkipped -or
+		[int] (Get-ObjectPropertyValue $packagedFocused "hardDiagnosticClassifierChecksPerRun") -ne
+			$focusedClassifierChecksPerRun -or
+		(Get-ObjectPropertyValue $packagedFocused "hardDiagnosticFree") -isnot [bool] -or
+		[bool] (Get-ObjectPropertyValue $packagedFocused "hardDiagnosticFree") -ne
+			($focusedHardDiagnostics -eq 0) -or
+		[int] (Get-ObjectPropertyValue $packagedFocused "hardDiagnosticCount") -ne $focusedHardDiagnostics -or
+		[int] (Get-ObjectPropertyValue $packagedFocused "approvedStockFilterDiagnosticCount") -ne $focusedStockDiagnostics -or
+		[int] (Get-ObjectPropertyValue $packagedFocused "approvedIntentionalFaultDiagnosticCount") -ne $focusedIntentionalDiagnostics -or
+		[int] (Get-ObjectPropertyValue $packagedFocused "unapprovedHardDiagnosticCount") -ne $focusedUnapprovedDiagnostics -or
+		[int] (Get-ObjectPropertyValue $packagedFocused "envelopeFileCount") -ne $focusedEnvelopeFileCount -or
+		(Get-ObjectPropertyValue $packagedFocused "cleanupAndSpillZero") -isnot [bool] -or
+		-not [bool] (Get-ObjectPropertyValue $packagedFocused "cleanupAndSpillZero") -or
+		$focusedJunitTests -ne 5 -or $focusedJunitFailures -ne 0 -or
+		$focusedJunitErrors -ne 0 -or $focusedJunitSkipped -ne 0 -or
+		$focusedUnapprovedDiagnostics -ne 0 -or $focusedEnvelopeFileCount -le 0) {
+		throw "Release status does not equal the packaged focused summary."
+	}
+	}
+
 	Push-Location $root
 	try {
 		& git merge-base --is-ancestor $auditedRevision $candidateSourceHead
@@ -576,6 +834,13 @@ if ($releaseCandidateBuilt) {
 		& git merge-base --is-ancestor $candidateSourceHead $checkoutHead
 		if ($LASTEXITCODE -ne 0) {
 			throw "Candidate source HEAD $candidateSourceHead is not an ancestor of checkout HEAD $checkoutHead."
+		}
+
+		if ($null -ne $packagedFocused) {
+			& git merge-base --is-ancestor $packagedFocusedHarnessHead $checkoutHead
+			if ($LASTEXITCODE -ne 0) {
+				throw "Packaged focused harness HEAD $packagedFocusedHarnessHead is not an ancestor of checkout HEAD $checkoutHead."
+			}
 		}
 	}
 	finally {
@@ -779,6 +1044,9 @@ Add-Line $statusBuilder "## Retained evidence"
 Add-Line $statusBuilder
 Add-Line $statusBuilder "- Foundation: **$($status.evidence.foundation.status)** at $($status.evidence.foundation.referenceCount) references for $mdTick$($status.evidence.foundation.sourceSha)$mdTick."
 Add-Line $statusBuilder "- Workbench: **$($status.evidence.workbench.status)** at $($status.evidence.workbench.fileCount) files / $($status.evidence.workbench.classCount) classes / CRC $mdTick$($status.evidence.workbench.crc)$mdTick for $mdTick$($status.evidence.workbench.sourceSha)$mdTick."
+if ($null -ne $packagedFocused) {
+	Add-Line $statusBuilder "- Packaged focused autotests: **$($packagedFocused.passedCases)/$($packagedFocused.caseCount)** cases and JUnit **$($packagedFocused.junitTests)/$($packagedFocused.junitFailures)/$($packagedFocused.junitErrors)/$($packagedFocused.junitSkipped)** tests/failures/errors/skips against exact candidate $mdTick$candidateId$mdTick. Hard diagnostics are explicitly not free: $($packagedFocused.hardDiagnosticCount) total = $($packagedFocused.approvedStockFilterDiagnosticCount) approved stock + $($packagedFocused.approvedIntentionalFaultDiagnosticCount) approved intentional + $($packagedFocused.unapprovedHardDiagnosticCount) unapproved, with $($packagedFocused.envelopeFileCount) envelope files rehashed and zero cleanup/spill residue. Summary: $mdTick$(Escape-MarkdownCell $packagedFocusedSummaryPath)$mdTick / SHA-256 $mdTick$packagedFocusedSummarySha$mdTick; harness $mdTick$packagedFocusedHarnessHead$mdTick. This is passed non-certifying service evidence."
+}
 Add-Line $statusBuilder "- Focused force-authority profile: **$($status.evidence.focusedForceAuthority.passedCases)/$($status.evidence.focusedForceAuthority.caseCount)** cases and **$($status.evidence.focusedForceAuthority.passedConditions)/$($status.evidence.focusedForceAuthority.countedConditions)** counted conditions for $mdTick$($status.evidence.focusedForceAuthority.sourceSha)$mdTick, with ${mdTick}CertificationPassed:$($status.evidence.focusedForceAuthority.certificationPassed.ToString().ToLowerInvariant())${mdTick}. This is historical state-only, non-package, non-certifying evidence."
 Add-Line $statusBuilder "- Full Campaign Debug: **historical and failed** on $mdTick$($status.evidence.fullCampaignDebug.sourceSha)${mdTick}: $($status.evidence.fullCampaignDebug.pass) PASS, $($status.evidence.fullCampaignDebug.warn) WARN, $($status.evidence.fullCampaignDebug.fail) FAIL, $($status.evidence.fullCampaignDebug.blocked) BLOCKED, and $($status.evidence.fullCampaignDebug.skipped) SKIPPED; $($status.evidence.fullCampaignDebug.provenAssertions)/$($status.evidence.fullCampaignDebug.requiredAssertions) required assertions proven. It predates the audited revision and must be rerun before its individual failures are treated as current."
 Add-Line $statusBuilder
@@ -808,8 +1076,11 @@ if ($releaseCandidateBuilt) {
 	if ($runtimeUseDisposition -ceq "supersede-before-runtime") {
 		Add-Line $statusBuilder "Gate 1 retained candidate $mdTick$(Escape-MarkdownCell $candidateId)$mdTick remains sealed but is superseded before runtime use. Build exactly one replacement candidate for the focused-suite registration repair; retain both package identities, and do not combine evidence across their aggregate SHA-256 digests."
 	}
+	elseif ($null -ne $packagedFocused) {
+		Add-Line $statusBuilder "Gate 1 retained candidate $mdTick$(Escape-MarkdownCell $candidateId)$mdTick, and its five-case packaged focused service rung is accepted. Run current Full Campaign Debug next against the unchanged package identified by manifest $mdTick$(Escape-MarkdownCell $candidateManifestPath)$mdTick and aggregate SHA-256 $mdTick$packageSha$mdTick. Treat a valid-but-red integrated report as retained diagnostic evidence, not a pass; rebuilding creates a different candidate rather than extending this evidence chain."
+	}
 	else {
-		Add-Line $statusBuilder "Gate 1 retained candidate $mdTick$(Escape-MarkdownCell $candidateId)$mdTick. Every later proof must consume the package identified by manifest $mdTick$(Escape-MarkdownCell $candidateManifestPath)$mdTick and aggregate SHA-256 $mdTick$packageSha$mdTick; rebuilding creates a different candidate rather than extending this evidence chain."
+		Add-Line $statusBuilder "Gate 1 retained candidate $mdTick$(Escape-MarkdownCell $candidateId)$mdTick. Run the individually named packaged focused service suites next against the package identified by manifest $mdTick$(Escape-MarkdownCell $candidateManifestPath)$mdTick and aggregate SHA-256 $mdTick$packageSha$mdTick; rebuilding creates a different candidate rather than extending this evidence chain."
 	}
 }
 else {

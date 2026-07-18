@@ -75,10 +75,17 @@ passing mixed-native proof described below.
   the two ordered stock post-result filter diagnostics and, for the profile-
   journal case alone, one in-suite native-failure injection with both exact
   non-mutating proof tokens. Reject every other count, order, case, or message.
-- [ ] Rerun every named focused case under the committed classifier-aware
-  harness, then run current Full Campaign Debug and every later runtime gate
-  against that replacement unchanged package. No runtime, multiplayer, restart,
-  performance, or soak proof is inherited from Gate 0 or an older package.
+- [x] Rerun every named focused case under clean classifier-aware harness HEAD
+  `b3fc1e6f56d9cf8805bac1702a54e0b5284e0043` against the unchanged active
+  package. All five exact packed mounts passed with JUnit 5/0/0/0, 40/40
+  envelope files rehashed, zero cleanup/spill residue, and an exact hard-
+  diagnostic census of 11 = 10 approved stock + 1 approved intentional + 0
+  unapproved. Retain the first five sidecars as preliminary rather than
+  rewriting them.
+- [ ] Run current Full Campaign Debug and every later runtime gate against the
+  same unchanged replacement package. No native-world, dedicated, multiplayer,
+  JIP, restart breadth, performance, or soak proof is inherited from the
+  packaged focused service rung, Gate 0, or an older package.
 
 ## Historical Focused Force-Authority Engine Checkpoint
 

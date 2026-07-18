@@ -12,7 +12,7 @@ The retained candidate identity below binds its exact source HEAD, manifest, can
 
 | Field | Current value |
 | --- | --- |
-| Status data as of | `2026-07-18T21:36:44Z` |
+| Status data as of | `2026-07-18T22:15:02Z` |
 | Audited gameplay Git HEAD | `25dedb3e82ad516c28826830bc1e06a2d3940f53` |
 | Embedded implementation identity | `32727238d74b29905c68e5a80bb5897dfdc783c0` |
 | Embedded build UTC / label | `2026-07-18T16:34:38Z` / `schema71-settings24-focused-force-authority` |
@@ -35,7 +35,7 @@ A pass never inherits upward. `partial` means some scoped evidence exists but th
 | --- | --- | --- |
 | Static/source/resource contracts | `passed` | Retained Foundation evidence is green inside the immutable candidate build for its exact source HEAD. |
 | Enforce compile and configuration | `passed` | All five explicit Workbench targets are retained and green for the candidate source and canonical four-file package build. |
-| Deterministic service contracts | `partial` | Selected focused fixtures pass and the active replacement contains all five service-only suite registrations, but individually registered packaged JUnit results have not run yet. |
+| Deterministic service contracts | `passed-noncertifying` | All five release-critical service suites passed individually against the exact staged packed candidate with 5/0/0/0 JUnit totals, exact classified diagnostics, and zero residue. This scoped rung does not inherit into native-world or later gates. |
 | Native engine-world behavior | `partial` | Scoped native and fresh-process cuts exist; natural movement, full active-world behavior, UI rendering, and broad entity classification remain open. |
 | Packaged dedicated server | `not-run` | The active replacement candidate is sealed, but it has not yet been launched through the standard dedicated-server runtime gate. |
 | Multiple clients, reconnect, and JIP | `not-run` | Host, two-client, reconnect, late-join, and packet-disruption convergence are not certified. |
@@ -48,6 +48,7 @@ A pass never inherits upward. `partial` means some scoped evidence exists but th
 
 - Foundation: **passed** at 874 references for `b8deddc4b6314936b7ea04f36a35784622a46da6`.
 - Workbench: **passed** at 5846 files / 11899 classes / CRC `f27e637b` for `b8deddc4b6314936b7ea04f36a35784622a46da6`.
+- Packaged focused autotests: **5/5** cases and JUnit **5/0/0/0** tests/failures/errors/skips against exact candidate `partisan-rc-b8deddc4b631-20260718T213322Z`. Hard diagnostics are explicitly not free: 11 total = 10 approved stock + 1 approved intentional + 0 unapproved, with 40 envelope files rehashed and zero cleanup/spill residue. Summary: `docs/evidence/focused-autotest/partisan-rc-b8deddc4b631-20260718T213322Z.json` / SHA-256 `8bb36919f0649e0f48fad50305878ec883cf98a0021323ba1442017f1aa113b8`; harness `b3fc1e6f56d9cf8805bac1702a54e0b5284e0043`. This is passed non-certifying service evidence.
 - Focused force-authority profile: **35/35** cases and **87/87** counted conditions for `32727238d74b29905c68e5a80bb5897dfdc783c0`, with `CertificationPassed:false`. This is historical state-only, non-package, non-certifying evidence.
 - Full Campaign Debug: **historical and failed** on `7c8b9c27b4ee553664fa2b44aea4a8d53c7123a5`: 583 PASS, 50 WARN, 46 FAIL, 7 BLOCKED, and 1 SKIPPED; 5537/5685 required assertions proven. It predates the audited revision and must be rerun before its individual failures are treated as current.
 
@@ -65,7 +66,7 @@ Coverage means the surface is named and classified. It does not mean the behavio
 
 | ID | Category | Blocker |
 | --- | --- | --- |
-| `STATUS-001` | `AUTH` | The replacement candidate is sealed and runtime-eligible with exact package and tool identities; current focused, Campaign Debug, dedicated, multiplayer/JIP, restart, performance, and soak rungs remain pending. |
+| `STATUS-001` | `AUTH` | The replacement candidate is sealed and runtime-eligible with exact package and tool identities, and its packaged focused service rung passed; Campaign Debug, dedicated, multiplayer/JIP, restart breadth, performance, and soak remain pending. |
 | `STATUS-002` | `PERSIST` | The newest completed Full Campaign Debug result is historical and red; current failures and blockers are not yet reclassified on the audited source. |
 | `STATUS-003` | `UI` | Known command-menu and modal-map defects remain open until source correction plus rendered packaged-client proof. |
 | `STATUS-004` | `MOVE` | Natural sustained infantry and convoy travel, identical-waypoint suppression, and measured no-stutter behavior are not proven. |
@@ -73,8 +74,7 @@ Coverage means the surface is named and classified. It does not mean the behavio
 | `STATUS-006` | `PERF` | The one-second hitch and bounded-history admission cliffs remain unclosed. |
 | `STATUS-007` | `MISSION` | Configured mission breadth still exceeds mission-specific CE 3.11.1 behavioral parity and proof. |
 | `STATUS-008` | `SEC` | Development proof and destructive diagnostic surfaces have not yet been separated from the release package. |
-| `STATUS-009` | `TEST` | The active replacement includes the empty-world override for all five service-only focused suites; five individually retained packaged JUnit results are still required. |
 
 ## Next release-closure step
 
-Gate 1 retained candidate `partisan-rc-b8deddc4b631-20260718T213322Z`. Every later proof must consume the package identified by manifest `docs/evidence/release-candidates/partisan-rc-b8deddc4b631-20260718T213322Z/candidate.json` and aggregate SHA-256 `82e1fd0bf7c3404b7fe842fa84efd10f225bf82fc76c11502b9a684b63f4f329`; rebuilding creates a different candidate rather than extending this evidence chain.
+Gate 1 retained candidate `partisan-rc-b8deddc4b631-20260718T213322Z`, and its five-case packaged focused service rung is accepted. Run current Full Campaign Debug next against the unchanged package identified by manifest `docs/evidence/release-candidates/partisan-rc-b8deddc4b631-20260718T213322Z/candidate.json` and aggregate SHA-256 `82e1fd0bf7c3404b7fe842fa84efd10f225bf82fc76c11502b9a684b63f4f329`. Treat a valid-but-red integrated report as retained diagnostic evidence, not a pass; rebuilding creates a different candidate rather than extending this evidence chain.

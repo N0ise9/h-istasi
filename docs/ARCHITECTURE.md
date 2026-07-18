@@ -111,8 +111,23 @@ two exactly ordered diagnostic classes: the two stock post-result filter
 constructor messages, and one profile-journal native-failure injection when its
 non-mutating proof tokens are present. Any other script or engine error, wrong
 count, wrong order, wrong case, or missing proof token fails the run. This
-harness-only correction does not change the sealed package identity; the five
-cases must run again under one committed classifier-aware harness.
+harness-only correction did not change the sealed package identity.
+
+All five cases then passed under clean classifier-aware harness HEAD
+`b3fc1e6f56d9cf8805bac1702a54e0b5284e0043` against the unchanged active
+candidate. Aggregate JUnit was 5 tests, 0 failures, 0 errors, and 0 skips. Each
+engine log attested the exact staged packed project and candidate boundary; all
+40 retained envelope files rehashed, and cleanup plus monitored spill residue
+was zero. The exact diagnostic census was 11: ten approved stock post-result
+filter messages, one approved in-suite journal fault injection, and zero
+unapproved errors. `HardDiagnosticFree:false` is therefore intentional while
+classification validity is true. The portable accepted-set summary is
+`docs/evidence/focused-autotest/partisan-rc-b8deddc4b631-20260718T213322Z.json`
+with SHA-256
+`8bb36919f0649e0f48fad50305878ec883cf98a0021323ba1442017f1aa113b8`.
+This closes only the packaged deterministic-service rung as
+`passed-noncertifying`; current Full Campaign Debug and every higher runtime
+rung remain independent.
 
 ## Historical Focused Force-Authority Engine Checkpoint
 
