@@ -1465,8 +1465,10 @@ class HST_TownInfluenceSaveValidationService
 		out int canonicalFIA,
 		out int canonicalOccupier)
 	{
-		canonicalFIA = ClampPercent(legacyFIA);
-		canonicalOccupier = ClampPercent(legacyOccupier);
+		int targetFIA = ClampPercent(legacyFIA);
+		int targetOccupier = ClampPercent(legacyOccupier);
+		canonicalFIA = targetFIA;
+		canonicalOccupier = targetOccupier;
 		int boundedSignedSupport = ClampSignedPercent(signedSupport);
 		int minimumFIA = Math.Max(0, boundedSignedSupport);
 		int maximumFIA = Math.Min(100, 100 + boundedSignedSupport);
@@ -1474,8 +1476,8 @@ class HST_TownInfluenceSaveValidationService
 		for (int candidateFIA = minimumFIA; candidateFIA <= maximumFIA; candidateFIA++)
 		{
 			int candidateOccupier = candidateFIA - boundedSignedSupport;
-			int fiaDistance = candidateFIA - canonicalFIA;
-			int occupierDistance = candidateOccupier - canonicalOccupier;
+			int fiaDistance = candidateFIA - targetFIA;
+			int occupierDistance = candidateOccupier - targetOccupier;
 			int score = fiaDistance * fiaDistance + occupierDistance * occupierDistance;
 			if (score >= bestScore)
 				continue;

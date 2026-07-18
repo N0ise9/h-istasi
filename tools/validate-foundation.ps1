@@ -22688,6 +22688,33 @@ foreach ($schema62SupportConsequenceEntry in @(
 }
 $schema62ExactInfluenceBlock = Get-ScriptMethodBlock $schema62TownInfluenceText 'bool RegisterInfluenceEventExact('
 $schema62ExecuteInfluenceBlock = Get-ScriptMethodBlock $schema62TownInfluenceText 'protected HST_TownInfluenceResult ExecuteWithPreset('
+$schema62TownPolicyScanBlock = Get-ScriptMethodBlock $schema62TownInfluenceText 'bool ReconcileTownOwnershipPolicies('
+$schema62TownPolicyFenceIndex = $schema62TownPolicyScanBlock.IndexOf('HasDifferentUnresolvedTopLevelTransition(')
+$schema62TownPolicyApplyIndex = $schema62TownPolicyScanBlock.IndexOf('bool reconciled = ReconcileRecordOwnership(')
+if ([string]::IsNullOrEmpty($schema62TownPolicyScanBlock) -or
+	$schema62TownPolicyFenceIndex -lt 0 -or $schema62TownPolicyApplyIndex -lt 0 -or
+	$schema62TownPolicyFenceIndex -gt $schema62TownPolicyApplyIndex) {
+	throw "Schema-62 fallback political reconciliation must retain its outer unresolved-transition ordering fence"
+}
+$schema62RecordOwnershipBlock = Get-ScriptMethodBlock $schema62TownInfluenceText 'protected bool ReconcileRecordOwnership('
+foreach ($schema62RecordOwnershipEntry in @(
+	'm_OwnershipTransitions.Apply(state, request)',
+	'if (!transitionResult.m_bCompleted)',
+	'record.m_sPendingOwnershipRequestId = requestId;'
+)) {
+	if ([string]::IsNullOrEmpty($schema62RecordOwnershipBlock) -or
+		$schema62RecordOwnershipBlock.IndexOf($schema62RecordOwnershipEntry) -lt 0) {
+		throw "Schema-62 political ownership admission must durably retain an incomplete accepted receipt: $schema62RecordOwnershipEntry"
+	}
+}
+foreach ($schema62RecordOwnershipForbidden in @(
+	'HasDifferentUnresolvedTopLevelTransition(',
+	'another unresolved ownership transition has priority'
+)) {
+	if ($schema62RecordOwnershipBlock.IndexOf($schema62RecordOwnershipForbidden) -ge 0) {
+		throw "Schema-62 direct political ownership admission must delegate queue ordering to canonical ownership authority: $schema62RecordOwnershipForbidden"
+	}
+}
 foreach ($schema62PoliticalRetryEntry in @(
 	'HST_TownInfluenceCommand command',
 	'if (!ExactEventMatches(existing, command))',
@@ -23085,6 +23112,10 @@ foreach ($schema62ProofEntry in @(
 	'ProveDeferredChildPublicationAtomicity',
 	'ProveLinkedSupportQueuedTopLevelCollision',
 	'ProveMalformedOwnerAppliedQueueRestore',
+	'ProveReceiptDerivedCorrelationFailClosed',
+	'correlation shared/campaign/garrison/counterattack/marker/queued',
+	'shared receipts/corrupt/restored/quarantine/reason/conflicts',
+	'malformedSecond.m_sStrategicEventId = malformedFirst.m_sStrategicEventId;',
 	'PendingNotificationCountForProof',
 	'ReleaseDeferredChildPublicationsForProof',
 	'CommandUIPublicationMatches',
@@ -23109,22 +23140,24 @@ foreach ($schema62ProofEntry in @(
 }
 $schema62NestedRestoreProofBlock = Get-ScriptMethodBlock $schema62ProofText 'protected bool ProveNestedRestoreAndQuarantine('
 foreach ($schema62NestedRestoreProofEntry in @(
-	'corruptSave.m_aOwnershipTransitions.Insert(corruptChild);',
-	'corruptSave.m_aOwnershipTransitions.Insert(corruptParent);',
+	'out bool restoreExact',
+	'out bool quarantineExact',
 	'ownership_proof_missing_parent_active_backlink',
 	'corruptParent.m_sFailureReason.Contains("unique active authority")',
-	'corruptChild.m_sFailureReason.Contains("live parent")'
+	'"retained parent is not exact top-level authority"'
 )) {
 	if ([string]::IsNullOrEmpty($schema62NestedRestoreProofBlock) -or
 		$schema62NestedRestoreProofBlock.IndexOf($schema62NestedRestoreProofEntry) -lt 0) {
-		throw "Schema-62 nested restore proof must propagate a late parent-backlink quarantine through child-first receipt order: $schema62NestedRestoreProofEntry"
+		throw "Schema-62 nested restore proof must isolate and propagate a parent-backlink quarantine: $schema62NestedRestoreProofEntry"
 	}
 }
-$schema62NestedChildOrderIndex = $schema62NestedRestoreProofBlock.IndexOf('corruptSave.m_aOwnershipTransitions.Insert(corruptChild);')
-$schema62NestedParentOrderIndex = $schema62NestedRestoreProofBlock.IndexOf('corruptSave.m_aOwnershipTransitions.Insert(corruptParent);')
-if ($schema62NestedChildOrderIndex -lt 0 -or $schema62NestedParentOrderIndex -lt 0 -or
-	$schema62NestedChildOrderIndex -gt $schema62NestedParentOrderIndex) {
-	throw "Schema-62 nested restore quarantine proof must place the child before its invalid parent"
+foreach ($schema62NestedRestoreProofForbidden in @(
+	'corruptSave.m_aOwnershipTransitions.Clear();',
+	'corruptSave.m_aOwnershipTransitions.Insert('
+)) {
+	if ($schema62NestedRestoreProofBlock.IndexOf($schema62NestedRestoreProofForbidden) -ge 0) {
+		throw "Schema-62 nested restore proof must preserve natural receipt order and inject only the parent-backlink defect: $schema62NestedRestoreProofForbidden"
+	}
 }
 $schema62AtomicChildProofBlock = Get-ScriptMethodBlock $schema62ProofText 'protected bool ProveDeferredChildPublicationAtomicity('
 foreach ($schema62AtomicChildProofEntry in @(
@@ -23220,6 +23253,60 @@ foreach ($schema62ProofSemanticPattern in @(
 		throw "Schema-62 ownership proof is missing an acceptance scenario matching: $schema62ProofSemanticPattern"
 	}
 }
+foreach ($schema62FocusedFixtureRegression in @(
+	'RejectedWithReason(diagnostic, "unsupported exact garrison authority")',
+	'latest.m_sZoneId = retentionZone.m_sZoneId;',
+	'civilianZone.m_iFIASupport != 35 || civilianZone.m_iOccupierSupport != 100',
+	'!ReceiptHasRevision(upReceipt, 1, 2)',
+	'|| !ReceiptHasRevision(downReceipt, 2, 3)'
+)) {
+	if ($schema62ProofText.IndexOf($schema62FocusedFixtureRegression) -lt 0) {
+		throw "Schema-62 focused engine fixture regression guard is missing: $schema62FocusedFixtureRegression"
+	}
+}
+$schema62SetupFrozenProofBlock = Get-ScriptMethodBlock $schema62ProofText 'protected bool ProveSetupFrozenClockPoliticalReconcile('
+foreach ($schema62SetupFrozenProofEntry in @(
+	'"source_proof_setup_seed"',
+	'"ownership_proof_setup_seed_event",',
+	'false);',
+	'&& seeded'
+)) {
+	if ([string]::IsNullOrEmpty($schema62SetupFrozenProofBlock) -or
+		$schema62SetupFrozenProofBlock.IndexOf($schema62SetupFrozenProofEntry) -lt 0) {
+		throw "Schema-62 setup-phase political fixture must mutate canonical influence without immediate reconciliation: $schema62SetupFrozenProofEntry"
+	}
+}
+$schema62ProofFixtureBlock = Get-ScriptMethodBlock $schema62ProofText 'HST_OwnershipTransitionProofFixture Configure('
+foreach ($schema62ProofDependencyEntry in @(
+	'ref HST_EnemyCommanderService m_EnemyCommander;',
+	'ref HST_SupportRequestService m_SupportRequests;',
+	'ref HST_ForceSpawnQueueService m_Queue;',
+	'ref HST_ForceSpawnAdapterService m_Adapter;',
+	'ref HST_PhysicalWarService m_PhysicalWar;',
+	'ref HST_LocalSecurityOperationService m_LocalSecurityPatrols;',
+	'ref HST_GarrisonPatrolOperationService m_GarrisonPatrols;',
+	'ref HST_EnemyGarrisonRebuildOperationService m_EnemyGarrisonRebuilds;'
+)) {
+	if ($schema62ProofText.IndexOf($schema62ProofDependencyEntry) -lt 0) {
+		throw "Schema-62 ownership proof fixture must retain its exact runtime dependency: $schema62ProofDependencyEntry"
+	}
+}
+foreach ($schema62ProofDependencyWiring in @(
+	'fixture.m_EnemyCommander.SetTownInfluenceService(',
+	'fixture.m_SupportRequests.SetTownInfluenceService(',
+	'fixture.m_LocalSecurityPatrols.SetRuntimeServices(',
+	'fixture.m_GarrisonPatrols.SetRuntimeServices(',
+	'fixture.m_EnemyGarrisonRebuilds.SetRuntimeServices(',
+	'fixture.m_EnemyGarrisonRebuilds.SetEnemyDirectorService(',
+	'fixture.m_EnemyCommander,',
+	'fixture.m_SupportRequests,',
+	'fixture.m_EnemyGarrisonRebuilds,'
+)) {
+	if ([string]::IsNullOrEmpty($schema62ProofFixtureBlock) -or
+		$schema62ProofFixtureBlock.IndexOf($schema62ProofDependencyWiring) -lt 0) {
+		throw "Schema-62 ownership proof fixture runtime wiring is missing: $schema62ProofDependencyWiring"
+	}
+}
 $schema62ForceDebugBlock = Get-ScriptMethodBlock $schema62CoordinatorText 'protected HST_CampaignDebugCaseResult BuildCampaignDebugForceAuthorityCase('
 $schema62AppendProofIndex = $schema62ForceDebugBlock.IndexOf('AppendCampaignDebugOwnershipTransitionAssertions(forceCase)')
 $schema62FinalizeProofIndex = $schema62ForceDebugBlock.IndexOf('FinalizeCampaignDebugCaseFromAssertions(forceCase)')
@@ -23233,6 +23320,8 @@ foreach ($schema62CoordinatorProofEntry in @(
 	'ownership_transition.',
 	'ownership_transition.restore_queue_order',
 	'proof.m_bRestoreQueueOrderFailClosed',
+	'forceCase.m_aEvidence.Insert(proof.m_sMigrationEvidence);',
+	'proof.m_sMigrationEvidence, CampaignDebugStatus(proof.m_bMigrationRetentionExact)',
 	'proof.AllExact()'
 )) {
 	if ([string]::IsNullOrEmpty($schema62CoordinatorProofBlock) -or
@@ -23965,6 +24054,45 @@ foreach ($schema64MigrationEntry in @(
 )) {
 	if ($schema64TownSaveText.IndexOf($schema64MigrationEntry) -lt 0) {
 		throw "Schema-64 pre/current restore ordering or legacy relabeling is missing: $schema64MigrationEntry"
+	}
+}
+$schema64SupportProjectionBlock = Get-ScriptMethodBlock $schema64TownSaveText 'protected void ProjectSupportPair('
+foreach ($schema64SupportProjectionEntry in @(
+	'int targetFIA = ClampPercent(legacyFIA);',
+	'int targetOccupier = ClampPercent(legacyOccupier);',
+	'canonicalFIA = targetFIA;',
+	'canonicalOccupier = targetOccupier;',
+	'int fiaDistance = candidateFIA - targetFIA;',
+	'int occupierDistance = candidateOccupier - targetOccupier;'
+)) {
+	if ([string]::IsNullOrEmpty($schema64SupportProjectionBlock) -or
+		$schema64SupportProjectionBlock.IndexOf($schema64SupportProjectionEntry) -lt 0) {
+		throw "Schema-64 support-pair projection must score against immutable legacy targets: $schema64SupportProjectionEntry"
+	}
+}
+foreach ($schema64MutableSupportTarget in @(
+	'candidateFIA - canonicalFIA',
+	'candidateOccupier - canonicalOccupier'
+)) {
+	if ($schema64SupportProjectionBlock.IndexOf($schema64MutableSupportTarget) -ge 0) {
+		throw "Schema-64 support-pair projection must not score against mutable output state: $schema64MutableSupportTarget"
+	}
+}
+if (([regex]::Matches($schema64SupportProjectionBlock, '\btargetFIA\s*=')).Count -ne 1 -or
+	([regex]::Matches($schema64SupportProjectionBlock, '\btargetOccupier\s*=')).Count -ne 1) {
+	throw "Schema-64 support-pair projection scoring targets must be initialized exactly once"
+}
+$schema64PersistenceProofBlock = Get-ScriptMethodBlock $schema64TownProofText 'protected void ProvePersistenceBoundary('
+foreach ($schema64PersistenceProjectionProofEntry in @(
+	'legacyTown.m_iSupport = 20;',
+	'legacyCivilian.m_iFIASupport = 70;',
+	'legacyCivilian.m_iOccupierSupport = 30;',
+	'migrated.m_iFIASupportBasisPoints == 6000',
+	'migrated.m_iOccupierSupportBasisPoints == 4000'
+)) {
+	if ([string]::IsNullOrEmpty($schema64PersistenceProofBlock) -or
+		$schema64PersistenceProofBlock.IndexOf($schema64PersistenceProjectionProofEntry) -lt 0) {
+		throw "Schema-64 persistence proof must pin deterministic minimal support-pair projection: $schema64PersistenceProjectionProofEntry"
 	}
 }
 
@@ -31485,7 +31613,7 @@ foreach ($campaignDebugFocusedEntry in @(
 	'normalized == CAMPAIGN_DEBUG_CLI_FORCE_AUTHORITY_PROFILE',
 	'IsCampaignDebugForceAuthorityProfile()',
 	'RunCampaignDebugForceAuthorityProfileStep()',
-	'RecordCampaignDebugCase(BuildCampaignDebugForceAuthorityCase());',
+	'RecordCampaignDebugCase(BuildCampaignDebugFocusedForceAuthorityCase());',
 	'CompleteCampaignDebugRun();'
 )) {
 	if ($schema70CoordinatorText.IndexOf($campaignDebugFocusedEntry) -lt 0) {
@@ -31500,11 +31628,28 @@ if ([string]::IsNullOrEmpty($campaignDebugNormalizeBlock) -or
 	[string]::IsNullOrEmpty($campaignDebugFocusedBlock)) {
 	throw "Focused force-authority Campaign Debug profile is not wired through normalization and the isolated runner"
 }
-$campaignDebugFocusedCaseIndex = $campaignDebugFocusedBlock.IndexOf('RecordCampaignDebugCase(BuildCampaignDebugForceAuthorityCase());')
+$campaignDebugFocusedCaseIndex = $campaignDebugFocusedBlock.IndexOf('RecordCampaignDebugCase(BuildCampaignDebugFocusedForceAuthorityCase());')
 $campaignDebugFocusedCompleteIndex = $campaignDebugFocusedBlock.IndexOf('CompleteCampaignDebugRun();')
 if ($campaignDebugFocusedCaseIndex -lt 0 -or
 	$campaignDebugFocusedCompleteIndex -le $campaignDebugFocusedCaseIndex) {
 	throw "Focused force-authority Campaign Debug must record its typed case before normal cleanup and artifact completion"
+}
+$campaignDebugFocusedCaseBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'protected HST_CampaignDebugCaseResult BuildCampaignDebugFocusedForceAuthorityCase('
+foreach ($campaignDebugFocusedCaseEntry in @(
+	'"early_mechanics.force_authority"',
+	'"focused_force_authority"',
+	'AppendCampaignDebugCombatPresenceAssertions(forceCase);',
+	'AppendCampaignDebugOwnershipTransitionAssertions(forceCase);',
+	'AppendCampaignDebugTownInfluenceAssertions(forceCase);',
+	'FinalizeCampaignDebugCaseFromAssertions(forceCase);'
+)) {
+	if ([string]::IsNullOrEmpty($campaignDebugFocusedCaseBlock) -or
+		$campaignDebugFocusedCaseBlock.IndexOf($campaignDebugFocusedCaseEntry) -lt 0) {
+		throw "Focused force-authority typed case is missing its exact state-only proof slice: $campaignDebugFocusedCaseEntry"
+	}
+}
+if ([regex]::Matches($campaignDebugFocusedCaseBlock, 'AppendCampaignDebug[A-Za-z]+Assertions\(forceCase\);').Count -ne 3) {
+	throw "Focused force-authority typed case must contain exactly combat-presence, ownership-transition, and town-influence assertion groups"
 }
 foreach ($campaignDebugFocusedForbidden in @(
 	'RunCampaignDebugBootstrapStep(',

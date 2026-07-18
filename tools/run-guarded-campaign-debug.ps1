@@ -578,6 +578,7 @@ function Get-SafeArtifactValidationSummary {
             Id = ConvertTo-SafeArtifactScalar -Value $_.Id -GuardRoot $GuardRoot -ProjectDirectory $ProjectDirectory -ResolvedAddonRoots $ResolvedAddonRoots
             Pass = [bool]$_.Pass
             Status = ConvertTo-SafeArtifactScalar -Value $_.Status -GuardRoot $GuardRoot -ProjectDirectory $ProjectDirectory -ResolvedAddonRoots $ResolvedAddonRoots
+            Actual = ConvertTo-SafeArtifactScalar -Value $_.Actual -GuardRoot $GuardRoot -ProjectDirectory $ProjectDirectory -ResolvedAddonRoots $ResolvedAddonRoots
         }
     })
     return [pscustomobject]@{
@@ -1373,7 +1374,9 @@ function Test-CampaignDebugArtifacts {
         $run.m_sBuildLabel -ne $ExpectedLabel) {
         $problems.Add("build-provenance")
     }
-    if ([int]$run.m_iEndedAtSecond -le 0) {
+    if (($ExpectedProfile -eq "full_certification" -and
+            [int]$run.m_iEndedAtSecond -le 0) -or
+        [int]$run.m_iEndedAtSecond -lt [int]$run.m_iStartedAtSecond) {
         $problems.Add("run-ended")
     }
 
@@ -1448,6 +1451,9 @@ function Test-CampaignDebugArtifacts {
                     Id = $assertionId
                     Pass = $passed
                     Status = $status
+                    Actual = Get-ExactAssertionActual `
+                        -Case $focusedCase `
+                        -AssertionId $assertionId
                 })
                 if (-not $passed) {
                     $problems.Add("focused-$assertionId")

@@ -18696,7 +18696,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	{
 		if (m_iCampaignDebugStepIndex == 0)
 		{
-			RecordCampaignDebugCase(BuildCampaignDebugForceAuthorityCase());
+			RecordCampaignDebugCase(BuildCampaignDebugFocusedForceAuthorityCase());
 			m_sCampaignDebugLastResult
 				= "focused force_authority typed case complete; not full certification";
 			AppendCampaignDebugLog(
@@ -32922,6 +32922,20 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return forceCase;
 	}
 
+	protected HST_CampaignDebugCaseResult BuildCampaignDebugFocusedForceAuthorityCase()
+	{
+		HST_CampaignDebugCaseResult forceCase = CreateCampaignDebugCase(
+			"early_mechanics.force_authority",
+			"early_mechanics",
+			"force_authority",
+			"focused_force_authority");
+		AppendCampaignDebugCombatPresenceAssertions(forceCase);
+		AppendCampaignDebugOwnershipTransitionAssertions(forceCase);
+		AppendCampaignDebugTownInfluenceAssertions(forceCase);
+		FinalizeCampaignDebugCaseFromAssertions(forceCase);
+		return forceCase;
+	}
+
 	protected void AppendCampaignDebugAmbientPopulationAssertions(
 		HST_CampaignDebugCaseResult forceCase)
 	{
@@ -33067,6 +33081,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		forceCase.m_aEvidence.Insert(proof.m_sRestoreProjectionEvidence);
 		forceCase.m_aEvidence.Insert(proof.m_sAuthorityEvidence);
 		forceCase.m_aEvidence.Insert(proof.m_sCauseEvidence);
+		forceCase.m_aEvidence.Insert(proof.m_sMigrationEvidence);
 		AddCampaignDebugAssertion(forceCase, "ownership_transition.aggregate", "every Schema-62 ownership source proof is exact", proof.BuildReport(), CampaignDebugStatus(proof.AllExact()), "one or more ownership-transition source proofs failed");
 		AddCampaignDebugAssertion(forceCase, "ownership_transition.military", "military capture applies one complete revisioned ownership transition", proof.m_sProductionEvidence, CampaignDebugStatus(proof.m_bMilitaryCaptureExact), "military ownership transition was not exact");
 		AddCampaignDebugAssertion(forceCase, "ownership_transition.political", "town influence crosses the production political ownership boundary", proof.m_sProductionEvidence, CampaignDebugStatus(proof.m_bPoliticalFlipExact), "political ownership transition was not exact");
@@ -33080,7 +33095,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugAssertion(forceCase, "ownership_transition.linked_support", "nested linked-support flips defer publication until the parent domain transition completes", proof.m_sProductionEvidence, CampaignDebugStatus(proof.m_bLinkedSupportIsolationExact), "linked-support ownership projection escaped its parent transition");
 		AddCampaignDebugAssertion(forceCase, "ownership_transition.causes", "military, political, mission, admin, debug, and migration causes converge on one authority", proof.m_sCauseEvidence, CampaignDebugStatus(proof.m_bAllCauseRoutingExact), "one or more ownership causes bypassed canonical authority");
 		AddCampaignDebugAssertion(forceCase, "ownership_transition.security_fail_closed", "unowned exact garrison authority blocks owner mutation", proof.m_sAuthorityEvidence, CampaignDebugStatus(proof.m_bExactSecurityFailClosed), "ownership transition erased or bypassed exact garrison authority");
-		AddCampaignDebugAssertion(forceCase, "ownership_transition.migration_retention", "schema migration preserves facts and current authority quarantines or prunes conservatively", proof.m_sAuthorityEvidence, CampaignDebugStatus(proof.m_bMigrationRetentionExact), "ownership migration, quarantine, or retention contract failed");
+		AddCampaignDebugAssertion(forceCase, "ownership_transition.migration_retention", "schema migration preserves facts and current authority quarantines or prunes conservatively", proof.m_sMigrationEvidence, CampaignDebugStatus(proof.m_bMigrationRetentionExact), "ownership migration, quarantine, or retention contract failed");
 	}
 
 	protected void AppendCampaignDebugTownInfluenceAssertions(

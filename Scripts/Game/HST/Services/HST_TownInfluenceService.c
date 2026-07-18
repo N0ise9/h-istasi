@@ -1298,10 +1298,6 @@ class HST_TownInfluenceService
 			return FailAuthority("town ownership faction authority is unavailable");
 		if (!m_OwnershipTransitions)
 			return FailAuthority("ownership transition service is unavailable");
-		if (!allowNestedOwnership && HasDifferentUnresolvedTopLevelTransition(
-				state,
-				record.m_sPendingOwnershipRequestId))
-			return FailAuthority("another unresolved ownership transition has priority");
 
 		string sourceId = record.m_sLastInfluenceEventId;
 		if (sourceId.IsEmpty())
