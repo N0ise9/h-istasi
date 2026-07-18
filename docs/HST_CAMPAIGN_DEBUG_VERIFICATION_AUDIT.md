@@ -26,9 +26,25 @@ classes, and common CRC `cad640f3`; their cleanup and monitored-boundary counts
 are zero. The manifest and ready seal both pass independent checks and are
 tracked as portable evidence under `docs/evidence`.
 
-This candidate is retained-uncertified. No current Full Campaign Debug result
-has consumed the package yet, so the historical failed result below remains the
-honest integrated-suite status until the package-aware rerun completes.
+This candidate is retained-uncertified. Candidate-aware Campaign Debug and
+focused-runner preflights now pass exact tracked/external manifest and seal
+binding, complete package/evidence hashing, guarded byte-identical staging,
+packed-project argument construction, post-run revalidation, and exact-zero
+cleanup. The thirteen-check negative consumer test rejects superseded runtime use
+and every exercised tamper or layout ambiguity, including an unexpected package
+directory.
+Real runners additionally bind the exact diagnostic executable, clean harness,
+guarded settings bytes where applicable, and engine-owned packed-project mount
+record.
+
+No current Full Campaign Debug result has consumed the package yet. The focused
+runner audit also proved that three service-only suites in this package can be
+lost during the stock base-only scenario transition before JUnit is written.
+Their source now has the required empty-world override, which necessarily
+changes the package. The first candidate therefore remains immutable retained
+evidence but will be superseded by one replacement before current focused and
+full-suite execution. Until that replacement runs, the historical failed result
+below remains the honest integrated-suite status.
 
 ## Current Focused Force-Authority Engine Checkpoint
 

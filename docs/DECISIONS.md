@@ -3345,6 +3345,7 @@ Consequences:
 
 - Status: Accepted
 - Date: 2026-07-18
+- First-candidate runtime-use consequence superseded by CRI-059 on 2026-07-18.
 
 Context: Existing validation and packaging runners could compile or exercise
 source and could create temporary packed content, but they did not retain one
@@ -3389,5 +3390,56 @@ Consequences:
   `c2b16c4a2d85e71503cd46265feafb54bce69e83` with aggregate package SHA-256
   `8f60260331c6c7473465dc4517b1063a179a8f4efeffdcfe3d5eccac9af476db`.
   This closes the artifact-identity portion of Gate 1, not later runtime rungs.
-  Required release gates must consume that unchanged package; a rebuild starts
-  a new candidate and evidence chain.
+  At acceptance, required release gates were to consume that unchanged package;
+  CRI-059 subsequently supersedes that runtime-use consequence after the
+  focused-suite defect, while preserving the rule that a rebuild starts a new
+  candidate and evidence chain.
+
+## CRI-059 - Stage Sealed Candidates And Supersede On Harness-Package Defects
+
+- Status: Accepted
+- Date: 2026-07-18
+
+Context: The first sealed candidate proved build, toolchain, package, and
+Workbench identity, but the Campaign Debug and focused wrappers still selected
+the mutable checkout project. Mounting the external sealed directory directly
+would also expose release bytes to engine write authority. Separately, the
+stock autotest framework performs a base-only scenario transition for suites
+that return its default world. Three service-only suites lacked the empty-world
+override already used by two peer suites, so their packaged test type could be
+unloaded before JUnit output.
+
+Decision: Make the active tracked release status, tracked manifest/ready seal,
+and external sealed bundle one fail-closed consumer contract. Validate exact
+package/evidence inventory and hashes plus the selected runtime role, copy only
+the verified four-file package into a nonce-owned guard, and launch the staged
+packed project with explicit add-on GUID and a guard-owned add-on temp root.
+Revalidate staged and external bytes after process quiescence. Retain raw
+runtime output only in a separate fresh sidecar envelope bound to candidate,
+harness, tool, outcome, and cleanup identities.
+
+Give every service-only focused suite an explicit empty `GetWorldFile()` result
+and enforce it in Foundation. Because those changes alter the package, do not
+pretend the first candidate can inherit their proof. Retain it unchanged,
+publish one replacement candidate, and restart the current focused/full-suite
+evidence chain from the replacement.
+
+Consequences:
+
+- A candidate package is never mounted from its sealed storage location and is
+  never mutated to append runtime evidence.
+- Runtime evidence identifies both the standard manifest-pinned executable and
+  the distinct, exact manifest-pinned diagnostic executable actually used by
+  diagnostic gates.
+- Release status is an execution control: a superseded candidate is eligible
+  only for archive validation and consumer preflight, while a real launch
+  requires `active-runtime-candidate`.
+- Runtime envelopes bind the guarded settings copy actually consumed and prove
+  that the clean harness HEAD and runner/module hashes did not change during
+  execution.
+- Preflight or historical evidence on the first candidate cannot certify the
+  replacement, while the replacement cannot claim the first candidate's package
+  identity.
+- A release-critical test-registration defect is a valid reason to supersede a
+  candidate before later gates, but each later rebuild restarts the evidence
+  chain rather than merging results.

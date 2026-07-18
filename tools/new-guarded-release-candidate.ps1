@@ -102,6 +102,65 @@ function Test-LexicallyContainedPath {
         [StringComparison]::OrdinalIgnoreCase)
 }
 
+function Get-ExactAdjacentDiagnosticPath {
+    param(
+        [Parameter(Mandatory = $true)][string]$StandardExecutable,
+        [Parameter(Mandatory = $true)][string]$ExpectedStandardFileName,
+        [Parameter(Mandatory = $true)][string]$ExpectedDiagnosticFileName,
+        [switch]$RequireExistingFile
+    )
+
+    $standardPath = [IO.Path]::GetFullPath($StandardExecutable)
+    if ((Split-Path -Leaf $standardPath) -cne $ExpectedStandardFileName) {
+        throw "A standard runtime executable has the wrong exact role name."
+    }
+    $standardParent = Split-Path -Parent $standardPath
+    $diagnosticPath = [IO.Path]::GetFullPath(
+        (Join-Path $standardParent $ExpectedDiagnosticFileName))
+    if ((Split-Path -Leaf $diagnosticPath) -cne $ExpectedDiagnosticFileName -or
+        -not (Split-Path -Parent $diagnosticPath).Equals(
+            $standardParent,
+            [StringComparison]::OrdinalIgnoreCase)) {
+        throw "A diagnostic runtime executable is not the exact adjacent role."
+    }
+    if ($RequireExistingFile) {
+        if (-not (Test-Path -LiteralPath $diagnosticPath -PathType Leaf)) {
+            throw "An exact adjacent diagnostic runtime executable is missing."
+        }
+        $item = Get-Item -LiteralPath $diagnosticPath -Force -ErrorAction Stop
+        if ($item.Name -cne $ExpectedDiagnosticFileName -or
+            $item.Length -le 0 -or
+            -not $item.FullName.Equals(
+                $diagnosticPath,
+                [StringComparison]::OrdinalIgnoreCase)) {
+            throw "The adjacent diagnostic runtime executable has the wrong exact identity."
+        }
+    }
+    return $diagnosticPath
+}
+
+function Assert-ExactRuntimeVersionPair {
+    param(
+        [Parameter(Mandatory = $true)][string]$StandardExecutable,
+        [Parameter(Mandatory = $true)][string]$DiagnosticExecutable
+    )
+
+    $standardVersion = (Get-Item `
+        -LiteralPath $StandardExecutable `
+        -Force `
+        -ErrorAction Stop).VersionInfo
+    $diagnosticVersion = (Get-Item `
+        -LiteralPath $DiagnosticExecutable `
+        -Force `
+        -ErrorAction Stop).VersionInfo
+    if ([string]$standardVersion.FileVersion -cne
+            [string]$diagnosticVersion.FileVersion -or
+        [string]$standardVersion.ProductVersion -cne
+            [string]$diagnosticVersion.ProductVersion) {
+        throw 'A standard and diagnostic runtime executable version pair differs.'
+    }
+}
+
 function Get-CanonicalPackageIndex {
     param([Parameter(Mandatory = $true)][object[]]$Files)
 
@@ -338,9 +397,31 @@ function Invoke-SelfTest {
     $indexB = Get-CanonicalPackageIndex -Files $second
     $hashA = Get-Sha256Text -Text $indexA
     $hashB = Get-Sha256Text -Text $indexB
+    $selfTestRuntimeRoot = Join-Path ([IO.Path]::GetTempPath()) "partisan-runtime-selftest"
+    $selfTestServerDiagnostic = Get-ExactAdjacentDiagnosticPath `
+        -StandardExecutable (Join-Path $selfTestRuntimeRoot "ArmaReforgerServer.exe") `
+        -ExpectedStandardFileName "ArmaReforgerServer.exe" `
+        -ExpectedDiagnosticFileName "ArmaReforgerServerDiag.exe"
+    $selfTestClientDiagnostic = Get-ExactAdjacentDiagnosticPath `
+        -StandardExecutable (Join-Path $selfTestRuntimeRoot "ArmaReforgerSteam.exe") `
+        -ExpectedStandardFileName "ArmaReforgerSteam.exe" `
+        -ExpectedDiagnosticFileName "ArmaReforgerSteamDiag.exe"
+    $wrongRuntimeRoleRejected = $false
+    try {
+        [void](Get-ExactAdjacentDiagnosticPath `
+            -StandardExecutable (Join-Path $selfTestRuntimeRoot "ArmaReforgerSteamDiag.exe") `
+            -ExpectedStandardFileName "ArmaReforgerSteam.exe" `
+            -ExpectedDiagnosticFileName "ArmaReforgerSteamDiag.exe")
+    }
+    catch {
+        $wrongRuntimeRoleRejected = $true
+    }
     if ($indexA -cne $indexB -or $hashA -cne $hashB -or
         $hashA -cnotmatch '^[0-9a-f]{64}$' -or
-        -not $indexA.EndsWith("`n", [StringComparison]::Ordinal)) {
+        -not $indexA.EndsWith("`n", [StringComparison]::Ordinal) -or
+        (Split-Path -Leaf $selfTestServerDiagnostic) -cne "ArmaReforgerServerDiag.exe" -or
+        (Split-Path -Leaf $selfTestClientDiagnostic) -cne "ArmaReforgerSteamDiag.exe" -or
+        -not $wrongRuntimeRoleRejected) {
         throw "Release-candidate canonical package self-test failed."
     }
     Write-Output ("SELFTEST " + ([pscustomobject]@{
@@ -348,6 +429,10 @@ function Invoke-SelfTest {
         Algorithm = "sha256-manifest-v1"
         FileCount = 4
         OrderIndependent = $true
+        DiagnosticRuntimeRoles = @(
+            (Split-Path -Leaf $selfTestServerDiagnostic),
+            (Split-Path -Leaf $selfTestClientDiagnostic))
+        WrongRuntimeRoleRejected = $wrongRuntimeRoleRejected
         Digest = $hashA
     } | ConvertTo-Json -Compress))
 }
@@ -363,6 +448,22 @@ $workbenchPath = [IO.Path]::GetFullPath($WorkbenchExecutable)
 $runtimeAddonPath = [IO.Path]::GetFullPath($RuntimeAddonRoot)
 $serverPath = [IO.Path]::GetFullPath($ServerExecutable)
 $clientPath = [IO.Path]::GetFullPath($ClientExecutable)
+$serverDiagnosticPath = Get-ExactAdjacentDiagnosticPath `
+    -StandardExecutable $serverPath `
+    -ExpectedStandardFileName "ArmaReforgerServer.exe" `
+    -ExpectedDiagnosticFileName "ArmaReforgerServerDiag.exe" `
+    -RequireExistingFile
+$clientDiagnosticPath = Get-ExactAdjacentDiagnosticPath `
+    -StandardExecutable $clientPath `
+    -ExpectedStandardFileName "ArmaReforgerSteam.exe" `
+    -ExpectedDiagnosticFileName "ArmaReforgerSteamDiag.exe" `
+    -RequireExistingFile
+[void](Assert-ExactRuntimeVersionPair `
+    -StandardExecutable $serverPath `
+    -DiagnosticExecutable $serverDiagnosticPath)
+[void](Assert-ExactRuntimeVersionPair `
+    -StandardExecutable $clientPath `
+    -DiagnosticExecutable $clientDiagnosticPath)
 $artifactRoot = [IO.Path]::GetFullPath($OutputRoot)
 
 if ((Test-LexicallyContainedPath `
@@ -418,7 +519,13 @@ foreach ($protectedInputRoot in @(
     }
 }
 
-foreach ($requiredFile in @($projectFile, $workbenchPath, $serverPath, $clientPath)) {
+foreach ($requiredFile in @(
+    $projectFile,
+    $workbenchPath,
+    $serverPath,
+    $serverDiagnosticPath,
+    $clientPath,
+    $clientDiagnosticPath)) {
     if (-not (Test-Path -LiteralPath $requiredFile -PathType Leaf)) {
         throw "A required release-candidate input file is missing."
     }
@@ -484,6 +591,7 @@ $preflight = [pscustomobject]@{
     ProjectId = $sourceProjectIdentity.Id
     AddonGuid = $sourceProjectIdentity.Guid
     TargetCount = $releaseTargets.Count
+    DiagnosticRuntimeCount = 2
     RuntimeMarkersPresent = $true
     WorktreeClean = $true
 }
@@ -512,6 +620,14 @@ $ordinaryLibrary = Join-Path $PSScriptRoot `
     -PackTimeoutSeconds $PackTimeoutSeconds `
     -ClientExecutable $clientPath `
     -LibraryOnly
+
+foreach ($runtimeExecutable in @(
+    $serverPath,
+    $serverDiagnosticPath,
+    $clientPath,
+    $clientDiagnosticPath)) {
+    Assert-NoReparsePathAncestry -Path $runtimeExecutable
+}
 
 Assert-NoReparsePathAncestry -Path $artifactRoot
 

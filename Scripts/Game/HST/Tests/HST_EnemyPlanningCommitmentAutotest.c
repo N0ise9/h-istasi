@@ -4,6 +4,12 @@
 // separate validation gates.
 class HST_EnemyPlanningCommitmentAutotestSuite : SCR_AutotestSuiteBase
 {
+	// This deterministic report is service-only. Keep the already loaded
+	// packaged project active instead of entering the base-only world transition.
+	override ResourceName GetWorldFile()
+	{
+		return "";
+	}
 }
 
 [Test(suite: HST_EnemyPlanningCommitmentAutotestSuite)]

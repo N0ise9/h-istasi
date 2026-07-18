@@ -4,10 +4,13 @@ param(
     [string]$Executable,
 
     [Parameter(Mandatory = $true)]
-    [string]$ProjectPath,
+    [string]$RuntimeAddonRoot,
 
     [Parameter(Mandatory = $true)]
-    [string]$AddonRoot,
+    [string]$CandidateManifest,
+
+    [Parameter(Mandatory = $true)]
+    [string]$CandidateBundleRoot,
 
     [Parameter(Mandatory = $true)]
     [ValidatePattern('^[A-Za-z_][A-Za-z0-9_]*$')]
@@ -16,12 +19,15 @@ param(
     [string[]]$RequiredLogPatterns = @(),
     [string[]]$DefaultRoots = @(),
     [string[]]$SpillRoots = @(),
+    [string]$EvidenceOutputRoot = '',
 
     [ValidateRange(1, 3600)]
     [int]$TimeoutSeconds = 240,
 
     [ValidateRange(50, 5000)]
-    [int]$PollMilliseconds = 500
+    [int]$PollMilliseconds = 500,
+
+    [switch]$PreflightOnly
 )
 
 Set-StrictMode -Version Latest
@@ -831,16 +837,236 @@ function Get-JUnitEvidence {
     }
 }
 
+function Write-PortableJson {
+    param(
+        [Parameter(Mandatory = $true)][string]$Path,
+        [Parameter(Mandatory = $true)]$Value
+    )
+
+    $text = (($Value | ConvertTo-Json -Depth 20).Replace("`r`n", "`n") + "`n")
+    [IO.File]::WriteAllText(
+        $Path,
+        $text,
+        (New-Object Text.UTF8Encoding($false)))
+}
+
+function Get-HarnessBinding {
+    param(
+        [Parameter(Mandatory = $true)][string]$CheckoutRoot,
+        [Parameter(Mandatory = $true)][string]$RunnerPath,
+        [Parameter(Mandatory = $true)][string]$CandidateModulePath
+    )
+
+    $headLines = @(& git -C $CheckoutRoot rev-parse HEAD)
+    $headExit = $LASTEXITCODE
+    $statusLines = @(& git -C $CheckoutRoot status --porcelain=v1 --untracked-files=all)
+    $statusExit = $LASTEXITCODE
+    $head = ($headLines -join '').Trim()
+    if ($headExit -ne 0 -or $statusExit -ne 0 -or
+        $head -cnotmatch '^[0-9a-f]{40}$') {
+        throw 'The focused-autotest harness Git identity could not be resolved.'
+    }
+
+    return [pscustomobject][ordered]@{
+        GitHead = $head
+        StatusText = $statusLines -join "`n"
+        Clean = $statusLines.Count -eq 0
+        RunnerSha256 = (Get-FileHash `
+            -LiteralPath $RunnerPath `
+            -Algorithm SHA256).Hash.ToLowerInvariant()
+        CandidateModuleSha256 = (Get-FileHash `
+            -LiteralPath $CandidateModulePath `
+            -Algorithm SHA256).Hash.ToLowerInvariant()
+    }
+}
+
+function Assert-HarnessBinding {
+    param(
+        [Parameter(Mandatory = $true)]$Expected,
+        [Parameter(Mandatory = $true)][string]$CheckoutRoot,
+        [Parameter(Mandatory = $true)][string]$RunnerPath,
+        [Parameter(Mandatory = $true)][string]$CandidateModulePath
+    )
+
+    $actual = Get-HarnessBinding `
+        -CheckoutRoot $CheckoutRoot `
+        -RunnerPath $RunnerPath `
+        -CandidateModulePath $CandidateModulePath
+    if ($actual.GitHead -cne $Expected.GitHead -or
+        $actual.StatusText -cne $Expected.StatusText -or
+        $actual.Clean -ne $Expected.Clean -or
+        $actual.RunnerSha256 -cne $Expected.RunnerSha256 -or
+        $actual.CandidateModuleSha256 -cne $Expected.CandidateModuleSha256) {
+        throw 'The focused-autotest harness identity changed during execution.'
+    }
+    return $actual
+}
+
+function Get-CandidateMountAttestation {
+    param(
+        [Parameter(Mandatory = $true)][string]$GuardRoot,
+        [Parameter(Mandatory = $true)][string]$PackedProjectPath,
+        [Parameter(Mandatory = $true)][string]$AddonGuid
+    )
+
+    $expectedProject = [IO.Path]::GetFullPath($PackedProjectPath).Replace('\', '/')
+    $pattern = "(?im)^\s*\d{2}:\d{2}:\d{2}\.\d{3}\s+ENGINE\s+:\s+" +
+        "gproj:\s+'(?<path>[^']+)'\s+guid:\s+'" +
+        [regex]::Escape($AddonGuid) + "'\s*(?<mode>\([^)]+\))?\s*$"
+    $recordCount = 0
+    $exactPathCount = 0
+    $packedCount = 0
+    $invalidModeCount = 0
+    foreach ($consoleFile in @(Get-ChildItem `
+            -LiteralPath $GuardRoot `
+            -Recurse `
+            -File `
+            -Filter 'console.log' `
+            -Force `
+            -ErrorAction SilentlyContinue)) {
+        if (($consoleFile.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+            throw 'A candidate mount-attestation log must not be a reparse point.'
+        }
+        $consoleText = [IO.File]::ReadAllText($consoleFile.FullName)
+        foreach ($match in @([regex]::Matches($consoleText, $pattern))) {
+            $recordCount++
+            $recordedProject = $match.Groups['path'].Value.Replace('\', '/')
+            if ($recordedProject.Equals(
+                    $expectedProject,
+                    [StringComparison]::OrdinalIgnoreCase)) {
+                $exactPathCount++
+            }
+            if ($match.Groups['mode'].Value -ceq '(packed)') {
+                $packedCount++
+            }
+            elseif (-not [string]::IsNullOrEmpty($match.Groups['mode'].Value)) {
+                $invalidModeCount++
+            }
+        }
+    }
+
+    return [pscustomobject][ordered]@{
+        Valid = $recordCount -gt 0 -and
+            $exactPathCount -eq $recordCount -and
+            $packedCount -gt 0 -and
+            $invalidModeCount -eq 0
+        RecordCount = $recordCount
+        ExactPathCount = $exactPathCount
+        PackedCount = $packedCount
+        InvalidModeCount = $invalidModeCount
+        GuidExact = $recordCount -gt 0
+        Packed = $packedCount -gt 0 -and $invalidModeCount -eq 0
+    }
+}
+
+function Copy-FocusedAutotestEvidence {
+    param(
+        [Parameter(Mandatory = $true)][string]$GuardRoot,
+        [Parameter(Mandatory = $true)][string]$EvidenceRunRoot,
+        [Parameter(Mandatory = $true)]$Candidate
+    )
+
+    Assert-NoReparsePathAncestry -Path $GuardRoot
+    Assert-NoReparsePathAncestry -Path $EvidenceRunRoot
+    $guardFull = [IO.Path]::GetFullPath($GuardRoot).TrimEnd('\', '/')
+    $guardPrefix = $guardFull + [IO.Path]::DirectorySeparatorChar
+    $rawRoot = Join-Path $EvidenceRunRoot 'raw'
+    $identityRoot = Join-Path $EvidenceRunRoot 'identity'
+    New-Item -ItemType Directory -Path $rawRoot, $identityRoot -Force | Out-Null
+    foreach ($file in @(Get-ChildItem `
+            -LiteralPath $guardFull `
+            -Recurse `
+            -File `
+            -Force `
+            -ErrorAction Stop | Where-Object {
+                $_.Extension -cin @('.log', '.rpt', '.xml') -or
+                $_.Name -ceq 'autotest_failed.log'
+            })) {
+        if (($file.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+            throw 'Focused-autotest evidence must not contain a reparse point.'
+        }
+        $full = [IO.Path]::GetFullPath($file.FullName)
+        if (-not $full.StartsWith($guardPrefix, [StringComparison]::OrdinalIgnoreCase)) {
+            throw 'Focused-autotest evidence escaped its guarded root.'
+        }
+        $relative = $full.Substring($guardPrefix.Length)
+        $destination = Join-Path $rawRoot $relative
+        New-Item `
+            -ItemType Directory `
+            -Path (Split-Path -Parent $destination) `
+            -Force | Out-Null
+        Copy-Item `
+            -LiteralPath $full `
+            -Destination $destination `
+            -Force `
+            -ErrorAction Stop
+    }
+    Copy-Item `
+        -LiteralPath $Candidate.TrackedManifestPath `
+        -Destination (Join-Path $identityRoot 'candidate.json') `
+        -Force `
+        -ErrorAction Stop
+    Copy-Item `
+        -LiteralPath $Candidate.TrackedReadyPath `
+        -Destination (Join-Path $identityRoot 'candidate.ready.json') `
+        -Force `
+        -ErrorAction Stop
+}
+
+function Get-EvidenceFileRows {
+    param([Parameter(Mandatory = $true)][string]$EvidenceRunRoot)
+
+    $root = [IO.Path]::GetFullPath($EvidenceRunRoot).TrimEnd('\', '/')
+    $prefix = $root + [IO.Path]::DirectorySeparatorChar
+    $rows = New-Object Collections.Generic.List[object]
+    foreach ($file in @(Get-ChildItem `
+            -LiteralPath $root `
+            -Recurse `
+            -File `
+            -Force `
+            -ErrorAction Stop | Where-Object { $_.Name -cne 'run.json' } | Sort-Object FullName)) {
+        $full = [IO.Path]::GetFullPath($file.FullName)
+        if (-not $full.StartsWith($prefix, [StringComparison]::OrdinalIgnoreCase)) {
+            throw 'A focused evidence file escaped its retained root.'
+        }
+        [void]$rows.Add([pscustomobject][ordered]@{
+            path = $full.Substring($prefix.Length).Replace('\', '/')
+            length = [long]$file.Length
+            sha256 = (Get-FileHash `
+                -LiteralPath $full `
+                -Algorithm SHA256).Hash.ToLowerInvariant()
+        })
+    }
+    return $rows.ToArray()
+}
+
+$candidateModulePath = Join-Path $PSScriptRoot 'Partisan.ReleaseCandidate.psm1'
+Import-Module -Name $candidateModulePath -Force -ErrorAction Stop
 $executablePath = Resolve-ExistingPath -Path $Executable -Kind Leaf
-$projectFile = Resolve-ExistingPath -Path $ProjectPath -Kind Leaf
-$projectDirectory = Split-Path -Parent $projectFile
-$addonDirectory = Resolve-ExistingPath -Path $AddonRoot -Kind Container
+$consumerIntent = if ($PreflightOnly) {
+    'verification'
+}
+else {
+    'runtime'
+}
 if ((Split-Path -Leaf $executablePath) -ine 'ArmaReforgerSteamDiag.exe') {
     throw 'Focused autotest requires ArmaReforgerSteamDiag.exe.'
 }
-if ([IO.Path]::GetExtension($projectFile) -cne '.gproj') {
-    throw 'Focused autotest project must be a .gproj file.'
-}
+$candidateBinding = Assert-PartisanReleaseCandidate `
+    -ManifestPath $CandidateManifest `
+    -BundleRoot $CandidateBundleRoot `
+    -RuntimeAddonRoot $RuntimeAddonRoot `
+    -Executable $executablePath `
+    -RuntimeRole client `
+    -ConsumerIntent $consumerIntent
+$candidateIdentity = Get-PartisanPublicCandidateIdentity -Candidate $candidateBinding
+$expectedBuildSummary = 'sha ' + $candidateBinding.EmbeddedBuildSha +
+    ' | utc ' + $candidateBinding.EmbeddedBuildUtc +
+    ' | label ' + $candidateBinding.EmbeddedBuildLabel
+$projectFile = $candidateBinding.PackedProjectPath
+$projectDirectory = Split-Path -Parent $projectFile
+$addonDirectory = $candidateBinding.RuntimeAddonRootPath
+$addonSearchPath = $candidateBinding.AddonSearchPath
 
 $normalizedDefaultRoots = @($DefaultRoots | Where-Object {
     -not [string]::IsNullOrWhiteSpace([string]$_)
@@ -848,20 +1074,63 @@ $normalizedDefaultRoots = @($DefaultRoots | Where-Object {
 $normalizedSpillRoots = @($SpillRoots | Where-Object {
     -not [string]::IsNullOrWhiteSpace([string]$_)
 })
-if ($normalizedDefaultRoots.Count -eq 0 -or $normalizedSpillRoots.Count -eq 0) {
+if (-not $PreflightOnly -and
+    ($normalizedDefaultRoots.Count -eq 0 -or $normalizedSpillRoots.Count -eq 0)) {
     throw 'Focused autotest requires explicit default-root and spill-root monitoring.'
+}
+$checkoutRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
+$harnessBinding = Get-HarnessBinding `
+    -CheckoutRoot $checkoutRoot `
+    -RunnerPath $PSCommandPath `
+    -CandidateModulePath $candidateModulePath
+$evidenceOutputPath = $null
+if (-not $PreflightOnly) {
+    if (-not $harnessBinding.Clean) {
+        throw 'A real candidate focused run requires a clean, committed harness checkout.'
+    }
+    if ([string]::IsNullOrWhiteSpace($EvidenceOutputRoot)) {
+        throw 'A real candidate focused run requires an external evidence output root.'
+    }
+    $evidenceOutputPath = [IO.Path]::GetFullPath($EvidenceOutputRoot)
+    foreach ($protectedRoot in @(
+            $checkoutRoot,
+            $candidateBinding.BundleRootPath,
+            $candidateBinding.RuntimeAddonRootPath)) {
+        if (Test-PathOverlap -First $evidenceOutputPath -Second $protectedRoot) {
+            throw 'The focused evidence root must not overlap a protected runtime root.'
+        }
+    }
+    foreach ($defaultRoot in $normalizedDefaultRoots) {
+        if (Test-PathOverlap -First $evidenceOutputPath -Second $defaultRoot) {
+            throw 'The focused evidence root must not overlap a monitored default root.'
+        }
+    }
+    foreach ($spillRoot in $normalizedSpillRoots) {
+        if (Test-ContainedPath `
+                -Root $evidenceOutputPath `
+                -Candidate $spillRoot `
+                -AllowEqual) {
+            throw 'The focused evidence root must not contain a spill-monitoring root.'
+        }
+    }
+    Assert-NoReparsePathAncestry -Path $evidenceOutputPath
+    New-Item -ItemType Directory -Path $evidenceOutputPath -Force | Out-Null
+    Assert-NoReparsePathAncestry -Path $evidenceOutputPath
 }
 $diagnosticRedactedPaths = @(
     $executablePath,
     $projectFile,
     $projectDirectory,
-    $addonDirectory
+    $addonDirectory,
+    $candidateBinding.PackageParentPath,
+    $candidateBinding.PackedAddonPath
 ) + $normalizedDefaultRoots + $normalizedSpillRoots
 
 $guardBase = [IO.Path]::GetFullPath(
     (Join-Path ([IO.Path]::GetTempPath()) 'PartisanFocusedAutotest'))
+$guardNonce = [Guid]::NewGuid().ToString('N')
 $guardRoot = [IO.Path]::GetFullPath(
-    (Join-Path $guardBase ([Guid]::NewGuid().ToString('N'))))
+    (Join-Path $guardBase $guardNonce))
 if (-not (Test-ContainedPath -Root $guardBase -Candidate $guardRoot)) {
     throw 'Focused-autotest guard containment failed.'
 }
@@ -880,6 +1149,12 @@ $defaultSnapshots = New-Object Collections.Generic.List[object]
 $spillSnapshots = New-Object Collections.Generic.List[object]
 $runError = $null
 $result = $null
+$candidateStage = $null
+$candidateBoundaryVerified = $false
+$mountAttestation = $null
+$evidenceRunRoot = $null
+$evidenceState = [pscustomobject]@{ Captured = $false }
+$evidenceStartUtc = [DateTime]::UtcNow
 $diagnosticTail = @()
 $cleanup = [ordered]@{
     GuardRemaining = -1
@@ -914,11 +1189,39 @@ try {
         throw 'Refusing focused autotest while an engine process is already running.'
     }
 
+    if (-not $PreflightOnly) {
+        $candidateEvidenceRoot = Join-Path `
+            $evidenceOutputPath `
+            $candidateBinding.CandidateId
+        $focusedEvidenceRoot = Join-Path $candidateEvidenceRoot 'focused-autotest'
+        $caseEvidenceRoot = Join-Path $focusedEvidenceRoot $TestCase
+        New-Item `
+            -ItemType Directory `
+            -Path $candidateEvidenceRoot, $focusedEvidenceRoot, $caseEvidenceRoot `
+            -Force | Out-Null
+        $evidenceLeaf = ([DateTime]::UtcNow.ToString(
+            'yyyyMMddTHHmmssZ',
+            [Globalization.CultureInfo]::InvariantCulture)) + '-' + $guardNonce
+        $evidenceRunRoot = [IO.Path]::GetFullPath(
+            (Join-Path $caseEvidenceRoot $evidenceLeaf))
+        if (-not (Test-ContainedPath `
+                -Root $caseEvidenceRoot `
+                -Candidate $evidenceRunRoot) -or
+            (Test-Path -LiteralPath $evidenceRunRoot)) {
+            throw 'The retained focused-autotest evidence run must be fresh and contained.'
+        }
+        New-Item -ItemType Directory -Path $evidenceRunRoot | Out-Null
+        Assert-NoReparsePathAncestry -Path $evidenceRunRoot
+    }
+
     foreach ($root in $normalizedDefaultRoots) {
         $defaultSnapshots.Add((New-RootSnapshot -Root $root))
     }
     $spillExclusions = New-Object Collections.Generic.List[string]
     $spillExclusions.Add($projectDirectory)
+    if ($evidenceOutputPath -and -not $spillExclusions.Contains($evidenceOutputPath)) {
+        $spillExclusions.Add($evidenceOutputPath)
+    }
     foreach ($snapshot in $defaultSnapshots) {
         if (-not $spillExclusions.Contains($snapshot.Root)) {
             $spillExclusions.Add($snapshot.Root)
@@ -940,16 +1243,29 @@ try {
     if (($guardItem.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
         throw 'Focused-autotest guard root must not be a reparse point.'
     }
-    [IO.File]::WriteAllText($sentinelPath, 'owned')
+    [IO.File]::WriteAllText($sentinelPath, $guardNonce)
+    $candidateStage = New-PartisanReleaseCandidateStage `
+        -Candidate $candidateBinding `
+        -GuardRoot $guardRoot
+    $projectFile = $candidateStage.PackedProjectPath
+    $projectDirectory = Split-Path -Parent $projectFile
+    $addonSearchPath = $candidateStage.AddonSearchPath
+    $diagnosticRedactedPaths += @(
+        $candidateStage.StageRootPath,
+        $candidateStage.PackedAddonPath)
     $workingDirectory = Join-Path $guardRoot 'work'
     $tempDirectory = Join-Path $guardRoot 'temp'
     $profileDirectory = Join-Path $guardRoot 'profile'
     New-Item -ItemType Directory -Path $workingDirectory, $tempDirectory, $profileDirectory -Force | Out-Null
     $profileProofSentinelPath = Join-Path $profileDirectory '.partisan-focused-owner'
     [IO.File]::WriteAllText($profileProofSentinelPath, 'owned')
+    $addonTempDirectory = Join-Path $guardRoot 'addon-temp'
+    New-Item -ItemType Directory -Path $addonTempDirectory -Force | Out-Null
 
     $arguments = @(
-        '-addonsDir', $addonDirectory,
+        '-addonsDir', $addonSearchPath,
+        '-addons', $candidateBinding.AddonGuid,
+        '-addonTempDir', $addonTempDirectory,
         '-gproj', $projectFile,
         '-profile', $guardRoot,
         '-window',
@@ -957,7 +1273,10 @@ try {
         '-forceupdate',
         '-rpl-timeout-disable',
         '-noThrow',
-        '-autotest', $TestCase
+        '-autotest', $TestCase,
+        '-hstReleaseCandidateId', $candidateBinding.CandidateId,
+        '-hstReleasePackageSha256', $candidateBinding.PackageSha256,
+        '-hstReleaseManifestSha256', $candidateBinding.ManifestSha256
     )
     $argumentLine = ($arguments | ForEach-Object {
         ConvertTo-NativeArgument -Value ([string]$_)
@@ -970,6 +1289,18 @@ try {
         -ExpectedExecutable $executablePath `
         -ExpectedArguments $arguments)) {
         throw 'Focused-autotest native argument construction did not round-trip exactly.'
+    }
+
+    if ($PreflightOnly) {
+        $result = [ordered]@{
+            Success = $true
+            PreflightOnly = $true
+            Candidate = $candidateIdentity
+            CandidateBoundaryVerified = $true
+            TestCase = $TestCase
+            ArgumentTokenCount = $arguments.Count
+        }
+        throw (New-Object OperationCanceledException('guarded-focused-preflight-complete'))
     }
 
     $job = New-Object PartisanFocusedAutotestJob
@@ -1040,6 +1371,35 @@ try {
     $exitCode = $process.ExitCode
     Start-Sleep -Milliseconds 1000
 
+    [void](Assert-HarnessBinding `
+        -Expected $harnessBinding `
+        -CheckoutRoot $checkoutRoot `
+        -RunnerPath $PSCommandPath `
+        -CandidateModulePath $candidateModulePath)
+    [void](Assert-PartisanReleaseCandidateStage `
+        -Candidate $candidateBinding `
+        -StageRoot $candidateStage.StageRootPath)
+    $postCandidateBinding = Assert-PartisanReleaseCandidate `
+        -ManifestPath $CandidateManifest `
+        -BundleRoot $CandidateBundleRoot `
+        -RuntimeAddonRoot $RuntimeAddonRoot `
+        -Executable $executablePath `
+        -RuntimeRole client `
+        -ConsumerIntent $consumerIntent
+    if ($postCandidateBinding.PackageSha256 -cne $candidateBinding.PackageSha256 -or
+        $postCandidateBinding.ManifestSha256 -cne $candidateBinding.ManifestSha256 -or
+        $postCandidateBinding.ReadySha256 -cne $candidateBinding.ReadySha256) {
+        throw 'The sealed candidate identity changed during the focused autotest.'
+    }
+    $candidateBoundaryVerified = $true
+    $mountAttestation = Get-CandidateMountAttestation `
+        -GuardRoot $guardRoot `
+        -PackedProjectPath $candidateStage.PackedProjectPath `
+        -AddonGuid $candidateBinding.AddonGuid
+    if (-not $mountAttestation.Valid) {
+        throw 'Engine logs did not attest the exact guarded packed candidate mount.'
+    }
+
     $junitFiles = @(Get-ChildItem `
         -LiteralPath $guardRoot `
         -Recurse `
@@ -1103,9 +1463,16 @@ try {
             $requiredPatternsSeen = $false
         }
     }
+    $buildProvenanceSeen = $consoleText.IndexOf(
+        $expectedBuildSummary,
+        [StringComparison]::Ordinal) -ge 0
 
     $result = [ordered]@{
+        Candidate = $candidateIdentity
+        CandidateBoundaryVerified = $candidateBoundaryVerified
+        MountAttestation = $mountAttestation
         Success = $exitCode -eq 0 -and
+            $mountAttestation.Valid -and
             $junit.Tests -eq 1 -and
             $junit.Failures -eq 0 -and
             $junit.Errors -eq 0 -and
@@ -1116,7 +1483,8 @@ try {
             $junit.CaseSkipped -eq 0 -and
             $failedFiles.Count -eq 1 -and
             $failedListBytes -eq 0 -and
-            $requiredPatternsSeen
+            $requiredPatternsSeen -and
+            $buildProvenanceSeen
         ExitCode = $exitCode
         Tests = $junit.Tests
         Failures = $junit.Failures
@@ -1133,6 +1501,7 @@ try {
         FailedListFileCount = $failedFiles.Count
         FailedListBytes = $failedListBytes
         RequiredPatternsSeen = $requiredPatternsSeen
+        BuildProvenanceSeen = $buildProvenanceSeen
         ConsoleTestCaseSeen = $consoleText.IndexOf(
             $TestCase,
             [StringComparison]::Ordinal) -ge 0
@@ -1142,9 +1511,15 @@ try {
     }
 }
 catch {
-    $runError = ConvertTo-SafeDiagnosticText `
-        -Text $_.Exception.Message `
-        -RedactedPaths ($diagnosticRedactedPaths + @($guardRoot))
+    if ($_.Exception -is [OperationCanceledException] -and
+        $_.Exception.Message -ceq 'guarded-focused-preflight-complete') {
+        $runError = $null
+    }
+    else {
+        $runError = ConvertTo-SafeDiagnosticText `
+            -Text $_.Exception.Message `
+            -RedactedPaths ($diagnosticRedactedPaths + @($guardRoot))
+    }
 }
 finally {
     $env:TEMP = $oldTemp
@@ -1205,9 +1580,64 @@ finally {
 
     if ($cleanup.OwnedProcessesRemaining -eq 0) {
         try {
+            if ($candidateStage) {
+                [void](Assert-PartisanReleaseCandidateStage `
+                    -Candidate $candidateBinding `
+                    -StageRoot $candidateStage.StageRootPath)
+            }
+            $cleanupCandidateBinding = Assert-PartisanReleaseCandidate `
+                -ManifestPath $CandidateManifest `
+                -BundleRoot $CandidateBundleRoot `
+                -RuntimeAddonRoot $RuntimeAddonRoot `
+                -Executable $executablePath `
+                -RuntimeRole client `
+                -ConsumerIntent $consumerIntent
+            if ($cleanupCandidateBinding.PackageSha256 -cne $candidateBinding.PackageSha256 -or
+                $cleanupCandidateBinding.ManifestSha256 -cne $candidateBinding.ManifestSha256 -or
+                $cleanupCandidateBinding.ReadySha256 -cne $candidateBinding.ReadySha256) {
+                throw 'The sealed candidate identity changed across the focused run.'
+            }
+            $candidateBoundaryVerified = $true
+        }
+        catch {
+            $cleanup.CleanupErrors += $_.Exception.Message
+        }
+        try {
+            [void](Assert-HarnessBinding `
+                -Expected $harnessBinding `
+                -CheckoutRoot $checkoutRoot `
+                -RunnerPath $PSCommandPath `
+                -CandidateModulePath $candidateModulePath)
+        }
+        catch {
+            $cleanup.CleanupErrors += $_.Exception.Message
+        }
+        try {
+            if ($evidenceRunRoot) {
+                if (-not (Test-Path -LiteralPath $guardRoot -PathType Container)) {
+                    throw 'The focused guard disappeared before evidence retention.'
+                }
+                Copy-FocusedAutotestEvidence `
+                    -GuardRoot $guardRoot `
+                    -EvidenceRunRoot $evidenceRunRoot `
+                    -Candidate $candidateBinding
+                $evidenceState.Captured = $true
+            }
+        }
+        catch {
+            $cleanup.CleanupErrors += $_.Exception.Message
+        }
+        try {
             if (Test-Path -LiteralPath $guardRoot) {
                 if (-not (Test-Path -LiteralPath $sentinelPath -PathType Leaf)) {
                     throw 'Focused-autotest cleanup ownership sentinel is missing.'
+                }
+                $sentinelItem = Get-Item -LiteralPath $sentinelPath -Force -ErrorAction Stop
+                if (($sentinelItem.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+                    throw 'Focused-autotest cleanup ownership sentinel became a reparse point.'
+                }
+                if ([IO.File]::ReadAllText($sentinelPath) -cne $guardNonce) {
+                    throw 'Focused-autotest cleanup ownership sentinel identity changed.'
                 }
                 if (-not (Test-ContainedPath -Root $guardBase -Candidate $guardRoot)) {
                     throw 'Focused-autotest cleanup containment failed.'
@@ -1328,6 +1758,73 @@ $cleanupFailed = $cleanup.GuardRemaining -ne 0 -or
     $cleanup.DeletedSpillEntries -ne 0 -or
     $cleanup.MissingSpillRoots -ne 0 -or
     $cleanup.CleanupErrors.Count -ne 0
+if ($evidenceRunRoot) {
+    try {
+        $rawRows = Get-EvidenceFileRows -EvidenceRunRoot $evidenceRunRoot
+        $envelope = [ordered]@{
+            schemaVersion = 1
+            evidenceKind = 'packaged-focused-autotest'
+            startedUtc = $evidenceStartUtc.ToString(
+                'o',
+                [Globalization.CultureInfo]::InvariantCulture)
+            completedUtc = [DateTime]::UtcNow.ToString(
+                'o',
+                [Globalization.CultureInfo]::InvariantCulture)
+            candidate = $candidateIdentity
+            harness = [ordered]@{
+                gitHead = $harnessBinding.GitHead
+                dirty = -not $harnessBinding.Clean
+                focusedRunnerSha256 = $harnessBinding.RunnerSha256
+                candidateModuleSha256 = $harnessBinding.CandidateModuleSha256
+            }
+            launch = [ordered]@{
+                testCase = $TestCase
+                stagedPackage = $true
+                addonSearchRootCount = 2
+                addonGuid = $candidateBinding.AddonGuid
+                packageSha256 = if ($candidateStage) {
+                    $candidateStage.PackageSha256
+                }
+                else {
+                    $candidateBinding.PackageSha256
+                }
+                diagnosticExecutable = $candidateBinding.DiagnosticExecutable
+                recordedRuntimeExecutable = $candidateBinding.RecordedRuntimeExecutable
+            }
+            outcome = [ordered]@{
+                success = -not $runError -and -not $cleanupFailed -and
+                    $result -and $result.Success
+                candidateBoundaryVerified = $candidateBoundaryVerified
+                mountAttestation = $mountAttestation
+                evidenceCaptured = $evidenceState.Captured
+                result = $result
+                diagnosticTail = $diagnosticTail
+                error = $runError
+            }
+            cleanup = $cleanup
+            files = $rawRows
+        }
+        $envelopePath = Join-Path $evidenceRunRoot 'run.json'
+        Write-PortableJson -Path $envelopePath -Value $envelope
+        $envelopeSha = (Get-FileHash `
+            -LiteralPath $envelopePath `
+            -Algorithm SHA256).Hash.ToLowerInvariant()
+        Write-Output ('EVIDENCE ' + ([pscustomobject]@{
+            CandidateId = $candidateBinding.CandidateId
+            TestCase = $TestCase
+            FileCount = $rawRows.Count
+            EnvelopeSha256 = $envelopeSha
+        } | ConvertTo-Json -Compress))
+    }
+    catch {
+        if ($runError) {
+            $runError += ' | evidence retention failed'
+        }
+        else {
+            $runError = 'Focused-autotest evidence retention failed.'
+        }
+    }
+}
 if ($cleanupFailed) {
     throw 'Focused-autotest cleanup did not converge to zero.'
 }

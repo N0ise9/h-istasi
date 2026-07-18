@@ -4,6 +4,12 @@
 // persistence, package/restart, networking, and soak remain separate gates.
 class HST_EnemyQRFAutotestSuite : SCR_AutotestSuiteBase
 {
+	// This deterministic report is service-only. Keep the packaged project
+	// loaded so the stock base-only scenario transition cannot drop the test.
+	override ResourceName GetWorldFile()
+	{
+		return "";
+	}
 }
 
 [Test(suite: HST_EnemyQRFAutotestSuite)]

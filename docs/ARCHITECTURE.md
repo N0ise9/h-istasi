@@ -56,8 +56,46 @@ This boundary produced the first retained candidate,
 digest is `8f60260331c6c7473465dc4517b1063a179a8f4efeffdcfe3d5eccac9af476db`.
 The exact manifest and ready seal are tracked under `docs/evidence` so generated
 status can reject identity drift. The candidate remains retained-uncertified:
-the artifact portion of Gate 1 is closed, while the required Campaign Debug and
-later runtime evidence must still consume this unchanged package.
+its artifact-identity evidence remains valid, but the focused-suite defect below
+makes it ineligible for current runtime proof. No later runtime evidence may be
+attached to it or combined with its replacement.
+
+Runtime consumers now bind the active tracked manifest and ready seal to the
+external sealed bundle before accepting a launch. They independently require
+the exact top-level layout, all four package files, the complete retained
+evidence inventory, canonical package digest, active release-status identity,
+base-game packed roots, and the standard executable recorded for the selected
+client/server role. An active runtime candidate also seals the exact adjacent
+diagnostic client and server identities because those binaries, not the standard
+runtime files, execute the diagnostic gates.
+
+The engine never mounts the sealed bundle directly. Each runner copies only the
+four verified package files into its nonce-owned guard, recomputes the package
+digest, and launches the staged packed project with one two-root add-on search
+argument, the exact add-on GUID, and a guard-owned add-on temp directory. It
+rehashes the staged copy and the external candidate after process quiescence.
+Raw runtime artifacts are copied to a separate fresh sidecar evidence run before
+the guard is removed; a portable envelope binds their hashes to the candidate,
+harness commit and launch-time file hashes, diagnostic and standard runtime
+identities, the guarded settings bytes actually consumed,
+launch scope, outcome, and exact cleanup census. The candidate bundle itself
+remains immutable.
+
+Both Campaign Debug and individually named focused-runner preflights pass the
+argument-round-trip, staging, candidate-revalidation, and exact-zero cleanup
+contract. Real runs additionally require the engine-owned `gproj` log record to
+name the exact guarded project path and add-on GUID with packed mode. A
+thirteen-case consumer self-test also rejects runtime use of a superseded
+candidate, altered package bytes, manifests, seals, unexpected bundle/package
+files, staged drift, and ambiguous add-on roots. Review of the stock autotest
+transition then
+identified a release-critical package defect: three service-only suites lacked
+the empty-world override already used by two peer suites, so a base-only
+scenario transition could unload their test types before JUnit output. Those
+three overrides are now source-enforced. Because that changes `data.pak`, the
+first candidate remains retained evidence but must be superseded once; all
+Gate-1 runtime rungs will restart from the replacement candidate rather than
+mixing package identities.
 
 ## Current Focused Force-Authority Engine Checkpoint
 

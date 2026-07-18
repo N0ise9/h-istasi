@@ -28048,6 +28048,8 @@ $schema68AutotestExecuteBlock = Get-ScriptMethodBlock $schema68AutotestText 'boo
 foreach ($schema68AutotestEntry in @(
 	'#ifdef ENABLE_DIAG',
 	'class HST_EnemyPlanningCommitmentAutotestSuite : SCR_AutotestSuiteBase',
+	'override ResourceName GetWorldFile()',
+	'return "";',
 	'[Test(suite: HST_EnemyPlanningCommitmentAutotestSuite)]',
 	'class HST_TEST_EnemyPlanningCommitmentAuthority : SCR_AutotestCaseBase',
 	'[Step(EStage.Main)]',
@@ -30435,7 +30437,18 @@ foreach ($schema69FocusedAutotestLauncherEntry in @(
 	'public Int32[] GetProcessIds()',
 	'PartisanFocusedAutotestNativeCommandLine',
 	'function Test-ExactNativeArgumentVector',
-	'''-addonsDir'', $addonDirectory',
+	'Partisan.ReleaseCandidate.psm1',
+	'Assert-PartisanReleaseCandidate',
+	'-ConsumerIntent $consumerIntent',
+	'New-PartisanReleaseCandidateStage',
+	'Assert-PartisanReleaseCandidateStage',
+	'function Get-HarnessBinding',
+	'function Assert-HarnessBinding',
+	'function Get-CandidateMountAttestation',
+	'Engine logs did not attest the exact guarded packed candidate mount.',
+	'''-addonsDir'', $addonSearchPath',
+	'''-addons'', $candidateBinding.AddonGuid',
+	'''-addonTempDir'', $addonTempDirectory',
 	'''-gproj'', $projectFile',
 	'''-profile'', $guardRoot',
 	'''-autotest'', $TestCase',
@@ -30450,7 +30463,10 @@ foreach ($schema69FocusedAutotestLauncherEntry in @(
 	'FailedListFileCount',
 	'FailedListBytes',
 	'RequiredPatternsSeen',
+	'BuildProvenanceSeen',
 	'ConsoleTestCaseSeen',
+	'Copy-FocusedAutotestEvidence',
+	'evidenceKind = ''packaged-focused-autotest''',
 	'function ConvertTo-SafeDiagnosticText',
 	'<email>',
 	'<identity>',
@@ -30548,6 +30564,7 @@ foreach ($schema69FocusedAutotestBoundaryEntry in @(
 	'Assert-NoReparsePathAncestry -Path $guardRoot',
 	'[void](Get-SafeSnapshotEntries -Root $guardRoot)',
 	'if ($cleanup.OwnedProcessesRemaining -eq 0)',
+	'[IO.File]::ReadAllText($sentinelPath) -cne $guardNonce',
 	'(Split-Path -Leaf $guardBase) -cne ''PartisanFocusedAutotest''',
 	'Remove-Item -LiteralPath $guardRoot -Recurse -Force',
 	'Remove-Item -LiteralPath $guardBase -Force'
@@ -33621,6 +33638,8 @@ $schema70AutotestExecuteBlock = Get-ScriptMethodBlock $schema70AutotestText 'boo
 foreach ($schema70AutotestEntry in @(
 	'#ifdef ENABLE_DIAG',
 	'class HST_EnemyGarrisonRebuildAutotestSuite : SCR_AutotestSuiteBase',
+	'override ResourceName GetWorldFile()',
+	'return "";',
 	'[Test(suite: HST_EnemyGarrisonRebuildAutotestSuite)]',
 	'class HST_TEST_EnemyGarrisonRebuildAuthority : SCR_AutotestCaseBase',
 	'[Step(EStage.Main)]',
@@ -34142,6 +34161,8 @@ $enemyQRFAutotestAggregateBlock = Get-ScriptMethodBlock $enemyQRFAutotestText 'p
 foreach ($enemyQRFAutotestEntry in @(
 	'#ifdef ENABLE_DIAG',
 	'class HST_EnemyQRFAutotestSuite : SCR_AutotestSuiteBase',
+	'override ResourceName GetWorldFile()',
+	'return "";',
 	'[Test(suite: HST_EnemyQRFAutotestSuite)]',
 	'class HST_TEST_EnemyQRFAuthority : SCR_AutotestCaseBase',
 	'[Step(EStage.Main)]',
@@ -49605,9 +49626,21 @@ $releaseCandidateBuilderPath = Join-Path `
 	$PSScriptRoot `
 	"new-guarded-release-candidate.ps1"
 $releaseManifestPath = Join-Path $PSScriptRoot "new-release-manifest.ps1"
+$releaseCandidateConsumerPath = Join-Path `
+	$PSScriptRoot `
+	'Partisan.ReleaseCandidate.psm1'
+$releaseCandidateConsumerTestPath = Join-Path `
+	$PSScriptRoot `
+	'test-release-candidate-consumer.ps1'
+$candidateCampaignDebugRunnerPath = Join-Path `
+	$PSScriptRoot `
+	'run-guarded-campaign-debug.ps1'
 foreach ($releaseToolPath in @(
 		$releaseCandidateBuilderPath,
-		$releaseManifestPath
+		$releaseManifestPath,
+		$releaseCandidateConsumerPath,
+		$releaseCandidateConsumerTestPath,
+		$candidateCampaignDebugRunnerPath
 	)) {
 	if (-not (Test-Path -LiteralPath $releaseToolPath -PathType Leaf)) {
 		throw "Release-candidate tooling is missing: $(Split-Path -Leaf $releaseToolPath)"
@@ -49643,6 +49676,9 @@ foreach ($releaseCandidateBuilderEntry in @(
 		'[IO.Directory]::Move($partialRoot, $finalRoot)',
 		'candidate.ready.json',
 		'[IO.File]::Move($readyPartialPath, $readyPath)',
+		'Get-ExactAdjacentDiagnosticPath',
+		'Assert-ExactRuntimeVersionPair',
+		'DiagnosticRuntimeCount = 2',
 		'-Check'
 	)) {
 	if ($releaseCandidateBuilderText.IndexOf(
@@ -49671,6 +49707,10 @@ foreach ($releaseManifestEntry in @(
 		'The packed release thumbnail differs from the tracked source thumbnail.',
 		'revision = "unpublished-local-pack"',
 		'evidence = [ordered]@{',
+		'serverDiagnostic = Get-ExecutableIdentity -Path $serverDiagnosticPath',
+		'clientDiagnostic = Get-ExecutableIdentity -Path $clientDiagnosticPath',
+		'The retained toolchain has an incomplete diagnostic-runtime identity.',
+		'A standard and diagnostic runtime executable version pair differs.',
 		'Assert-NoReparseTree',
 		'AllowUnsealedPublished',
 		'A published candidate is missing its ready seal.',
@@ -49695,6 +49735,87 @@ foreach ($guardedWorkbenchRetentionEntry in @(
 		$guardedWorkbenchRetentionEntry,
 		[StringComparison]::Ordinal) -lt 0) {
 		throw "Guarded Workbench retained-evidence contract is incomplete: $guardedWorkbenchRetentionEntry"
+	}
+}
+
+$releaseCandidateConsumerText = Get-Content -Raw $releaseCandidateConsumerPath
+foreach ($releaseCandidateConsumerEntry in @(
+		'docs\data\release_status.json',
+		'runtimeUseDisposition',
+		'The current release candidate is not eligible for runtime use.',
+		'CandidateManifest is not the active tracked release-candidate record.',
+		'The supplied candidate bundle does not match the tracked manifest and ready seal.',
+		'The external candidate does not contain the exact sealed package inventory.',
+		'The external candidate does not contain the exact sealed package directory layout.',
+		'The external candidate does not contain the exact sealed evidence inventory.',
+		'The candidate package digest does not match its canonical file inventory.',
+		'RuntimeAddonRoot contains a competing copy of the sealed candidate GUID.',
+		'New-PartisanReleaseCandidateStage',
+		'Assert-PartisanReleaseCandidateStage',
+		'The guarded candidate-stage digest differs from the sealed package.',
+		'The guarded candidate add-on search root must contain only Partisan.',
+		'RuntimeAddonRoot must not contain the add-on search-path separator.',
+		'An active runtime candidate must seal both diagnostic executable identities.',
+		'The candidate manifest has an incomplete diagnostic executable identity pair.',
+		'Assert-PartisanExecutableIdentity'
+	)) {
+	if ($releaseCandidateConsumerText.IndexOf(
+			$releaseCandidateConsumerEntry,
+			[StringComparison]::Ordinal) -lt 0) {
+		throw "Release-candidate runtime consumer contract is incomplete: $releaseCandidateConsumerEntry"
+	}
+}
+
+$releaseCandidateConsumerTestText = Get-Content -Raw `
+	$releaseCandidateConsumerTestPath
+foreach ($releaseCandidateConsumerTestEntry in @(
+		'package-byte-tamper',
+		'runtime-use-disposition',
+		'external-manifest-tamper',
+		'external-ready-tamper',
+		'extra-top-level-file',
+		'extra-package-file',
+		'extra-package-directory',
+		'extra-evidence-file',
+		'staged-root-sibling',
+		'staged-package-tamper',
+		'comma-runtime-root',
+		'fixture-restored-valid'
+	)) {
+	if ($releaseCandidateConsumerTestText.IndexOf(
+			$releaseCandidateConsumerTestEntry,
+			[StringComparison]::Ordinal) -lt 0) {
+		throw "Release-candidate consumer self-test is incomplete: $releaseCandidateConsumerTestEntry"
+	}
+}
+
+$candidateCampaignDebugRunnerText = Get-Content -Raw `
+	$candidateCampaignDebugRunnerPath
+foreach ($candidateCampaignDebugRunnerEntry in @(
+		'[string]$CandidateManifest',
+		'[string]$CandidateBundleRoot',
+		'Assert-PartisanReleaseCandidate',
+		'-ConsumerIntent $consumerIntent',
+		'New-PartisanReleaseCandidateStage',
+		'Assert-PartisanReleaseCandidateStage',
+		'"-addonsDir", $addonSearchPath',
+		'"-addons", $candidateBinding.AddonGuid',
+		'"-addonTempDir", $addonTempDirectory',
+		'CandidateBoundaryVerified',
+		'function Get-HarnessBinding',
+		'function Assert-HarnessBinding',
+		'function Get-CandidateMountAttestation',
+		'Engine logs did not attest the exact guarded packed candidate mount.',
+		'Runtime settings schema does not match the sealed candidate identity.',
+		'$guardedSettingsSha256',
+		'Copy-CampaignDebugEvidence',
+		'evidenceKind = ''packaged-campaign-debug''',
+		'A real candidate run requires a clean, committed harness checkout.'
+	)) {
+	if ($candidateCampaignDebugRunnerText.IndexOf(
+			$candidateCampaignDebugRunnerEntry,
+			[StringComparison]::Ordinal) -lt 0) {
+		throw "Candidate-aware Campaign Debug runner contract is incomplete: $candidateCampaignDebugRunnerEntry"
 	}
 }
 

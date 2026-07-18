@@ -59,8 +59,9 @@ implementation/source identity is
 - The candidate manifest is the artifact/evidence join. It must record checkout
   HEAD and dirty state, embedded build identity and its Git relationship, both
   persisted schemas, source/packed project identity, diagnostic Workbench
-  identity and all-five results, standard client/server identities, the exact
-  four package hashes, the candidate version as the local addon version, the
+  identity and all-five results, standard plus diagnostic client/server
+  identities for an active runtime candidate, the exact four package hashes,
+  the candidate version as the local addon version, the
   unpublished local revision state, and every retained evidence hash. Check the
   manifest before and after moving the candidate directory, then publish a
   matching ready seal as the final atomic operation. A candidate-named
@@ -7418,6 +7419,57 @@ This file is for practical engine/script behavior, not project planning. Keep en
   the isolated in-process radio proof, not packaged authored-content, restart,
   networking, or soak proof. Keep exact per-run totals in the Campaign Debug
   audit.
+
+## Sealed Candidate Runtime Consumption
+
+- `-gproj` selects the project being executed. Supplying a packed add-on root
+  while leaving `-gproj` on the checkout is still a loose-source run and cannot
+  prove a candidate package.
+- A packed local add-on launch uses one comma-separated `-addonsDir` value:
+  the installed base add-on root first and the directory containing the packed
+  `Partisan` directory second. Pass the add-on GUID explicitly with `-addons`
+  and give client/diagnostic runs a guard-owned `-addonTempDir`.
+- Treat the external candidate as read-only authority. Bind its manifest and
+  ready seal byte-for-byte to the active tracked records, verify the complete
+  package and retained-evidence inventories, then copy exactly the four package
+  files into a nonce-owned guard. Recompute the canonical package digest before
+  launch and after process quiescence, and revalidate the external bundle after
+  the run. The engine mounts only the staged copy.
+- The diagnostic client/server binary is not the same file as the standard
+  client/server binary. An active runtime candidate must seal all four runtime
+  identities: standard server, diagnostic server, standard client, and
+  diagnostic client. Exact-match the selected diagnostic and adjacent standard
+  file name, length, version metadata, and SHA-256 before and after the run.
+- Treat the status disposition as an execution control, not prose. A candidate
+  marked `supersede-before-runtime` may be inspected by preflight and tamper
+  self-tests, but a real engine launch must fail before process creation. Only
+  `active-runtime-candidate` is runtime-eligible.
+- Do not add runtime artifacts to the sealed candidate directory. Copy raw
+  logs, JUnit, Campaign Debug JSON/summary/diff, and explicit config to a fresh
+  external sidecar before deleting the guard. A portable envelope should bind
+  every retained file hash to candidate/package/manifest/ready identity,
+  harness commit and tool-file hashes, launch scope, result, and cleanup census.
+- Hash the runner and candidate module at the same clean-HEAD boundary used for
+  launch, then recheck HEAD, worktree status, and both hashes after process
+  quiescence. For Campaign Debug, hash and validate the copied guard settings
+  file and retain that exact consumed copy; never bind the envelope to a mutable
+  source settings path read again after the run.
+- Treat staged arguments as preflight evidence, not proof that the engine used
+  them. A successful real run must also find the engine-owned `gproj` record for
+  the exact guard-stage project path and add-on GUID. Every same-GUID record
+  must resolve to that path, at least one must explicitly say `(packed)`, and no
+  explicit alternate mode is allowed; the selected-project record may omit its
+  mode. Retain only portable counts/booleans in the envelope; keep the
+  path-bearing raw log outside the repository.
+- Service-only `SCR_AutotestSuiteBase` suites must override `GetWorldFile()` and
+  return an empty resource. Otherwise the stock game-mode setup requests a
+  scenario transition whose add-on list contains only the base project; the
+  packaged test type can disappear before JUnit and the failure list are
+  written. Selecting one case does not bypass its parent suite setup.
+- A focused-test registration or reload repair changes `data.pak`. Preserve the
+  earlier candidate unchanged, label it retained superseded evidence, build one
+  replacement, and rerun every required rung from that replacement. Never join
+  results across package digests.
 
 ## Native Reference Sources
 

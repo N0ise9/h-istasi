@@ -56,11 +56,25 @@ The boundary has now retained candidate
 `partisan-rc-c2b16c4a2d85-20260718T201442Z` from clean source HEAD
 `c2b16c4a2d85e71503cd46265feafb54bce69e83`, with aggregate package SHA-256
 `8f60260331c6c7473465dc4517b1063a179a8f4efeffdcfe3d5eccac9af476db`.
-The next Gate-1 action is to make current Campaign Debug consume that exact
-unchanged package and close its failure/blocker ledger. Later dedicated,
-multiplayer/JIP, restart, performance, and soak gates must extend the same
-evidence chain; rebuilding creates a new candidate rather than extending this
-one.
+Candidate-aware Campaign Debug and focused-runner preflights now validate the
+tracked and external manifest/ready seal, stage and rehash the exact four-file
+package under a disposable guard, construct the packed launch vector, and
+return every cleanup boundary to zero. A thirteen-check negative consumer suite
+rejects superseded runtime use plus the exercised tamper and layout cases. Real
+runs also recheck the clean harness, bind the guarded settings copy where
+applicable, and require the engine-owned exact-path packed-project mount record. The
+focused-runner audit found that three service-only suites in the first package
+could be dropped by the stock base-only world
+transition before JUnit output; the source now enforces the same empty-world
+override as the two working suites.
+
+The next Gate-1 action is therefore one explicit replacement build. The first
+candidate remains immutable retained evidence and is not edited or silently
+extended. After the replacement is sealed, every individually named focused
+case and current Full Campaign Debug run must consume that one package and
+retain a hashed sidecar envelope. Later dedicated, multiplayer/JIP, restart,
+performance, and soak gates extend only that replacement evidence chain;
+another rebuild starts another candidate.
 
 ## Current Focused Force-Authority Plan Checkpoint
 

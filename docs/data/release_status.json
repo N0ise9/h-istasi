@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "statusAsOfUtc": "2026-07-18T20:17:28Z",
+  "statusAsOfUtc": "2026-07-18T20:58:17Z",
   "releaseStage": "development alpha",
   "releaseDecision": "NO-GO",
   "auditedRevision": "25dedb3e82ad516c28826830bc1e06a2d3940f53",
@@ -13,6 +13,7 @@
   },
   "artifact": {
     "releaseCandidateBuilt": true,
+    "runtimeUseDisposition": "supersede-before-runtime",
     "candidateId": "partisan-rc-c2b16c4a2d85-20260718T201442Z",
     "candidateSourceHead": "c2b16c4a2d85e71503cd46265feafb54bce69e83",
     "manifestPath": "docs/evidence/release-candidates/partisan-rc-c2b16c4a2d85-20260718T201442Z/candidate.json",
@@ -28,7 +29,7 @@
     "workbenchCrc": "cad640f3",
     "serverVersion": "1.7.0.54",
     "clientVersion": "1.7.0.54",
-    "note": "The first immutable release candidate is retained and sealed with exact source, four-file package, toolchain, and all-target Workbench evidence. It remains uncertified until the current Campaign Debug, packaged dedicated, multiplayer/JIP, restart, performance, and soak rungs pass against this unchanged package."
+    "note": "The first immutable candidate remains sealed and retained. Candidate-consumer preflights and tamper tests pass, but a focused-suite registration defect requires one replacement package before current runtime evidence begins; no later proof may mix the two package identities."
   },
   "evidence": {
     "foundation": {
@@ -90,7 +91,7 @@
       "id": "deterministic-service",
       "label": "Deterministic service contracts",
       "status": "partial",
-      "summary": "Selected focused fixtures pass, but aggregate autotest registration and the full current suite are incomplete."
+      "summary": "Selected focused fixtures pass and the three missing service-only suite world overrides are repaired in source, but individually registered packaged JUnit results require a replacement candidate."
     },
     {
       "id": "native-engine-world",
@@ -102,7 +103,7 @@
       "id": "packaged-dedicated",
       "label": "Packaged dedicated server",
       "status": "not-run",
-      "summary": "An immutable candidate package is retained, but it has not yet been launched through the standard dedicated-server runtime gate."
+      "summary": "The first retained candidate is intentionally runtime-ineligible for its focused-suite defect, and the required replacement candidate has not yet been built."
     },
     {
       "id": "multiplayer-jip",
@@ -139,7 +140,7 @@
     {
       "id": "STATUS-001",
       "category": "AUTH",
-      "summary": "The immutable candidate now identifies Foundation, all-target Workbench, and packing evidence, but the current Campaign Debug, dedicated, multiplayer/JIP, restart, performance, and soak rungs have not yet consumed it."
+      "summary": "Candidate-aware Campaign Debug and focused preflights now prove exact package staging and cleanup, but the first package must be superseded once for the focused-suite registration repair before current runtime rungs begin."
     },
     {
       "id": "STATUS-002",
@@ -175,6 +176,11 @@
       "id": "STATUS-008",
       "category": "SEC",
       "summary": "Development proof and destructive diagnostic surfaces have not yet been separated from the release package."
+    },
+    {
+      "id": "STATUS-009",
+      "category": "TEST",
+      "summary": "The first sealed package predates the empty-world override required by three service-only focused suites; a replacement candidate and five individually retained JUnit results are required."
     }
   ]
 }

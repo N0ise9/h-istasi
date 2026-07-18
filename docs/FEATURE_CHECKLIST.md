@@ -40,17 +40,34 @@ passing mixed-native proof described below.
   aggregate digest.
 - [x] Require the candidate manifest to bind exact Git and embedded-build
   relationship, dirty state, schemas, source/packed addon identity, diagnostic
-  Workbench and all-five results, standard server/client identities, package
-  hashes, and every retained evidence hash.
+  Workbench and all-five results, standard and diagnostic server/client
+  identities for active runtime candidates, package hashes, and every retained
+  evidence hash.
 - [x] Build and retain immutable candidate
   `partisan-rc-c2b16c4a2d85-20260718T201442Z` from clean source HEAD
   `c2b16c4a2d85e71503cd46265feafb54bce69e83`, with aggregate package SHA-256
   `8f60260331c6c7473465dc4517b1063a179a8f4efeffdcfe3d5eccac9af476db`,
   exact manifest, and ready seal.
-- [ ] Rerun current Campaign Debug and every later required runtime gate against
-  that exact unchanged package. The candidate is retained-uncertified and
-  inherits no runtime, multiplayer, restart, performance, or soak proof from
-  Gate 0 or an older package.
+- [x] Add one shared candidate consumer for Campaign Debug and focused runs. It
+  binds active tracked status to the external manifest/ready seal, validates
+  the exact package and evidence inventories plus runtime tool identity, stages
+  the four files under the disposable guard, and revalidates both stage and
+  external bundle after use.
+- [x] Pass both packed-candidate preflights and the thirteen-case disposition,
+  tamper, and layout suite with exact-zero cleanup. Real runners additionally
+  recheck harness/settings identity and require the engine-owned packed-project
+  mount record. Retain future raw artifacts in a separate hashed sidecar envelope
+  so the candidate bundle remains sealed.
+- [x] Repair the three service-only focused suites whose default stock world
+  transition could unload the packaged test type before JUnit output. Require
+  the empty-world override in Foundation.
+- [ ] Build one replacement candidate containing that focused-runner repair;
+  mark the first candidate as retained superseded evidence rather than mixing
+  its package identity into later results.
+- [ ] Rerun every named focused case, current Full Campaign Debug, and every
+  later runtime gate against that replacement unchanged package. No runtime,
+  multiplayer, restart, performance, or soak proof is inherited from Gate 0 or
+  an older package.
 
 ## Current Focused Force-Authority Engine Checkpoint
 

@@ -7,21 +7,19 @@ param(
     [string]$RuntimeAddonRoot,
 
     [Parameter(Mandatory = $true)]
+    [string]$CandidateManifest,
+
+    [Parameter(Mandatory = $true)]
+    [string]$CandidateBundleRoot,
+
+    [Parameter(Mandatory = $true)]
     [string]$SettingsSource,
 
-    [Parameter(Mandatory = $true)]
-    [string]$ExpectedBuildSha,
-
-    [Parameter(Mandatory = $true)]
-    [string]$ExpectedBuildUtc,
-
-    [Parameter(Mandatory = $true)]
-    [string]$ExpectedBuildLabel,
+    [string]$EvidenceOutputRoot = '',
 
     [ValidateSet("full_certification", "force_authority")]
     [string]$Profile = "full_certification",
 
-    [string]$ProjectPath = "",
     [string]$WorldResource = "Worlds/HST_Dev/HST_Dev.ent",
     [string[]]$WatchedRoots = @(),
     [string[]]$SpillRoots = @(),
@@ -39,10 +37,6 @@ param(
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
-
-if ([string]::IsNullOrWhiteSpace($ProjectPath)) {
-    $ProjectPath = Join-Path (Split-Path -Parent $PSScriptRoot) "addon.gproj"
-}
 
 if (-not ("PartisanGuardedJob" -as [type])) {
     Add-Type -TypeDefinition @"
@@ -2452,22 +2446,278 @@ function Get-GuardErrorCensus {
     }
 }
 
-$executablePath = Resolve-ExistingPath -Path $Executable -Kind Leaf
-$runtimeAddonPath = Resolve-ExistingPath -Path $RuntimeAddonRoot -Kind Container
-$settingsPath = Resolve-ExistingPath -Path $SettingsSource -Kind Leaf
-$projectFile = Resolve-ExistingPath -Path $ProjectPath -Kind Leaf
-foreach ($packedRuntimeMarker in @("core\data.pak", "data\data.pak")) {
-    if (-not (Test-Path -LiteralPath (Join-Path $runtimeAddonPath $packedRuntimeMarker) -PathType Leaf)) {
-        throw "RuntimeAddonRoot must be the installed packed game add-on root."
+function Test-PathOverlap {
+    param(
+        [Parameter(Mandatory = $true)][string]$First,
+        [Parameter(Mandatory = $true)][string]$Second
+    )
+
+    return (Test-ContainedPath -Root $First -Candidate $Second -AllowEqual) -or
+        (Test-ContainedPath -Root $Second -Candidate $First -AllowEqual)
+}
+
+function Write-PortableJson {
+    param(
+        [Parameter(Mandatory = $true)][string]$Path,
+        [Parameter(Mandatory = $true)]$Value
+    )
+
+    $text = (($Value | ConvertTo-Json -Depth 20).Replace("`r`n", "`n") + "`n")
+    [IO.File]::WriteAllText(
+        $Path,
+        $text,
+        (New-Object Text.UTF8Encoding($false)))
+}
+
+function Get-HarnessBinding {
+    param(
+        [Parameter(Mandatory = $true)][string]$CheckoutRoot,
+        [Parameter(Mandatory = $true)][string]$RunnerPath,
+        [Parameter(Mandatory = $true)][string]$CandidateModulePath
+    )
+
+    $headLines = @(& git -C $CheckoutRoot rev-parse HEAD)
+    $headExit = $LASTEXITCODE
+    $statusLines = @(& git -C $CheckoutRoot status --porcelain=v1 --untracked-files=all)
+    $statusExit = $LASTEXITCODE
+    $head = ($headLines -join '').Trim()
+    if ($headExit -ne 0 -or $statusExit -ne 0 -or
+        $head -cnotmatch '^[0-9a-f]{40}$') {
+        throw 'The Campaign Debug harness Git identity could not be resolved.'
+    }
+
+    return [pscustomobject][ordered]@{
+        GitHead = $head
+        StatusText = $statusLines -join "`n"
+        Clean = $statusLines.Count -eq 0
+        RunnerSha256 = (Get-FileHash `
+            -LiteralPath $RunnerPath `
+            -Algorithm SHA256).Hash.ToLowerInvariant()
+        CandidateModuleSha256 = (Get-FileHash `
+            -LiteralPath $CandidateModulePath `
+            -Algorithm SHA256).Hash.ToLowerInvariant()
     }
 }
-$supportedDiagnosticExecutables = @(
-    "ArmaReforgerSteamDiag.exe",
-    "ArmaReforgerServerDiag.exe"
-)
-if ($supportedDiagnosticExecutables -notcontains (Split-Path -Leaf $executablePath)) {
-    throw "Executable must be a supported Reforger diagnostic runtime."
+
+function Assert-HarnessBinding {
+    param(
+        [Parameter(Mandatory = $true)]$Expected,
+        [Parameter(Mandatory = $true)][string]$CheckoutRoot,
+        [Parameter(Mandatory = $true)][string]$RunnerPath,
+        [Parameter(Mandatory = $true)][string]$CandidateModulePath
+    )
+
+    $actual = Get-HarnessBinding `
+        -CheckoutRoot $CheckoutRoot `
+        -RunnerPath $RunnerPath `
+        -CandidateModulePath $CandidateModulePath
+    if ($actual.GitHead -cne $Expected.GitHead -or
+        $actual.StatusText -cne $Expected.StatusText -or
+        $actual.Clean -ne $Expected.Clean -or
+        $actual.RunnerSha256 -cne $Expected.RunnerSha256 -or
+        $actual.CandidateModuleSha256 -cne $Expected.CandidateModuleSha256) {
+        throw 'The Campaign Debug harness identity changed during execution.'
+    }
+    return $actual
 }
+
+function Get-CandidateMountAttestation {
+    param(
+        [Parameter(Mandatory = $true)][string]$GuardRoot,
+        [Parameter(Mandatory = $true)][string]$PackedProjectPath,
+        [Parameter(Mandatory = $true)][string]$AddonGuid
+    )
+
+    $expectedProject = [IO.Path]::GetFullPath($PackedProjectPath).Replace('\', '/')
+    $pattern = "(?im)^\s*\d{2}:\d{2}:\d{2}\.\d{3}\s+ENGINE\s+:\s+" +
+        "gproj:\s+'(?<path>[^']+)'\s+guid:\s+'" +
+        [regex]::Escape($AddonGuid) + "'\s*(?<mode>\([^)]+\))?\s*$"
+    $recordCount = 0
+    $exactPathCount = 0
+    $packedCount = 0
+    $invalidModeCount = 0
+    foreach ($consoleFile in @(Get-ChildItem `
+            -LiteralPath $GuardRoot `
+            -Recurse `
+            -File `
+            -Filter 'console.log' `
+            -Force `
+            -ErrorAction SilentlyContinue)) {
+        if (($consoleFile.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+            throw 'A candidate mount-attestation log must not be a reparse point.'
+        }
+        $consoleText = Read-SharedFileText -Path $consoleFile.FullName
+        foreach ($match in @([regex]::Matches($consoleText, $pattern))) {
+            $recordCount++
+            $recordedProject = $match.Groups['path'].Value.Replace('\', '/')
+            if ($recordedProject.Equals(
+                    $expectedProject,
+                    [StringComparison]::OrdinalIgnoreCase)) {
+                $exactPathCount++
+            }
+            if ($match.Groups['mode'].Value -ceq '(packed)') {
+                $packedCount++
+            }
+            elseif (-not [string]::IsNullOrEmpty($match.Groups['mode'].Value)) {
+                $invalidModeCount++
+            }
+        }
+    }
+
+    return [pscustomobject][ordered]@{
+        Valid = $recordCount -gt 0 -and
+            $exactPathCount -eq $recordCount -and
+            $packedCount -gt 0 -and
+            $invalidModeCount -eq 0
+        RecordCount = $recordCount
+        ExactPathCount = $exactPathCount
+        PackedCount = $packedCount
+        InvalidModeCount = $invalidModeCount
+        GuidExact = $recordCount -gt 0
+        Packed = $packedCount -gt 0 -and $invalidModeCount -eq 0
+    }
+}
+
+function Copy-CampaignDebugEvidence {
+    param(
+        [Parameter(Mandatory = $true)][string]$GuardRoot,
+        [Parameter(Mandatory = $true)][string]$EvidenceRunRoot,
+        [Parameter(Mandatory = $true)][string]$SettingsPath,
+        [Parameter(Mandatory = $true)][string]$ExpectedSettingsSha256,
+        [Parameter(Mandatory = $true)]$Candidate
+    )
+
+    Assert-NoReparsePathAncestry -Path $GuardRoot
+    Assert-NoReparsePathAncestry -Path $EvidenceRunRoot
+    $rawRoot = Join-Path $EvidenceRunRoot 'raw'
+    $identityRoot = Join-Path $EvidenceRunRoot 'identity'
+    $configRoot = Join-Path $EvidenceRunRoot 'config'
+    New-Item `
+        -ItemType Directory `
+        -Path $rawRoot, $identityRoot, $configRoot `
+        -Force | Out-Null
+
+    $copyRoots = @(
+        [pscustomobject]@{ Source = Join-Path $GuardRoot 'logs'; Destination = Join-Path $rawRoot 'logs' },
+        [pscustomobject]@{ Source = Join-Path $GuardRoot 'profile\Partisan\debug'; Destination = Join-Path $rawRoot 'campaign-debug' }
+    )
+    foreach ($copyRoot in $copyRoots) {
+        if (-not (Test-Path -LiteralPath $copyRoot.Source -PathType Container)) {
+            continue
+        }
+        foreach ($item in @(Get-ChildItem `
+                -LiteralPath $copyRoot.Source `
+                -Recurse `
+                -Force `
+                -ErrorAction Stop)) {
+            if (($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+                throw 'Guarded runtime evidence must not contain a reparse point.'
+            }
+        }
+        New-Item -ItemType Directory -Path $copyRoot.Destination -Force | Out-Null
+        foreach ($item in @(Get-ChildItem `
+                -LiteralPath $copyRoot.Source `
+                -Force `
+                -ErrorAction Stop)) {
+            Copy-Item `
+                -LiteralPath $item.FullName `
+                -Destination $copyRoot.Destination `
+                -Recurse `
+                -Force `
+                -ErrorAction Stop
+        }
+    }
+    $retainedSettingsPath = Join-Path $configRoot 'HST_Settings.json'
+    Copy-Item `
+        -LiteralPath $SettingsPath `
+        -Destination $retainedSettingsPath `
+        -Force `
+        -ErrorAction Stop
+    if ((Get-FileHash `
+            -LiteralPath $retainedSettingsPath `
+            -Algorithm SHA256).Hash.ToLowerInvariant() -cne $ExpectedSettingsSha256) {
+        throw 'The retained Campaign Debug settings differ from the guarded runtime copy.'
+    }
+    Copy-Item `
+        -LiteralPath $Candidate.TrackedManifestPath `
+        -Destination (Join-Path $identityRoot 'candidate.json') `
+        -Force `
+        -ErrorAction Stop
+    Copy-Item `
+        -LiteralPath $Candidate.TrackedReadyPath `
+        -Destination (Join-Path $identityRoot 'candidate.ready.json') `
+        -Force `
+        -ErrorAction Stop
+}
+
+function Get-EvidenceFileRows {
+    param([Parameter(Mandatory = $true)][string]$EvidenceRunRoot)
+
+    $root = [IO.Path]::GetFullPath($EvidenceRunRoot).TrimEnd('\', '/')
+    $prefix = $root + [IO.Path]::DirectorySeparatorChar
+    $rows = New-Object Collections.Generic.List[object]
+    foreach ($file in @(Get-ChildItem `
+            -LiteralPath $root `
+            -Recurse `
+            -File `
+            -Force `
+            -ErrorAction Stop | Where-Object { $_.Name -cne 'run.json' } | Sort-Object FullName)) {
+        $full = [IO.Path]::GetFullPath($file.FullName)
+        if (-not $full.StartsWith($prefix, [StringComparison]::OrdinalIgnoreCase)) {
+            throw 'A retained evidence file escaped its run root.'
+        }
+        [void]$rows.Add([pscustomobject][ordered]@{
+            path = $full.Substring($prefix.Length).Replace('\', '/')
+            length = [long]$file.Length
+            sha256 = (Get-FileHash `
+                -LiteralPath $full `
+                -Algorithm SHA256).Hash.ToLowerInvariant()
+        })
+    }
+    return $rows.ToArray()
+}
+
+$candidateModulePath = Join-Path $PSScriptRoot 'Partisan.ReleaseCandidate.psm1'
+Import-Module -Name $candidateModulePath -Force -ErrorAction Stop
+$executablePath = Resolve-ExistingPath -Path $Executable -Kind Leaf
+$consumerIntent = if ($PreflightOnly -or $ArtifactValidatorSelfTest) {
+    'verification'
+}
+else {
+    'runtime'
+}
+$runtimeRole = if ((Split-Path -Leaf $executablePath) -ceq 'ArmaReforgerSteamDiag.exe') {
+    'client'
+}
+elseif ((Split-Path -Leaf $executablePath) -ceq 'ArmaReforgerServerDiag.exe') {
+    'server'
+}
+else {
+    throw 'Executable must be a supported Reforger diagnostic runtime.'
+}
+$candidateBinding = Assert-PartisanReleaseCandidate `
+    -ManifestPath $CandidateManifest `
+    -BundleRoot $CandidateBundleRoot `
+    -RuntimeAddonRoot $RuntimeAddonRoot `
+    -Executable $executablePath `
+    -RuntimeRole $runtimeRole `
+    -ConsumerIntent $consumerIntent
+$candidateIdentity = Get-PartisanPublicCandidateIdentity -Candidate $candidateBinding
+$runtimeAddonPath = $candidateBinding.RuntimeAddonRootPath
+$addonSearchPath = $candidateBinding.AddonSearchPath
+$projectFile = $candidateBinding.PackedProjectPath
+$resolvedAddonRoots = @(
+    $runtimeAddonPath,
+    $candidateBinding.PackageParentPath,
+    $candidateBinding.PackedAddonPath)
+$ExpectedBuildSha = $candidateBinding.EmbeddedBuildSha
+$ExpectedBuildUtc = $candidateBinding.EmbeddedBuildUtc
+$ExpectedBuildLabel = $candidateBinding.EmbeddedBuildLabel
+$settingsPath = Resolve-ExistingPath -Path $SettingsSource -Kind Leaf
+Assert-NoReparsePathAncestry -Path $settingsPath
+$settingsSourceSha256 = (Get-FileHash `
+    -LiteralPath $settingsPath `
+    -Algorithm SHA256).Hash.ToLowerInvariant()
 
 try {
     $settings = Read-SharedFileText -Path $settingsPath | ConvertFrom-Json
@@ -2475,8 +2725,8 @@ try {
 catch {
     throw "Runtime settings file could not be read and parsed."
 }
-if ([int]$settings.schemaVersion -ne 24) {
-    throw "Runtime settings must use Schema 24."
+if ([int]$settings.schemaVersion -ne $candidateBinding.RuntimeSettingsSchema) {
+    throw 'Runtime settings schema does not match the sealed candidate identity.'
 }
 if (-not $settings.membership.membershipEnabled) {
     throw "Membership enforcement must be enabled."
@@ -2494,9 +2744,50 @@ $normalizedWatchedRoots = @($WatchedRoots | Where-Object {
 $normalizedSpillRoots = @($SpillRoots | Where-Object {
     -not [string]::IsNullOrWhiteSpace([string]$_)
 })
-if (-not $PreflightOnly -and -not $ArtifactValidatorSelfTest -and
+$isRealRun = -not $PreflightOnly -and -not $ArtifactValidatorSelfTest
+if ($isRealRun -and
     ($normalizedWatchedRoots.Count -eq 0 -or $normalizedSpillRoots.Count -eq 0)) {
     throw "A real guarded run requires explicit nonempty watched and spill roots."
+}
+
+$checkoutRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
+$harnessBinding = Get-HarnessBinding `
+    -CheckoutRoot $checkoutRoot `
+    -RunnerPath $PSCommandPath `
+    -CandidateModulePath $candidateModulePath
+$evidenceOutputPath = $null
+if ($isRealRun) {
+    if (-not $harnessBinding.Clean) {
+        throw 'A real candidate run requires a clean, committed harness checkout.'
+    }
+    if ([string]::IsNullOrWhiteSpace($EvidenceOutputRoot)) {
+        throw 'A real candidate run requires an external evidence output root.'
+    }
+    $evidenceOutputPath = [IO.Path]::GetFullPath($EvidenceOutputRoot)
+    foreach ($protectedRoot in @(
+            $checkoutRoot,
+            $candidateBinding.BundleRootPath,
+            $candidateBinding.RuntimeAddonRootPath)) {
+        if (Test-PathOverlap -First $evidenceOutputPath -Second $protectedRoot) {
+            throw 'The evidence output root must not overlap the checkout, candidate, or runtime roots.'
+        }
+    }
+    foreach ($watchedRoot in $normalizedWatchedRoots) {
+        if (Test-PathOverlap -First $evidenceOutputPath -Second $watchedRoot) {
+            throw 'The retained evidence root must not overlap a watched default root.'
+        }
+    }
+    foreach ($spillRoot in $normalizedSpillRoots) {
+        if (Test-ContainedPath `
+                -Root $evidenceOutputPath `
+                -Candidate $spillRoot `
+                -AllowEqual) {
+            throw 'The retained evidence root must not contain a spill-monitoring root.'
+        }
+    }
+    Assert-NoReparsePathAncestry -Path $evidenceOutputPath
+    New-Item -ItemType Directory -Path $evidenceOutputPath -Force | Out-Null
+    Assert-NoReparsePathAncestry -Path $evidenceOutputPath
 }
 
 $watchSnapshots = New-Object Collections.Generic.List[object]
@@ -2533,6 +2824,14 @@ $errorCensus = $null
 $runError = $null
 $cleanupResult = $null
 $cleanupPhaseErrors = New-Object Collections.Generic.List[string]
+$candidateStage = $null
+$candidateBoundaryVerified = $false
+$guardedSettingsPath = $null
+$guardedSettingsSha256 = $null
+$mountAttestation = $null
+$evidenceRunRoot = $null
+$evidenceState = [pscustomobject]@{ Captured = $false }
+$evidenceStartUtc = [DateTime]::UtcNow
 $mutex = $null
 $mutexAcquired = $false
 $guardOwnership = $null
@@ -2557,11 +2856,38 @@ try {
         throw "Refusing guarded launch while an engine, Workbench, server, or crash-report process is already running."
     }
 
+    if ($isRealRun) {
+        $candidateEvidenceRoot = Join-Path `
+            $evidenceOutputPath `
+            $candidateBinding.CandidateId
+        $profileEvidenceRoot = Join-Path $candidateEvidenceRoot 'campaign-debug'
+        New-Item `
+            -ItemType Directory `
+            -Path $candidateEvidenceRoot, $profileEvidenceRoot `
+            -Force | Out-Null
+        $evidenceLeaf = ([DateTime]::UtcNow.ToString(
+            'yyyyMMddTHHmmssZ',
+            [Globalization.CultureInfo]::InvariantCulture)) + '-' + $nonce
+        $evidenceRunRoot = [IO.Path]::GetFullPath(
+            (Join-Path $profileEvidenceRoot $evidenceLeaf))
+        if (-not (Test-ContainedPath `
+                -Root $profileEvidenceRoot `
+                -Candidate $evidenceRunRoot) -or
+            (Test-Path -LiteralPath $evidenceRunRoot)) {
+            throw 'The retained Campaign Debug evidence run must be fresh and contained.'
+        }
+        New-Item -ItemType Directory -Path $evidenceRunRoot | Out-Null
+        Assert-NoReparsePathAncestry -Path $evidenceRunRoot
+    }
+
     foreach ($root in $normalizedWatchedRoots) {
         $watchSnapshots.Add((New-RootSnapshot -Root $root))
     }
     $spillExclusions = New-Object Collections.Generic.List[string]
     $spillExclusions.Add((Split-Path -Parent $projectFile))
+    if ($evidenceOutputPath -and -not $spillExclusions.Contains($evidenceOutputPath)) {
+        $spillExclusions.Add($evidenceOutputPath)
+    }
     foreach ($snapshot in $watchSnapshots) {
         if (-not $spillExclusions.Contains($snapshot.Root)) {
             $spillExclusions.Add($snapshot.Root)
@@ -2599,16 +2925,43 @@ try {
         throw "Guard ownership sentinel validation failed."
     }
 
+    $candidateStage = New-PartisanReleaseCandidateStage `
+        -Candidate $candidateBinding `
+        -GuardRoot $guardRoot
+    $addonSearchPath = $candidateStage.AddonSearchPath
+    $projectFile = $candidateStage.PackedProjectPath
+    $resolvedAddonRoots = @(
+        $runtimeAddonPath,
+        $candidateBinding.PackageParentPath,
+        $candidateBinding.PackedAddonPath,
+        $candidateStage.StageRootPath,
+        $candidateStage.PackedAddonPath)
+
     $profileDirectory = Join-Path $guardRoot "profile\Partisan"
     New-Item -ItemType Directory -Path $profileDirectory -Force | Out-Null
-    Copy-Item -LiteralPath $settingsPath -Destination (Join-Path $profileDirectory "HST_Settings.json") -Force
+    $guardedSettingsPath = Join-Path $profileDirectory 'HST_Settings.json'
+    Copy-Item `
+        -LiteralPath $settingsPath `
+        -Destination $guardedSettingsPath `
+        -Force `
+        -ErrorAction Stop
+    $guardedSettingsSha256 = (Get-FileHash `
+        -LiteralPath $guardedSettingsPath `
+        -Algorithm SHA256).Hash.ToLowerInvariant()
+    if ($guardedSettingsSha256 -cne $settingsSourceSha256) {
+        throw 'The guarded Campaign Debug settings copy differs from its validated source.'
+    }
     $guardedWorkingDirectory = Join-Path $guardRoot "working"
     New-Item -ItemType Directory -Path $guardedWorkingDirectory -Force | Out-Null
     $guardedTempDirectory = Join-Path $guardRoot "temp"
     New-Item -ItemType Directory -Path $guardedTempDirectory -Force | Out-Null
+    $addonTempDirectory = Join-Path $guardRoot 'addon-temp'
+    New-Item -ItemType Directory -Path $addonTempDirectory -Force | Out-Null
 
     $arguments = @(
-        "-addonsDir", $runtimeAddonPath,
+        "-addonsDir", $addonSearchPath,
+        "-addons", $candidateBinding.AddonGuid,
+        "-addonTempDir", $addonTempDirectory,
         "-gproj", $projectFile,
         "-world", $WorldResource,
         "-window",
@@ -2621,7 +2974,10 @@ try {
         "-rpl-timeout-disable",
         "-noThrow",
         "-profile", $guardRoot,
-        "-hstCampaignDebugProfile", $Profile
+        "-hstCampaignDebugProfile", $Profile,
+        "-hstReleaseCandidateId", $candidateBinding.CandidateId,
+        "-hstReleasePackageSha256", $candidateBinding.PackageSha256,
+        "-hstReleaseManifestSha256", $candidateBinding.ManifestSha256
     )
     $commandLine = ($arguments | ForEach-Object { ConvertTo-NativeArgument ([string]$_) }) -join " "
     $roundTripCommandLine = (ConvertTo-NativeArgument $executablePath) + " " + $commandLine
@@ -2647,7 +3003,7 @@ try {
             -ExpectedBuildLabel $ExpectedBuildLabel `
             -GuardRoot $guardRoot `
             -ProjectDirectory (Split-Path -Parent $projectFile) `
-            -ResolvedAddonRoots @($runtimeAddonPath)
+            -ResolvedAddonRoots $resolvedAddonRoots
         $safeSelfTestActual = [string]$safeSelfTestResult.Phase24[0].Actual
         if ($safeSelfTestActual -notmatch '<email>' -or
             $safeSelfTestActual -notmatch '<id>' -or
@@ -2673,6 +3029,7 @@ try {
             Profile = $Profile
             ProofScope = if ($Profile -eq "full_certification") { "full_certification" } else { "focused_force_authority" }
             FullCertification = $Profile -eq "full_certification"
+            Candidate = $candidateIdentity
             EngineProcessesBefore = $existingProcesses.Count
             SettingsSchema = [int]$settings.schemaVersion
             TrustedAdminCount = @($settings.membership.adminIdentityIds).Count
@@ -2736,6 +3093,7 @@ try {
         Profile = $Profile
         ProofScope = if ($Profile -eq "full_certification") { "full_certification" } else { "focused_force_authority" }
         FullCertification = $Profile -eq "full_certification"
+        Candidate = $candidateIdentity
         EngineProcessesBefore = $existingProcesses.Count
         SettingsSchema = [int]$settings.schemaVersion
         TrustedAdminCount = @($settings.membership.adminIdentityIds).Count
@@ -2773,7 +3131,7 @@ try {
             $launchEvidence = Get-GuardLaunchFailureEvidence `
                 -GuardRoot $guardRoot `
                 -ProjectDirectory (Split-Path -Parent $projectFile) `
-                -ResolvedAddonRoots @($runtimeAddonPath)
+                -ResolvedAddonRoots $resolvedAddonRoots
             throw "Diagnostic runtime exited before complete artifacts were validated (exit code $($process.ExitCode)): $launchEvidence"
         }
 
@@ -2845,7 +3203,7 @@ try {
                         -ExpectedBuildLabel $ExpectedBuildLabel `
                         -GuardRoot $guardRoot `
                         -ProjectDirectory (Split-Path -Parent $projectFile) `
-                        -ResolvedAddonRoots @($runtimeAddonPath)
+                        -ResolvedAddonRoots $resolvedAddonRoots
                     $completed = $true
                     break
                 }
@@ -2916,6 +3274,41 @@ try {
     if ($unclaimedEngineProcessesObserved.Count -ne 0) {
         throw "An unowned engine process appeared before the final error census."
     }
+    if (-not $guardedSettingsPath -or
+        -not (Test-Path -LiteralPath $guardedSettingsPath -PathType Leaf) -or
+        (Get-FileHash `
+            -LiteralPath $guardedSettingsPath `
+            -Algorithm SHA256).Hash.ToLowerInvariant() -cne $guardedSettingsSha256) {
+        throw 'The guarded Campaign Debug settings changed during runtime execution.'
+    }
+    [void](Assert-HarnessBinding `
+        -Expected $harnessBinding `
+        -CheckoutRoot $checkoutRoot `
+        -RunnerPath $PSCommandPath `
+        -CandidateModulePath $candidateModulePath)
+    [void](Assert-PartisanReleaseCandidateStage `
+        -Candidate $candidateBinding `
+        -StageRoot $candidateStage.StageRootPath)
+    $postCandidateBinding = Assert-PartisanReleaseCandidate `
+        -ManifestPath $CandidateManifest `
+        -BundleRoot $CandidateBundleRoot `
+        -RuntimeAddonRoot $RuntimeAddonRoot `
+        -Executable $executablePath `
+        -RuntimeRole $runtimeRole `
+        -ConsumerIntent $consumerIntent
+    if ($postCandidateBinding.PackageSha256 -cne $candidateBinding.PackageSha256 -or
+        $postCandidateBinding.ManifestSha256 -cne $candidateBinding.ManifestSha256 -or
+        $postCandidateBinding.ReadySha256 -cne $candidateBinding.ReadySha256) {
+        throw 'The sealed candidate identity changed during Campaign Debug execution.'
+    }
+    $candidateBoundaryVerified = $true
+    $mountAttestation = Get-CandidateMountAttestation `
+        -GuardRoot $guardRoot `
+        -PackedProjectPath $candidateStage.PackedProjectPath `
+        -AddonGuid $candidateBinding.AddonGuid
+    if (-not $mountAttestation.Valid) {
+        throw 'Engine logs did not attest the exact guarded packed candidate mount.'
+    }
     $errorCensus = Get-GuardErrorCensus -GuardRoot $guardRoot
     if (-not $artifactValidation.Valid) {
         throw "Campaign Debug artifacts completed but failed the exact validation contract."
@@ -2927,10 +3320,13 @@ try {
     }
 
     Write-Output ("RESULT " + ([pscustomobject]@{
+        Candidate = $candidateIdentity
+        CandidateBoundaryVerified = $candidateBoundaryVerified
         RuntimeSeconds = [Math]::Floor($stopwatch.Elapsed.TotalSeconds)
         Armed = $armed
         Started = $started
         ShutdownCensus = $true
+        MountAttestation = $mountAttestation
         ArtifactsStable = $artifactSignaturePolls -ge 2
         ArtifactBytes = @($artifactPaths | ForEach-Object { (Get-Item -LiteralPath $_).Length })
         Validation = $safeArtifactValidation
@@ -2947,10 +3343,13 @@ catch {
     }
     if ($artifactValidation) {
         Write-Output ("RESULT " + ([pscustomobject]@{
+            Candidate = $candidateIdentity
+            CandidateBoundaryVerified = $candidateBoundaryVerified
             RuntimeSeconds = [Math]::Floor($stopwatch.Elapsed.TotalSeconds)
             Armed = $armed
             Started = $started
             ShutdownCensus = [bool]$errorCensus
+            MountAttestation = $mountAttestation
             ArtifactsStable = $artifactSignaturePolls -ge 2
             Validation = $safeArtifactValidation
             ErrorCensus = $errorCensus
@@ -3018,6 +3417,55 @@ finally {
     Invoke-IsolatedCleanupPhase -Name "dispose-root-process" -Errors $cleanupPhaseErrors -Action {
         if ($process) {
             $process.Dispose()
+        }
+    }
+    Invoke-IsolatedCleanupPhase -Name 'verify-candidate-boundaries' -Errors $cleanupPhaseErrors -Action {
+        if ($candidateStage) {
+            [void](Assert-PartisanReleaseCandidateStage `
+                -Candidate $candidateBinding `
+                -StageRoot $candidateStage.StageRootPath)
+        }
+        $cleanupCandidateBinding = Assert-PartisanReleaseCandidate `
+            -ManifestPath $CandidateManifest `
+            -BundleRoot $CandidateBundleRoot `
+            -RuntimeAddonRoot $RuntimeAddonRoot `
+            -Executable $executablePath `
+            -RuntimeRole $runtimeRole `
+            -ConsumerIntent $consumerIntent
+        if ($cleanupCandidateBinding.PackageSha256 -cne $candidateBinding.PackageSha256 -or
+            $cleanupCandidateBinding.ManifestSha256 -cne $candidateBinding.ManifestSha256 -or
+            $cleanupCandidateBinding.ReadySha256 -cne $candidateBinding.ReadySha256) {
+            throw 'The sealed candidate identity changed across the guarded run.'
+        }
+    }
+    Invoke-IsolatedCleanupPhase -Name 'verify-settings-binding' -Errors $cleanupPhaseErrors -Action {
+        if (-not $guardedSettingsPath -or
+            -not (Test-Path -LiteralPath $guardedSettingsPath -PathType Leaf) -or
+            (Get-FileHash `
+                -LiteralPath $guardedSettingsPath `
+                -Algorithm SHA256).Hash.ToLowerInvariant() -cne $guardedSettingsSha256) {
+            throw 'The guarded Campaign Debug settings identity changed.'
+        }
+    }
+    Invoke-IsolatedCleanupPhase -Name 'verify-harness-binding' -Errors $cleanupPhaseErrors -Action {
+        [void](Assert-HarnessBinding `
+            -Expected $harnessBinding `
+            -CheckoutRoot $checkoutRoot `
+            -RunnerPath $PSCommandPath `
+            -CandidateModulePath $candidateModulePath)
+    }
+    Invoke-IsolatedCleanupPhase -Name 'retain-runtime-evidence' -Errors $cleanupPhaseErrors -Action {
+        if ($evidenceRunRoot) {
+            if (-not (Test-Path -LiteralPath $guardRoot -PathType Container)) {
+                throw 'The guarded runtime root disappeared before evidence retention.'
+            }
+            Copy-CampaignDebugEvidence `
+                -GuardRoot $guardRoot `
+                -EvidenceRunRoot $evidenceRunRoot `
+                -SettingsPath $guardedSettingsPath `
+                -ExpectedSettingsSha256 $guardedSettingsSha256 `
+                -Candidate $candidateBinding
+            $evidenceState.Captured = $true
         }
     }
     Invoke-IsolatedCleanupPhase -Name "remove-owned-guard" -Errors $cleanupPhaseErrors -Action {
@@ -3156,12 +3604,135 @@ $cleanupPassed = $cleanupResult -and
     $cleanupResult.MissingSpillRoots -eq 0 -and
     $cleanupResult.CleanupPhaseErrorCount -eq 0
 
+if ($evidenceRunRoot) {
+    try {
+        $evidenceEndUtc = [DateTime]::UtcNow
+        $safeEvidenceError = ''
+        if ($runError) {
+            $safeEvidenceError = ConvertTo-SafeEvidenceLine `
+                -Line $runError `
+                -GuardRoot $guardRoot `
+                -ProjectDirectory (Split-Path -Parent $projectFile) `
+                -ResolvedAddonRoots $resolvedAddonRoots
+        }
+        $safeCleanupErrors = @($cleanupResult.CleanupPhaseErrors | ForEach-Object {
+            ConvertTo-SafeEvidenceLine `
+                -Line ([string]$_) `
+                -GuardRoot $guardRoot `
+                -ProjectDirectory (Split-Path -Parent $projectFile) `
+                -ResolvedAddonRoots $resolvedAddonRoots
+        })
+        $portableCleanup = [ordered]@{
+            guardRemaining = $cleanupResult.GuardRemaining
+            ownedProcessesRemaining = $cleanupResult.OwnedProcessesRemaining
+            newEngineProcessesRemaining = $cleanupResult.NewEngineProcessesRemaining
+            unclaimedEngineProcessesObserved = $cleanupResult.UnclaimedEngineProcessesObserved
+            newDefaultEntriesRemaining = $cleanupResult.NewDefaultEntriesRemaining
+            modifiedDefaultFiles = $cleanupResult.ModifiedDefaultFiles
+            deletedDefaultEntries = $cleanupResult.DeletedDefaultEntries
+            missingDefaultRoots = $cleanupResult.MissingDefaultRoots
+            externalSpillEntriesRemaining = $cleanupResult.ExternalSpillEntriesRemaining
+            modifiedSpillFiles = $cleanupResult.ModifiedSpillFiles
+            deletedSpillEntries = $cleanupResult.DeletedSpillEntries
+            missingSpillRoots = $cleanupResult.MissingSpillRoots
+            cleanupPhaseErrorCount = $cleanupResult.CleanupPhaseErrorCount
+            cleanupPhaseErrors = $safeCleanupErrors
+            monitoringRootsAreDetectionOnly = $true
+        }
+        $rawRows = Get-EvidenceFileRows -EvidenceRunRoot $evidenceRunRoot
+        $envelope = [ordered]@{
+            schemaVersion = 1
+            evidenceKind = 'packaged-campaign-debug'
+            startedUtc = $evidenceStartUtc.ToString(
+                'o',
+                [Globalization.CultureInfo]::InvariantCulture)
+            completedUtc = $evidenceEndUtc.ToString(
+                'o',
+                [Globalization.CultureInfo]::InvariantCulture)
+            candidate = $candidateIdentity
+            harness = [ordered]@{
+                gitHead = $harnessBinding.GitHead
+                dirty = -not $harnessBinding.Clean
+                campaignRunnerSha256 = $harnessBinding.RunnerSha256
+                candidateModuleSha256 = $harnessBinding.CandidateModuleSha256
+            }
+            launch = [ordered]@{
+                profile = $Profile
+                proofScope = if ($Profile -ceq 'full_certification') {
+                    'full_certification'
+                }
+                else {
+                    'focused_force_authority'
+                }
+                worldResource = $WorldResource
+                stagedPackage = $true
+                addonSearchRootCount = 2
+                addonGuid = $candidateBinding.AddonGuid
+                packageSha256 = if ($candidateStage) {
+                    $candidateStage.PackageSha256
+                }
+                else {
+                    $candidateBinding.PackageSha256
+                }
+                diagnosticExecutable = $candidateBinding.DiagnosticExecutable
+                recordedRuntimeExecutable = $candidateBinding.RecordedRuntimeExecutable
+            }
+            outcome = [ordered]@{
+                success = -not $runError -and $cleanupPassed
+                armed = $armed
+                started = $started
+                completed = $completed
+                candidateBoundaryVerified = $candidateBoundaryVerified
+                mountAttestation = $mountAttestation
+                artifactsStable = $artifactSignaturePolls -ge 2
+                evidenceCaptured = $evidenceState.Captured
+                runtimeSeconds = if ($stopwatch) {
+                    [Math]::Floor($stopwatch.Elapsed.TotalSeconds)
+                }
+                else {
+                    0
+                }
+                error = $safeEvidenceError
+                validation = $safeArtifactValidation
+                errorCensus = $errorCensus
+            }
+            settings = [ordered]@{
+                schemaVersion = [int]$settings.schemaVersion
+                sha256 = $guardedSettingsSha256
+                guardedRuntimeCopy = $true
+            }
+            cleanup = $portableCleanup
+            files = $rawRows
+        }
+        $envelopePath = Join-Path $evidenceRunRoot 'run.json'
+        Write-PortableJson -Path $envelopePath -Value $envelope
+        $envelopeSha = (Get-FileHash `
+            -LiteralPath $envelopePath `
+            -Algorithm SHA256).Hash.ToLowerInvariant()
+        Write-Output ('EVIDENCE ' + ([pscustomobject]@{
+            CandidateId = $candidateBinding.CandidateId
+            Profile = $Profile
+            FileCount = $rawRows.Count
+            EnvelopeSha256 = $envelopeSha
+        } | ConvertTo-Json -Compress))
+    }
+    catch {
+        $evidenceError = $_.Exception.Message
+        if ($runError) {
+            $runError += ' | evidence retention: ' + $evidenceError
+        }
+        else {
+            $runError = 'Runtime evidence retention failed: ' + $evidenceError
+        }
+    }
+}
+
 if ($runError) {
     $safeRunError = ConvertTo-SafeEvidenceLine `
         -Line $runError `
         -GuardRoot $guardRoot `
         -ProjectDirectory (Split-Path -Parent $projectFile) `
-        -ResolvedAddonRoots @($runtimeAddonPath)
+        -ResolvedAddonRoots $resolvedAddonRoots
     Write-Error $safeRunError
     exit 1
 }

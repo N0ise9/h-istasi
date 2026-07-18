@@ -4,6 +4,13 @@
 // profile persistence, package/restart, networking, and soak remain separate.
 class HST_EnemyGarrisonRebuildAutotestSuite : SCR_AutotestSuiteBase
 {
+	// This deterministic report is service-only. The stock autotest scenario
+	// transition carries only the base add-on list, so opening its default world
+	// would unload this packaged test type before JUnit can be written.
+	override ResourceName GetWorldFile()
+	{
+		return "";
+	}
 }
 
 [Test(suite: HST_EnemyGarrisonRebuildAutotestSuite)]

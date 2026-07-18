@@ -28,6 +28,17 @@ claiming full certification. Native-world classification and consequences,
 persistence/restart, rendered client projection, packaged server/client,
 multiplayer/network/JIP/reconnect, performance, and soak parity remain open.
 
+The candidate-aware focused wrapper now verifies and stages the exact sealed
+package and retains candidate-bound JUnit/log sidecars. Its staging and launch-
+vector preflight plus negative consumer suite pass; a real run must additionally
+attest the engine-owned packed mount. Three service-only suites were found to
+inherit a stock base-only world transition that could unload their packaged
+test type;
+all three now return an empty world like the two already-correct suites. This is
+a test-registration repair, not new gameplay parity. It requires one
+replacement candidate before the five individually named packaged results can
+be claimed.
+
 ## Current Controlled-Shutdown Native Fence Parity Boundary
 
 Controlled shutdown now treats retained native state as one ordered authority
@@ -73,9 +84,10 @@ once, producing delivered digest `16b17e6617027292`.
 Replay restores the exact delivered semantic fingerprint as a semantic no-op.
 Both journal slots and the proof carrier are byte-read-only, the persisted chain
 is canonical-slot generation 1 to recovery-slot generation 2, every stage exits
-`0`, and cleanup is zero. The focused CLI autotest only begins: stock reload
-loses the requested test type and writes no JUnit result, so no focused PASS is
-claimed.
+`0`, and cleanup is zero. The earlier focused CLI attempt lost the requested
+test type during stock world transition and wrote no JUnit result. The suite now
+uses the source-enforced empty-world contract, but no focused PASS is claimed
+until the replacement candidate emits its retained package-bound JUnit result.
 
 The separate `physical_live_fold` cut begins at the same `225/300m` route state
 with nine accepted slots, eight living slots, and one prior casualty. Production

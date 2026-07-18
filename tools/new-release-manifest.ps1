@@ -102,6 +102,52 @@ function Get-FullPath {
     return $full
 }
 
+function Get-ExactAdjacentDiagnosticPath {
+    param(
+        [Parameter(Mandatory = $true)][string]$StandardExecutable,
+        [Parameter(Mandatory = $true)][string]$ExpectedStandardFileName,
+        [Parameter(Mandatory = $true)][string]$ExpectedDiagnosticFileName
+    )
+
+    $standardPath = [IO.Path]::GetFullPath($StandardExecutable)
+    if ((Split-Path -Leaf $standardPath) -cne $ExpectedStandardFileName) {
+        throw "A standard runtime executable has the wrong exact role name."
+    }
+    $standardParent = Split-Path -Parent $standardPath
+    $diagnosticPath = [IO.Path]::GetFullPath(
+        (Join-Path $standardParent $ExpectedDiagnosticFileName))
+    if ((Split-Path -Leaf $diagnosticPath) -cne $ExpectedDiagnosticFileName -or
+        -not (Split-Path -Parent $diagnosticPath).Equals(
+            $standardParent,
+            [StringComparison]::OrdinalIgnoreCase)) {
+        throw "A diagnostic runtime executable is not the exact adjacent role."
+    }
+    return $diagnosticPath
+}
+
+function Resolve-ExactAdjacentDiagnosticExecutable {
+    param(
+        [Parameter(Mandatory = $true)][string]$StandardExecutable,
+        [Parameter(Mandatory = $true)][string]$ExpectedStandardFileName,
+        [Parameter(Mandatory = $true)][string]$ExpectedDiagnosticFileName
+    )
+
+    $diagnosticPath = Get-ExactAdjacentDiagnosticPath `
+        -StandardExecutable $StandardExecutable `
+        -ExpectedStandardFileName $ExpectedStandardFileName `
+        -ExpectedDiagnosticFileName $ExpectedDiagnosticFileName
+    $resolved = Get-FullPath -Path $diagnosticPath -Kind Leaf
+    $item = Get-Item -LiteralPath $resolved -Force -ErrorAction Stop
+    if ($item.Name -cne $ExpectedDiagnosticFileName -or
+        -not $item.FullName.Equals(
+            $diagnosticPath,
+            [StringComparison]::OrdinalIgnoreCase)) {
+        throw "The adjacent diagnostic runtime executable has the wrong exact identity."
+    }
+    Assert-NoReparseTree -Root $resolved
+    return $resolved
+}
+
 function Test-ContainedPath {
     param(
         [Parameter(Mandatory = $true)][string]$Root,
@@ -665,12 +711,41 @@ function Invoke-SelfTest {
         'static const int SCHEMA_VERSION\s*=\s*(?<value>\d+)' `
         "value" `
         "self-test runtime-settings schema")
+    $selfTestRuntimeRoot = Join-Path ([IO.Path]::GetTempPath()) "partisan-runtime-selftest"
+    $selfTestServerDiagnostic = Get-ExactAdjacentDiagnosticPath `
+        -StandardExecutable (Join-Path $selfTestRuntimeRoot "ArmaReforgerServer.exe") `
+        -ExpectedStandardFileName "ArmaReforgerServer.exe" `
+        -ExpectedDiagnosticFileName "ArmaReforgerServerDiag.exe"
+    $selfTestClientDiagnostic = Get-ExactAdjacentDiagnosticPath `
+        -StandardExecutable (Join-Path $selfTestRuntimeRoot "ArmaReforgerSteam.exe") `
+        -ExpectedStandardFileName "ArmaReforgerSteam.exe" `
+        -ExpectedDiagnosticFileName "ArmaReforgerSteamDiag.exe"
+    $wrongRuntimeRoleRejected = $false
+    try {
+        [void](Get-ExactAdjacentDiagnosticPath `
+            -StandardExecutable (Join-Path $selfTestRuntimeRoot "ArmaReforgerServerDiag.exe") `
+            -ExpectedStandardFileName "ArmaReforgerServer.exe" `
+            -ExpectedDiagnosticFileName "ArmaReforgerServerDiag.exe")
+    }
+    catch {
+        $wrongRuntimeRoleRejected = $true
+    }
+    $expectedToolchainRoles = @(
+        "workbench",
+        "server",
+        "serverDiagnostic",
+        "client",
+        "clientDiagnostic")
     if ($digest -cnotmatch '^[0-9a-f]{64}$' -or
         $digest -cne (Get-Sha256Text -Text $canonical) -or
         $script:RequiredPackageFiles.Count -ne 4 -or
         $script:RequiredTargets.Count -ne 5 -or
         $selfTestCampaignSchema -le 0 -or
-        $selfTestSettingsSchema -le 0) {
+        $selfTestSettingsSchema -le 0 -or
+        (Split-Path -Leaf $selfTestServerDiagnostic) -cne "ArmaReforgerServerDiag.exe" -or
+        (Split-Path -Leaf $selfTestClientDiagnostic) -cne "ArmaReforgerSteamDiag.exe" -or
+        -not $wrongRuntimeRoleRejected -or
+        $expectedToolchainRoles.Count -ne 5) {
         throw "Release-manifest self-test failed."
     }
     Write-Output ("SELFTEST " + ([pscustomobject]@{
@@ -681,6 +756,10 @@ function Invoke-SelfTest {
         WorkbenchTargetCount = $script:RequiredTargets.Count
         CampaignSchema = $selfTestCampaignSchema
         RuntimeSettingsSchema = $selfTestSettingsSchema
+        ToolchainRoles = $expectedToolchainRoles
+        AdjacentDiagnosticRoles = @(
+            (Split-Path -Leaf $selfTestServerDiagnostic),
+            (Split-Path -Leaf $selfTestClientDiagnostic))
         Digest = $digest
     } | ConvertTo-Json -Compress))
 }
@@ -719,6 +798,14 @@ if ((Split-Path -Leaf $workbenchPath) -cnotin @(
     (Split-Path -Leaf $clientPath) -cne "ArmaReforgerSteam.exe") {
     throw "The release manifest received unsupported toolchain executables."
 }
+$serverDiagnosticPath = Resolve-ExactAdjacentDiagnosticExecutable `
+    -StandardExecutable $serverPath `
+    -ExpectedStandardFileName "ArmaReforgerServer.exe" `
+    -ExpectedDiagnosticFileName "ArmaReforgerServerDiag.exe"
+$clientDiagnosticPath = Resolve-ExactAdjacentDiagnosticExecutable `
+    -StandardExecutable $clientPath `
+    -ExpectedStandardFileName "ArmaReforgerSteam.exe" `
+    -ExpectedDiagnosticFileName "ArmaReforgerSteamDiag.exe"
 
 $source = Get-SourceIdentity -RepositoryRoot $repositoryRoot
 $sourceProject = Get-ProjectIdentity `
@@ -742,7 +829,19 @@ $package = Get-PackageIdentity `
 $toolchain = [ordered]@{
     workbench = Get-ExecutableIdentity -Path $workbenchPath
     server = Get-ExecutableIdentity -Path $serverPath
+    serverDiagnostic = Get-ExecutableIdentity -Path $serverDiagnosticPath
     client = Get-ExecutableIdentity -Path $clientPath
+    clientDiagnostic = Get-ExecutableIdentity -Path $clientDiagnosticPath
+}
+if ([string]$toolchain.server.fileVersion -cne
+        [string]$toolchain.serverDiagnostic.fileVersion -or
+    [string]$toolchain.server.productVersion -cne
+        [string]$toolchain.serverDiagnostic.productVersion -or
+    [string]$toolchain.client.fileVersion -cne
+        [string]$toolchain.clientDiagnostic.fileVersion -or
+    [string]$toolchain.client.productVersion -cne
+        [string]$toolchain.clientDiagnostic.productVersion) {
+    throw 'A standard and diagnostic runtime executable version pair differs.'
 }
 
 if ($Check) {
@@ -795,7 +894,27 @@ if ($Check) {
         version = [string]$manifest.candidate.version
         dependencies = $sourceProject.dependencies
     }) -Label "Addon identity"
-    Assert-ObjectJsonEqual -Expected $manifest.toolchain -Actual $toolchain -Label "Toolchain identity"
+    $manifestToolchainProperties = @($manifest.toolchain.PSObject.Properties.Name)
+    $hasServerDiagnostic = $manifestToolchainProperties -ccontains "serverDiagnostic"
+    $hasClientDiagnostic = $manifestToolchainProperties -ccontains "clientDiagnostic"
+    if ($hasServerDiagnostic -xor $hasClientDiagnostic) {
+        throw "The retained toolchain has an incomplete diagnostic-runtime identity."
+    }
+    $actualToolchain = if ($hasServerDiagnostic) {
+        $toolchain
+    }
+    else {
+        # Additive schema-v1 compatibility for the first sealed candidate.
+        [ordered]@{
+            workbench = $toolchain.workbench
+            server = $toolchain.server
+            client = $toolchain.client
+        }
+    }
+    Assert-ObjectJsonEqual `
+        -Expected $manifest.toolchain `
+        -Actual $actualToolchain `
+        -Label "Toolchain identity"
 
     $expectedPackageFiles = @($manifest.package.files)
     Assert-ObjectJsonEqual -Expected $expectedPackageFiles -Actual $package.Files -Label "Package file inventory"

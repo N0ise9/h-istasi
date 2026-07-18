@@ -328,6 +328,7 @@ finally {
 }
 
 $releaseCandidateBuilt = [bool] $status.artifact.releaseCandidateBuilt
+$runtimeUseDisposition = ""
 $candidateId = ""
 $candidateSourceHead = ""
 $candidateManifestPath = ""
@@ -344,6 +345,11 @@ $workbenchCrc = ""
 $serverVersion = ""
 $clientVersion = ""
 if ($releaseCandidateBuilt) {
+	$runtimeUseDisposition = Require-Text $status.artifact.runtimeUseDisposition "release_status.artifact.runtimeUseDisposition"
+	if ($runtimeUseDisposition -cnotin @("active-runtime-candidate", "supersede-before-runtime")) {
+		throw "release_status.artifact.runtimeUseDisposition must be active-runtime-candidate or supersede-before-runtime."
+	}
+
 	$candidateId = Require-Text $status.artifact.candidateId "release_status.artifact.candidateId"
 	if ($candidateId -cnotmatch '^[A-Za-z0-9][A-Za-z0-9._-]*$') {
 		throw "release_status.artifact.candidateId must use only letters, numbers, dot, underscore, and hyphen."
@@ -424,7 +430,34 @@ if ($releaseCandidateBuilt) {
 	}
 	$manifestWorkbenchTool = Get-ObjectPropertyValue $manifestToolchain "workbench"
 	$manifestServerTool = Get-ObjectPropertyValue $manifestToolchain "server"
+	$manifestServerDiagnosticTool = Get-ObjectPropertyValue $manifestToolchain "serverDiagnostic"
 	$manifestClientTool = Get-ObjectPropertyValue $manifestToolchain "client"
+	$manifestClientDiagnosticTool = Get-ObjectPropertyValue $manifestToolchain "clientDiagnostic"
+	if (($null -eq $manifestServerDiagnosticTool) -xor
+		($null -eq $manifestClientDiagnosticTool)) {
+		throw "The tracked release-candidate manifest has an incomplete diagnostic executable identity pair."
+	}
+	if ($runtimeUseDisposition -ceq "active-runtime-candidate" -and
+		($null -eq $manifestServerDiagnosticTool -or
+			$null -eq $manifestClientDiagnosticTool)) {
+		throw "An active runtime candidate must seal both diagnostic executable identities."
+	}
+	if ($null -ne $manifestServerDiagnosticTool) {
+		if ([string] (Get-ObjectPropertyValue $manifestServerDiagnosticTool "fileName") -cne "ArmaReforgerServerDiag.exe" -or
+			[string] (Get-ObjectPropertyValue $manifestClientDiagnosticTool "fileName") -cne "ArmaReforgerSteamDiag.exe" -or
+			[string] (Get-ObjectPropertyValue $manifestServerDiagnosticTool "fileVersion") -cne $serverVersion -or
+			[string] (Get-ObjectPropertyValue $manifestServerDiagnosticTool "productVersion") -cne
+				[string] (Get-ObjectPropertyValue $manifestServerTool "productVersion") -or
+			[long] (Get-ObjectPropertyValue $manifestServerDiagnosticTool "length") -le 0 -or
+			[string] (Get-ObjectPropertyValue $manifestServerDiagnosticTool "sha256") -cnotmatch '^[0-9a-f]{64}$' -or
+			[string] (Get-ObjectPropertyValue $manifestClientDiagnosticTool "fileVersion") -cne $clientVersion -or
+			[string] (Get-ObjectPropertyValue $manifestClientDiagnosticTool "productVersion") -cne
+				[string] (Get-ObjectPropertyValue $manifestClientTool "productVersion") -or
+			[long] (Get-ObjectPropertyValue $manifestClientDiagnosticTool "length") -le 0 -or
+			[string] (Get-ObjectPropertyValue $manifestClientDiagnosticTool "sha256") -cnotmatch '^[0-9a-f]{64}$') {
+			throw "The tracked release-candidate diagnostic executable identity is invalid."
+		}
+	}
 	if ([string] (Get-ObjectPropertyValue $manifestCandidate "id") -cne $candidateId -or
 		[string] (Get-ObjectPropertyValue $manifestCandidate "version") -cne $packageVersion -or
 		[string] (Get-ObjectPropertyValue $manifestCandidate "state") -cne "retained-uncertified" -or
@@ -719,6 +752,7 @@ Add-Line $statusBuilder "| Campaign / runtime-settings schema | $mdTick$sourceCa
 Add-Line $statusBuilder "| Workbench CRC | $mdTick$($status.evidence.workbench.crc)$mdTick |"
 if ($releaseCandidateBuilt) {
 	Add-Line $statusBuilder "| Release candidate / source HEAD | $mdTick$(Escape-MarkdownCell $candidateId)$mdTick / $mdTick$candidateSourceHead$mdTick |"
+	Add-Line $statusBuilder "| Runtime use disposition | $mdTick$runtimeUseDisposition$mdTick |"
 	Add-Line $statusBuilder "| Candidate manifest | $mdTick$(Escape-MarkdownCell $candidateManifestPath)$mdTick |"
 	Add-Line $statusBuilder "| Manifest / ready-seal SHA-256 | $mdTick$candidateManifestSha$mdTick / $mdTick$candidateReadySha$mdTick |"
 	Add-Line $statusBuilder "| Aggregate package SHA-256 | $mdTick$packageSha$mdTick ($packageHashAlgorithm over the canonical four-file package index) |"
@@ -745,7 +779,7 @@ Add-Line $statusBuilder "## Retained evidence"
 Add-Line $statusBuilder
 Add-Line $statusBuilder "- Foundation: **$($status.evidence.foundation.status)** at $($status.evidence.foundation.referenceCount) references for $mdTick$($status.evidence.foundation.sourceSha)$mdTick."
 Add-Line $statusBuilder "- Workbench: **$($status.evidence.workbench.status)** at $($status.evidence.workbench.fileCount) files / $($status.evidence.workbench.classCount) classes / CRC $mdTick$($status.evidence.workbench.crc)$mdTick for $mdTick$($status.evidence.workbench.sourceSha)$mdTick."
-Add-Line $statusBuilder "- Focused force-authority profile: **$($status.evidence.focusedForceAuthority.passedCases)/$($status.evidence.focusedForceAuthority.caseCount)** cases and **$($status.evidence.focusedForceAuthority.passedConditions)/$($status.evidence.focusedForceAuthority.countedConditions)** counted conditions, with ${mdTick}CertificationPassed:$($status.evidence.focusedForceAuthority.certificationPassed.ToString().ToLowerInvariant())${mdTick}. This is state-only, non-certifying evidence."
+Add-Line $statusBuilder "- Focused force-authority profile: **$($status.evidence.focusedForceAuthority.passedCases)/$($status.evidence.focusedForceAuthority.caseCount)** cases and **$($status.evidence.focusedForceAuthority.passedConditions)/$($status.evidence.focusedForceAuthority.countedConditions)** counted conditions for $mdTick$($status.evidence.focusedForceAuthority.sourceSha)$mdTick, with ${mdTick}CertificationPassed:$($status.evidence.focusedForceAuthority.certificationPassed.ToString().ToLowerInvariant())${mdTick}. This is historical state-only, non-package, non-certifying evidence."
 Add-Line $statusBuilder "- Full Campaign Debug: **historical and failed** on $mdTick$($status.evidence.fullCampaignDebug.sourceSha)${mdTick}: $($status.evidence.fullCampaignDebug.pass) PASS, $($status.evidence.fullCampaignDebug.warn) WARN, $($status.evidence.fullCampaignDebug.fail) FAIL, $($status.evidence.fullCampaignDebug.blocked) BLOCKED, and $($status.evidence.fullCampaignDebug.skipped) SKIPPED; $($status.evidence.fullCampaignDebug.provenAssertions)/$($status.evidence.fullCampaignDebug.requiredAssertions) required assertions proven. It predates the audited revision and must be rerun before its individual failures are treated as current."
 Add-Line $statusBuilder
 Add-Line $statusBuilder "## Specification coverage"
@@ -771,7 +805,12 @@ Add-Line $statusBuilder
 Add-Line $statusBuilder "## Next release-closure step"
 Add-Line $statusBuilder
 if ($releaseCandidateBuilt) {
-	Add-Line $statusBuilder "Gate 1 retained candidate $mdTick$(Escape-MarkdownCell $candidateId)$mdTick. Every later proof must consume the package identified by manifest $mdTick$(Escape-MarkdownCell $candidateManifestPath)$mdTick and aggregate SHA-256 $mdTick$packageSha$mdTick; rebuilding creates a different candidate rather than extending this evidence chain."
+	if ($runtimeUseDisposition -ceq "supersede-before-runtime") {
+		Add-Line $statusBuilder "Gate 1 retained candidate $mdTick$(Escape-MarkdownCell $candidateId)$mdTick remains sealed but is superseded before runtime use. Build exactly one replacement candidate for the focused-suite registration repair; retain both package identities, and do not combine evidence across their aggregate SHA-256 digests."
+	}
+	else {
+		Add-Line $statusBuilder "Gate 1 retained candidate $mdTick$(Escape-MarkdownCell $candidateId)$mdTick. Every later proof must consume the package identified by manifest $mdTick$(Escape-MarkdownCell $candidateManifestPath)$mdTick and aggregate SHA-256 $mdTick$packageSha$mdTick; rebuilding creates a different candidate rather than extending this evidence chain."
+	}
 }
 else {
 	Add-Line $statusBuilder "Gate 0's generated truth surface is complete. Gate 1 is the current work boundary: commit the guarded build-once tooling, build one clean package, and record Git, Workbench, package, addon, server, and client identities in one retained evidence bundle before rerunning the current proof ladder."
