@@ -7485,6 +7485,17 @@ This file is for practical engine/script behavior, not project planning. Keep en
   It is the only active runtime candidate; its consumer tamper suite, Campaign
   Debug preflight/artifact self-test, and focused-runner preflight all pass with
   exact-zero cleanup before real engine execution begins.
+- A passing focused JUnit result does not classify the surrounding engine error
+  channel. Bind a separate hard-diagnostic census into the runner's success
+  predicate. For the current diagnostic client, exactly two stock filter-
+  constructor errors are allowed only after the runner-finished, JUnit-saved,
+  and failed-list-saved markers. The profile-journal case alone also requires
+  exactly one in-suite native-save failure diagnostic, and it is approved only
+  when both the `failed native callback non-mutating 1` and
+  `setup/seam/request/bytes/journal 1/1/1/1/1` proof tokens are present. Reject
+  unknown messages, a third stock message, wrong ordering, the wrong testcase,
+  or missing proof tokens. Record the approved and unapproved counts and mark
+  these successful runs as not hard-diagnostic-free.
 
 ## Native Reference Sources
 

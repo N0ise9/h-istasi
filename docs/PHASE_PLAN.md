@@ -74,11 +74,16 @@ package could be dropped by the stock base-only world transition before JUnit
 output; the source now enforces the same empty-world
 override as the two working suites.
 
-The next Gate-1 action is the five individually named focused runs, followed by
-current Full Campaign Debug. Every run must consume the active replacement and
-retain a hashed sidecar envelope. Later dedicated, multiplayer/JIP, restart,
-performance, and soak gates extend only that replacement evidence chain;
-another rebuild starts another candidate rather than inheriting these results.
+The first all-five execution produced passing JUnit and exact package-mount
+evidence but remains preliminary because hard diagnostics did not participate in
+the runner's pass predicate. The harness now accepts only the exact stock
+post-result pair plus the profile-journal case's proven non-mutating fault
+injection. The next Gate-1 action is to repeat all five under that committed
+classifier-aware harness, followed by current Full Campaign Debug. Every run
+must consume the active replacement and retain a hashed sidecar envelope. Later
+dedicated, multiplayer/JIP, restart, performance, and soak gates extend only
+that replacement evidence chain; another rebuild starts another candidate
+rather than inheriting these results.
 
 ## Historical Focused Force-Authority Plan Checkpoint
 

@@ -43,11 +43,16 @@ Real runners additionally bind the exact diagnostic executable, clean harness,
 guarded settings bytes where applicable, and engine-owned packed-project mount
 record.
 
-No current Full Campaign Debug or individually named focused result has consumed
-the replacement yet. It contains the required empty-world override for all five
-service-only suites, so the next evidence boundary is five packaged JUnit runs
-followed by current Full Campaign Debug. Until those run, the historical failed
-integrated result below remains the honest suite status.
+No current Full Campaign Debug result has consumed the replacement yet. A first
+all-five focused execution produced one passing JUnit result per named case,
+exact packed mounts, and zero cleanup/spill residue, but those sidecars remain
+preliminary: the runner retained hard diagnostics without binding them to its
+success predicate. The harness now rejects all script/engine errors except the
+exact ordered stock post-result pair and the profile-journal case's single
+in-suite, non-mutating failure injection. The next evidence boundary is the same
+five runs under that committed classifier-aware harness, followed by current
+Full Campaign Debug. Until then, the historical failed integrated result below
+remains the honest suite status.
 
 ## Historical Focused Force-Authority Engine Checkpoint
 

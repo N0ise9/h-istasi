@@ -68,10 +68,17 @@ passing mixed-native proof described below.
   `82e1fd0bf7c3404b7fe842fa84efd10f225bf82fc76c11502b9a684b63f4f329`
   and Workbench CRC `f27e637b`; retain the first candidate as superseded
   evidence without mixing identities.
-- [ ] Rerun every named focused case, current Full Campaign Debug, and every
-  later runtime gate against that replacement unchanged package. No runtime,
-  multiplayer, restart, performance, or soak proof is inherited from Gate 0 or
-  an older package.
+- [x] Audit the first all-five package execution. Retain its passing JUnit
+  sidecars as preliminary evidence after identifying that hard diagnostics did
+  not participate in the focused-runner success predicate.
+- [x] Make focused success require an exact hard-diagnostic census. Approve only
+  the two ordered stock post-result filter diagnostics and, for the profile-
+  journal case alone, one in-suite native-failure injection with both exact
+  non-mutating proof tokens. Reject every other count, order, case, or message.
+- [ ] Rerun every named focused case under the committed classifier-aware
+  harness, then run current Full Campaign Debug and every later runtime gate
+  against that replacement unchanged package. No runtime, multiplayer, restart,
+  performance, or soak proof is inherited from Gate 0 or an older package.
 
 ## Historical Focused Force-Authority Engine Checkpoint
 

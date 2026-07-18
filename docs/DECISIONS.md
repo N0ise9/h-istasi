@@ -3477,3 +3477,36 @@ Consequences:
 - The next gate is five individually named packaged focused tests, followed by
   current Full Campaign Debug. Any later rebuild creates another evidence chain
   and cannot inherit these package-bound results.
+
+## CRI-061 - Bind Focused Hard Diagnostics Into Result Acceptance
+
+- Status: Accepted
+- Date: 2026-07-18
+
+Context: The first all-five execution against the active replacement emitted
+one passing JUnit result per named case, exact packed mounts, and zero cleanup or
+spill residue. It also proved that the runner treated script and engine errors
+as retained diagnostics only. Four cases emitted the same two stock post-result
+filter-constructor errors. The profile-journal case additionally emitted one
+intentional native-save failure inside its non-mutating fault-injection proof.
+No other script or engine errors appeared, but the pass predicate did not prove
+that classification.
+
+Decision: Require a hard-diagnostic census for focused success. Approve exactly
+two stock filter diagnostics only after runner completion, JUnit write, and
+failed-list write. Approve exactly one native-save failure only for the profile-
+journal testcase, inside its suite and before success, with both exact non-
+mutating proof tokens. Reject every unapproved message, wrong count, wrong
+ordering, wrong testcase, or missing proof token. Record total, approved, and
+unapproved counts and explicitly report that these runs are not hard-diagnostic-
+free.
+
+Consequences:
+
+- The initial five sidecars remain immutable preliminary evidence. All five
+  cases rerun under one clean committed classifier-aware harness before their
+  package-bound results are accepted.
+- This change affects the external PowerShell harness and its separately
+  recorded commit and file hash. It does not change the sealed package,
+  manifest, ready seal, or add-on bytes and therefore does not create another
+  package candidate.

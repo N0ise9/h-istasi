@@ -98,10 +98,21 @@ candidate, altered package bytes, manifests, seals, unexpected bundle/package
 files, staged drift, and ambiguous add-on roots. Review of the stock autotest
 transition identified a release-critical package defect: three service-only
 suites lacked the empty-world override already used by two peer suites, so a
-base-only scenario transition could unload their test types before JUnit output. Those
-three overrides are source-enforced in the active replacement. The first
+base-only scenario transition could unload their test types before JUnit output.
+Those three overrides are source-enforced in the active replacement. The first
 candidate remains sealed, superseded evidence; all Gate-1 runtime rungs now
 start from the replacement rather than mixing package identities.
+
+The first replacement-package execution emitted one passing JUnit result for
+each of the five named cases, but it also exposed a harness acceptance gap:
+hard diagnostics were retained without participating in the pass predicate.
+Those sidecars remain preliminary evidence. The focused runner now accepts only
+two exactly ordered diagnostic classes: the two stock post-result filter
+constructor messages, and one profile-journal native-failure injection when its
+non-mutating proof tokens are present. Any other script or engine error, wrong
+count, wrong order, wrong case, or missing proof token fails the run. This
+harness-only correction does not change the sealed package identity; the five
+cases must run again under one committed classifier-aware harness.
 
 ## Historical Focused Force-Authority Engine Checkpoint
 

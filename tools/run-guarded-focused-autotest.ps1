@@ -837,6 +837,290 @@ function Get-JUnitEvidence {
     }
 }
 
+function Get-FocusedHardDiagnosticCensus {
+    param(
+        [AllowEmptyString()]
+        [Parameter(Mandatory = $true)]
+        [string]$ConsoleText,
+
+        [Parameter(Mandatory = $true)]
+        [string]$ExpectedTestCase
+    )
+
+    $lines = @($ConsoleText -split "`r?`n")
+    $suiteStartedIndex = -1
+    $testSuccessIndex = -1
+    $runnerFinishedIndex = -1
+    $junitSavedIndex = -1
+    $failedListSavedIndex = -1
+    $profileNonMutatingTokenIndex = -1
+    $profileExactSeamTokenIndex = -1
+    $profileNonMutatingTokenCount = 0
+    $profileExactSeamTokenCount = 0
+    $profileNonMutatingPattern =
+        '^\s*\d{2}:\d{2}:\d{2}\.\d+\s+SCRIPT\s+:\s+' +
+        '(?:.* \| )?failed native callback non-mutating 1(?: \| .*)?$'
+    $profileExactSeamPattern =
+        '^\s*\d{2}:\d{2}:\d{2}\.\d+\s+SCRIPT\s+:\s+' +
+        'setup/seam/request/bytes/journal 1/1/1/1/1(?: \| .*)?$'
+    for ($index = 0; $index -lt $lines.Count; $index++) {
+        $line = [string]$lines[$index]
+        if ($suiteStartedIndex -lt 0 -and
+            $line.IndexOf('TestSuite #', [StringComparison]::Ordinal) -ge 0 -and
+            $line.IndexOf(' started', [StringComparison]::Ordinal) -ge 0) {
+            $suiteStartedIndex = $index
+        }
+        if ($testSuccessIndex -lt 0 -and
+            $line.IndexOf($ExpectedTestCase, [StringComparison]::Ordinal) -ge 0 -and
+            $line.IndexOf(': SUCCESS', [StringComparison]::Ordinal) -ge 0) {
+            $testSuccessIndex = $index
+        }
+        if ($line.IndexOf(
+                'SCR_TestRunner has finished running',
+                [StringComparison]::Ordinal) -ge 0) {
+            $runnerFinishedIndex = $index
+        }
+        if ($line.IndexOf(
+                'Autotest JUnit XML saved to:',
+                [StringComparison]::Ordinal) -ge 0) {
+            $junitSavedIndex = $index
+        }
+        if ($line.IndexOf(
+                'Autotest failed list saved to:',
+                [StringComparison]::Ordinal) -ge 0) {
+            $failedListSavedIndex = $index
+        }
+        if ($line -cmatch $profileNonMutatingPattern) {
+            $profileNonMutatingTokenIndex = $index
+            $profileNonMutatingTokenCount++
+        }
+        if ($line -cmatch $profileExactSeamPattern) {
+            $profileExactSeamTokenIndex = $index
+            $profileExactSeamTokenCount++
+        }
+    }
+
+    $profileJournalCase = $ExpectedTestCase -ceq
+        'HST_TEST_CampaignProfileJournalAuthority'
+    $profileProofTokensSeen = $profileNonMutatingTokenCount -eq 1 -and
+        $profileExactSeamTokenCount -eq 1
+    $hardPattern = '\b(?:SCRIPT|ENGINE)\s+\(E\):'
+    $stockFilterPattern =
+        "^\s*\d{2}:\d{2}:\d{2}\.\d+\s+SCRIPT\s+\(E\): " +
+        "Can't instantiate class 'SCR_FilterCategory', constructor is not public\s*$"
+    $intentionalNativeFailurePattern =
+        "^\s*\d{2}:\d{2}:\d{2}\.\d+\s+SCRIPT\s+\(E\): " +
+        "string failureDetail = 'Partisan persistence \| native save " +
+        'callback failure \| sequence/type/flags 1/0/0 \| ' +
+        'manager/enabled/allowed/busy/active/playthrough 1/1/1/0/0/0 \| ' +
+        'types/persistence/state/loaded/tracked/config/staged ' +
+        '5/1/2/0/0/0/1 \| replication mode 0 \| snapshot fingerprint ''\s*$'
+    $approvedStockFilterCount = 0
+    $approvedIntentionalFaultCount = 0
+    $hardDiagnosticCount = 0
+    $unapproved = New-Object Collections.Generic.List[string]
+    $completionFloor = [math]::Max(
+        $runnerFinishedIndex,
+        [math]::Max($junitSavedIndex, $failedListSavedIndex))
+
+    for ($index = 0; $index -lt $lines.Count; $index++) {
+        $line = [string]$lines[$index]
+        if ($line -cnotmatch $hardPattern) {
+            continue
+        }
+        $hardDiagnosticCount++
+        if ($line -cmatch $stockFilterPattern) {
+            if ($completionFloor -ge 0 -and
+                $index -gt $completionFloor -and
+                $approvedStockFilterCount -lt 2) {
+                $approvedStockFilterCount++
+            }
+            else {
+                [void]$unapproved.Add($line)
+            }
+            continue
+        }
+        if ($line -cmatch $intentionalNativeFailurePattern) {
+            if ($profileJournalCase -and $profileProofTokensSeen -and
+                $suiteStartedIndex -ge 0 -and
+                $testSuccessIndex -gt $suiteStartedIndex -and
+                $index -gt $suiteStartedIndex -and
+                $index -lt $testSuccessIndex -and
+                $profileNonMutatingTokenIndex -gt $index -and
+                $profileNonMutatingTokenIndex -lt $testSuccessIndex -and
+                $profileExactSeamTokenIndex -gt $index -and
+                $profileExactSeamTokenIndex -lt $testSuccessIndex -and
+                $approvedIntentionalFaultCount -lt 1) {
+                $approvedIntentionalFaultCount++
+            }
+            else {
+                [void]$unapproved.Add($line)
+            }
+            continue
+        }
+        [void]$unapproved.Add($line)
+    }
+
+    $expectedIntentionalFaultCount = if ($profileJournalCase) { 1 } else { 0 }
+    $markerOrderExact = $suiteStartedIndex -ge 0 -and
+        $testSuccessIndex -gt $suiteStartedIndex -and
+        $runnerFinishedIndex -gt $testSuccessIndex -and
+        $junitSavedIndex -gt $runnerFinishedIndex -and
+        $failedListSavedIndex -gt $junitSavedIndex
+    $valid = $markerOrderExact -and
+        $testSuccessIndex -ge 0 -and
+        $approvedStockFilterCount -eq 2 -and
+        $approvedIntentionalFaultCount -eq $expectedIntentionalFaultCount -and
+        $unapproved.Count -eq 0
+    return [pscustomobject][ordered]@{
+        Valid = $valid
+        HardDiagnosticFree = $hardDiagnosticCount -eq 0
+        HardDiagnosticCount = $hardDiagnosticCount
+        ApprovedStockFilterCount = $approvedStockFilterCount
+        ApprovedIntentionalFaultCount = $approvedIntentionalFaultCount
+        UnapprovedHardDiagnosticCount = $unapproved.Count
+        UnapprovedHardDiagnosticLines = $unapproved.ToArray()
+        MarkerOrderExact = $markerOrderExact
+        ProfileProofTokensSeen = $profileProofTokensSeen
+    }
+}
+
+function Test-FocusedHardDiagnosticCensus {
+    $standardCase = 'HST_TEST_EnemyCounterattackAuthority'
+    $profileCase = 'HST_TEST_CampaignProfileJournalAuthority'
+    $standardPrefix = @(
+        '17:00:00.000 SCRIPT       : TestSuite #Example started',
+        ('17:00:00.001 SCRIPT       : ' + $standardCase + ': SUCCESS'),
+        '17:00:00.002 SCRIPT       : SCR_TestRunner has finished running',
+        '17:00:00.003 SCRIPT       : Autotest JUnit XML saved to: $logs:/junit.xml',
+        '17:00:00.004 SCRIPT       : Autotest failed list saved to: $logs:/autotest_failed.log'
+    )
+    $stockLine =
+        "17:00:00.005 SCRIPT    (E): Can't instantiate class " +
+        "'SCR_FilterCategory', constructor is not public"
+    $standardValidText = ($standardPrefix + @($stockLine, $stockLine)) -join "`n"
+    $standardValid = Get-FocusedHardDiagnosticCensus `
+        -ConsoleText $standardValidText `
+        -ExpectedTestCase $standardCase
+    if (-not $standardValid.Valid -or
+        $standardValid.HardDiagnosticFree -or
+        $standardValid.HardDiagnosticCount -ne 2 -or
+        $standardValid.ApprovedStockFilterCount -ne 2 -or
+        $standardValid.UnapprovedHardDiagnosticCount -ne 0) {
+        throw 'Focused hard-diagnostic stock classification self-test failed.'
+    }
+
+    $profileText = @(
+        '17:00:00.000 SCRIPT       : TestSuite #Profile started',
+        "17:00:00.001 SCRIPT    (E): string failureDetail = 'Partisan persistence | native save callback failure | sequence/type/flags 1/0/0 | manager/enabled/allowed/busy/active/playthrough 1/1/1/0/0/0 | types/persistence/state/loaded/tracked/config/staged 5/1/2/0/0/0/1 | replication mode 0 | snapshot fingerprint '",
+        '17:00:00.002 SCRIPT       : setup/seam/request/bytes/journal 1/1/1/1/1 | exact',
+        '17:00:00.003 SCRIPT       : exact | failed native callback non-mutating 1 | exact',
+        ('17:00:00.004 SCRIPT       : ' + $profileCase + ': SUCCESS'),
+        '17:00:00.005 SCRIPT       : SCR_TestRunner has finished running',
+        '17:00:00.006 SCRIPT       : Autotest JUnit XML saved to: $logs:/junit.xml',
+        '17:00:00.007 SCRIPT       : Autotest failed list saved to: $logs:/autotest_failed.log',
+        $stockLine,
+        $stockLine
+    ) -join "`n"
+    $profileValid = Get-FocusedHardDiagnosticCensus `
+        -ConsoleText $profileText `
+        -ExpectedTestCase $profileCase
+    if (-not $profileValid.Valid -or
+        $profileValid.HardDiagnosticCount -ne 3 -or
+        $profileValid.ApprovedIntentionalFaultCount -ne 1) {
+        throw 'Focused hard-diagnostic intentional-fault classification self-test failed.'
+    }
+
+    $unknown = Get-FocusedHardDiagnosticCensus `
+        -ConsoleText ($standardValidText + "`n17:00:00.006 ENGINE (E): unknown") `
+        -ExpectedTestCase $standardCase
+    if ($unknown.Valid -or $unknown.UnapprovedHardDiagnosticCount -ne 1) {
+        throw 'Focused hard-diagnostic unknown-error rejection self-test failed.'
+    }
+    $thirdStock = Get-FocusedHardDiagnosticCensus `
+        -ConsoleText ($standardValidText + "`n" + $stockLine) `
+        -ExpectedTestCase $standardCase
+    if ($thirdStock.Valid -or $thirdStock.UnapprovedHardDiagnosticCount -ne 1) {
+        throw 'Focused hard-diagnostic third-stock-error rejection self-test failed.'
+    }
+    $wrongOrder = Get-FocusedHardDiagnosticCensus `
+        -ConsoleText (($standardPrefix[0], $stockLine, $stockLine) +
+            $standardPrefix[1..4] -join "`n") `
+        -ExpectedTestCase $standardCase
+    if ($wrongOrder.Valid -or $wrongOrder.UnapprovedHardDiagnosticCount -ne 2) {
+        throw 'Focused hard-diagnostic ordering rejection self-test failed.'
+    }
+    $wrongCase = Get-FocusedHardDiagnosticCensus `
+        -ConsoleText $profileText `
+        -ExpectedTestCase $standardCase
+    if ($wrongCase.Valid -or $wrongCase.UnapprovedHardDiagnosticCount -ne 1) {
+        throw 'Focused hard-diagnostic testcase rejection self-test failed.'
+    }
+    $missingProfileProof = Get-FocusedHardDiagnosticCensus `
+        -ConsoleText ($profileText.Replace(
+            'failed native callback non-mutating 1',
+            'failed native callback non-mutating 0')) `
+        -ExpectedTestCase $profileCase
+    if ($missingProfileProof.Valid -or
+        $missingProfileProof.UnapprovedHardDiagnosticCount -ne 1) {
+        throw 'Focused hard-diagnostic proof-token rejection self-test failed.'
+    }
+    $missingStock = Get-FocusedHardDiagnosticCensus `
+        -ConsoleText ($standardPrefix -join "`n") `
+        -ExpectedTestCase $standardCase
+    if ($missingStock.Valid -or
+        $missingStock.UnapprovedHardDiagnosticCount -ne 0) {
+        throw 'Focused hard-diagnostic exact-stock-count self-test failed.'
+    }
+    $suffixMutation = Get-FocusedHardDiagnosticCensus `
+        -ConsoleText ($profileText.Replace(
+            "snapshot fingerprint '",
+            "snapshot fingerprint ' unexpected")) `
+        -ExpectedTestCase $profileCase
+    if ($suffixMutation.Valid -or
+        $suffixMutation.UnapprovedHardDiagnosticCount -ne 1) {
+        throw 'Focused hard-diagnostic suffix-mutation rejection self-test failed.'
+    }
+    $tokenTen = Get-FocusedHardDiagnosticCensus `
+        -ConsoleText ($profileText.Replace(
+            'failed native callback non-mutating 1',
+            'failed native callback non-mutating 10')) `
+        -ExpectedTestCase $profileCase
+    if ($tokenTen.Valid -or $tokenTen.UnapprovedHardDiagnosticCount -ne 1) {
+        throw 'Focused hard-diagnostic token-boundary rejection self-test failed.'
+    }
+    $tokensAfterSuccess = Get-FocusedHardDiagnosticCensus `
+        -ConsoleText (@(
+            $profileText -split "`n" | Where-Object {
+                $_ -notmatch 'setup/seam/request/bytes/journal|failed native callback non-mutating'
+            }
+        ) + @(
+            '17:00:00.008 SCRIPT       : setup/seam/request/bytes/journal 1/1/1/1/1 | exact',
+            '17:00:00.009 SCRIPT       : exact | failed native callback non-mutating 1 | exact'
+        ) -join "`n") `
+        -ExpectedTestCase $profileCase
+    if ($tokensAfterSuccess.Valid -or
+        $tokensAfterSuccess.UnapprovedHardDiagnosticCount -ne 1) {
+        throw 'Focused hard-diagnostic proof-order rejection self-test failed.'
+    }
+    $successAfterCompletionText = @(
+        '17:00:00.000 SCRIPT       : TestSuite #Example started',
+        '17:00:00.001 SCRIPT       : SCR_TestRunner has finished running',
+        '17:00:00.002 SCRIPT       : Autotest JUnit XML saved to: $logs:/junit.xml',
+        '17:00:00.003 SCRIPT       : Autotest failed list saved to: $logs:/autotest_failed.log',
+        ('17:00:00.004 SCRIPT       : ' + $standardCase + ': SUCCESS'),
+        $stockLine,
+        $stockLine
+    ) -join "`n"
+    $successAfterCompletion = Get-FocusedHardDiagnosticCensus `
+        -ConsoleText $successAfterCompletionText `
+        -ExpectedTestCase $standardCase
+    if ($successAfterCompletion.Valid) {
+        throw 'Focused hard-diagnostic completion-order rejection self-test failed.'
+    }
+    return 12
+}
+
 function Write-PortableJson {
     param(
         [Parameter(Mandatory = $true)][string]$Path,
@@ -1040,6 +1324,7 @@ function Get-EvidenceFileRows {
     return $rows.ToArray()
 }
 
+$hardDiagnosticClassifierChecks = Test-FocusedHardDiagnosticCensus
 $candidateModulePath = Join-Path $PSScriptRoot 'Partisan.ReleaseCandidate.psm1'
 Import-Module -Name $candidateModulePath -Force -ErrorAction Stop
 $executablePath = Resolve-ExistingPath -Path $Executable -Kind Leaf
@@ -1299,6 +1584,7 @@ try {
             CandidateBoundaryVerified = $true
             TestCase = $TestCase
             ArgumentTokenCount = $arguments.Count
+            HardDiagnosticClassifierChecks = $hardDiagnosticClassifierChecks
         }
         throw (New-Object OperationCanceledException('guarded-focused-preflight-complete'))
     }
@@ -1419,10 +1705,19 @@ try {
         -Filter 'console.log' `
         -ErrorAction SilentlyContinue)
 
-    $consoleText = ''
-    foreach ($consoleFile in $consoleFiles) {
-        $consoleText += [IO.File]::ReadAllText($consoleFile.FullName)
+    if ($consoleFiles.Count -ne 1) {
+        throw "Focused autotest produced $($consoleFiles.Count) console logs."
     }
+    $consoleText = [IO.File]::ReadAllText($consoleFiles[0].FullName)
+    $hardDiagnosticCensus = Get-FocusedHardDiagnosticCensus `
+        -ConsoleText $consoleText `
+        -ExpectedTestCase $TestCase
+    $unapprovedHardDiagnosticEvidence = @(
+        $hardDiagnosticCensus.UnapprovedHardDiagnosticLines | ForEach-Object {
+            ConvertTo-SafeDiagnosticText `
+                -Text ([string]$_) `
+                -RedactedPaths ($diagnosticRedactedPaths + @($guardRoot))
+        })
     $diagnosticTail = @($consoleText -split "`r?`n" | Where-Object {
         $_ -match 'HST_|Autotest|autotest|Test Result|SCRIPT\s+\(E\)|ENGINE\s+\(E\)'
     } | Select-Object -Last 80 | ForEach-Object {
@@ -1484,7 +1779,8 @@ try {
             $failedFiles.Count -eq 1 -and
             $failedListBytes -eq 0 -and
             $requiredPatternsSeen -and
-            $buildProvenanceSeen
+            $buildProvenanceSeen -and
+            $hardDiagnosticCensus.Valid
         ExitCode = $exitCode
         Tests = $junit.Tests
         Failures = $junit.Failures
@@ -1505,6 +1801,17 @@ try {
         ConsoleTestCaseSeen = $consoleText.IndexOf(
             $TestCase,
             [StringComparison]::Ordinal) -ge 0
+        HardDiagnosticClassifierChecks = $hardDiagnosticClassifierChecks
+        HardDiagnosticClassificationValid = $hardDiagnosticCensus.Valid
+        HardDiagnosticFree = $hardDiagnosticCensus.HardDiagnosticFree
+        HardDiagnosticCount = $hardDiagnosticCensus.HardDiagnosticCount
+        ApprovedStockFilterDiagnosticCount =
+            $hardDiagnosticCensus.ApprovedStockFilterCount
+        ApprovedIntentionalFaultDiagnosticCount =
+            $hardDiagnosticCensus.ApprovedIntentionalFaultCount
+        UnapprovedHardDiagnosticCount =
+            $hardDiagnosticCensus.UnapprovedHardDiagnosticCount
+        UnapprovedHardDiagnosticEvidence = $unapprovedHardDiagnosticEvidence
     }
     if (-not $result.Success) {
         throw 'Focused autotest evidence did not pass.'
