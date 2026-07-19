@@ -33,30 +33,33 @@ files and remain non-conflicting across the historical array and current
 artifact. Evidence times and Git ancestry must agree with both the per-entry
 gate topology and the declared oldest-to-newest array order.
 
-The initial migration includes only
-`partisan-rc-0e632ec4f63e-20260719T004133Z` as
-`rejected-after-full-profile`. The retained
-`partisan-rc-e11e7ea88a44-20260719T040154Z` artifact remains current and
-`rejected-after-runtime`; it is not duplicated into the array. When a new
-candidate is activated, the same checked ledger change must append
-`e11e7ea88a44` exactly once as `rejected-after-corrected-canary`, keep full
-evidence absent, and replace all current-candidate fields. Existing records,
-hashes, and the `NO-GO` decision do not change merely because the ledger shape
-changes.
+The checked activation now records two ordered historical entries. `history[0]`
+is `partisan-rc-0e632ec4f63e-20260719T004133Z` with
+`rejected-after-full-profile`. `history[1]` is
+`partisan-rc-e11e7ea88a44-20260719T040154Z` with
+`rejected-after-corrected-canary`; its own focused and rejected corrected-canary
+evidence are required and `fullCampaignDebug` remains absent. The activation
+replaced the complete current-candidate surface without duplicating either
+historical identity. Existing historical records and the `NO-GO` decision remain
+unchanged.
 
-Current status retains `partisan-rc-e11e7ea88a44-20260719T040154Z` as a
-`rejected-after-runtime`, verification-only candidate. Version
-`0.1.0-rc.20260719T040154Z.e11e7ea8` was built from
-clean source HEAD `e11e7ea88a44ea07d7a81c0b4009f029f0b297e1`; its exact
-four-file package SHA-256 is
-`75b61eb19513de00e56a43ad3778885f89a7497c0eebe4d870bf3b11e62a0dad`,
+The active-runtime-candidate is
+`partisan-rc-ee0e8add2a29-20260719T063815Z`, version
+`0.1.0-rc.20260719T063815Z.ee0e8add`, built from clean source HEAD
+`ee0e8add2a298e83fd304b7660c4fc480dc6383f`. Its exact four-file package
+SHA-256 is
+`981258439b9d08866c4883471cacfe33aa373a36a667a39e8c939f285db74daf`,
 manifest SHA-256 is
-`daed6876ce839a7fc6551257e4a4dd9bb0c92772c7e2d07be595acddde19e714`,
+`1b877e3aa21773a268704bcb3fe889768fca3aa2d78541aa7285b061398ce907`,
 and ready-seal SHA-256 is
-`0ca7a5e2fbe6bf298baa542250cc7b47bf2b135a5382e032fc5febdddf579acc`.
+`01741b85d0edba69f54b07388cdd7c452b8f6f1ad7ef4f6faf253918a4bbf280`.
 Foundation passed all 874 checks. All five Workbench targets passed at 5,848
-files/11,901 classes, common CRC `e4cde465`, zero hard errors, and exact-zero
-cleanup. The manifest binds four package files and 50 evidence files.
+files/11,901 classes with common CRC `f64e0868`; the seal binds four package
+files and 50 evidence files. This active package has no packaged focused,
+corrected-canary, or full-profile result yet. The 35/35 and 87/87 state-only
+force-authority proof remains historical nonpackage evidence and does not
+advance this candidate. The next gate is the five canonical packaged focused
+cases, and release remains `NO-GO`.
 
 The then-active candidate's package-bound focused set is accepted as
 `passed-noncertifying`. Clean harness `b1940f2` ran all five cases against the
@@ -86,23 +89,26 @@ SHA-256 `af0aca25a84d8f757dbba8010950a658ce09937aa4048c35b2e372f1183eec69`.
 The full profile was correctly stopped and remains `not-run`; release remains
 `NO-GO`.
 
-The canary isolated a stale proof-fixture contract rather than package drift.
+The historical e11 canary isolated a stale proof-fixture contract rather than
+package drift.
 Production now requires `FindActiveMission` to resolve the supplied source
 before classifying a capture as mission-caused, but the ownership proof fixtures
 still supplied unbacked mission IDs. The source correction seeds the exact
 active missions in both fixtures, pins mission cause/type/ID provenance, retains
 an unresolved-source negative case as military capture, and separates political
-from mission diagnostics. Because that correction changes source, it requires a
-new immutable candidate and a fresh focused/canary/full evidence chain. It does
-not repair or transfer evidence from this rejected package.
+from mission diagnostics. Because that correction changed source, it was sealed
+in the active ee0 candidate and must earn a fresh focused/canary/full evidence
+chain. It does not repair or transfer evidence from the rejected e11 package.
 
 `partisan-rc-c2b16c4a2d85-20260718T201442Z`,
-`partisan-rc-b8deddc4b631-20260718T213322Z`, and
-`partisan-rc-0e632ec4f63e-20260719T004133Z` remain sealed as superseded artifact
-evidence. The last of those retains its accepted focused and corrected-canary
-results plus its rejected full result as immutable historical evidence. None of
-their package-bound results can be attached to this rejected package or any
-replacement.
+`partisan-rc-b8deddc4b631-20260718T213322Z`,
+`partisan-rc-0e632ec4f63e-20260719T004133Z`, and
+`partisan-rc-e11e7ea88a44-20260719T040154Z` remain sealed as superseded or
+rejected artifact evidence. The 0e candidate retains its accepted focused and
+corrected-canary results plus its rejected full result. The e11 candidate
+retains its accepted focused and rejected corrected-canary results and no full
+result. None of their package-bound results can be attached to the active ee0
+candidate.
 
 Runtime results are not appended to these sealed candidate directories. Each
 candidate-aware runner writes a fresh external sidecar run whose portable

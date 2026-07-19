@@ -7,9 +7,9 @@
 > guidance and scoped evidence, not an upward certification claim.
 
 Campaign Schema 71 and runtime-settings Schema 24 are current. The active
-candidate's clean source HEAD is `e11e7ea88a44ea07d7a81c0b4009f029f0b297e1`.
+candidate's clean source HEAD is `ee0e8add2a298e83fd304b7660c4fc480dc6383f`.
 Foundation passes all 874 references, and that candidate's all-target Workbench
-boundary is 5,848 files/11,901 classes at common CRC `e4cde465`.
+boundary is 5,848 files/11,901 classes at common CRC `f64e0868`.
 The embedded implementation stamp remains
 `32727238d74b29905c68e5a80bb5897dfdc783c0`, UTC
 `2026-07-18T16:34:38Z`, label
@@ -35,15 +35,14 @@ The embedded implementation stamp remains
   digest, ready-seal digest, package digest, summary identity, and envelope/run
   binding must remain exact and non-conflicting across history and the current
   artifact.
-- The initial Schema-3 migration contains only
+- The checked Schema-3 ledger contains two ordered entries. `history[0]` is
   `partisan-rc-0e632ec4f63e-20260719T004133Z` with
-  `rejected-after-full-profile`. Keep
-  `partisan-rc-e11e7ea88a44-20260719T040154Z` solely in the current retained
-  `rejected-after-runtime` artifact/evidence fields until a replacement is
-  activated. That future activation must atomically append `e11e7ea88a44` once
-  as `rejected-after-corrected-canary`, omit full evidence, and replace the
-  complete current-candidate surface in the same checked change. Never expose a
-  duplicated or mixed current/history identity. Release remains `NO-GO`.
+  `rejected-after-full-profile`; `history[1]` is
+  `partisan-rc-e11e7ea88a44-20260719T040154Z` with
+  `rejected-after-corrected-canary`. The e11 entry retains focused and rejected
+  corrected-canary evidence and omits full evidence. The same checked activation
+  replaced the complete current-candidate surface with ee0 without a duplicate
+  or mixed current/history identity. Release remains `NO-GO`.
 - Keep the persisted model at Campaign Schema 71/settings 24 while closing
   runtime and certification gates. Proof-only, documentation, UI, packaging,
   or source-shape work is not a schema reason.
@@ -126,8 +125,22 @@ The embedded implementation stamp remains
   Foundation and all five Workbench targets pass at 5,847 files, 11,900
   classes, common CRC `3a399db1`, zero hard errors, and exact-zero cleanup. The
   sealed inventories contain four package files and 50 evidence files.
-- The complete post-full correction batch is sealed as the retained
-  `rejected-after-runtime` candidate
+- The active-runtime-candidate is
+  `partisan-rc-ee0e8add2a29-20260719T063815Z`, version
+  `0.1.0-rc.20260719T063815Z.ee0e8add`, from clean source HEAD
+  `ee0e8add2a298e83fd304b7660c4fc480dc6383f`. Its package, manifest, and
+  ready-seal SHA-256 values are
+  `981258439b9d08866c4883471cacfe33aa373a36a667a39e8c939f285db74daf`,
+  `1b877e3aa21773a268704bcb3fe889768fca3aa2d78541aa7285b061398ce907`, and
+  `01741b85d0edba69f54b07388cdd7c452b8f6f1ad7ef4f6faf253918a4bbf280`.
+  Foundation passes all 874 references; all five Workbench targets pass at
+  5,848 files/11,901 classes and common CRC `f64e0868`; and the seal binds four
+  package files and 50 evidence files. Packaged focused, corrected-canary, and
+  full-profile gates are `not-run`. Historical state-only 35/35 and 87/87 proof
+  is nonpackage and cannot advance ee0. Run the five canonical packaged focused
+  cases next.
+- The complete post-full correction batch was sealed as historical
+  `rejected-after-corrected-canary` candidate
   `partisan-rc-e11e7ea88a44-20260719T040154Z`, version
   `0.1.0-rc.20260719T040154Z.e11e7ea8`, from clean source HEAD
   `e11e7ea88a44ea07d7a81c0b4009f029f0b297e1`. Its exact four-file package
@@ -143,8 +156,8 @@ The embedded implementation stamp remains
   `passed-noncertifying` deterministic-service rung. Its corrected canary then
   failed closed at 33/35 focused assertions and 85/87 counted conditions, so
   native-engine/world is `failed` for this package and the full profile was not
-  run. Preserve the rejected envelope and seal the proof-fixture correction in
-  a new immutable candidate before restarting the evidence chain.
+  run. Preserve the rejected envelope; its proof-fixture correction is sealed in
+  active ee0, which must restart the evidence chain without transfer.
 - The then-active candidate's focused set ran serially in canonical order under
   clean harness HEAD `b1940f241e28f163202807385f7140f048921447` from
   `2026-07-19T04:44:01.2295133Z` through
@@ -300,13 +313,14 @@ The embedded implementation stamp remains
   recovery.
 - The combined post-capture correction batch now passes Foundation at 874
   references and guarded PC Workbench validation at 5,848 files/11,901 classes,
-  CRC `e4cde465`, with successful script validation, zero hard errors, and
+  CRC `f64e0868`, with successful script validation, zero hard errors, and
   exact-zero owned cleanup and monitored spill changes. This supersedes the
   narrower local compile checkpoints for that sealed candidate source shape.
-  The batch is sealed in the active `e11e7ea88a44` candidate. Its fresh
-  packaged focused set passes as scoped non-certifying evidence; its canary
-  rejected the stale ownership-source fixture and full runtime evidence is
-  stopped for that exact package.
+  The batch first appeared in historical `e11e7ea88a44`, whose fresh packaged
+  focused set passed as scoped non-certifying evidence before its canary rejected
+  the stale ownership-source fixture and stopped full runtime evidence. The
+  corrected fixture is sealed in active `ee0e8add2a29`; that package's runtime
+  evidence gates have not run.
 - The Search-and-Destroy Campaign Debug fixture correction, based on clean
   source identity `02dfd84`, must exercise the same two-step production
   contract as gameplay: issue a real map-target quote with one run-prefixed
@@ -491,10 +505,11 @@ The embedded implementation stamp remains
   blocked assertion occurrences. Convoy materialization is its largest cascade.
   The `0e632ec4f63e` package's exact 46/7 case, 112/14 required-assertion, and
   ten-unapproved-diagnostic boundary remains immutable. Its post-capture source
-  corrections are sealed in retained rejected candidate `e11e7ea88a44`; that
+  corrections were sealed in historical rejected candidate `e11e7ea88a44`; that
   package's fresh focused set passes as scoped non-certifying evidence, but its
   corrected canary rejected the stale ownership proof fixture. Full was stopped;
-  the fixture correction must begin another immutable candidate chain.
+  the fixture correction is now sealed in active `ee0e8add2a29`, whose five
+  canonical packaged focused cases begin the new chain.
 - A helper that receives `requiredHold - holdBefore + 1` in one call does not
   prove that the engine advanced the objective by that many seconds. For area
   objectives, use bounded per-second/frame ticks and log both mission-runtime
@@ -7935,8 +7950,19 @@ This file is for practical engine/script behavior, not project planning. Keep en
   found ten unapproved hard diagnostics. Never reuse the
   preceding package's results, and never attach post-capture source fixes to
   this package.
-- Those post-capture corrections are sealed in retained
-  `rejected-after-runtime` candidate
+- The proof-fixture correction is sealed in active-runtime-candidate
+  `partisan-rc-ee0e8add2a29-20260719T063815Z`, version
+  `0.1.0-rc.20260719T063815Z.ee0e8add`, with package SHA-256
+  `981258439b9d08866c4883471cacfe33aa373a36a667a39e8c939f285db74daf`.
+  Its manifest and ready-seal SHA-256 values are
+  `1b877e3aa21773a268704bcb3fe889768fca3aa2d78541aa7285b061398ce907`
+  and `01741b85d0edba69f54b07388cdd7c452b8f6f1ad7ef4f6faf253918a4bbf280`.
+  Foundation passes all 874 references; all five Workbench targets pass at
+  5,848 files/11,901 classes and CRC `f64e0868`; and the seal binds four package
+  files plus 50 evidence files. Its packaged focused, corrected-canary, and full
+  gates have not run. Run the five canonical packaged focused cases next.
+- The preceding post-capture corrections remain sealed in historical
+  `rejected-after-corrected-canary` candidate
   `partisan-rc-e11e7ea88a44-20260719T040154Z`, version
   `0.1.0-rc.20260719T040154Z.e11e7ea8`, with package SHA-256
   `75b61eb19513de00e56a43ad3778885f89a7497c0eebe4d870bf3b11e62a0dad`.
@@ -7951,9 +7977,9 @@ This file is for practical engine/script behavior, not project planning. Keep en
   at 33/35 focused assertions and 85/87 counted conditions under clean harness
   `937c86c5d2259a9da270ea76371001ac1d4c6eed`; native-engine/world is failed and
   Full Campaign Debug is stopped for this package. It is verification-only and
-  runtime-ineligible. Keep release `NO-GO`, retain the immutable rejected
-  envelope, and seal the proof-fixture correction in a new candidate before
-  restarting focused -> canary -> full.
+  runtime-ineligible. Keep release `NO-GO` and retain the immutable rejected
+  envelope. This is ordered ledger `history[1]`; its full evidence remains
+  absent and none of its results transfers to ee0.
 - Exact package binding is part of focused acceptance, not merely launch
   configuration. Every retained envelope must bind and reverify the same
   candidate, source HEAD, package digest, manifest, ready seal, runner, and

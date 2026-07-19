@@ -50781,14 +50781,18 @@ if ([int] $releaseStatusData.schemaVersion -ne 3 -or
 	@($releaseStatusHistory).Count -lt 1) {
 	throw 'Release status must retain a built candidate and schema-3 ordered historical candidate evidence.'
 }
-if (@($releaseStatusHistory).Count -ne 1 -or
+if (@($releaseStatusHistory).Count -ne 2 -or
 	[string] $releaseStatusHistory[0].retirementDisposition -cne
 		'rejected-after-full-profile' -or
 	[string] $releaseStatusHistory[0].candidate.candidateId -cne
 		'partisan-rc-0e632ec4f63e-20260719T004133Z' -or
+	[string] $releaseStatusHistory[1].retirementDisposition -cne
+		'rejected-after-corrected-canary' -or
+	[string] $releaseStatusHistory[1].candidate.candidateId -cne
+		'partisan-rc-e11e7ea88a44-20260719T040154Z' -or
 	[string] $releaseStatusData.artifact.candidateId -cne
-		'partisan-rc-e11e7ea88a44-20260719T040154Z') {
-	throw 'Schema-3 migration must retain only the 0e full-profile retirement while e11 remains active.'
+		'partisan-rc-ee0e8add2a29-20260719T063815Z') {
+	throw 'Schema-3 current state must retain the ordered 0e and e11 retirements before the active ee0 candidate.'
 }
 foreach ($releaseDocsRejectedRuntimeEntry in @(
 		'"rejected-after-runtime"',

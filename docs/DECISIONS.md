@@ -4056,3 +4056,57 @@ Consequences:
   invalid and must not be published.
 - No evidence count, hash, proof outcome, failed rung, or package eligibility is
   improved by this structural migration. Release remains `NO-GO`.
+
+Outcome: CRI-074 completed the anticipated atomic transition. The ordered
+history now contains 0e followed by e11, and ee0 is the active runtime candidate.
+
+## CRI-074 - Activate the Fixture-Corrected ee0 Release Candidate
+
+- Status: Accepted
+- Date: 2026-07-19
+
+Context: CRI-073 defined the fail-closed transition required when replacing the
+e11 candidate rejected at corrected canary. The proof-fixture correction is now
+sealed in a clean build-once candidate. Activation must preserve the complete
+e11 failure boundary without transferring its evidence or fabricating a full
+result.
+
+Decision: Activate `partisan-rc-ee0e8add2a29-20260719T063815Z`, version
+`0.1.0-rc.20260719T063815Z.ee0e8add`, from clean source HEAD
+`ee0e8add2a298e83fd304b7660c4fc480dc6383f`. Its exact four-file package,
+manifest, and ready-seal SHA-256 values are respectively
+`981258439b9d08866c4883471cacfe33aa373a36a667a39e8c939f285db74daf`,
+`1b877e3aa21773a268704bcb3fe889768fca3aa2d78541aa7285b061398ce907`, and
+`01741b85d0edba69f54b07388cdd7c452b8f6f1ad7ef4f6faf253918a4bbf280`.
+Foundation passes all 874 references. PC, PS4, PS5, XBOX_ONE, and XBOX_SERIES
+each pass at 5,848 files/11,901 classes with common CRC `f64e0868`; the seal
+binds four package files and 50 evidence files.
+
+In the same checked transition, retain
+`partisan-rc-0e632ec4f63e-20260719T004133Z` as ordered `history[0]` with
+`rejected-after-full-profile`, and append
+`partisan-rc-e11e7ea88a44-20260719T040154Z` exactly once as ordered `history[1]`
+with `rejected-after-corrected-canary`. The e11 entry retains package SHA-256
+`75b61eb19513de00e56a43ad3778885f89a7497c0eebe4d870bf3b11e62a0dad`,
+manifest SHA-256
+`daed6876ce839a7fc6551257e4a4dd9bb0c92772c7e2d07be595acddde19e714`,
+ready-seal SHA-256
+`0ca7a5e2fbe6bf298baa542250cc7b47bf2b135a5382e032fc5febdddf579acc`,
+focused-summary SHA-256
+`9ddade1cb86a209acf4aae02ded6f1a7713fe1e25ba577ae00ef1980e3de149a`,
+and rejected corrected-canary summary SHA-256
+`af0aca25a84d8f757dbba8010950a658ce09937aa4048c35b2e372f1183eec69`.
+Its corrected-canary envelope SHA-256 remains
+`8deca62633394025bfa976f6d883f9b500d56519fd13e875f241679f4799cd21`.
+`fullCampaignDebug` is absent because the full profile did not run.
+
+Consequences:
+
+- The ee0 candidate is runtime-eligible but not runtime-proven. Its packaged
+  focused, corrected-canary, and full-profile rungs are all `not-run`.
+- Historical 35/35 and 87/87 state-only force-authority proof remains nonpackage
+  and noncertifying; no historical result advances ee0.
+- The next gate is the five canonical packaged focused cases. Corrected canary
+  and full remain later conditional gates.
+- Release remains `NO-GO`; all independent dedicated, multiplayer/JIP, restart,
+  migration, performance, soak, and certification gates remain open.

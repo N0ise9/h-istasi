@@ -38,15 +38,15 @@ corresponding source and harness commits must form the required Git ancestry
 chain through the current checkout. Array position is therefore asserted
 history, not presentation sorting.
 
-The current migration contains only
+The checked ledger now has two ordered entries. `history[0]` is
 `partisan-rc-0e632ec4f63e-20260719T004133Z`, retired as
-`rejected-after-full-profile`. The retained
-`partisan-rc-e11e7ea88a44-20260719T040154Z` package remains the current
-`rejected-after-runtime` artifact of record and must not also appear in history.
-When a new candidate is activated, one checked ledger transition must append
-that package exactly once as `rejected-after-corrected-canary`, keep its full
-evidence absent, and replace all current-candidate fields together. No
-intermediate mixed identity may be published. Release remains `NO-GO`.
+`rejected-after-full-profile`; `history[1]` is
+`partisan-rc-e11e7ea88a44-20260719T040154Z`, retired as
+`rejected-after-corrected-canary`. The e11 entry retains its own focused and
+rejected corrected-canary evidence while `fullCampaignDebug` remains absent.
+The same checked activation replaced every current-candidate field with the new
+ee0 identity, so no current/history identity is duplicated or mixed. Release
+remains `NO-GO`.
 
 ## Release-Candidate Build Boundary
 
@@ -105,21 +105,22 @@ immutable evidence for that package only. The later map-locator correction
 changed packaged source, so this candidate is now superseded for current
 runtime proof.
 
-The current retained `rejected-after-runtime` candidate is
-`partisan-rc-e11e7ea88a44-20260719T040154Z`, version
-`0.1.0-rc.20260719T040154Z.e11e7ea8`, built from clean source HEAD
-`e11e7ea88a44ea07d7a81c0b4009f029f0b297e1`. Its exact four-file package
-digest is `75b61eb19513de00e56a43ad3778885f89a7497c0eebe4d870bf3b11e62a0dad`;
+The active-runtime-candidate is
+`partisan-rc-ee0e8add2a29-20260719T063815Z`, version
+`0.1.0-rc.20260719T063815Z.ee0e8add`, built from clean source HEAD
+`ee0e8add2a298e83fd304b7660c4fc480dc6383f`. Its exact four-file package
+digest is `981258439b9d08866c4883471cacfe33aa373a36a667a39e8c939f285db74daf`;
 the manifest SHA-256 is
-`daed6876ce839a7fc6551257e4a4dd9bb0c92772c7e2d07be595acddde19e714`,
+`1b877e3aa21773a268704bcb3fe889768fca3aa2d78541aa7285b061398ce907`,
 and the ready-seal SHA-256 is
-`0ca7a5e2fbe6bf298baa542250cc7b47bf2b135a5382e032fc5febdddf579acc`.
+`01741b85d0edba69f54b07388cdd7c452b8f6f1ad7ef4f6faf253918a4bbf280`.
 Foundation passed all 874 checks. Every PC, XBOX_ONE, XBOX_SERIES, PS4, and PS5
-Workbench target passed at 5,848 files, 11,901 classes, common CRC `e4cde465`,
-zero hard errors, and exact-zero cleanup. The seal binds four package files and
-50 evidence files.
+Workbench target passed at 5,848 files, 11,901 classes, common CRC `f64e0868`.
+The seal binds four package files and 50 evidence files. Packaged focused,
+corrected-canary, and full-profile results are all `not-run` for this candidate;
+the next gate is the five canonical packaged focused cases.
 
-This candidate's package-bound focused set passed under clean harness
+The historical e11 candidate's package-bound focused set passed under clean harness
 `b1940f2` from `2026-07-19T04:44:01.2295133Z` through
 `2026-07-19T04:45:58.8756237Z`. All five exact staged packed-candidate cases
 passed with JUnit 5/0/0/0; all 40 envelope files rehashed, cleanup/spill residue
@@ -144,22 +145,24 @@ Envelope SHA-256 is
 `8deca62633394025bfa976f6d883f9b500d56519fd13e875f241679f4799cd21`;
 portable summary SHA-256 is
 `af0aca25a84d8f757dbba8010950a658ce09937aa4048c35b2e372f1183eec69`.
-The full profile was correctly stopped. This retained package is verification-
+The full profile was correctly stopped. This historical package is verification-
 only and runtime-ineligible; execution control must reject it while preserving
 its immutable evidence. No evidence from another package can satisfy any rung.
 
-The canary exposed stale source fixtures after production intentionally began
+The historical canary exposed stale source fixtures after production intentionally began
 requiring `FindActiveMission` to resolve a mission source before assigning
 `mission_capture`. The fixtures supplied mission IDs without matching active
 missions, so their expected cause/provenance and aggregate proof no longer
-matched production. The current source correction seeds the exact active
+matched production. The source correction sealed in the active ee0 candidate
+seeds the exact active
 missions in both affected fixtures, pins mission cause, source type, and source
 ID, preserves an unresolved-source negative case as `military_capture`, and
 reports political and mission provenance separately. This source change cannot
-repair the immutable package: it requires a new candidate and a fresh evidence
-chain. Release remains `NO-GO`.
+repair the immutable e11 package. The ee0 package must earn a fresh evidence
+chain; historical state-only 35/35 and 87/87 proof is nonpackage and cannot
+advance it. Release remains `NO-GO`.
 
-The immediately preceding candidate,
+The older historical candidate,
 `partisan-rc-0e632ec4f63e-20260719T004133Z`, remains immutable historical
 evidence. It was built from clean source HEAD
 `0e632ec4f63eab43e8c301d0755f10193d85131f`; its exact four-file package digest
@@ -319,14 +322,14 @@ immutable non-certifying scoped runtime proof for that package only. Its
 subsequent full profile is a rejected red capture: wrapper integrity passed, but
 certification failed at 584/49/46/7/1 with 5,561/5,687 required assertions
 proven, and the classifier found ten unapproved hard diagnostics. That
-candidate's native-engine/world rung is `failed`. The retained
-`rejected-after-runtime` candidate
+candidate's native-engine/world rung is `failed`. Historical candidate
 `partisan-rc-e11e7ea88a44-20260719T040154Z` likewise retains its accepted
 package-bound focused set but failed its corrected canary at 33/35 and 85/87
 on the two ownership-transition fixture assertions above. Its full profile was
-stopped. The fixture correction now in source requires another immutable
-candidate; no historical or post-capture result can be attached to either
-rejected package.
+stopped, and it is ledger `history[1]` with disposition
+`rejected-after-corrected-canary`. The fixture correction is sealed in active
+candidate `partisan-rc-ee0e8add2a29-20260719T063815Z`, whose packaged runtime
+gates have not run. No historical or post-capture result can be attached to it.
 
 ## Historical Focused Force-Authority Engine Checkpoint
 
@@ -3370,7 +3373,7 @@ balance or native-spawn evidence.
 | Force realization | SpawnQueue accepts frozen, hash-valid, all-required one-root infantry manifests. Its bounded selector now admits due deferred/retryable slots when their batch can start another attempt, while preserving manifest/dependency validation and normalizing slots only after selection. Both QRFs, player Search-and-Destroy, exact enemy patrol, policy-v2 purchased-garrison patrol, all three exact assassination guards, exact Schema-69 enemy counterattacks, and exact Schema-70 enemy garrison rebuilds release only durable living member slots; each empty root contributes no authored members. Counterattack and rebuild physical/virtual transfer use the same casualty slots and never refill them. Delivered rebuild manifests remain exact held garrison authority instead of being copied into aggregate infantry. R22 passes retry, stale-generation, same-wave, and interrupted-restore queue proof. The schema-52 convoy keeps its separate three-element PhysicalWar adapter. Generic vehicle/asset/multi-root and historical aggregate consumers remain unsupported. | One adapter realizes every supported manifest, registers each slot exactly once, restores successful projections safely, and feeds durable living-force/casualty/retirement authority without bypass paths. |
 | Operation lifecycle | Schemas 50-60 retain their exact paths. Schema 69 adds a separately typed enemy-counterattack operation with one direct route, deterministic virtual combat, casualty-preserving physical/virtual transfer, canonical ownership request/retry, return-to-origin duty, and survivor-proportional one-pool settlement. Schema 70 adds a separately typed enemy-garrison-rebuild operation with frozen capacity, exact held delivery under an `OPEN`/`ON_STATION` operation and zero-delta receipt, proportional prearrival survivor refund, later zero-refund terminal retirement, and PREPARED/SETTLED crash-resume finalization. Historical counterattacks and rebuilds remain outside their exact contracts. | Every force/order uses one versioned operation aggregate with event-driven engagement, strategic movement progress, physical/virtual transfer, settlement, and client/JIP projection. |
 | Event history | New command and ledger decisions append to a bounded persisted campaign event log. | All authoritative state transitions emit typed events consumed by projections, UI, diagnostics, and restore reconciliation. |
-| Canonical ownership | Schema 62 routes military capture, mission capture, political support, admin, debug seed, and migration repair through one revisioned, idempotent receipt. The receipt owns security, support consequences, owner, town/facility/logistics derivation, retaliation, economy/outcome, events, parent-aware projection, notification, and persistence scheduling. Schema 64 submits strict political threshold intent directly to this service and cannot publish town ownership itself; a valid later receipt queues behind an unresolved earlier receipt under the canonical service's ordering. Production assigns mission cause only when `FindActiveMission` resolves the supplied source. | The historical focused deterministic engine fixture passed its ownership-transition group, but the active-package canary proved that its mission-source setup had become stale: `ownership_transition.aggregate` and `ownership_transition.causes` failed. Current source seeds exact active missions, verifies cause/type/ID provenance, and keeps an unresolved-source military negative; a new candidate must prove that correction. Native projection, active-world security/economy effects, save/restart, packaged clients, and all caller routes remain runtime gates. |
+| Canonical ownership | Schema 62 routes military capture, mission capture, political support, admin, debug seed, and migration repair through one revisioned, idempotent receipt. The receipt owns security, support consequences, owner, town/facility/logistics derivation, retaliation, economy/outcome, events, parent-aware projection, notification, and persistence scheduling. Schema 64 submits strict political threshold intent directly to this service and cannot publish town ownership itself; a valid later receipt queues behind an unresolved earlier receipt under the canonical service's ordering. Production assigns mission cause only when `FindActiveMission` resolves the supplied source. | Historical e11 canary evidence exposed a stale mission-source proof setup: `ownership_transition.aggregate` and `ownership_transition.causes` failed. Current source seeds exact active missions, verifies cause/type/ID provenance, and keeps an unresolved-source military negative. That correction is sealed in active ee0, whose packaged focused set is the next gate; its corrected canary and full profile have not run. Native projection, active-world security/economy effects, save/restart, packaged clients, and all caller routes remain runtime gates. |
 | Canonical combat presence | Sealed Schema 63 separates registered physical infantry/manned-mobile/static samples, eligible virtual infantry, bounded cached queries, and revisioned zone heat from render state and empty assets. Capture, missions, HQ, civilians, enemy strategy, and the legacy wrapper share one injected service. The focused deterministic engine fixture passes its combat-presence group as part of the 35/35 focused case. | The result is state-only fixture evidence. Runtime-prove native occupant/platform classification, every consumer, fail-closed authority/player filtering, allocation/cache invalidation/order, 30-second cooling, conservative restore, no save-dirty churn, and activation/deactivation hysteresis before deepening encounter and town truth. |
 | Canonical town influence | Sealed Schema 64 gives each curated town one revisioned support/population/contact/flip record, separate FIA/occupier/invader basis points, exact typed events, strict 8000/4000 hysteresis, conservative pre-64 migration/current `-64` quarantine, and legacy projections limited to canonical curated towns. Current exact events persist population triples before/after mutation; absolute debug seeds use the same idempotent boundary, and restore verifies the complete population chain plus the final record. Mutation-time aggregates and due-expiry-only history scans replace the old unconditional one-second fold. Immutable target-pair scoring and copied-save corruption now exercise the intended migration/quarantine boundary. | The focused deterministic engine fixture passes its town-influence group. Production/native callers, save/restart, expiry, rendered Map/War rows, town taxonomy, JIP, and no-stutter behavior remain open. |
 | Civilian consequences | Sealed Schema 65 source/Workbench adds exact town casualty/theft/combat events, optional aggression target/delta/before/after evidence plus one matching strategic receipt, persisted combat episodes/adopted floor/last-applied receipt, bounded 256-casualty and 64-theft queues with a combined four-transaction frame cap and indefinite bounded-backoff retry, exact-pilot post-promotion theft, and pedestrian panic/recovery with separate bounded route recovery. Minor localities remain panic-only and keep their exact fingerprint map in session memory. Foundation passes at 717 script-symbol references. Final stamped normal/all-five Workbench checks are clean at 5,802 Game files/11,728 classes with CRC `c0a672b9`, `Script validation successful`, zero HST script errors, and zero surviving processes. | Execute the deterministic fixtures, then package-prove native callback attribution, no duplicate casualty/theft/aggression, threat-driven RUN/calm WALK transitions, restore/quarantine, minor-locality restart behavior, and balance under multiplayer/soak load. |
@@ -3384,9 +3387,9 @@ balance or native-spawn evidence.
 | Radio physical authority | Schema 59 keeps one exact lifecycle owner per site. The current adapter queries the generic base, exact stock `SCR_DestructionMultiPhaseComponent`, and destruction base, then returns shared health/state authority across admission, polling, writes, restore, and suppression. Generated demolition resources enable the existing inherited multiphase/RPL pair, and zero-health destruction uses the engine `Kill()` path. | R16 proves the isolated disposable destroy -> stop-rebuild chain, including normal callback, deterministic receipts, unchanged destruction epoch, exact `$450`/`$350` rewards, second-attempt rejection, exact cleanup, and zero final state diff. Packaged authored binding, restart/streaming reapplication, multiplayer, and soak proof remain open. |
 | Destroy-target demolition witness | Nearby evidence must be an unparented physical projectile with active movement or a triggered blast; parented/inventory equipment is rejected before text classification. Witness scans and entity-backed callbacks share one canonical source key. A target retains at most 64 lifetime source receipts, fails closed at capacity, and writes local bookkeeping only after authoritative asset mutation. | Fresh Workbench validation passes. R23 passes all six generic `primitive.destroy.no_ambient_witness_score` assertions and all seven destroy-family start/runtime/primitive cases. Preserve one-source/one-score behavior through callback-plus-scan overlap, carried equipment, restore, multiplayer, and soak proof. |
 | Controlled campaign persistence | Schema 71 gives typed automatic, manual, and shutdown requests one staged snapshot and one persisted checkpoint sequence. Native-active requests advance the verified two-slot profile journal only after the post-commit `SaveGameManager` callback; native-unavailable or explicitly profile-only sessions write it synchronously. Startup reconciles native and journal snapshots by checkpoint sequence, restore sequence, save second, and matching normalized fingerprint. Future or ambiguous authority is preserved and fenced. Controlled end drains pending work, uses a 270-second retry window, then requests blocking shutdown and preserves or purges native state according to the authority that committed. | The focused 41-case journal authority proof and strict automatic/manual/shutdown/native/journal five-process chain pass. The sealed extension proves one mixed-native captive/carrier/player/seat and guard graph across the same stages, with durable carrier rebind, stable seat recovery, native/profile fallback, and zero cleanup. This is crash-tolerant single-writer recovery, not atomic rename, authenticated storage, an off-device backup, or broad active-world/client/network certification. |
-| Campaign Debug isolation | The runner deep-clones campaign state, suspends normal persistence, and restores the live state. Bounded probes additionally capture/restore the shared clock and enemy-strategic fingerprint; the coordinator holds ambient commander cadence while the clone is active. It also holds ambient local-security progression whenever its matching worker is held. The separate restart harness is not a Campaign Debug clone: a strict startup guard authorizes one disposable source-selection carrier and one-use prepare/recover/replay lease. | Retained prior-package run `seed1985_t0_p1_u1784414040` produced a mechanically complete, stable, preliminary-unaccepted capture with exact candidate/mount identity and zero drift or cleanup residue. Its report remains red at 584 PASS/49 WARN/46 FAIL/7 BLOCKED/1 SKIPPED and 5,562/5,688 required assertions, while the corrected census records 25 raw script errors, 19 in the Partisan subset, and ten unapproved diagnostics. Superseded-candidate canary `seed1985_t0_p1_u1784424219` is immutable scoped `passed-noncertifying` history: 9/1/0/1/0 cases, 35/35 and 87/87 focused proof, 18/0 state restoration, two approved stock diagnostics, zero unapproved diagnostics, and zero residue. The prior map-locator exception is absent on that path. The same package's full run `seed1985_t0_p1_u1784425330` is immutable rejected red history at 584/49/46/7/1, 5,561/5,687, and ten unapproved diagnostics despite stable capture and zero residue. Then-active-candidate canary `seed1985_t0_p1_u1784437399` is immutable rejected evidence: exact package/stable artifacts, 8/1/1/1/0 cases, 33/35 and 85/87 focused proof, 18/0 restoration, two approved stock diagnostics, zero unapproved diagnostics, ten rehashed files, and zero residue. It exposed stale ownership-transition fixtures after the intentional production mission-source guard; full was stopped. The package is now retained `rejected-after-runtime`, verification-only, and runtime-ineligible. The source correction requires a new candidate. The guarded native restart branch proves one separate source-precedence chain; no result generalizes to another package, arbitrary client/network, or certification behavior. |
+| Campaign Debug isolation | The runner deep-clones campaign state, suspends normal persistence, and restores the live state. Bounded probes additionally capture/restore the shared clock and enemy-strategic fingerprint; the coordinator holds ambient commander cadence while the clone is active. It also holds ambient local-security progression whenever its matching worker is held. The separate restart harness is not a Campaign Debug clone: a strict startup guard authorizes one disposable source-selection carrier and one-use prepare/recover/replay lease. | Retained prior-package run `seed1985_t0_p1_u1784414040` produced a mechanically complete, stable, preliminary-unaccepted capture with exact candidate/mount identity and zero drift or cleanup residue. Its report remains red at 584 PASS/49 WARN/46 FAIL/7 BLOCKED/1 SKIPPED and 5,562/5,688 required assertions, while the corrected census records 25 raw script errors, 19 in the Partisan subset, and ten unapproved diagnostics. Historical 0e canary `seed1985_t0_p1_u1784424219` is immutable scoped `passed-noncertifying` evidence: 9/1/0/1/0 cases, 35/35 and 87/87 focused proof, 18/0 state restoration, two approved stock diagnostics, zero unapproved diagnostics, and zero residue. The same package's full run `seed1985_t0_p1_u1784425330` is immutable rejected red history at 584/49/46/7/1, 5,561/5,687, and ten unapproved diagnostics. Historical e11 canary `seed1985_t0_p1_u1784437399` is immutable rejected evidence: 8/1/1/1/0 cases, 33/35 and 85/87 focused proof, 18/0 restoration, two approved stock diagnostics, zero unapproved diagnostics, ten rehashed files, and zero residue; full was stopped. The correction is sealed in active candidate `partisan-rc-ee0e8add2a29-20260719T063815Z`, whose packaged focused/canary/full gates are not run. The guarded native restart branch proves one separate source-precedence chain; no result generalizes to another package, arbitrary client/network, or certification behavior. |
 | Workbench compiler shape | Large Campaign Debug methods use compact context/result objects and focused helpers. The render-bubble proof keeps clock state in `HST_CampaignDebugClockIsolationContext` rather than extending an already-large local frame. | Preserve this boundary and require a fresh Game compile plus bounded cold open for future large proof additions; repository text/static validation cannot exclude a native compiler heap failure. |
-| Certification | Campaign Schema 71 and runtime-settings Schema 24 are current. `32727238d74b29905c68e5a80bb5897dfdc783c0`, UTC `2026-07-18T16:34:38Z`, label `schema71-settings24-focused-force-authority`, is the sealed embedded implementation identity. Retained `rejected-after-runtime` candidate `partisan-rc-e11e7ea88a44-20260719T040154Z`, version `0.1.0-rc.20260719T040154Z.e11e7ea8`, was built from clean source HEAD `e11e7ea88a44ea07d7a81c0b4009f029f0b297e1`. Foundation passed all 874 checks, and all five Workbench targets passed at 5,848/11,901 and CRC `e4cde465`; its immutable seal binds four package files and 50 evidence files. The exact packed candidate's five-case focused set passed under clean harness `b1940f2` with JUnit 5/0/0/0, 40 rehashed files, zero residue, and 11 diagnostics = ten approved stock + one approved intentional + zero unapproved. | Deterministic-service remains accepted as `passed-noncertifying`; native-engine/world failed when the exact-package corrected canary ended at 8/1/1/1/0, 33/35, and 85/87 on stale ownership-transition proof fixtures. Full was stopped. The package is verification-only and runtime-ineligible. The source correction seeds and pins real mission sources while retaining the unresolved-source military negative, so a new immutable candidate and fresh evidence chain are required. The superseded `partisan-rc-0e632ec4f63e-20260719T004133Z` retains immutable historical focused and canary passes, but its full profile failed at 584/49/46/7/1 and 5,561/5,687, with 112 failed and 14 blocked required assertions plus ten unapproved hard diagnostics. None of that evidence transfers. Release remains `NO-GO`; Workshop/server/client/network/JIP/reconnect, markers/UI, arbitrary migration, performance, and soak remain open. |
+| Certification | Campaign Schema 71 and runtime-settings Schema 24 are current. `32727238d74b29905c68e5a80bb5897dfdc783c0`, UTC `2026-07-18T16:34:38Z`, label `schema71-settings24-focused-force-authority`, is the sealed embedded implementation identity. Active-runtime-candidate `partisan-rc-ee0e8add2a29-20260719T063815Z`, version `0.1.0-rc.20260719T063815Z.ee0e8add`, was built from clean source HEAD `ee0e8add2a298e83fd304b7660c4fc480dc6383f`. Its package, manifest, and ready SHA-256 values are `981258439b9d08866c4883471cacfe33aa373a36a667a39e8c939f285db74daf`, `1b877e3aa21773a268704bcb3fe889768fca3aa2d78541aa7285b061398ce907`, and `01741b85d0edba69f54b07388cdd7c452b8f6f1ad7ef4f6faf253918a4bbf280`. Foundation passed all 874 checks, and all five Workbench targets passed at 5,848/11,901 and CRC `f64e0868`; its seal binds four package files and 50 evidence files. | Packaged focused, corrected-canary, and full-profile gates are `not-run` for ee0. Historical state-only 35/35 and 87/87 proof is nonpackage and noncertifying. Run the five canonical packaged focused cases next. Ledger `history[0]` retains 0e as `rejected-after-full-profile`; `history[1]` retains e11 as `rejected-after-corrected-canary` with focused and rejected-canary evidence and no full result. None of that evidence transfers. Release remains `NO-GO`; Workshop/server/client/network/JIP/reconnect, markers/UI, arbitrary migration, performance, and soak remain open. |
 
 The canonical ownership dependency and first shared crew-aware combat-presence/
 heat dependency remain sealed through Schema 63. Sealed Schema 64 adds the

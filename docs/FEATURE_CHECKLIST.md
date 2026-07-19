@@ -6,33 +6,23 @@
 > generated behavioral specification. Chronological checkpoints below retain
 > scoped evidence but do not supersede those generated files.
 
-Campaign Schema 71 and runtime-settings Schema 24 are current. The retained
-`rejected-after-runtime` source-fixed release candidate is
-`partisan-rc-e11e7ea88a44-20260719T040154Z`, version
-`0.1.0-rc.20260719T040154Z.e11e7ea8`, from clean source HEAD
-`e11e7ea88a44ea07d7a81c0b4009f029f0b297e1`. Its four-file package SHA-256 is
-`75b61eb19513de00e56a43ad3778885f89a7497c0eebe4d870bf3b11e62a0dad`,
-manifest SHA-256 is
-`daed6876ce839a7fc6551257e4a4dd9bb0c92772c7e2d07be595acddde19e714`, and
-ready-seal SHA-256 is
-`0ca7a5e2fbe6bf298baa542250cc7b47bf2b135a5382e032fc5febdddf579acc`.
+Campaign Schema 71 and runtime-settings Schema 24 are current. The
+active-runtime-candidate is `partisan-rc-ee0e8add2a29-20260719T063815Z`, version
+`0.1.0-rc.20260719T063815Z.ee0e8add`, from clean source HEAD
+`ee0e8add2a298e83fd304b7660c4fc480dc6383f`. Its package, manifest, and
+ready-seal SHA-256 values are
+`981258439b9d08866c4883471cacfe33aa373a36a667a39e8c939f285db74daf`,
+`1b877e3aa21773a268704bcb3fe889768fca3aa2d78541aa7285b061398ce907`, and
+`01741b85d0edba69f54b07388cdd7c452b8f6f1ad7ef4f6faf253918a4bbf280`.
 Foundation passed all 874 references and all five Workbench targets passed at
-5,848 files/11,901 classes with common CRC `e4cde465`. All five package-bound
-focused cases passed against this candidate under clean harness `b1940f2`, with
-JUnit 5/0/0/0, 40/40 envelope files rehashed, 11 approved diagnostics, zero
-unapproved diagnostics, and zero cleanup/spill residue. Deterministic-service is
-therefore `passed-noncertifying`. Its corrected canary then failed closed under
-clean harness `937c86c`: 8 PASS/1 WARN/1 FAIL/1 BLOCKED/0 SKIPPED, 33/35 focused
-assertions, and 85/87 counted conditions. Package, packed-mount, artifact,
-diagnostic, state-restoration, rehash, and cleanup boundaries remained valid,
-but `ownership_transition.aggregate` and `ownership_transition.causes` failed.
-Full Campaign Debug is stopped, native-engine/world is `failed` for this
-package, and a new immutable candidate is required. This package is now
-verification-only and runtime-ineligible. Separately, the sealed embedded
-implementation identity remains `32727238d74b29905c68e5a80bb5897dfdc783c0`, UTC
-`2026-07-18T16:34:38Z`, label
-`schema71-settings24-focused-force-authority`; its non-package proof remains
-historical evidence.
+5,848 files/11,901 classes with common CRC `f64e0868`; the seal binds four
+package files and 50 evidence files. Packaged focused, corrected-canary, and
+full-profile gates are all `not-run` for ee0. The historical 35/35 and 87/87
+state-only force-authority proof is nonpackage and cannot advance this candidate.
+The next gate is the five canonical packaged focused cases, and release remains
+`NO-GO`. Separately, the sealed embedded implementation identity remains
+`32727238d74b29905c68e5a80bb5897dfdc783c0`, UTC `2026-07-18T16:34:38Z`, label
+`schema71-settings24-focused-force-authority`.
 
 ## Release-Ledger Schema 3 Checklist
 
@@ -50,15 +40,14 @@ historical evidence.
   candidate-bound evidence identities. Require exact file rehash, candidate
   correlation, increasing evidence times, and the disposition-specific Git
   ancestry chain in declared array order.
-- [x] Migrate only `partisan-rc-0e632ec4f63e-20260719T004133Z` into the array
-  as `rejected-after-full-profile`. Keep
-  `partisan-rc-e11e7ea88a44-20260719T040154Z` solely as the current retained
-  `rejected-after-runtime` artifact until a replacement is actually activated.
-- [ ] On that future activation, append `e11e7ea88a44` exactly once as
-  `rejected-after-corrected-canary`, leave full evidence absent, and replace
-  the complete current-candidate identity/evidence/rung surface in the same
-  checked transition. Do not publish a mixed or duplicate current/history
-  state. Release remains `NO-GO` until the proof ladder says otherwise.
+- [x] Preserve `partisan-rc-0e632ec4f63e-20260719T004133Z` as ordered
+  `history[0]` with `rejected-after-full-profile`.
+- [x] Activate `partisan-rc-ee0e8add2a29-20260719T063815Z` in one checked
+  transition. Append `partisan-rc-e11e7ea88a44-20260719T040154Z` exactly once
+  as ordered `history[1]` with `rejected-after-corrected-canary`, retain its
+  focused and rejected-canary evidence, leave full evidence absent, and replace
+  the complete current-candidate surface without a mixed or duplicate identity.
+  Release remains `NO-GO`.
 
 ## Current Release-Closure Gate 0
 
@@ -306,11 +295,12 @@ historical evidence.
   required.
 - [x] Pass the combined source/compile gate for every post-capture correction.
   Foundation passes all 874 script-symbol references. Guarded PC Workbench
-  validation compiles 5,848 files/11,901 classes at CRC `e4cde465`, reports
+  validation compiles 5,848 files/11,901 classes at CRC `f64e0868`, reports
   successful script validation and zero hard errors, and leaves zero owned
   processes, cleanup residue, or monitored spill changes. This proves current
   source shape and native compilation only; it is not package or runtime proof.
-- [x] Seal every post-capture correction into artifact-only replacement
+- [x] Seal every post-capture correction into the historical artifact-only
+  replacement
   candidate `partisan-rc-e11e7ea88a44-20260719T040154Z`, version
   `0.1.0-rc.20260719T040154Z.e11e7ea8`, from clean HEAD
   `e11e7ea88a44ea07d7a81c0b4009f029f0b297e1`. Its package, manifest, and ready
@@ -353,9 +343,13 @@ historical evidence.
   military zone-capture provenance, and political exact-once evidence is split
   from mission-provenance evidence. Narrow Foundation guards pin those
   boundaries. This source-only correction is not evidence for the rejected
-  package.
-- [ ] Seal that correction in a new immutable candidate, then restart focused,
-  corrected-canary, and full gates without transferring evidence. Dedicated,
+  e11 package.
+- [x] Seal that correction in active immutable candidate
+  `partisan-rc-ee0e8add2a29-20260719T063815Z` and retire e11 as ordered
+  `history[1]` with `rejected-after-corrected-canary` and no full result.
+- [ ] Run the five canonical packaged focused cases against ee0. Only after
+  focused acceptance may its corrected canary run; full remains later and
+  conditional. No result transfers from e11 or any other package. Dedicated,
   multiplayer, JIP, restart breadth, performance, and soak remain separate
   later gates.
 
@@ -1537,8 +1531,8 @@ stock, 13 proof-bound intentional, and ten unapproved diagnostics. The wrapper's
 reported success is not acceptance, so this mechanically complete and stable
 capture remains preliminary-unaccepted. Historical run
 `seed1985_t0_p1_u1784134163` remains a comparison at 583/50/46/7/1 and
-5,537/5,685, not an active-candidate result. The retained
-`rejected-after-runtime` replacement has its own accepted five-case packaged
+5,537/5,685, not an active-candidate result. The historical e11
+`rejected-after-corrected-canary` replacement has its own accepted five-case packaged
 focused result, but its corrected canary was rejected and its full profile was
 stopped.
 
@@ -1984,7 +1978,7 @@ projections of campaign state and must be restorable, foldable, or disposable.
 | Authoritative client projection and JIP | Host, clients, reconnects, and late joiners converge on the same snapshot watermark and ordered revisioned create/update/delete stream. | Implemented Foundation for marker records / Needs Runtime Proof | Schema 61 supplies delivery/ACK; Schema 62 adds source revision; Schema 66 protects native campaign-marker ownership without changing the wire protocol. Prove host/two-client/late-join equality, ownership revision correlation, immutable/self-healing campaign markers, editable player markers, native rendering, and restart. Menu snapshots, campaign tasks, general notifications, and dynamic player markers remain outside this protocol. | Highest |
 | Modal map targeting | Target selection owns map/input/cursor/modal state through one idempotent state machine. | Broad Alpha / Needs Runtime Proof | Normal map targeting and confirmation flows exist with ESC handling and duplicate-click guards. Prove Closed -> Selecting -> Confirming -> Submitting/Closing behavior, Choose Again re-arm after pointer release, cursor/modal layering, and atomic ESC teardown at supported resolutions. | Highest |
 | Map/War information model | Players see contacted town pressure and resistance territory without redundant or misleading rows. | Sealed in Schema-64 Source/Workbench / Needs Runtime Verification | Zone Pressure contains only explicitly contacted valid canonical towns; the player's current contacted town sorts first, then remaining towns by ascending FIA basis points and stable name/ID ties. Resistance Territory includes every published resistance-owned strategic zone except mission bookkeeping, ordered deterministically by type/name/ID with no arbitrary six-row cap. Current ownership receipt authority is respected. Prove rendered output, paging/scale, restart, reconnect, and JIP. | High |
-| Full Campaign Debug | One button runs a true runtime certification suite and writes structured artifacts without changing the campaign under test. | Active replacement focused gate passed / Corrected canary rejected / Full stopped | Active candidate `partisan-rc-e11e7ea88a44-20260719T040154Z` passed all five package-bound focused suites with JUnit 5/0/0/0, 40/40 files rehashed, an exact approved diagnostic census of 10 stock + 1 intentional + 0 unapproved, and zero cleanup/spill residue under clean harness `b1940f2`. Its clean-harness `937c86c` corrected canary was mechanically valid but failed at 33/35 focused assertions and 85/87 counted conditions: `ownership_transition.aggregate` and `ownership_transition.causes` exposed a stale proof fixture after mission-source tightening. Diagnostics were 2 approved stock + 0 unapproved, all ten files rehashed, state restored 18/0, and cleanup/spill residue was zero. Full Campaign Debug is stopped and native-engine/world is failed for this package. Source now retains the production `FindActiveMission` guard while seeding exact active missions in both proof paths, asserting cause/type/ID, retaining military provenance for an unknown source, and separating political from mission evidence; Foundation guards pin the correction. Seal a new immutable candidate and restart the evidence chain without transferring results. Historical run `seed1985_t0_p1_u1784425330` remains an immutable prior-package red result. Dedicated/live server-client, network/JIP, migration, marker/UI, performance, and soak gates remain separate; release remains `NO-GO`. | Highest |
+| Full Campaign Debug | One button runs a true runtime certification suite and writes structured artifacts without changing the campaign under test. | Active ee0 package / Focused not run / Canary and full not run | Active candidate `partisan-rc-ee0e8add2a29-20260719T063815Z` has Foundation and all-five Workbench proof at 5,848/11,901 and CRC `f64e0868`, but no packaged focused, corrected-canary, or full result. Run the five canonical packaged focused cases next. Historical e11 passed its focused set, then failed corrected canary at 33/35 and 85/87; it is ledger `history[1]` as `rejected-after-corrected-canary`, with full absent. Historical 0e retains its own rejected full-profile boundary. No historical package or state-only result transfers. Dedicated/live server-client, network/JIP, migration, marker/UI, performance, and soak gates remain separate; release remains `NO-GO`. | Highest |
 | Scoped debug profiles | Smaller profiles isolate feature families for fast iteration. | Implemented Foundation | Keep profiles explicit and never treat external/restart/soak gaps as PASS. | Keep |
 | Build provenance | Runtime logs and artifacts identify the exact code build from one authoritative source. | Implemented Foundation / Needs Packaged Proof | Runtime, menu, admin, and debug artifact summaries now consume `HST_BuildInfo`; prove the stamped identity in a packaged dedicated-server/client run. | High |
 
@@ -2001,14 +1995,12 @@ projections of campaign state and must be restorable, foldable, or disposable.
 ## Highest-Impact Next Tasks
 
 The active immutable package is candidate
-`partisan-rc-e11e7ea88a44-20260719T040154Z`. Its five package-bound focused cases
-are accepted, advancing deterministic-service to `passed-noncertifying`, but
-its corrected `force_authority` canary is rejected at 33/35 focused assertions
-and 85/87 counted conditions. Native-engine/world is `failed` and Full Campaign
-Debug is stopped for this package. The current source-only ownership proof
-fixture correction must be sealed into a new immutable candidate before the
-focused -> corrected-canary -> full chain restarts; no package evidence
-transfers. Preserve historical run
+`partisan-rc-ee0e8add2a29-20260719T063815Z`. Its Foundation and all-five
+Workbench gates pass, but packaged focused, corrected-canary, and full-profile
+results are `not-run`. Run the five canonical packaged focused cases next; no
+historical package or state-only evidence transfers. Preserve historical e11 as
+`history[1]` with `rejected-after-corrected-canary` and no full result, and
+preserve historical run
 `seed1985_t0_p1_u1784425330` as the exact red boundary for its former
 `partisan-rc-0e632ec4f63e-20260719T004133Z` package only.
 
