@@ -2738,7 +2738,6 @@ function Get-CampaignDebugHardDiagnosticCensus {
         'Partisan exact mission convoy | mission_convoy_proof_cargo_wrong_runtime failed closed: exact mission convoy runtime type is incompatible with frozen convoy authority',
         'Partisan exact mission convoy | mission_convoy_proof_cargo_captive_non_character failed closed: exact mission convoy captive prefab is not a boardable character with compartment access',
         'Partisan exact mission convoy | mission_convoy_proof_cargo_payload_character failed closed: exact mission convoy payload prefab must be a non-character mission-asset entity',
-        'Partisan exact mission convoy | mission_convoy_proof_arrival_outcome_boundary failed closed: restored exact convoy runtime could not be normalized without changing survivor or element authority',
         'Partisan exact mission convoy | mission_convoy_proof_duplicate_corruption failed closed: exact mission convoy authority identity is ambiguous',
         'Partisan exact mission convoy | mission_convoy_proof_hash_corruption failed closed: exact mission convoy manifest hash changed after admission',
         'Partisan exact mission convoy | mission_convoy_proof_missing_backlink_corruption failed closed: exact mission convoy canonical mission authority links conflict',
@@ -2780,10 +2779,7 @@ function Get-CampaignDebugHardDiagnosticCensus {
             $proofValid = if ($index -le 8) {
                 $IntentionalMissionConvoyAdmissionDiagnosticsProven
             }
-            elseif ($index -eq 9) {
-                $IntentionalMissionConvoySettlementDiagnosticProven
-            }
-            elseif ($index -le 12) {
+            elseif ($index -le 11) {
                 $IntentionalMissionConvoyCorruptionDiagnosticsProven
             }
             else {
@@ -3135,7 +3131,6 @@ function Test-CampaignDebugHardDiagnosticCensus {
         'Partisan exact mission convoy | mission_convoy_proof_cargo_wrong_runtime failed closed: exact mission convoy runtime type is incompatible with frozen convoy authority',
         'Partisan exact mission convoy | mission_convoy_proof_cargo_captive_non_character failed closed: exact mission convoy captive prefab is not a boardable character with compartment access',
         'Partisan exact mission convoy | mission_convoy_proof_cargo_payload_character failed closed: exact mission convoy payload prefab must be a non-character mission-asset entity',
-        'Partisan exact mission convoy | mission_convoy_proof_arrival_outcome_boundary failed closed: restored exact convoy runtime could not be normalized without changing survivor or element authority',
         'Partisan exact mission convoy | mission_convoy_proof_duplicate_corruption failed closed: exact mission convoy authority identity is ambiguous',
         'Partisan exact mission convoy | mission_convoy_proof_hash_corruption failed closed: exact mission convoy manifest hash changed after admission',
         'Partisan exact mission convoy | mission_convoy_proof_missing_backlink_corruption failed closed: exact mission convoy canonical mission authority links conflict',
@@ -3158,7 +3153,7 @@ function Test-CampaignDebugHardDiagnosticCensus {
     if (-not $intentionalValid.Valid -or
         -not $intentionalValid.ChannelArithmeticValid -or
         -not $intentionalValid.CategoryArithmeticValid -or
-        $intentionalValid.ApprovedIntentionalDiagnosticCount -ne 14 -or
+        $intentionalValid.ApprovedIntentionalDiagnosticCount -ne 13 -or
         $intentionalValid.UnapprovedHardDiagnosticCount -ne 0 -or
         $intentionalValid.HardDiagnosticCount -ne
             ($intentionalValid.ApprovedStockDiagnosticCount +
@@ -3191,23 +3186,62 @@ function Test-CampaignDebugHardDiagnosticCensus {
         -IntentionalMissionConvoyCorruptionDiagnosticsProven $true `
         -IntentionalMissionConvoyWatchdogDiagnosticProven $true
     if ($duplicateIntentional.Valid -or
-        $duplicateIntentional.HardDiagnosticCount -ne 15 -or
+        $duplicateIntentional.HardDiagnosticCount -ne 14 -or
         $duplicateIntentional.ApprovedIntentionalDiagnosticCount -ne 0 -or
-        $duplicateIntentional.UnapprovedHardDiagnosticCount -ne 15) {
+        $duplicateIntentional.UnapprovedHardDiagnosticCount -ne 14) {
         throw 'Campaign Debug duplicate intentional-fixture rejection self-test failed.'
     }
 
-    $settlementUnproven = Get-CampaignDebugHardDiagnosticCensus `
+    $settlementNotRequired = Get-CampaignDebugHardDiagnosticCensus `
         -ScriptText $intentionalText `
         -Profile full_certification `
         -IntentionalMissionConvoyAdmissionDiagnosticsProven $true `
         -IntentionalMissionConvoySettlementDiagnosticProven $false `
         -IntentionalMissionConvoyCorruptionDiagnosticsProven $true `
         -IntentionalMissionConvoyWatchdogDiagnosticProven $true
-    if ($settlementUnproven.Valid -or
-        $settlementUnproven.ApprovedIntentionalDiagnosticCount -ne 13 -or
-        $settlementUnproven.UnapprovedHardDiagnosticCount -ne 1) {
-        throw 'Campaign Debug failed-settlement fixture rejection self-test failed.'
+    if (-not $settlementNotRequired.Valid -or
+        $settlementNotRequired.ApprovedIntentionalDiagnosticCount -ne 13 -or
+        $settlementNotRequired.UnapprovedHardDiagnosticCount -ne 0) {
+        throw 'Campaign Debug obsolete settlement-diagnostic independence self-test failed.'
+    }
+
+    $admissionUnproven = Get-CampaignDebugHardDiagnosticCensus `
+        -ScriptText $intentionalText `
+        -Profile full_certification `
+        -IntentionalMissionConvoyAdmissionDiagnosticsProven $false `
+        -IntentionalMissionConvoySettlementDiagnosticProven $true `
+        -IntentionalMissionConvoyCorruptionDiagnosticsProven $true `
+        -IntentionalMissionConvoyWatchdogDiagnosticProven $true
+    if ($admissionUnproven.Valid -or
+        $admissionUnproven.ApprovedIntentionalDiagnosticCount -ne 4 -or
+        $admissionUnproven.UnapprovedHardDiagnosticCount -ne 9) {
+        throw 'Campaign Debug intentional admission-diagnostic boundary self-test failed.'
+    }
+
+    $corruptionUnproven = Get-CampaignDebugHardDiagnosticCensus `
+        -ScriptText $intentionalText `
+        -Profile full_certification `
+        -IntentionalMissionConvoyAdmissionDiagnosticsProven $true `
+        -IntentionalMissionConvoySettlementDiagnosticProven $true `
+        -IntentionalMissionConvoyCorruptionDiagnosticsProven $false `
+        -IntentionalMissionConvoyWatchdogDiagnosticProven $true
+    if ($corruptionUnproven.Valid -or
+        $corruptionUnproven.ApprovedIntentionalDiagnosticCount -ne 10 -or
+        $corruptionUnproven.UnapprovedHardDiagnosticCount -ne 3) {
+        throw 'Campaign Debug intentional corruption-diagnostic boundary self-test failed.'
+    }
+
+    $watchdogUnproven = Get-CampaignDebugHardDiagnosticCensus `
+        -ScriptText $intentionalText `
+        -Profile full_certification `
+        -IntentionalMissionConvoyAdmissionDiagnosticsProven $true `
+        -IntentionalMissionConvoySettlementDiagnosticProven $true `
+        -IntentionalMissionConvoyCorruptionDiagnosticsProven $true `
+        -IntentionalMissionConvoyWatchdogDiagnosticProven $false
+    if ($watchdogUnproven.Valid -or
+        $watchdogUnproven.ApprovedIntentionalDiagnosticCount -ne 12 -or
+        $watchdogUnproven.UnapprovedHardDiagnosticCount -ne 1) {
+        throw 'Campaign Debug intentional watchdog-diagnostic boundary self-test failed.'
     }
 
     $intentionalUnproven = Get-CampaignDebugHardDiagnosticCensus `
@@ -3218,20 +3252,20 @@ function Test-CampaignDebugHardDiagnosticCensus {
         -IntentionalMissionConvoyCorruptionDiagnosticsProven $false `
         -IntentionalMissionConvoyWatchdogDiagnosticProven $false
     if ($intentionalUnproven.Valid -or
-        $intentionalUnproven.UnapprovedHardDiagnosticCount -ne 14) {
+        $intentionalUnproven.UnapprovedHardDiagnosticCount -ne 13) {
         throw 'Campaign Debug unproven intentional-fixture rejection self-test failed.'
     }
 
     $intentionalPartial = Get-CampaignDebugHardDiagnosticCensus `
         -ScriptText (($fullLifecyclePrefix +
-            $intentionalLines.ToArray()[0..12] + $fullLifecycleSuffix) -join "`n") `
+            $intentionalLines.ToArray()[0..11] + $fullLifecycleSuffix) -join "`n") `
         -Profile full_certification `
         -IntentionalMissionConvoyAdmissionDiagnosticsProven $true `
         -IntentionalMissionConvoySettlementDiagnosticProven $true `
         -IntentionalMissionConvoyCorruptionDiagnosticsProven $true `
         -IntentionalMissionConvoyWatchdogDiagnosticProven $true
     if ($intentionalPartial.Valid -or
-        $intentionalPartial.UnapprovedHardDiagnosticCount -ne 13) {
+        $intentionalPartial.UnapprovedHardDiagnosticCount -ne 12) {
         throw 'Campaign Debug partial intentional-fixture rejection self-test failed.'
     }
 
@@ -3247,7 +3281,7 @@ function Test-CampaignDebugHardDiagnosticCensus {
         -IntentionalMissionConvoyCorruptionDiagnosticsProven $true `
         -IntentionalMissionConvoyWatchdogDiagnosticProven $true
     if ($intentionalMutation.Valid -or
-        $intentionalMutation.UnapprovedHardDiagnosticCount -ne 14) {
+        $intentionalMutation.UnapprovedHardDiagnosticCount -ne 13) {
         throw 'Campaign Debug intentional-fixture suffix-mutation self-test failed.'
     }
 
@@ -3265,8 +3299,8 @@ function Test-CampaignDebugHardDiagnosticCensus {
         -IntentionalMissionConvoyWatchdogDiagnosticProven $true
     if ($engineIntentional.Valid -or
         $engineIntentional.ApprovedIntentionalDiagnosticCount -ne 0 -or
-        $engineIntentional.EngineErrors -ne 14 -or
-        $engineIntentional.UnapprovedHardDiagnosticCount -ne 14) {
+        $engineIntentional.EngineErrors -ne 13 -or
+        $engineIntentional.UnapprovedHardDiagnosticCount -ne 13) {
         throw 'Campaign Debug intentional-fixture channel-mutation self-test failed.'
     }
 
@@ -3287,7 +3321,7 @@ function Test-CampaignDebugHardDiagnosticCensus {
         -IntentionalMissionConvoyWatchdogDiagnosticProven $true
     if ($bodyIntentional.Valid -or
         $bodyIntentional.ApprovedIntentionalDiagnosticCount -ne 0 -or
-        $bodyIntentional.UnapprovedHardDiagnosticCount -ne 14) {
+        $bodyIntentional.UnapprovedHardDiagnosticCount -ne 13) {
         throw 'Campaign Debug intentional-fixture continuation-body self-test failed.'
     }
 
@@ -3302,7 +3336,7 @@ function Test-CampaignDebugHardDiagnosticCensus {
         -IntentionalMissionConvoyWatchdogDiagnosticProven $true
     if ($outOfBoundsIntentional.Valid -or
         $outOfBoundsIntentional.ApprovedIntentionalDiagnosticCount -ne 0 -or
-        $outOfBoundsIntentional.UnapprovedHardDiagnosticCount -ne 14) {
+        $outOfBoundsIntentional.UnapprovedHardDiagnosticCount -ne 13) {
         throw 'Campaign Debug intentional-fixture lifecycle-boundary self-test failed.'
     }
 
@@ -3314,7 +3348,7 @@ function Test-CampaignDebugHardDiagnosticCensus {
         -IntentionalMissionConvoyCorruptionDiagnosticsProven $true `
         -IntentionalMissionConvoyWatchdogDiagnosticProven $true
     if ($canaryIntentional.Valid -or
-        $canaryIntentional.UnapprovedHardDiagnosticCount -ne 14) {
+        $canaryIntentional.UnapprovedHardDiagnosticCount -ne 13) {
         throw 'Campaign Debug wrong-profile intentional-fixture rejection self-test failed.'
     }
 
@@ -3546,7 +3580,7 @@ function Test-CampaignDebugHardDiagnosticCensus {
         }
     }
 
-    return 33
+    return 36
 }
 
 function Get-GuardErrorCensus {
