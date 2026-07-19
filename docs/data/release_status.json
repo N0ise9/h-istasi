@@ -1,6 +1,6 @@
 {
   "schemaVersion": 3,
-  "statusAsOfUtc": "2026-07-19T07:14:47.8353805Z",
+  "statusAsOfUtc": "2026-07-19T07:40:09.5714410Z",
   "releaseStage": "development alpha",
   "releaseDecision": "NO-GO",
   "auditedRevision": "25dedb3e82ad516c28826830bc1e06a2d3940f53",
@@ -13,7 +13,7 @@
   },
   "artifact": {
     "releaseCandidateBuilt": true,
-    "runtimeUseDisposition": "active-runtime-candidate",
+    "runtimeUseDisposition": "rejected-after-runtime",
     "candidateId": "partisan-rc-ee0e8add2a29-20260719T063815Z",
     "candidateSourceHead": "ee0e8add2a298e83fd304b7660c4fc480dc6383f",
     "manifestPath": "docs/evidence/release-candidates/partisan-rc-ee0e8add2a29-20260719T063815Z/candidate.json",
@@ -29,7 +29,7 @@
     "workbenchCrc": "f64e0868",
     "serverVersion": "1.7.0.54",
     "clientVersion": "1.7.0.54",
-    "note": "This immutable replacement is the active runtime candidate. Foundation, all five Workbench targets, all five packaged focused suites, and the corrected force-authority canary passed for its exact source HEAD and package identity. The deterministic-service and scoped native engine-world results are non-certifying; Full Campaign Debug has not run for this package, and no historical result transfers forward. Release remains NO-GO, with Full Campaign Debug as the next gate."
+    "note": "This immutable replacement retains its exact candidate identity and accepted lower-rung evidence, but Full Campaign Debug rejected it at 598 PASS, 47 WARN, 26 FAIL, 13 BLOCKED, and 1 SKIPPED with 5630/5695 required assertions proven and 24 unapproved hard diagnostics. Its runtime disposition is rejected-after-runtime; release remains NO-GO, and no further runtime evidence may attach to this package."
   },
   "evidence": {
     "foundation": {
@@ -72,7 +72,7 @@
       "unapprovedHardDiagnosticCount": 0,
       "envelopeFileCount": 40,
       "cleanupAndSpillZero": true,
-      "summary": "All five canonical focused suites passed against the exact active packed candidate: 5 tests, zero failures, errors, or skips; all 40 envelope files rehashed; 11 approved hard diagnostics; zero unapproved hard diagnostics; and zero cleanup or spill residue. This deterministic-service result is non-certifying and advances only to the corrected force-authority canary."
+      "summary": "All five canonical focused suites passed against the exact then-active packed candidate: 5 tests, zero failures, errors, or skips; all 40 envelope files rehashed; 11 approved hard diagnostics; zero unapproved hard diagnostics; and zero cleanup or spill residue. This deterministic-service result remained non-certifying and does not override the later full-profile rejection."
     },
     "correctedForceAuthorityCanary": {
       "status": "passed-noncertifying",
@@ -127,7 +127,67 @@
       "envelopeSha256": "4811c9ef665a47fabfc4aa8d265ebca8354f4e0bdf5976df33afbd0038d55c93",
       "runSummarySha256": "4811c9ef665a47fabfc4aa8d265ebca8354f4e0bdf5976df33afbd0038d55c93",
       "acceptanceDisposition": "accepted-noncertifying",
-      "summary": "The corrected force-authority canary passed against the exact active packed candidate and clean harness: 35/35 focused assertions, 87/87 counted conditions, 9 PASS, 1 WARN, 0 FAIL, 1 BLOCKED, 0 SKIPPED, an exact 18-row zero-delta state diff, and final orphan cleanup. Its 2 hard diagnostics were both approved stock identity exceptions; classification was valid with zero unapproved diagnostics. All 10 envelope files were rehashed and cleanup/spill counters were zero. This scoped result is accepted but non-certifying and advances only to Full Campaign Debug against the unchanged package."
+      "summary": "The corrected force-authority canary passed against the exact then-active packed candidate and clean harness: 35/35 focused assertions, 87/87 counted conditions, 9 PASS, 1 WARN, 0 FAIL, 1 BLOCKED, 0 SKIPPED, an exact 18-row zero-delta state diff, and final orphan cleanup. Its 2 hard diagnostics were both approved stock identity exceptions; classification was valid with zero unapproved diagnostics. All 10 envelope files were rehashed and cleanup/spill counters were zero. This scoped result was accepted but non-certifying and does not override the later Full Campaign Debug rejection."
+    },
+    "fullCampaignDebug": {
+      "status": "failed-certification-and-unapproved-diagnostics",
+      "summaryPath": "docs/evidence/campaign-debug/partisan-rc-ee0e8add2a29-20260719T063815Z-full-20260719T072739Z.json",
+      "summarySha256": "e83bc1e752ac4c1abc5cb57ce097459642e17637f6747e4edc8e7d57569c1884",
+      "candidateId": "partisan-rc-ee0e8add2a29-20260719T063815Z",
+      "candidateSourceHead": "ee0e8add2a298e83fd304b7660c4fc480dc6383f",
+      "packageSha256": "981258439b9d08866c4883471cacfe33aa373a36a667a39e8c939f285db74daf",
+      "manifestSha256": "1b877e3aa21773a268704bcb3fe889768fca3aa2d78541aa7285b061398ce907",
+      "readySha256": "01741b85d0edba69f54b07388cdd7c452b8f6f1ad7ef4f6faf253918a4bbf280",
+      "settingsSha256": "fb744c7e85b93797da55e03fb8c2c1f0864e1ae43c2c49dfddd94ba91d24981c",
+      "harnessGitHead": "a5ccf36aee17a4f88d7f1c2f232ce9fc14652018",
+      "campaignRunnerSha256": "56de386cbdb5677f4315c99e690eefa7158cc6e00e043ded221cec04bde74479",
+      "candidateModuleSha256": "22d2f7367d122ca9307140ef6400e5b1646bdf6b12922257811b6185fe345ba7",
+      "runLeafId": "20260719T072739Z-97fc069d58cd427c848c83f99f39e5f9",
+      "runId": "seed1985_t0_p1_u1784446076",
+      "startedUtc": "2026-07-19T07:27:39.1454367Z",
+      "completedUtc": "2026-07-19T07:40:09.5714410Z",
+      "runtimeSeconds": 749,
+      "wrapperCaptureSuccess": true,
+      "runtimeOutcomeSuccess": false,
+      "error": "Campaign Debug runtime completed with unapproved hard diagnostics.",
+      "caseCount": 685,
+      "pass": 598,
+      "warn": 47,
+      "fail": 26,
+      "blocked": 13,
+      "skipped": 1,
+      "requiredAssertions": 5695,
+      "provenAssertions": 5630,
+      "failedAssertions": 50,
+      "blockedAssertions": 15,
+      "certificationPassed": false,
+      "artifactSchemaValidationValid": true,
+      "candidateBoundaryVerified": true,
+      "mountPacked": true,
+      "artifactsStable": true,
+      "diagnosticClassificationValid": false,
+      "hardDiagnosticFree": false,
+      "hardDiagnosticCount": 26,
+      "scriptErrors": 26,
+      "engineErrors": 0,
+      "partisanErrors": 22,
+      "approvedStockDiagnosticCount": 2,
+      "approvedIntentionalDiagnosticCount": 0,
+      "unapprovedHardDiagnosticCount": 24,
+      "classifierSelfTestCount": 33,
+      "canonicalScriptLogCount": 1,
+      "canonicalConsoleLogCount": 1,
+      "canonicalLogPairSameDirectory": true,
+      "stateDiffRows": 18,
+      "nonzeroStateDiffRows": 0,
+      "finalOrphanCleanupPass": true,
+      "cleanupAndSpillZero": true,
+      "envelopeFileCount": 10,
+      "envelopeFilesRehashed": true,
+      "envelopeSha256": "fce4928444f15531f254ad4d7e119cf8bfe1d06e6fcb564518d2e052544d4278",
+      "runSummarySha256": "fce4928444f15531f254ad4d7e119cf8bfe1d06e6fcb564518d2e052544d4278",
+      "acceptanceDisposition": "rejected-red-full-profile",
+      "summary": "The full-profile wrapper for the then-active candidate completed a stable exact-package capture and rehashed all 10 envelope files with zero cleanup or spill residue. Mechanical capture success was not proof acceptance: runtime outcome success was false, certification remained red at 598 PASS, 47 WARN, 26 FAIL, 13 BLOCKED, and 1 SKIPPED with 5630/5695 required assertions proven, and the classifier rejected 24 unapproved diagnostics among 26 hard diagnostics. This exact candidate is rejected-after-runtime and remains release-blocking."
     },
     "focusedForceAuthority": {
       "status": "passed-noncertifying",
@@ -417,19 +477,19 @@
       "id": "deterministic-service",
       "label": "Deterministic service contracts",
       "status": "passed-noncertifying",
-      "summary": "All five canonical packaged focused service suites passed against the exact active package: JUnit 5/0/0/0, all 40 envelope files rehashed, 11 approved and zero unapproved hard diagnostics, and zero cleanup or spill residue. This result is non-certifying."
+      "summary": "All five canonical packaged focused service suites passed against the exact retained package: JUnit 5/0/0/0, all 40 envelope files rehashed, 11 approved and zero unapproved hard diagnostics, and zero cleanup or spill residue. This lower-rung result is non-certifying and does not override the later full-profile rejection."
     },
     {
       "id": "native-engine-world",
       "label": "Native engine-world behavior",
-      "status": "passed-noncertifying",
-      "summary": "The corrected force-authority canary passed against the exact active package at 35/35 focused assertions and 87/87 counted conditions with zero unapproved hard diagnostics and zero cleanup/spill residue. This scoped force-authority result is non-certifying; Full Campaign Debug has not run."
+      "status": "failed",
+      "summary": "The corrected force-authority canary passed its scoped gate, but Full Campaign Debug rejected the same exact package at 598 PASS, 47 WARN, 26 FAIL, 13 BLOCKED, and 1 SKIPPED with 5630/5695 required assertions proven and 24 unapproved hard diagnostics. The retained native engine-world rung is failed."
     },
     {
       "id": "packaged-dedicated",
       "label": "Packaged dedicated server",
       "status": "not-run",
-      "summary": "The active replacement candidate has not been launched through the standard dedicated-server runtime gate."
+      "summary": "The retained candidate was rejected by Full Campaign Debug before the standard dedicated-server runtime gate; that gate remains not run."
     },
     {
       "id": "multiplayer-jip",
@@ -453,25 +513,25 @@
       "id": "canary",
       "label": "Canary release",
       "status": "blocked",
-      "summary": "Blocked until the active package passes each lower release-proof rung, beginning with Full Campaign Debug against the unchanged package."
+      "summary": "Blocked because the retained exact package failed Full Campaign Debug and is rejected-after-runtime; a new immutable candidate must restart the proof ladder."
     },
     {
       "id": "stable-certification",
       "label": "Stable certification",
       "status": "blocked",
-      "summary": "No current matrix row is certified; full-profile, dedicated, multiplayer, restart, performance, soak, and release-canary gates remain incomplete."
+      "summary": "No current matrix row is certified; full-profile proof failed, and dedicated, multiplayer, restart, performance, soak, and release-canary gates remain incomplete."
     }
   ],
   "activeBlockers": [
     {
       "id": "STATUS-001",
       "category": "AUTH",
-      "summary": "The active replacement package has green Foundation, all-target Workbench, five-case packaged focused evidence, and an accepted corrected force-authority canary. Deterministic-service and the scoped native engine-world result are passed-noncertifying; Full Campaign Debug remains not-run, and no historical result transfers."
+      "summary": "The retained ee0 package keeps green Foundation, all-target Workbench, five-case packaged focused evidence, and an accepted corrected force-authority canary, but its Full Campaign Debug result is red and its runtime disposition is rejected-after-runtime. No lower-rung or historical result overrides that rejection."
     },
     {
       "id": "STATUS-002",
       "category": "TEST",
-      "summary": "Run Full Campaign Debug next against the exact unchanged active candidate. The accepted scoped canary does not certify the full profile, and no historical or state-only evidence transfers into that gate."
+      "summary": "Full Campaign Debug rejected the exact ee0 package at 26 failed cases, 13 blocked cases, 50 failed required assertions, 15 blocked required assertions, and 24 unapproved diagnostics. Triage those clusters, seal source fixes in a new immutable candidate, and restart focused, corrected-canary, and full gates without attaching new evidence to ee0."
     },
     {
       "id": "STATUS-003",

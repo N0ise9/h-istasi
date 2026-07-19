@@ -4186,3 +4186,57 @@ Consequences:
   canary release, or stable release.
 - Full Campaign Debug is now the next gate against the same unchanged package.
 - Release remains `NO-GO`.
+
+Outcome update: Full Campaign Debug has now run against the exact unchanged ee0
+package and is rejected red. CRI-077 records the mechanically exact capture,
+independent certification failure, diagnostic clusters, and immutable-package
+boundary.
+
+## CRI-077 - Record the ee0 Full Campaign Debug Result as Rejected Red
+
+- Status: Accepted
+- Date: 2026-07-19
+
+Context: CRI-076 accepted the corrected canary only as scoped
+`passed-noncertifying` native-engine/world evidence and authorized the full
+profile against the same unchanged package. A valid capture is not itself a
+passing certification result.
+
+Decision: Record Full Campaign Debug run `seed1985_t0_p1_u1784446076`, leaf
+`20260719T072739Z-97fc069d58cd427c848c83f99f39e5f9`, captured from
+`2026-07-19T07:27:39.1454367Z` through `2026-07-19T07:40:09.5714410Z` under
+clean harness HEAD `a5ccf36aee17a4f88d7f1c2f232ce9fc14652018`, as the rejected
+red full-profile boundary for exact candidate
+`partisan-rc-ee0e8add2a29-20260719T063815Z` and exact package SHA-256
+`981258439b9d08866c4883471cacfe33aa373a36a667a39e8c939f285db74daf`.
+The wrapper completed a mechanically valid ten-file capture with stable
+candidate/package identity, envelope SHA-256
+`fce4928444f15531f254ad4d7e119cf8bfe1d06e6fcb564518d2e052544d4278`,
+18/0 state restoration, Phase 17 at 11/11, Phase 24 at 2/2, staged cleanup at
+6/6, zero final orphans, and every cleanup/spill count at zero.
+
+Certification nevertheless failed independently. The 685 cases ended 598 PASS,
+47 WARN, 26 FAIL, 13 BLOCKED, and 1 SKIPPED. The report proved 5,630/5,695
+required assertions, with 50 failed and 15 blocked. Diagnostic acceptance also
+failed independently: 26 hard diagnostics classified as two approved stock,
+zero approved intentional, and 24 unapproved: 22 Partisan and two runtime. An
+obsolete fourteenth intentional-convoy classifier expectation demoted the 13
+valid intentional-negative convoy diagnostics; nine debug respawn-race errors and two HQ arsenal
+teardown errors form the remaining unapproved clusters. The portable summary is
+`docs/evidence/campaign-debug/partisan-rc-ee0e8add2a29-20260719T063815Z-full-20260719T072739Z.json`,
+SHA-256 `e83bc1e752ac4c1abc5cb57ce097459642e17637f6747e4edc8e7d57569c1884`.
+
+Consequences:
+
+- The full-profile result is rejected red even though candidate identity,
+  capture integrity, state restoration, and cleanup are valid. Mechanical
+  success does not override either failed acceptance surface.
+- The earlier focused and corrected-canary rungs remain scoped
+  `passed-noncertifying` evidence for ee0; they do not certify the full profile.
+- Mark ee0 `rejected-after-runtime` and keep the candidate and package immutable.
+  No further runtime evidence may attach. Any classifier, fixture, race, or
+  teardown correction changes source and therefore requires a new candidate and
+  a fresh package-bound evidence chain.
+- Release remains `NO-GO`. Dedicated server/client, multiplayer/JIP, restart
+  breadth, migration, performance, soak, canary-release, and stable-release
+  gates remain independently open.

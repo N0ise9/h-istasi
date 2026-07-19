@@ -7,7 +7,8 @@
 > surface. Historical boundaries below do not supersede either generated file.
 
 Campaign Schema 71 and runtime-settings Schema 24 are current. The
-active-runtime-candidate is `partisan-rc-ee0e8add2a29-20260719T063815Z`, version
+retained `rejected-after-runtime` candidate is
+`partisan-rc-ee0e8add2a29-20260719T063815Z`, version
 `0.1.0-rc.20260719T063815Z.ee0e8add`, from clean source HEAD
 `ee0e8add2a298e83fd304b7660c4fc480dc6383f`. Its package, manifest, and ready
 SHA-256 values are respectively
@@ -27,8 +28,24 @@ HEAD `4f8d7e2d7a39896737fd6754060523bf852c5fa8` accepted the unchanged
 package's corrected `force_authority` canary at 9 PASS/1 WARN/0 FAIL/1 BLOCKED/0
 SKIPPED, 35/35 and 87/87 proof, 18/0 restoration, two approved stock plus zero
 unapproved diagnostics, ten rehashed files, final orphan cleanup, and zero
-cleanup/spill residue. Scoped native-engine/world is `passed-noncertifying`;
-Full Campaign Debug is next. Release remains `NO-GO`. Separately, the sealed
+cleanup/spill residue. Scoped native-engine/world is `passed-noncertifying`.
+Clean harness HEAD `a5ccf36aee17a4f88d7f1c2f232ce9fc14652018` then ran Full
+Campaign Debug against the unchanged package. Run
+`seed1985_t0_p1_u1784446076`, leaf
+`20260719T072739Z-97fc069d58cd427c848c83f99f39e5f9`, is mechanically exact
+but rejected red at 598 PASS/47 WARN/26 FAIL/13 BLOCKED/1 SKIPPED across 685
+cases and 5,630/5,695 required assertions, with 50 failed and 15 blocked.
+State restoration is 18/0; Phase 17, Phase 24, staged cleanup, and final orphan
+cleanup pass at 11/11, 2/2, 6/6, and zero; all ten files rehash to envelope
+SHA-256 `fce4928444f15531f254ad4d7e119cf8bfe1d06e6fcb564518d2e052544d4278`;
+and residue is zero. The 26 hard diagnostics classify as two approved stock +
+zero approved intentional + 24 unapproved (22 Partisan + two runtime): an
+obsolete fourteenth intentional-convoy
+expectation demoted 13 valid intentional negatives, alongside nine debug
+respawn-race errors and two HQ arsenal teardown errors. Full certification and
+diagnostic parity both fail independently. The candidate/package remains
+immutable, source fixes require a new candidate, and release remains `NO-GO`.
+Separately, the sealed
 embedded implementation identity remains
 `32727238d74b29905c68e5a80bb5897dfdc783c0`,
 UTC `2026-07-18T16:34:38Z`, label
@@ -75,7 +92,7 @@ residue was zero. This closes only deterministic-service as
 `passed-noncertifying`.
 
 Clean harness HEAD `4f8d7e2d7a39896737fd6754060523bf852c5fa8` then ran corrected
-canary `seed1985_t0_p1_u1784445266` against the same exact active candidate and
+canary `seed1985_t0_p1_u1784445266` against the same exact then-active candidate and
 package SHA-256
 `981258439b9d08866c4883471cacfe33aa373a36a667a39e8c939f285db74daf`.
 Its 11 cases ended 9 PASS/1 WARN/0 FAIL/1 BLOCKED/0 SKIPPED. All 35/35 focused
@@ -83,7 +100,8 @@ assertions and 87/87 certification-counting assertions were proven, state
 restoration was 18/0, all ten files rehashed, all 33 classifier checks passed,
 the census was two approved stock plus zero unapproved diagnostics, and final
 orphan cleanup plus every cleanup/spill boundary passed at zero. Accept scoped
-native-engine/world only as `passed-noncertifying`; Full Campaign Debug is next.
+native-engine/world only as `passed-noncertifying`. The subsequent unchanged-
+package full result is the rejected red boundary described above.
 
 ## Historical e11 Packaged Focused Deterministic-Service Boundary
 
@@ -125,8 +143,9 @@ adds a negative unknown-source control that must remain military zone-capture
 provenance, and separates political exact-once from mission-provenance
 diagnostics. Foundation guards pin those boundaries. This correction belongs to
 source after the immutable package; it transfers no evidence. It is sealed in
-the active ee0 candidate, whose focused and corrected-canary rungs now pass on
-its own bytes as noncertifying evidence. Full Campaign Debug is next.
+the retained ee0 candidate, whose focused and corrected-canary rungs pass on its
+own bytes as noncertifying evidence. Its full profile is independently rejected
+at 598/47/26/13/1 and 5,630/5,695 with 24 unapproved diagnostics.
 Native-world breadth, dedicated,
 multiplayer/JIP, restart breadth, performance, and soak parity remain open, and
 release remains `NO-GO`.
@@ -234,7 +253,7 @@ failed, 14 blocked, and ten unapproved hard diagnostics. Its wrapper capture
 integrity is valid but does not advance parity; native-engine/world was
 `failed` for that candidate. The package and its results are historical.
 Historical e11 passed its own package-bound focused set but was retired as
-`rejected-after-corrected-canary`; its full profile was stopped. Active ee0 has
+`rejected-after-corrected-canary`; its full profile was stopped. Retained ee0 has
 green Foundation and all-target Workbench evidence plus an accepted
 `passed-noncertifying` packaged focused set and accepted `passed-noncertifying`
 corrected canary. Full Campaign Debug is not run. Release remains `NO-GO`.
@@ -2328,9 +2347,11 @@ Debug and packaged-runtime gates remain open.
   35/35 and 87/87 proof, 18/0 restoration, two approved stock plus zero
   unapproved diagnostics, ten rehashed files, and zero residue only as scoped
   `passed-noncertifying` native-engine/world evidence.
-- [ ] Run Full Campaign Debug next against the unchanged ee0 package. No
-  evidence transfers.
-  Release remains `NO-GO` until its independent gates are also satisfied.
+- [x] Run Full Campaign Debug against the unchanged ee0 package under clean
+  harness `a5ccf36aee17a4f88d7f1c2f232ce9fc14652018`. Preserve the rejected
+  598/47/26/13/1, 5,630/5,695, 18/0, 24-unapproved, ten-file, zero-residue
+  boundary without transferring evidence. Keep the package immutable; source
+  corrections require a new candidate. Release remains `NO-GO`.
 - Retain the historical `partisan-rc-0e632ec4f63e-20260719T004133Z` candidate's
   accepted five-case focused set and scoped canary as package-bound
   `passed-noncertifying` evidence only. Its full profile is that package's

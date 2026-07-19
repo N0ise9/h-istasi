@@ -43,7 +43,7 @@ replaced the complete current-candidate surface without duplicating either
 historical identity. Existing historical records and the `NO-GO` decision remain
 unchanged.
 
-The active-runtime-candidate is
+The retained `rejected-after-runtime` candidate is
 `partisan-rc-ee0e8add2a29-20260719T063815Z`, version
 `0.1.0-rc.20260719T063815Z.ee0e8add`, built from clean source HEAD
 `ee0e8add2a298e83fd304b7660c4fc480dc6383f`. Its exact four-file package
@@ -71,7 +71,32 @@ state restoration was 18/0; all ten envelope files rehashed; all 33 classifier
 checks passed; the diagnostic census was two approved stock plus zero
 unapproved; and final orphan cleanup plus every cleanup/spill boundary passed
 at zero. Scoped native-engine/world advances only to `passed-noncertifying`.
-Full Campaign Debug is next. Release remains `NO-GO`.
+
+Clean harness HEAD `a5ccf36aee17a4f88d7f1c2f232ce9fc14652018` then ran Full
+Campaign Debug against the exact unchanged candidate/package. Run
+`seed1985_t0_p1_u1784446076`, leaf
+`20260719T072739Z-97fc069d58cd427c848c83f99f39e5f9`, completed from
+`2026-07-19T07:27:39.1454367Z` through `2026-07-19T07:40:09.5714410Z`.
+Candidate binding, packed mount, package bytes, and artifacts were stable. All
+ten envelope files rehashed to SHA-256
+`fce4928444f15531f254ad4d7e119cf8bfe1d06e6fcb564518d2e052544d4278`;
+state restoration was 18/0; Phase 17 passed 11/11; Phase 24 passed 2/2; staged
+cleanup passed 6/6; final orphan cleanup found zero active groups; and every
+cleanup/spill count was zero.
+
+The exact capture is rejected red. Its 685 cases ended 598 PASS/47 WARN/26
+FAIL/13 BLOCKED/1 SKIPPED, and it proved 5,630/5,695 required assertions with
+50 failed and 15 blocked. The 26 hard diagnostics classify as two approved
+stock, zero approved intentional, and 24 unapproved: 22 Partisan and two
+runtime. An obsolete fourteenth intentional-convoy classifier expectation
+demoted 13 valid intentional-negative diagnostics; nine debug respawn-race
+errors and two HQ arsenal teardown errors
+complete the unapproved set. Certification and diagnostic acceptance therefore
+fail independently. The portable summary is
+`campaign-debug/partisan-rc-ee0e8add2a29-20260719T063815Z-full-20260719T072739Z.json`,
+SHA-256 `e83bc1e752ac4c1abc5cb57ce097459642e17637f6747e4edc8e7d57569c1884`.
+The candidate/package remains immutable; source fixes require a new candidate.
+Release remains `NO-GO`.
 
 The then-active candidate's package-bound focused set is accepted as
 `passed-noncertifying`. Clean harness `b1940f2` ran all five cases against the
@@ -109,9 +134,10 @@ still supplied unbacked mission IDs. The source correction seeds the exact
 active missions in both fixtures, pins mission cause/type/ID provenance, retains
 an unresolved-source negative case as military capture, and separates political
 from mission diagnostics. Because that correction changed source, it was sealed
-in the active ee0 candidate. Its focused rung and corrected canary have now
-passed as package-bound noncertifying evidence; Full Campaign Debug is next. No
-evidence transferred from the rejected e11 package.
+in the retained ee0 candidate. Its focused rung and corrected canary pass as
+package-bound noncertifying evidence. Its exact-package full profile is the
+rejected red boundary above; no evidence transferred from the rejected e11
+package.
 
 `partisan-rc-c2b16c4a2d85-20260718T201442Z`,
 `partisan-rc-b8deddc4b631-20260718T213322Z`,
@@ -120,8 +146,8 @@ evidence transferred from the rejected e11 package.
 rejected artifact evidence. The 0e candidate retains its accepted focused and
 corrected-canary results plus its rejected full result. The e11 candidate
 retains its accepted focused and rejected corrected-canary results and no full
-result. None of their package-bound results can be attached to the active ee0
-candidate.
+result. None of their package-bound results can be attached to the retained ee0
+candidate, whose runtime rejection also forbids any further attached evidence.
 
 Runtime results are not appended to these sealed candidate directories. Each
 candidate-aware runner writes a fresh external sidecar run whose portable

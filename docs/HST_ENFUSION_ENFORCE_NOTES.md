@@ -125,7 +125,7 @@ The embedded implementation stamp remains
   Foundation and all five Workbench targets pass at 5,847 files, 11,900
   classes, common CRC `3a399db1`, zero hard errors, and exact-zero cleanup. The
   sealed inventories contain four package files and 50 evidence files.
-- The active-runtime-candidate is
+- The retained `rejected-after-runtime` candidate is
   `partisan-rc-ee0e8add2a29-20260719T063815Z`, version
   `0.1.0-rc.20260719T063815Z.ee0e8add`, from clean source HEAD
   `ee0e8add2a298e83fd304b7660c4fc480dc6383f`. Its package, manifest, and
@@ -149,7 +149,22 @@ The embedded implementation stamp remains
   ten files rehashed; all 33 classifier checks passed; the census was two
   approved stock plus zero unapproved diagnostics; final orphan cleanup and
   every cleanup/spill boundary passed at zero. Scoped native-engine/world is
-  `passed-noncertifying`; Full Campaign Debug is next.
+  `passed-noncertifying`. Clean harness HEAD
+  `a5ccf36aee17a4f88d7f1c2f232ce9fc14652018` then ran Full Campaign Debug
+  against the exact unchanged package. Run `seed1985_t0_p1_u1784446076`, leaf
+  `20260719T072739Z-97fc069d58cd427c848c83f99f39e5f9`, is a mechanically
+  exact but rejected red capture: 598 PASS/47 WARN/26 FAIL/13 BLOCKED/1
+  SKIPPED across 685 cases, 5,630/5,695 required assertions, 18/0 restoration,
+  Phase 17 at 11/11, Phase 24 at 2/2, staged cleanup at 6/6, zero final orphans,
+  ten rehashed files, envelope SHA-256
+  `fce4928444f15531f254ad4d7e119cf8bfe1d06e6fcb564518d2e052544d4278`, and
+  zero residue. Its 26 hard diagnostics are two approved stock + zero approved
+  intentional + 24 unapproved (22 Partisan + two runtime). An obsolete fourteenth
+  intentional-convoy expectation demoted 13 valid intentional negatives; nine
+  debug respawn-race errors and two HQ arsenal teardown errors complete the
+  unapproved set. Certification and diagnostic acceptance both fail. Keep the
+  candidate/package immutable, keep release `NO-GO`, and require a new candidate
+  for source fixes.
 - The complete post-full correction batch was sealed as historical
   `rejected-after-corrected-canary` candidate
   `partisan-rc-e11e7ea88a44-20260719T040154Z`, version
@@ -167,8 +182,8 @@ The embedded implementation stamp remains
   `passed-noncertifying` deterministic-service rung. Its corrected canary then
   failed closed at 33/35 focused assertions and 85/87 counted conditions, so
   native-engine/world is `failed` for this package and the full profile was not
-  run. Preserve the rejected envelope; its proof-fixture correction is sealed in
-  active ee0, which must restart the evidence chain without transfer.
+  run. Preserve the rejected envelope; its proof-fixture correction was sealed
+  in then-active ee0, which restarted the evidence chain without transfer.
 - The then-active candidate's focused set ran serially in canonical order under
   clean harness HEAD `b1940f241e28f163202807385f7140f048921447` from
   `2026-07-19T04:44:01.2295133Z` through
@@ -330,9 +345,10 @@ The embedded implementation stamp remains
   The batch first appeared in historical `e11e7ea88a44`, whose fresh packaged
   focused set passed as scoped non-certifying evidence before its canary rejected
   the stale ownership-source fixture and stopped full runtime evidence. The
-  corrected fixture is sealed in active `ee0e8add2a29`; that package's runtime
-  focused and corrected-canary gates now pass as noncertifying evidence, while
-  Full Campaign Debug has not run.
+  corrected fixture is sealed in retained `ee0e8add2a29`; that package's runtime
+  focused and corrected-canary gates pass as noncertifying evidence, while its
+  full profile is independently rejected red at 598/47/26/13/1 and
+  5,630/5,695 with 24 unapproved diagnostics.
 - The Search-and-Destroy Campaign Debug fixture correction, based on clean
   source identity `02dfd84`, must exercise the same two-step production
   contract as gameplay: issue a real map-target quote with one run-prefixed
@@ -520,9 +536,11 @@ The embedded implementation stamp remains
   corrections were sealed in historical rejected candidate `e11e7ea88a44`; that
   package's fresh focused set passes as scoped non-certifying evidence, but its
   corrected canary rejected the stale ownership proof fixture. Full was stopped;
-  the fixture correction is now sealed in active `ee0e8add2a29`, whose five
-  canonical packaged focused cases and corrected canary now pass as
-  noncertifying evidence. Full Campaign Debug is next.
+  the fixture correction is now sealed in retained `ee0e8add2a29`, whose five
+  canonical packaged focused cases and corrected canary pass as noncertifying
+  evidence. Its mechanically exact full profile is independently rejected at
+  598/47/26/13/1 and 5,630/5,695 with 24 unapproved diagnostics; source fixes
+  require a new candidate.
 - A helper that receives `requiredHold - holdBefore + 1` in one call does not
   prove that the engine advanced the objective by that many seconds. For area
   objectives, use bounded per-second/frame ticks and log both mission-runtime
@@ -7963,7 +7981,8 @@ This file is for practical engine/script behavior, not project planning. Keep en
   found ten unapproved hard diagnostics. Never reuse the
   preceding package's results, and never attach post-capture source fixes to
   this package.
-- The proof-fixture correction is sealed in active-runtime-candidate
+- The proof-fixture correction is sealed in retained `rejected-after-runtime`
+  candidate
   `partisan-rc-ee0e8add2a29-20260719T063815Z`, version
   `0.1.0-rc.20260719T063815Z.ee0e8add`, with package SHA-256
   `981258439b9d08866c4883471cacfe33aa373a36a667a39e8c939f285db74daf`.
@@ -7981,7 +8000,12 @@ This file is for practical engine/script behavior, not project planning. Keep en
   package's corrected canary at 9/1/0/1/0 cases, 35/35 and 87/87 proof, 18/0
   restoration, two approved stock plus zero unapproved diagnostics, ten rehashed
   files, and zero residue. Scoped native-engine/world is
-  `passed-noncertifying`; Full Campaign Debug is next.
+  `passed-noncertifying`. Clean harness HEAD
+  `a5ccf36aee17a4f88d7f1c2f232ce9fc14652018` then retained the exact
+  unchanged package's rejected Full Campaign Debug boundary at
+  598/47/26/13/1, 5,630/5,695, 18/0 restoration, 24 unapproved diagnostics,
+  ten files, and zero residue. The candidate remains immutable, no further
+  runtime evidence may attach, and release remains `NO-GO`.
 - The preceding post-capture corrections remain sealed in historical
   `rejected-after-corrected-canary` candidate
   `partisan-rc-e11e7ea88a44-20260719T040154Z`, version

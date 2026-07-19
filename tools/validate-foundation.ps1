@@ -50778,6 +50778,8 @@ $releaseStatusActiveFocused =
 	$releaseStatusData.evidence.packagedFocusedAutotests
 $releaseStatusActiveCanary =
 	$releaseStatusData.evidence.correctedForceAuthorityCanary
+$releaseStatusActiveFull =
+	$releaseStatusData.evidence.fullCampaignDebug
 $releaseStatusDeterministicRungs = @($releaseStatusData.proofRungs |
 	Where-Object { [string] $_.id -ceq 'deterministic-service' })
 $releaseStatusNativeRungs = @($releaseStatusData.proofRungs |
@@ -50791,7 +50793,7 @@ if ([int] $releaseStatusData.schemaVersion -ne 3 -or
 }
 if (@($releaseStatusHistory).Count -ne 2 -or
 	[string] $releaseStatusData.statusAsOfUtc -cne
-		'2026-07-19T07:14:47.8353805Z' -or
+		'2026-07-19T07:40:09.5714410Z' -or
 	[string] $releaseStatusHistory[0].retirementDisposition -cne
 		'rejected-after-full-profile' -or
 	[string] $releaseStatusHistory[0].candidate.candidateId -cne
@@ -50802,6 +50804,8 @@ if (@($releaseStatusHistory).Count -ne 2 -or
 		'partisan-rc-e11e7ea88a44-20260719T040154Z' -or
 	[string] $releaseStatusData.artifact.candidateId -cne
 		'partisan-rc-ee0e8add2a29-20260719T063815Z' -or
+	[string] $releaseStatusData.artifact.runtimeUseDisposition -cne
+		'rejected-after-runtime' -or
 	[string] $releaseStatusActiveFocused.status -cne
 		'passed-noncertifying' -or
 	[string] $releaseStatusActiveFocused.summaryPath -cne
@@ -50859,15 +50863,61 @@ if (@($releaseStatusHistory).Count -ne 2 -or
 		'4811c9ef665a47fabfc4aa8d265ebca8354f4e0bdf5976df33afbd0038d55c93' -or
 	[string] $releaseStatusActiveCanary.acceptanceDisposition -cne
 		'accepted-noncertifying' -or
-	$null -ne $releaseStatusData.evidence.PSObject.Properties[
-		'fullCampaignDebug'] -or
+	[string] $releaseStatusActiveFull.status -cne
+		'failed-certification-and-unapproved-diagnostics' -or
+	[string] $releaseStatusActiveFull.summaryPath -cne
+		'docs/evidence/campaign-debug/partisan-rc-ee0e8add2a29-20260719T063815Z-full-20260719T072739Z.json' -or
+	[string] $releaseStatusActiveFull.summarySha256 -cne
+		'e83bc1e752ac4c1abc5cb57ce097459642e17637f6747e4edc8e7d57569c1884' -or
+	[string] $releaseStatusActiveFull.candidateId -cne
+		'partisan-rc-ee0e8add2a29-20260719T063815Z' -or
+	[string] $releaseStatusActiveFull.candidateSourceHead -cne
+		'ee0e8add2a298e83fd304b7660c4fc480dc6383f' -or
+	[string] $releaseStatusActiveFull.packageSha256 -cne
+		'981258439b9d08866c4883471cacfe33aa373a36a667a39e8c939f285db74daf' -or
+	[string] $releaseStatusActiveFull.manifestSha256 -cne
+		'1b877e3aa21773a268704bcb3fe889768fca3aa2d78541aa7285b061398ce907' -or
+	[string] $releaseStatusActiveFull.readySha256 -cne
+		'01741b85d0edba69f54b07388cdd7c452b8f6f1ad7ef4f6faf253918a4bbf280' -or
+	[string] $releaseStatusActiveFull.harnessGitHead -cne
+		'a5ccf36aee17a4f88d7f1c2f232ce9fc14652018' -or
+	[string] $releaseStatusActiveFull.runLeafId -cne
+		'20260719T072739Z-97fc069d58cd427c848c83f99f39e5f9' -or
+	[string] $releaseStatusActiveFull.runId -cne
+		'seed1985_t0_p1_u1784446076' -or
+	[string] $releaseStatusActiveFull.startedUtc -cne
+		'2026-07-19T07:27:39.1454367Z' -or
+	[string] $releaseStatusActiveFull.completedUtc -cne
+		'2026-07-19T07:40:09.5714410Z' -or
+	[int] $releaseStatusActiveFull.runtimeSeconds -ne 749 -or
+	[int] $releaseStatusActiveFull.caseCount -ne 685 -or
+	[int] $releaseStatusActiveFull.pass -ne 598 -or
+	[int] $releaseStatusActiveFull.warn -ne 47 -or
+	[int] $releaseStatusActiveFull.fail -ne 26 -or
+	[int] $releaseStatusActiveFull.blocked -ne 13 -or
+	[int] $releaseStatusActiveFull.skipped -ne 1 -or
+	[int] $releaseStatusActiveFull.requiredAssertions -ne 5695 -or
+	[int] $releaseStatusActiveFull.provenAssertions -ne 5630 -or
+	[int] $releaseStatusActiveFull.failedAssertions -ne 50 -or
+	[int] $releaseStatusActiveFull.blockedAssertions -ne 15 -or
+	[int] $releaseStatusActiveFull.hardDiagnosticCount -ne 26 -or
+	[int] $releaseStatusActiveFull.approvedStockDiagnosticCount -ne 2 -or
+	[int] $releaseStatusActiveFull.approvedIntentionalDiagnosticCount -ne 0 -or
+	[int] $releaseStatusActiveFull.unapprovedHardDiagnosticCount -ne 24 -or
+	[int] $releaseStatusActiveFull.envelopeFileCount -ne 10 -or
+	[string] $releaseStatusActiveFull.envelopeSha256 -cne
+		'fce4928444f15531f254ad4d7e119cf8bfe1d06e6fcb564518d2e052544d4278' -or
+	[string] $releaseStatusActiveFull.runSummarySha256 -cne
+		'fce4928444f15531f254ad4d7e119cf8bfe1d06e6fcb564518d2e052544d4278' -or
+	[string] $releaseStatusActiveFull.acceptanceDisposition -cne
+		'rejected-red-full-profile' -or
 	$releaseStatusDeterministicRungs.Count -ne 1 -or
 	[string] $releaseStatusDeterministicRungs[0].status -cne
 		'passed-noncertifying' -or
 	$releaseStatusNativeRungs.Count -ne 1 -or
 	[string] $releaseStatusNativeRungs[0].status -cne
-		'passed-noncertifying') {
-	throw 'Schema-3 current state must retain ordered 0e/e11 history and the active ee0 focused and corrected-canary passes with Full Campaign Debug pending.'
+		'failed') {
+	throw 'Schema-3 current state must retain ordered 0e/e11 history and the rejected-after-runtime ee0 focused, corrected-canary, and red full-profile chain.'
 }
 foreach ($releaseDocsRejectedRuntimeEntry in @(
 		'"rejected-after-runtime"',

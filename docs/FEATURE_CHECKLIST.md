@@ -7,7 +7,8 @@
 > scoped evidence but do not supersede those generated files.
 
 Campaign Schema 71 and runtime-settings Schema 24 are current. The
-active-runtime-candidate is `partisan-rc-ee0e8add2a29-20260719T063815Z`, version
+retained `rejected-after-runtime` candidate is
+`partisan-rc-ee0e8add2a29-20260719T063815Z`, version
 `0.1.0-rc.20260719T063815Z.ee0e8add`, from clean source HEAD
 `ee0e8add2a298e83fd304b7660c4fc480dc6383f`. Its package, manifest, and
 ready-seal SHA-256 values are
@@ -30,8 +31,24 @@ at 9 PASS/1 WARN/0 FAIL/1 BLOCKED/0 SKIPPED, 35/35 focused assertions, 87/87
 certification-counting assertions, 18/0 state restoration, ten rehashed files,
 two approved stock diagnostics plus zero unapproved, final orphan cleanup, and
 zero cleanup/spill residue. The scoped native-engine/world canary advances only
-to `passed-noncertifying`; Full Campaign Debug is next.
-Release remains `NO-GO`. Separately, the sealed embedded implementation identity remains
+to `passed-noncertifying`. At approximately `2026-07-19T07:27Z`, clean harness
+HEAD `a5ccf36aee17a4f88d7f1c2f232ce9fc14652018` ran Full Campaign Debug
+against the exact unchanged candidate/package. Run
+`seed1985_t0_p1_u1784446076`, leaf
+`20260719T072739Z-97fc069d58cd427c848c83f99f39e5f9`, retained a mechanically
+exact ten-file envelope with SHA-256
+`fce4928444f15531f254ad4d7e119cf8bfe1d06e6fcb564518d2e052544d4278`,
+18/0 state restoration, Phase 17 at 11/11, Phase 24 at 2/2, staged cleanup at
+6/6, zero final orphans, and zero residue. It is independently rejected red at
+598 PASS/47 WARN/26 FAIL/13 BLOCKED/1 SKIPPED across 685 cases and
+5,630/5,695 required assertions, with 50 failed and 15 blocked. The 26 hard
+diagnostics are two approved stock + zero approved intentional + 24 unapproved
+(22 Partisan + two runtime): an obsolete fourteenth intentional-convoy
+expectation demoted 13 valid
+intentional negatives, alongside nine debug respawn-race errors and two HQ
+arsenal teardown errors. Certification and diagnostic acceptance both fail.
+The candidate/package remains immutable, source fixes require a new candidate,
+and release remains `NO-GO`. Separately, the sealed embedded implementation identity remains
 `32727238d74b29905c68e5a80bb5897dfdc783c0`, UTC `2026-07-18T16:34:38Z`, label
 `schema71-settings24-focused-force-authority`.
 
@@ -367,10 +384,14 @@ Release remains `NO-GO`. Separately, the sealed embedded implementation identity
   `4f8d7e2d7a39896737fd6754060523bf852c5fa8`. Accept the exact 9/1/0/1/0,
   35/35, 87/87, 18/0, two-approved-stock/zero-unapproved, ten-file, zero-residue
   boundary as scoped `passed-noncertifying` native-engine/world evidence.
-- [ ] Run Full Campaign Debug next against the exact unchanged ee0 package. No
-  result transfers from e11 or any other package. Dedicated,
-  multiplayer, JIP, restart breadth, performance, and soak remain separate
-  later gates.
+- [x] Run Full Campaign Debug against the exact unchanged ee0 package under
+  clean harness `a5ccf36aee17a4f88d7f1c2f232ce9fc14652018`. Preserve the exact
+  mechanically valid but rejected boundary: 598/47/26/13/1 across 685 cases,
+  5,630/5,695 required assertions, 18/0 state restoration, 24 unapproved hard
+  diagnostics, ten rehashed files, and zero residue. No result transfers from
+  e11 or any other package. Keep ee0 immutable and create a new candidate for
+  source fixes. Dedicated, multiplayer, JIP, restart breadth, performance, and
+  soak remain separate later gates.
 
 ## Historical Focused Force-Authority Engine Checkpoint
 
@@ -1997,7 +2018,7 @@ projections of campaign state and must be restorable, foldable, or disposable.
 | Authoritative client projection and JIP | Host, clients, reconnects, and late joiners converge on the same snapshot watermark and ordered revisioned create/update/delete stream. | Implemented Foundation for marker records / Needs Runtime Proof | Schema 61 supplies delivery/ACK; Schema 62 adds source revision; Schema 66 protects native campaign-marker ownership without changing the wire protocol. Prove host/two-client/late-join equality, ownership revision correlation, immutable/self-healing campaign markers, editable player markers, native rendering, and restart. Menu snapshots, campaign tasks, general notifications, and dynamic player markers remain outside this protocol. | Highest |
 | Modal map targeting | Target selection owns map/input/cursor/modal state through one idempotent state machine. | Broad Alpha / Needs Runtime Proof | Normal map targeting and confirmation flows exist with ESC handling and duplicate-click guards. Prove Closed -> Selecting -> Confirming -> Submitting/Closing behavior, Choose Again re-arm after pointer release, cursor/modal layering, and atomic ESC teardown at supported resolutions. | Highest |
 | Map/War information model | Players see contacted town pressure and resistance territory without redundant or misleading rows. | Sealed in Schema-64 Source/Workbench / Needs Runtime Verification | Zone Pressure contains only explicitly contacted valid canonical towns; the player's current contacted town sorts first, then remaining towns by ascending FIA basis points and stable name/ID ties. Resistance Territory includes every published resistance-owned strategic zone except mission bookkeeping, ordered deterministically by type/name/ID with no arbitrary six-row cap. Current ownership receipt authority is respected. Prove rendered output, paging/scale, restart, reconnect, and JIP. | High |
-| Full Campaign Debug | One button runs a true runtime certification suite and writes structured artifacts without changing the campaign under test. | Active ee0 package / Focused and corrected canary passed noncertifying / Full not run | Active candidate `partisan-rc-ee0e8add2a29-20260719T063815Z`, package SHA-256 `981258439b9d08866c4883471cacfe33aa373a36a667a39e8c939f285db74daf`, passed all five canonical packaged focused cases under clean harness `273ed14ba8526259c8b0d248177fa53b59ade683`. Clean harness `4f8d7e2d7a39896737fd6754060523bf852c5fa8` then accepted the corrected canary at 9/1/0/1/0, 35/35, 87/87, 18/0 restoration, two approved stock plus zero unapproved diagnostics, ten rehashed files, and zero cleanup/spill residue. Deterministic-service and scoped native-engine/world are `passed-noncertifying`. Run Full Campaign Debug next against the unchanged package. Historical 0e/e11 evidence does not transfer. Dedicated/live server-client, network/JIP, migration, marker/UI, performance, and soak gates remain separate; release remains `NO-GO`. | Highest |
+| Full Campaign Debug | One button runs a true runtime certification suite and writes structured artifacts without changing the campaign under test. | Retained ee0 package / Focused and corrected canary passed noncertifying / Full rejected red / Runtime-ineligible | Retained `rejected-after-runtime` candidate `partisan-rc-ee0e8add2a29-20260719T063815Z`, package SHA-256 `981258439b9d08866c4883471cacfe33aa373a36a667a39e8c939f285db74daf`, passed all five canonical packaged focused cases under clean harness `273ed14ba8526259c8b0d248177fa53b59ade683`. Clean harness `4f8d7e2d7a39896737fd6754060523bf852c5fa8` then accepted the corrected canary at 9/1/0/1/0, 35/35, 87/87, 18/0 restoration, two approved stock plus zero unapproved diagnostics, ten rehashed files, and zero cleanup/spill residue. Deterministic-service and scoped native-engine/world are `passed-noncertifying`. Clean harness `a5ccf36aee17a4f88d7f1c2f232ce9fc14652018` then captured the unchanged package's rejected full boundary at 598/47/26/13/1, 5,630/5,695, 18/0 restoration, 24 unapproved diagnostics, ten rehashed files, and zero residue. Historical 0e/e11 evidence does not transfer. The package remains immutable and cannot accept further runtime evidence; source fixes require a new candidate. Dedicated/live server-client, network/JIP, migration, marker/UI, performance, and soak gates remain separate; release remains `NO-GO`. | Highest |
 | Scoped debug profiles | Smaller profiles isolate feature families for fast iteration. | Implemented Foundation | Keep profiles explicit and never treat external/restart/soak gaps as PASS. | Keep |
 | Build provenance | Runtime logs and artifacts identify the exact code build from one authoritative source. | Implemented Foundation / Needs Packaged Proof | Runtime, menu, admin, and debug artifact summaries now consume `HST_BuildInfo`; prove the stamped identity in a packaged dedicated-server/client run. | High |
 
@@ -2013,7 +2034,7 @@ projections of campaign state and must be restorable, foldable, or disposable.
 
 ## Highest-Impact Next Tasks
 
-The active immutable package is candidate
+The retained `rejected-after-runtime` package is candidate
 `partisan-rc-ee0e8add2a29-20260719T063815Z`. Its Foundation and all-five
 Workbench gates pass, and its five canonical packaged focused cases pass as a
 `passed-noncertifying` deterministic-service rung under clean harness
@@ -2021,12 +2042,15 @@ Workbench gates pass, and its five canonical packaged focused cases pass as a
 canary also passes as scoped `passed-noncertifying` native-engine/world evidence
 under clean harness `4f8d7e2d7a39896737fd6754060523bf852c5fa8`, with 35/35 and
 87/87 assertions, 18/0 restoration, and zero unapproved diagnostics or residue.
-Run Full Campaign Debug next against the unchanged package; no historical
-package or state-only evidence transfers. Preserve historical e11 as
+The unchanged package's Full Campaign Debug run is now a mechanically exact but
+rejected red boundary at 598/47/26/13/1, 5,630/5,695, and 24 unapproved
+diagnostics. No historical package or state-only evidence transfers. Preserve historical e11 as
 `history[1]` with `rejected-after-corrected-canary` and no full result, and
 preserve historical run
 `seed1985_t0_p1_u1784425330` as the exact red boundary for its former
-`partisan-rc-0e632ec4f63e-20260719T004133Z` package only.
+`partisan-rc-0e632ec4f63e-20260719T004133Z` package only. Keep ee0 immutable,
+triage the current clustered failures in source, and build a new candidate
+before any rerun.
 
 1. Prove broader active-world records, Workshop/live server-client use, and
    networking/JIP/reconnect. Abrupt termination remains

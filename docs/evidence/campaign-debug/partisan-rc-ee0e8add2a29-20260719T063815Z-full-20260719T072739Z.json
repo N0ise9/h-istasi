@@ -1,0 +1,143 @@
+{
+  "schemaVersion": 1,
+  "evidenceKind": "packaged-campaign-debug-full-profile",
+  "candidate": {
+    "candidateId": "partisan-rc-ee0e8add2a29-20260719T063815Z",
+    "candidateSourceHead": "ee0e8add2a298e83fd304b7660c4fc480dc6383f",
+    "packageSha256": "981258439b9d08866c4883471cacfe33aa373a36a667a39e8c939f285db74daf",
+    "manifestSha256": "1b877e3aa21773a268704bcb3fe889768fca3aa2d78541aa7285b061398ce907",
+    "readySha256": "01741b85d0edba69f54b07388cdd7c452b8f6f1ad7ef4f6faf253918a4bbf280",
+    "workbenchCrc": "f64e0868",
+    "runtimeUseDispositionAtCapture": "active-runtime-candidate"
+  },
+  "harness": {
+    "gitHead": "a5ccf36aee17a4f88d7f1c2f232ce9fc14652018",
+    "dirty": false,
+    "campaignRunnerSha256": "56de386cbdb5677f4315c99e690eefa7158cc6e00e043ded221cec04bde74479",
+    "candidateModuleSha256": "22d2f7367d122ca9307140ef6400e5b1646bdf6b12922257811b6185fe345ba7"
+  },
+  "settings": {
+    "schemaVersion": 24,
+    "sha256": "fb744c7e85b93797da55e03fb8c2c1f0864e1ae43c2c49dfddd94ba91d24981c",
+    "guardedRuntimeCopy": true
+  },
+  "capture": {
+    "runLeafId": "20260719T072739Z-97fc069d58cd427c848c83f99f39e5f9",
+    "runId": "seed1985_t0_p1_u1784446076",
+    "profile": "full_certification",
+    "proofScope": "full_certification",
+    "startedUtc": "2026-07-19T07:27:39.1454367Z",
+    "completedUtc": "2026-07-19T07:40:09.5714410Z",
+    "runtimeSeconds": 749
+  },
+  "result": {
+    "status": "failed-certification-and-unapproved-diagnostics",
+    "wrapperCaptureSuccess": true,
+    "runtimeOutcomeSuccess": false,
+    "armed": true,
+    "started": true,
+    "completed": true,
+    "candidateBoundaryVerified": true,
+    "mountPacked": true,
+    "artifactsStable": true,
+    "evidenceCaptured": true,
+    "artifactSchemaValidationValid": true,
+    "acceptanceDisposition": "rejected-red-full-profile",
+    "releaseDisposition": "remain-no-go",
+    "certificationPassed": false,
+    "error": "Campaign Debug runtime completed with unapproved hard diagnostics."
+  },
+  "proof": {
+    "fullCertification": true,
+    "startedAtSecond": 0,
+    "endedAtSecond": 7201,
+    "caseCount": 685,
+    "pass": 598,
+    "warn": 47,
+    "fail": 26,
+    "blocked": 13,
+    "skipped": 1,
+    "certificationRequired": 5695,
+    "certificationProven": 5630,
+    "certificationFail": 50,
+    "certificationBlocked": 15,
+    "certificationWarn": 0,
+    "stateDiffRows": 18,
+    "nonzeroStateDiffRows": 0,
+    "phase17ProjectionCheckCount": 11,
+    "phase17ProjectionChecksPassed": 11,
+    "phase24CheckCount": 2,
+    "phase24ChecksPassed": 2,
+    "stagedCleanupCheckCount": 6,
+    "stagedCleanupChecksPassed": 6,
+    "finalOrphanCleanupPass": true,
+    "finalOrphanActiveGroups": 0,
+    "intentionalMissionConvoyAdmissionDiagnosticsProven": true,
+    "intentionalMissionConvoySettlementDiagnosticProven": true,
+    "intentionalMissionConvoyCorruptionDiagnosticsProven": true,
+    "intentionalMissionConvoyWatchdogDiagnosticProven": true
+  },
+  "diagnostics": {
+    "valid": false,
+    "classificationValid": false,
+    "hardDiagnosticFree": false,
+    "hardDiagnosticCount": 26,
+    "scriptErrors": 26,
+    "engineErrors": 0,
+    "partisanErrors": 22,
+    "crashMarkers": 0,
+    "partisanSeverityLineCount": 0,
+    "approvedStockDiagnosticCount": 2,
+    "approvedIntentionalDiagnosticCount": 0,
+    "unapprovedHardDiagnosticCount": 24,
+    "unapprovedHardDiagnosticKinds": [
+      {
+        "kind": "partisan-script-error",
+        "count": 22
+      },
+      {
+        "kind": "runtime-script-error",
+        "count": 2
+      }
+    ],
+    "classifierSelfTestCount": 33,
+    "channelArithmeticValid": true,
+    "categoryArithmeticValid": true,
+    "malformedHardDiagnosticCount": 0,
+    "lifecycleMarkersValid": true,
+    "identityBaselinePairValid": true,
+    "intentionalFixtureStructureExact": false,
+    "intentionalFixtureSetValid": false,
+    "canonicalScriptLogCount": 1,
+    "canonicalConsoleLogCount": 1,
+    "canonicalLogPairSameDirectory": true
+  },
+  "cleanup": {
+    "guardRemaining": 0,
+    "ownedProcessesRemaining": 0,
+    "newEngineProcessesRemaining": 0,
+    "unclaimedEngineProcessesObserved": 0,
+    "newDefaultEntriesRemaining": 0,
+    "modifiedDefaultFiles": 0,
+    "deletedDefaultEntries": 0,
+    "missingDefaultRoots": 0,
+    "externalSpillEntriesRemaining": 0,
+    "modifiedSpillFiles": 0,
+    "deletedSpillEntries": 0,
+    "missingSpillRoots": 0,
+    "cleanupPhaseErrorCount": 0,
+    "monitoringRootsAreDetectionOnly": true
+  },
+  "integrity": {
+    "envelopeSha256": "fce4928444f15531f254ad4d7e119cf8bfe1d06e6fcb564518d2e052544d4278",
+    "runSummarySha256": "fce4928444f15531f254ad4d7e119cf8bfe1d06e6fcb564518d2e052544d4278",
+    "rawArtifactSha256": "6b37441665aa3aec1b5b2aa0fa43e70798bf9ba97e7839c34198b423c96144e3",
+    "envelopeFileCount": 10,
+    "envelopeFilesRehashed": true
+  },
+  "finding": {
+    "status": "release-blocking-red-full-profile",
+    "defect": "Full certification and diagnostic acceptance both failed.",
+    "nextStep": "Triage the current 26 failed cases, 13 blocked cases, 50 failed required assertions, 15 blocked required assertions, and 24 unapproved diagnostics against this exact package before rerunning the full profile."
+  }
+}
