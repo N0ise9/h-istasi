@@ -13,10 +13,22 @@ records are not rewritten.
 Repository attributes keep both JSON records on canonical LF endings so their
 byte hashes remain stable across checkouts.
 
-Current status selects `partisan-rc-b8deddc4b631-20260718T213322Z` as the active
-runtime candidate. `partisan-rc-c2b16c4a2d85-20260718T201442Z` remains sealed
-as superseded artifact evidence; its package-bound results cannot be attached
-to the active replacement.
+Current status selects `partisan-rc-0e632ec4f63e-20260719T004133Z` as the active
+runtime candidate. It was built from clean source HEAD
+`0e632ec4f63eab43e8c301d0755f10193d85131f`; its exact four-file package
+SHA-256 is `e5d29458c33aeef9cd2b37476359acc6021fe78cf0fc74513d9a2f69ef0614dc`,
+manifest SHA-256 is
+`ea06318a8f5161f000685fe37ecab4f5c8a77d6b0e8205f502a6418e3365e76b`,
+and ready-seal SHA-256 is
+`cd91e569b8a4a453dad6b0f884f22afbb36b9b5f0de629fd70b2188875e47c53`.
+Foundation and all five Workbench targets passed at 5,847 files/11,900 classes,
+common CRC `3a399db1`, zero hard errors, and exact-zero cleanup. The manifest
+binds four package files and 50 evidence files.
+
+`partisan-rc-c2b16c4a2d85-20260718T201442Z` and
+`partisan-rc-b8deddc4b631-20260718T213322Z` remain sealed as superseded artifact
+evidence. Their package-bound results cannot be attached to the active
+replacement.
 
 Runtime results are not appended to these sealed candidate directories. Each
 candidate-aware runner writes a fresh external sidecar run whose portable
@@ -24,7 +36,7 @@ envelope binds raw-file hashes to candidate, package, manifest, ready seal,
 harness, runtime-tool, result, and cleanup identities. Only a deliberately
 selected portable summary may later be tracked here.
 
-The accepted classifier-aware five-case summary for the active candidate is
+The accepted classifier-aware five-case summary for the prior candidate is
 `focused-autotest/partisan-rc-b8deddc4b631-20260718T213322Z.json`. It binds the
 five external envelope hashes, exact candidate and harness identities, per-case
 JUnit and diagnostic counts, aggregate totals, rehash status, and cleanup/spill
@@ -33,7 +45,8 @@ repository. The raw sidecars remain external and immutable.
 Repository attributes also keep these tracked summary JSON files on canonical
 LF endings so the status-recorded digest remains stable across checkouts.
 
-The original package-bound Campaign Debug evidence is summarized in
+The prior candidate's original package-bound Campaign Debug evidence is
+summarized in
 `campaign-debug/partisan-rc-b8deddc4b631-20260718T213322Z.json`. It binds the
 retained original focused canary and full run to the exact candidate, clean
 harness identity, runner/module, guarded settings, envelope hashes, result
@@ -55,12 +68,14 @@ full profile was correctly not rerun after that rejection. All candidate-bound
 captures remain preliminary-unaccepted, and the retained full report remains
 failed.
 
-The map-locator source correction passes Foundation and PC Workbench compile
-validation at 5,847 files/11,900 classes and CRC `3a399db1`, with zero errors or
-residue, but it is not attached to this immutable candidate. It requires a newly
-sealed candidate and its own runtime evidence. Canonical LF is required for both
-summaries, and the release generator rehashes and cross-checks them against
-current status.
+The map-locator source correction is included in the active candidate, but that
+candidate has no package-bound focused, corrected-canary, or full Campaign Debug
+result yet. The strict next order is all five packaged focused cases, the
+corrected `force_authority` canary only after they pass, and Full Campaign Debug
+only after an accepted canary. The seal does not prove the runtime fix. Canonical
+LF is required for the prior-package summaries, and the release generator
+rehashes and cross-checks them against current status without transferring their
+evidence to the new package.
 
 If a package defect requires a rebuild, the older record remains byte-identical
 and is described as retained superseded evidence. It remains available for

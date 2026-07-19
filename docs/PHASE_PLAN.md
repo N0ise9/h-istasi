@@ -56,12 +56,27 @@ The boundary first retained candidate
 `partisan-rc-c2b16c4a2d85-20260718T201442Z` from clean source HEAD
 `c2b16c4a2d85e71503cd46265feafb54bce69e83`, with aggregate package SHA-256
 `8f60260331c6c7473465dc4517b1063a179a8f4efeffdcfe3d5eccac9af476db`.
-That artifact remains sealed but is superseded for runtime use. The single
-active replacement is `partisan-rc-b8deddc4b631-20260718T213322Z`, built from
+That artifact remains sealed but is superseded for runtime use. The first
+replacement was `partisan-rc-b8deddc4b631-20260718T213322Z`, built from
 clean source HEAD `b8deddc4b6314936b7ea04f36a35784622a46da6`, with aggregate
 package SHA-256
 `82e1fd0bf7c3404b7fe842fa84efd10f225bf82fc76c11502b9a684b63f4f329`
-and all five Workbench targets at common CRC `f27e637b`.
+and all five Workbench targets at common CRC `f27e637b`. Its focused and
+preliminary-unaccepted canary/full results remain historical evidence for that
+package only.
+
+The current active candidate is
+`partisan-rc-0e632ec4f63e-20260719T004133Z`, built from clean source HEAD
+`0e632ec4f63eab43e8c301d0755f10193d85131f`, with exact four-file package
+SHA-256 `e5d29458c33aeef9cd2b37476359acc6021fe78cf0fc74513d9a2f69ef0614dc`,
+manifest SHA-256
+`ea06318a8f5161f000685fe37ecab4f5c8a77d6b0e8205f502a6418e3365e76b`,
+and ready-seal SHA-256
+`cd91e569b8a4a453dad6b0f884f22afbb36b9b5f0de629fd70b2188875e47c53`.
+Foundation and all five Workbench targets passed at 5,847 files/11,900 classes,
+common CRC `3a399db1`, zero hard errors, and exact-zero cleanup. The seal binds
+four package files and 50 evidence files. It has no package-bound focused,
+corrected-canary, or full Campaign Debug result yet.
 Candidate-aware Campaign Debug and focused-runner preflights now validate the
 tracked and external manifest/ready seal, stage and rehash the exact four-file
 package under a disposable guard, construct the packed launch vector, and
@@ -74,8 +89,9 @@ package could be dropped by the stock base-only world transition before JUnit
 output; the source now enforces the same empty-world
 override as the two working suites.
 
-The first all-five execution produced passing JUnit and exact package-mount
-evidence but remains preliminary because hard diagnostics did not participate in
+The prior candidate's first all-five execution produced passing JUnit and exact
+package-mount evidence but remains preliminary because hard diagnostics did not
+participate in
 the runner's pass predicate. The harness now accepts only the exact stock
 post-result pair plus the profile-journal case's proven non-mutating fault
 injection. The repeated classifier-aware set is now accepted: all five exact
@@ -84,8 +100,9 @@ cleanup/spill residue, and 11 classified hard diagnostics consisting of ten
 approved stock messages, one approved intentional journal injection, and zero
 unapproved errors. The first five sidecars remain preliminary.
 
-The original guarded `force_authority` canary and Full Campaign Debug produced
-mechanically complete, stable raw captures against the exact active replacement,
+The prior candidate's original guarded `force_authority` canary and Full Campaign
+Debug produced mechanically complete, stable raw captures against that exact,
+then-active replacement,
 but both remain preliminary-unaccepted. The original canary census is three raw
 diagnostics = two exact approved stock + one unapproved. The full run has 25 raw
 diagnostics, including a 19-line Partisan subset; two are exact approved stock,
@@ -107,11 +124,11 @@ widgets, and world directions before entering stock calculation; invalid state
 removes the remaining layout, cancels the callback, clears references, and
 returns. Valid stock behavior remains unchanged. Foundation and PC Workbench
 compile validation pass at 5,847 files/11,900 classes and CRC `3a399db1`, with
-zero errors or residue. The next Gate-1 action is to seal a new immutable
-candidate, because this source correction changes packaged bytes, and rerun the
-corrected canary. Run Full Campaign Debug only after that canary is accepted;
-dedicated, multiplayer/JIP, restart breadth, performance, and soak remain later
-independent gates.
+zero errors or residue. The correction is now sealed in the new immutable
+candidate. The strict next order is all five packaged focused cases, then the
+corrected `force_authority` canary, then Full Campaign Debug only if that canary
+is accepted. Dedicated, multiplayer/JIP, restart breadth, performance, and soak
+remain later independent gates.
 
 ## Historical Focused Force-Authority Plan Checkpoint
 
@@ -122,14 +139,15 @@ state diff with zero errors, crashes, or artifact drift and exact-zero owned
 cleanup. Its Foundation gate passed at 874; stamped Workbench passed 5,846
 files/11,899 classes at CRC `cad640f3` with zero hard errors.
 
-The retained Full Campaign Debug run provides a package-bound preliminary
+The retained prior-package Full Campaign Debug run provides a preliminary
 diagnostic capture, not accepted integrated evidence. Its red 46/7 case boundary
 shows that the focused observations did not certify the integrated owners, while
 the ten unapproved diagnostics independently block acceptance. The corrected
-canary already failed closed on the separate map-locator lifecycle exception;
-next work seals and canary-tests the corrected package before returning to the
-retained full-run roots, then broadens into native-world effects, real
-persistence/restart, rendered client projection, packaged server/client,
+canary already failed closed on the separate map-locator lifecycle exception.
+Next work runs all five focused cases on the newly sealed package, then its
+corrected canary, before returning to the retained full-run roots; full runs
+only after an accepted canary. Later work broadens into native-world effects,
+real persistence/restart, rendered client projection, packaged server/client,
 multiplayer/network/JIP/reconnect, performance, and soak.
 
 ## Current Controlled-Shutdown Native Fence Plan
@@ -1499,7 +1517,7 @@ publishing a build does not waive them.
 | Enemy Commander | Sealed resource, planning, and Schema-69 counterattack authority remains intact. Schema 70 makes newly admitted garrison rebuilds exact while leaving historical rebuilds on contract `0`; delivery-pending and physical-live-fold cuts now pass fresh-process recovery/replay | Preserve the validated ambient cadence isolation and explicit production-tick ownership; then prove natural route/combat behavior, other force families, multiplayer/JIP, and soak. |
 | Mission Parity | All 39 configured IDs map to MVP primitives; convoy, all assassination guards, newly started `rescue_pows`, and exact radio lifecycle use narrow contracts. R16 proves the disposable isolated radio pair end to end. Current source adds structural active demolition-witness admission and a quiet pre-action assertion | Fresh Workbench validation passes. R23 proves all six generic `primitive.destroy.no_ambient_witness_score` assertions and all seven destroy-family start/runtime/primitive cases. Next package-prove authored radio binding/restart/streaming and runtime-prove callback-plus-scan deduplication, convoy, all three assassination guards, and Schema-58 rescue. Keep refugees, historical POWs, and other mission families legacy until their own explicit cutovers. |
 | Resistance Progression | Arsenal, garage, training, undercover, HQ/Petros, and end-state foundations exist | Complete exact logistics/loadouts/static defenses and tune the full progression loop. |
-| Campaign Certification | The active replacement passed Foundation, all five Workbench targets, and classifier-bound packaged focused services. Its guarded Campaign Debug canary and full run are mechanically complete, stable, preliminary-unaccepted captures; the full report failed certification | Current report status is 584 PASS/49 WARN/46 FAIL/7 BLOCKED/1 SKIPPED and 5,562/5,688 required assertions. The corrected census records 3 canary and 25 full raw diagnostics, with one and ten unapproved respectively. Correct the external harness and rerun the unchanged package before selecting gameplay roots; gameplay or package changes require a new candidate. Fuel/damage/attachments/trunk parity, abrupt-termination recovery beyond the last completed checkpoint, broader active-world records, Workshop/live clients, network/JIP/reconnect/soak, arbitrary migration, multi-writer/off-device recovery, markers, and performance remain open. |
+| Campaign Certification | Current candidate `partisan-rc-0e632ec4f63e-20260719T004133Z` passed Foundation and all five Workbench targets at 5,847/11,900 and CRC `3a399db1`, with exact-zero cleanup. It has no package-bound focused, canary, or full result. | Run all five packaged focused cases first, then the corrected `force_authority` canary, and full only if the canary is accepted. The superseded package's mechanically stable but preliminary-unaccepted canary/full captures remain historical: full status 584 PASS/49 WARN/46 FAIL/7 BLOCKED/1 SKIPPED and 5,562/5,688, with 3/25 raw diagnostics and 1/10 unapproved. Never mix those identities. Fuel/damage/attachments/trunk parity, abrupt-termination recovery beyond the last completed checkpoint, broader active-world records, Workshop/live clients, network/JIP/reconnect/soak, arbitrary migration, multi-writer/off-device recovery, markers, and performance remain open. |
 
 CRI-1 and the first CRI-2 vertical slices remain intentionally narrow. Troop
 training is the first production ledger consumer; exact visible garrison

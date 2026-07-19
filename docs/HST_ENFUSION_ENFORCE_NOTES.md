@@ -75,15 +75,30 @@ implementation/source identity is
   The exact tracked manifest and ready seal make the status generator reject
   drift. This is artifact/compile proof, not Campaign Debug, dedicated runtime,
   multiplayer/JIP, restart, performance, soak, or release certification.
-- The focused-suite repair produced the one permitted replacement candidate,
+- The focused-suite repair produced the first runtime replacement candidate,
   `partisan-rc-b8deddc4b631-20260718T213322Z`, from clean source HEAD
   `b8deddc4b6314936b7ea04f36a35784622a46da6`. Its four-file package SHA-256 is
   `82e1fd0bf7c3404b7fe842fa84efd10f225bf82fc76c11502b9a684b63f4f329`;
   all five Workbench targets pass at 5,846 files, 11,899 classes, and common CRC
   `f27e637b`. Its manifest also seals both standard and both diagnostic runtime
-  executable identities. This candidate is active for runtime proof; the first
-  remains sealed, superseded evidence.
-- The accepted packaged focused set uses clean classifier-aware harness HEAD
+  executable identities. Its accepted focused set and rejected canary/full
+  captures remain package-bound historical evidence. The later map-locator
+  package correction superseded it for current runtime proof.
+- The map-locator correction is sealed as current active candidate
+  `partisan-rc-0e632ec4f63e-20260719T004133Z` from clean source HEAD
+  `0e632ec4f63eab43e8c301d0755f10193d85131f`. Its exact four-file package
+  SHA-256 is `e5d29458c33aeef9cd2b37476359acc6021fe78cf0fc74513d9a2f69ef0614dc`;
+  manifest SHA-256 is
+  `ea06318a8f5161f000685fe37ecab4f5c8a77d6b0e8205f502a6418e3365e76b`,
+  and ready-seal SHA-256 is
+  `cd91e569b8a4a453dad6b0f884f22afbb36b9b5f0de629fd70b2188875e47c53`.
+  Foundation and all five Workbench targets pass at 5,847 files, 11,900
+  classes, common CRC `3a399db1`, zero hard errors, and exact-zero cleanup. The
+  sealed inventories contain four package files and 50 evidence files. No
+  focused, corrected-canary, or full Campaign Debug result is package-bound to
+  this candidate yet.
+- The prior candidate's accepted packaged focused set uses clean classifier-
+  aware harness HEAD
   `b3fc1e6f56d9cf8805bac1702a54e0b5284e0043` without changing candidate bytes.
   Five exact staged packed mounts produced JUnit 5/0/0/0 and 40/40 rehashed
   envelope files with every cleanup/spill counter zero. A successful focused
@@ -110,7 +125,7 @@ implementation/source identity is
   `SCRIPT (E)`, `ENGINE (E)`, severity, or crash signals remain visible. Count
   Partisan diagnostics as a subset of raw hard diagnostics rather than adding
   them to the raw total.
-- The active candidate's original guarded `force_authority` canary is
+- The prior candidate's original guarded `force_authority` canary is
   mechanically complete and stable but preliminary-unaccepted. Its canonical
   script log has three raw diagnostics: two exact approved stock diagnostics
   and one unapproved diagnostic. Report-level focused PASS observations do not
@@ -134,24 +149,27 @@ implementation/source identity is
   create a second timer or alter valid stock behavior. Foundation and PC
   Workbench compile validation pass at 5,847 files/11,900 classes and CRC
   `3a399db1`, with zero errors and residue; packaged runtime proof remains open.
-- The current full capture retains exact candidate/packed-mount identity, stable
-  and rehashed artifacts, an 18/0 state diff, final orphan cleanup, and zero
+- The retained prior-package full capture has exact candidate/packed-mount
+  identity, stable and rehashed artifacts, an 18/0 state diff, final orphan cleanup, and zero
   cleanup/spill residue. Its canonical script log has 25 raw diagnostics,
   including a 19-line Partisan subset. Exact classification accounts for two
   approved stock diagnostics and 13 proof-bound intentional diagnostics, leaving
   ten unapproved. Wrapper-reported success is not evidence acceptance.
-- The current full result is 584 PASS, 49 WARN, 46 FAIL, 7 BLOCKED, and 1
+- That prior-package full result is 584 PASS, 49 WARN, 46 FAIL, 7 BLOCKED, and 1
   SKIPPED, with 5,562/5,688 required assertions proven, 112 failed, and 14
   blocked. Retain the historical 583/50/46/7/1 result only as a comparison; do
   not call it current.
-- The corrected harness has completed its unchanged-package canary rerun. Stop
+- The corrected harness completed the prior package's unchanged-package canary
+  rerun. Stop
   the sequence when that canary rejects; do not spend a full run to reconfirm a
-  known gate failure. The map-locator correction changes packaged source, so
-  seal a new immutable candidate, rerun the corrected canary, and run the full
-  profile only after that new canary is accepted. The retained full capture's
+  known gate failure. The map-locator correction is now sealed in a new
+  immutable candidate. Run all five packaged focused cases on it first, then
+  rerun the corrected canary, and run the full profile only after that new
+  canary is accepted. The retained prior-package full capture's
   case-exclusive triage still reconciles all 46/7 cases and 282/19 failed/
   blocked assertion occurrences. Convoy materialization is its largest cascade,
-  but it is not the next release action before the replacement canary passes.
+  but it is not the next release action before the current candidate's canary
+  passes.
 - A helper that receives `requiredHold - holdBefore + 1` in one call does not
   prove that the engine advanced the objective by that many seconds. For area
   objectives, use bounded per-second/frame ticks and log both mission-runtime
@@ -7322,7 +7340,7 @@ This file is for practical engine/script behavior, not project planning. Keep en
   the guarded tree. Do not copy raw artifacts into another directory. Historical
   run `seed1985_t0_p1_u1784134163` finished with zero guarded roots, owned or new
   engine processes, default-root changes, external spill, missing roots, or
-  cleanup errors; the current package-bound run preserves that exact-zero
+  cleanup errors; the retained prior-package run preserves that exact-zero
   hygiene under its own candidate and envelope identity.
 
 - A correctly armed run can wait without producing artifacts when settings were
@@ -7544,12 +7562,22 @@ This file is for practical engine/script behavior, not project planning. Keep en
   earlier candidate unchanged, label it retained superseded evidence, build one
   replacement, and rerun every required rung from that replacement. Never join
   results across package digests.
-- This incident's replacement is
+- This incident's first replacement was
   `partisan-rc-b8deddc4b631-20260718T213322Z`, with package SHA-256
   `82e1fd0bf7c3404b7fe842fa84efd10f225bf82fc76c11502b9a684b63f4f329`.
-  It is the only active runtime candidate; its consumer tamper suite, Campaign
+  Its consumer tamper suite, Campaign
   Debug preflight/artifact self-test, and focused-runner preflight all pass with
-  exact-zero cleanup before real engine execution begins.
+  exact-zero cleanup before real engine execution begins. Its accepted focused
+  and rejected canary/full results remain immutable evidence for that package.
+- The map-locator correction produced current active candidate
+  `partisan-rc-0e632ec4f63e-20260719T004133Z`, with package SHA-256
+  `e5d29458c33aeef9cd2b37476359acc6021fe78cf0fc74513d9a2f69ef0614dc`.
+  The sealed build binds four package files, 50 evidence files, and five passing
+  Workbench targets at 5,847 files/11,900 classes and CRC `3a399db1`, with
+  exact-zero cleanup. Do not treat the build as runtime proof: run all five
+  packaged focused cases on this identity, then the corrected
+  `force_authority` canary, then Full Campaign Debug only after an accepted
+  canary. Never reuse the preceding package's results.
 - A passing focused JUnit result does not classify the surrounding engine error
   channel. Bind a separate hard-diagnostic census into the runner's success
   predicate. For the current diagnostic client, exactly two stock filter-

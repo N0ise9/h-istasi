@@ -258,6 +258,125 @@ function Get-ObjectPropertyValue {
 	return $property.Value
 }
 
+function Get-RetainedCandidateIdentity {
+	param(
+		[object] $Candidate,
+		[string] $Label
+	)
+
+	if ($null -eq $Candidate) {
+		throw "$Label is missing."
+	}
+
+	$candidateIdValue = Require-Text `
+		(Get-ObjectPropertyValue $Candidate "candidateId") "$Label.candidateId"
+	if ($candidateIdValue -cnotmatch '^[A-Za-z0-9][A-Za-z0-9._-]*$') {
+		throw "$Label.candidateId contains unsupported characters."
+	}
+	$candidateSourceValue = Require-Text `
+		(Get-ObjectPropertyValue $Candidate "candidateSourceHead") "$Label.candidateSourceHead"
+	if ($candidateSourceValue -cnotmatch '^[0-9a-f]{40}$') {
+		throw "$Label.candidateSourceHead must be a lowercase full Git SHA."
+	}
+	$manifestPathValue = Require-RepoRelativePath `
+		(Get-ObjectPropertyValue $Candidate "manifestPath") "$Label.manifestPath"
+	$manifestShaValue = (Require-Sha256 `
+		(Get-ObjectPropertyValue $Candidate "manifestSha256") "$Label.manifestSha256").ToLowerInvariant()
+	$readyShaValue = (Require-Sha256 `
+		(Get-ObjectPropertyValue $Candidate "readySha256") "$Label.readySha256").ToLowerInvariant()
+	$hashAlgorithmValue = Require-Text `
+		(Get-ObjectPropertyValue $Candidate "packageHashAlgorithm") "$Label.packageHashAlgorithm"
+	if ($hashAlgorithmValue -cne "sha256-manifest-v1") {
+		throw "$Label.packageHashAlgorithm must be sha256-manifest-v1."
+	}
+	$packageShaValue = (Require-Sha256 `
+		(Get-ObjectPropertyValue $Candidate "packageSha256") "$Label.packageSha256").ToLowerInvariant()
+	$packageVersionValue = Require-Text `
+		(Get-ObjectPropertyValue $Candidate "packageVersion") "$Label.packageVersion"
+	$workbenchCrcValue = Require-Text `
+		(Get-ObjectPropertyValue $Candidate "workbenchCrc") "$Label.workbenchCrc"
+	if ($workbenchCrcValue -cnotmatch '^[0-9a-f]{8}$') {
+		throw "$Label.workbenchCrc must be a lowercase 8-character CRC32 value."
+	}
+
+	$repositoryPrefixValue = [IO.Path]::GetFullPath($root).TrimEnd(
+		[IO.Path]::DirectorySeparatorChar,
+		[IO.Path]::AltDirectorySeparatorChar) + [IO.Path]::DirectorySeparatorChar
+	$manifestFullPathValue = [IO.Path]::GetFullPath((Join-Path $root $manifestPathValue))
+	if (-not $manifestFullPathValue.StartsWith(
+		$repositoryPrefixValue,
+		[StringComparison]::OrdinalIgnoreCase) -or
+		-not (Test-Path -LiteralPath $manifestFullPathValue -PathType Leaf)) {
+		throw "$Label manifest is missing or outside the repository."
+	}
+	$manifestItemValue = Get-Item -LiteralPath $manifestFullPathValue -Force
+	if (($manifestItemValue.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+		throw "$Label manifest must not be a reparse point."
+	}
+	$actualManifestShaValue = (Get-FileHash `
+		-LiteralPath $manifestFullPathValue -Algorithm SHA256).Hash.ToLowerInvariant()
+	if ($actualManifestShaValue -cne $manifestShaValue) {
+		throw "$Label manifest SHA-256 does not match its retained identity."
+	}
+	$manifestTextValue = Get-Content -Raw -LiteralPath $manifestFullPathValue
+	if ($manifestTextValue -match '(?i)[A-Z]:[\\/]') {
+		throw "$Label manifest contains a local absolute path."
+	}
+	$manifestValue = $manifestTextValue | ConvertFrom-Json
+	$manifestCandidateValue = Get-ObjectPropertyValue $manifestValue "candidate"
+	$manifestSourceValue = Get-ObjectPropertyValue $manifestValue "source"
+	$manifestWorkbenchValue = Get-ObjectPropertyValue $manifestValue "workbench"
+	$manifestPackageValue = Get-ObjectPropertyValue $manifestValue "package"
+	if ([int] (Get-ObjectPropertyValue $manifestValue "manifestSchemaVersion") -ne 1 -or
+		$null -eq $manifestCandidateValue -or
+		$null -eq $manifestSourceValue -or
+		$null -eq $manifestWorkbenchValue -or
+		$null -eq $manifestPackageValue -or
+		[string] (Get-ObjectPropertyValue $manifestCandidateValue "id") -cne $candidateIdValue -or
+		[string] (Get-ObjectPropertyValue $manifestCandidateValue "version") -cne $packageVersionValue -or
+		[string] (Get-ObjectPropertyValue $manifestSourceValue "gitHead") -cne $candidateSourceValue -or
+		[string] (Get-ObjectPropertyValue $manifestWorkbenchValue "crc") -cne $workbenchCrcValue -or
+		[string] (Get-ObjectPropertyValue $manifestPackageValue "hashAlgorithm") -cne $hashAlgorithmValue -or
+		[string] (Get-ObjectPropertyValue $manifestPackageValue "sha256") -cne $packageShaValue) {
+		throw "$Label differs from its retained manifest."
+	}
+
+	$readyFullPathValue = Join-Path (Split-Path -Parent $manifestFullPathValue) "candidate.ready.json"
+	if (-not (Test-Path -LiteralPath $readyFullPathValue -PathType Leaf)) {
+		throw "$Label is missing its retained ready seal."
+	}
+	$readyItemValue = Get-Item -LiteralPath $readyFullPathValue -Force
+	if (($readyItemValue.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+		throw "$Label ready seal must not be a reparse point."
+	}
+	$actualReadyShaValue = (Get-FileHash `
+		-LiteralPath $readyFullPathValue -Algorithm SHA256).Hash.ToLowerInvariant()
+	if ($actualReadyShaValue -cne $readyShaValue) {
+		throw "$Label ready-seal SHA-256 does not match its retained identity."
+	}
+	$readyValue = Get-Content -Raw -LiteralPath $readyFullPathValue | ConvertFrom-Json
+	if ([int] (Get-ObjectPropertyValue $readyValue "schemaVersion") -ne 1 -or
+		[string] (Get-ObjectPropertyValue $readyValue "candidateId") -cne $candidateIdValue -or
+		[string] (Get-ObjectPropertyValue $readyValue "gitHead") -cne $candidateSourceValue -or
+		[string] (Get-ObjectPropertyValue $readyValue "packageSha256") -cne $packageShaValue -or
+		[string] (Get-ObjectPropertyValue $readyValue "manifestSha256") -cne $manifestShaValue) {
+		throw "$Label ready seal differs from its retained identity."
+	}
+
+	return [PSCustomObject] @{
+		CandidateId = $candidateIdValue
+		CandidateSourceHead = $candidateSourceValue
+		ManifestPath = $manifestPathValue
+		ManifestSha256 = $manifestShaValue
+		ReadySha256 = $readyShaValue
+		PackageHashAlgorithm = $hashAlgorithmValue
+		PackageSha256 = $packageShaValue
+		PackageVersion = $packageVersionValue
+		WorkbenchCrc = $workbenchCrcValue
+		Manifest = $manifestValue
+	}
+}
+
 function Require-IntegerProperty {
 	param(
 		[object] $Object,
@@ -336,6 +455,10 @@ function Build-ConfiguredReward {
 $status = Read-JsonFile $statusDataPath
 $parity = Read-JsonFile $parityDataPath
 
+if ([int] (Get-ObjectPropertyValue $status "schemaVersion") -ne 2) {
+	throw "release_status.json must use schemaVersion 2 with separate active and historical candidate evidence."
+}
+
 $buildInfoText = Get-Content -Raw -LiteralPath (Join-Path $root "scripts/Game/HST/HST_BuildInfo.c")
 $campaignStateText = Get-Content -Raw -LiteralPath (Join-Path $root "scripts/Game/HST/State/HST_CampaignState.c")
 $runtimeSettingsText = Get-Content -Raw -LiteralPath (Join-Path $root "scripts/Game/HST/Config/HST_RuntimeSettings.c")
@@ -406,16 +529,30 @@ $workbenchSha = ""
 $workbenchCrc = ""
 $serverVersion = ""
 $clientVersion = ""
+$activePackagedFocused = Get-ObjectPropertyValue $status.evidence "packagedFocusedAutotests"
+$activeCorrectedCanary = Get-ObjectPropertyValue $status.evidence "correctedForceAuthorityCanary"
+$activeFullCampaignDebug = Get-ObjectPropertyValue $status.evidence "fullCampaignDebug"
+$historicalCandidateEvidence = Get-ObjectPropertyValue $status "historicalCandidateEvidence"
+$historicalCandidate = $null
+$historicalEvidence = $null
+$historicalCandidateId = ""
+$historicalCandidateSourceHead = ""
+$historicalCandidateManifestPath = ""
+$historicalCandidateManifestSha = ""
+$historicalCandidateReadySha = ""
+$historicalPackageSha = ""
+$historicalPackageVersion = ""
+$historicalWorkbenchCrc = ""
 $packagedFocused = $null
 $packagedFocusedSummaryPath = ""
 $packagedFocusedSummarySha = ""
 $packagedFocusedHarnessHead = ""
-$correctedCanary = Get-ObjectPropertyValue $status.evidence "correctedForceAuthorityCanary"
+$correctedCanary = $null
 $correctedCanaryStatus = ""
 $correctedCanarySummaryPath = ""
 $correctedCanarySummarySha = ""
 $correctedCanaryHarnessHead = ""
-$fullCampaignDebug = Get-ObjectPropertyValue $status.evidence "fullCampaignDebug"
+$fullCampaignDebug = $null
 $fullCampaignDebugStatus = ""
 $fullCampaignSummaryPath = ""
 $fullCampaignSummarySha = ""
@@ -459,6 +596,39 @@ if ($releaseCandidateBuilt) {
 	}
 	$serverVersion = Require-Text $status.artifact.serverVersion "release_status.artifact.serverVersion"
 	$clientVersion = Require-Text $status.artifact.clientVersion "release_status.artifact.clientVersion"
+
+	$activeCandidateIdentity = Get-RetainedCandidateIdentity `
+		$status.artifact `
+		"release_status.artifact"
+	$historicalCandidate = Get-ObjectPropertyValue $historicalCandidateEvidence "candidate"
+	$historicalEvidence = Get-ObjectPropertyValue $historicalCandidateEvidence "evidence"
+	if ($null -eq $historicalCandidate -or $null -eq $historicalEvidence) {
+		throw "release_status.historicalCandidateEvidence must contain candidate and evidence objects."
+	}
+	$historicalIdentity = Get-RetainedCandidateIdentity `
+		$historicalCandidate `
+		"release_status.historicalCandidateEvidence.candidate"
+	$historicalCandidateId = $historicalIdentity.CandidateId
+	$historicalCandidateSourceHead = $historicalIdentity.CandidateSourceHead
+	$historicalCandidateManifestPath = $historicalIdentity.ManifestPath
+	$historicalCandidateManifestSha = $historicalIdentity.ManifestSha256
+	$historicalCandidateReadySha = $historicalIdentity.ReadySha256
+	$historicalPackageSha = $historicalIdentity.PackageSha256
+	$historicalPackageVersion = $historicalIdentity.PackageVersion
+	$historicalWorkbenchCrc = $historicalIdentity.WorkbenchCrc
+	if ($historicalCandidateId -ceq $activeCandidateIdentity.CandidateId -or
+		$historicalCandidateManifestPath -ceq $activeCandidateIdentity.ManifestPath -or
+		$historicalPackageSha -ceq $activeCandidateIdentity.PackageSha256) {
+		throw "Historical candidate evidence must bind a distinct retained package identity."
+	}
+
+	$packagedFocused = Get-ObjectPropertyValue $historicalEvidence "packagedFocusedAutotests"
+	$correctedCanary = Get-ObjectPropertyValue $historicalEvidence "correctedForceAuthorityCanary"
+	$fullCampaignDebug = Get-ObjectPropertyValue $historicalEvidence "fullCampaignDebug"
+	if ($null -eq $packagedFocused -or $null -eq $correctedCanary -or
+		$null -eq $fullCampaignDebug) {
+		throw "Historical candidate evidence must retain focused, corrected-canary, and full-profile results."
+	}
 
 	$candidateManifestFullPath = [IO.Path]::GetFullPath(
 		(Join-Path $root $candidateManifestPath))
@@ -642,7 +812,6 @@ if ($releaseCandidateBuilt) {
 		throw "The tracked release-candidate ready seal differs from release status."
 	}
 
-	$packagedFocused = Get-ObjectPropertyValue $status.evidence "packagedFocusedAutotests"
 	$deterministicServiceRungs = @($status.proofRungs | Where-Object {
 		[string] (Get-ObjectPropertyValue $_ "id") -ceq "deterministic-service"
 	})
@@ -652,28 +821,52 @@ if ($releaseCandidateBuilt) {
 	$deterministicServiceRungStatus = [string] (Get-ObjectPropertyValue `
 		$deterministicServiceRungs[0] `
 		"status")
-	if ($null -eq $packagedFocused) {
-		if ($deterministicServiceRungStatus -cin @("passed", "passed-noncertifying")) {
-			throw "A passed deterministic-service rung requires packaged focused-autotest evidence."
+	if ($null -eq $activePackagedFocused) {
+		if ($deterministicServiceRungStatus -cne "not-run") {
+			throw "A missing active packaged focused result requires a not-run deterministic-service rung."
 		}
 	}
 	else {
-	if ($deterministicServiceRungStatus -cne "passed-noncertifying") {
-		throw "Packaged focused-autotest evidence requires a passed-noncertifying deterministic-service rung."
+		if ($deterministicServiceRungStatus -cne "passed-noncertifying" -or
+			[string] (Get-ObjectPropertyValue $activePackagedFocused "status") -cne
+				"passed-noncertifying") {
+			throw "Active packaged focused evidence and its deterministic-service rung must both be passed-noncertifying."
+		}
 	}
-	if ([string] (Get-ObjectPropertyValue $packagedFocused "status") -cne "passed-noncertifying") {
-		throw "Packaged focused-autotest evidence must be passed-noncertifying."
+	if ($null -eq $activePackagedFocused -and
+		($null -ne $activeCorrectedCanary -or $null -ne $activeFullCampaignDebug)) {
+		throw "Active Campaign Debug evidence cannot precede the active packaged focused result."
+	}
+	if ($null -eq $activeCorrectedCanary -and $null -ne $activeFullCampaignDebug) {
+		throw "Active full-profile evidence cannot precede the corrected active canary."
+	}
+	$nativeEngineWorldRungs = @($status.proofRungs | Where-Object {
+		[string] (Get-ObjectPropertyValue $_ "id") -ceq "native-engine-world"
+	})
+	if ($nativeEngineWorldRungs.Count -ne 1) {
+		throw "Release status must contain exactly one native-engine-world proof rung."
+	}
+	$nativeEngineWorldRungStatus = [string] (Get-ObjectPropertyValue `
+		$nativeEngineWorldRungs[0] `
+		"status")
+	if ($null -eq $activeCorrectedCanary -and $null -eq $activeFullCampaignDebug -and
+		$nativeEngineWorldRungStatus -cne "not-run") {
+		throw "Missing active Campaign Debug evidence requires a not-run native-engine-world rung."
+	}
+	if ([string] (Get-ObjectPropertyValue $packagedFocused "status") -cne
+		"historical-passed-noncertifying") {
+		throw "Historical packaged focused evidence must be historical-passed-noncertifying."
 	}
 
 	$packagedFocusedSummaryPath = Require-RepoRelativePath `
 		(Get-ObjectPropertyValue $packagedFocused "summaryPath") `
-		"release_status.evidence.packagedFocusedAutotests.summaryPath"
+		"release_status.historicalCandidateEvidence.evidence.packagedFocusedAutotests.summaryPath"
 	$packagedFocusedSummarySha = Require-Sha256 `
 		(Get-ObjectPropertyValue $packagedFocused "summarySha256") `
-		"release_status.evidence.packagedFocusedAutotests.summarySha256"
+		"release_status.historicalCandidateEvidence.evidence.packagedFocusedAutotests.summarySha256"
 	$packagedFocusedHarnessHead = Require-Text `
 		(Get-ObjectPropertyValue $packagedFocused "harnessGitHead") `
-		"release_status.evidence.packagedFocusedAutotests.harnessGitHead"
+		"release_status.historicalCandidateEvidence.evidence.packagedFocusedAutotests.harnessGitHead"
 	if ($packagedFocusedHarnessHead -cnotmatch '^[0-9a-f]{40}$') {
 		throw "The packaged focused harness HEAD must be a lowercase full Git SHA."
 	}
@@ -717,26 +910,26 @@ if ($releaseCandidateBuilt) {
 		throw "The tracked packaged focused summary is structurally incomplete."
 	}
 
-	if ([string] (Get-ObjectPropertyValue $packagedFocused "candidateId") -cne $candidateId -or
-		[string] (Get-ObjectPropertyValue $packagedFocused "candidateSourceHead") -cne $candidateSourceHead -or
-		[string] (Get-ObjectPropertyValue $packagedFocused "packageSha256") -cne $packageSha -or
-		[string] (Get-ObjectPropertyValue $packagedFocused "manifestSha256") -cne $candidateManifestSha -or
-		[string] (Get-ObjectPropertyValue $packagedFocused "readySha256") -cne $candidateReadySha -or
-		[string] (Get-ObjectPropertyValue $focusedSummaryCandidate "candidateId") -cne $candidateId -or
-		[string] (Get-ObjectPropertyValue $focusedSummaryCandidate "candidateSourceHead") -cne $candidateSourceHead -or
-		[string] (Get-ObjectPropertyValue $focusedSummaryCandidate "packageSha256") -cne $packageSha -or
-		[string] (Get-ObjectPropertyValue $focusedSummaryCandidate "manifestSha256") -cne $candidateManifestSha -or
-		[string] (Get-ObjectPropertyValue $focusedSummaryCandidate "readySha256") -cne $candidateReadySha -or
-		[string] (Get-ObjectPropertyValue $focusedSummaryCandidate "workbenchCrc") -cne $workbenchCrc) {
-		throw "Packaged focused evidence differs from the active candidate identity."
+	if ([string] (Get-ObjectPropertyValue $packagedFocused "candidateId") -cne $historicalCandidateId -or
+		[string] (Get-ObjectPropertyValue $packagedFocused "candidateSourceHead") -cne $historicalCandidateSourceHead -or
+		[string] (Get-ObjectPropertyValue $packagedFocused "packageSha256") -cne $historicalPackageSha -or
+		[string] (Get-ObjectPropertyValue $packagedFocused "manifestSha256") -cne $historicalCandidateManifestSha -or
+		[string] (Get-ObjectPropertyValue $packagedFocused "readySha256") -cne $historicalCandidateReadySha -or
+		[string] (Get-ObjectPropertyValue $focusedSummaryCandidate "candidateId") -cne $historicalCandidateId -or
+		[string] (Get-ObjectPropertyValue $focusedSummaryCandidate "candidateSourceHead") -cne $historicalCandidateSourceHead -or
+		[string] (Get-ObjectPropertyValue $focusedSummaryCandidate "packageSha256") -cne $historicalPackageSha -or
+		[string] (Get-ObjectPropertyValue $focusedSummaryCandidate "manifestSha256") -cne $historicalCandidateManifestSha -or
+		[string] (Get-ObjectPropertyValue $focusedSummaryCandidate "readySha256") -cne $historicalCandidateReadySha -or
+		[string] (Get-ObjectPropertyValue $focusedSummaryCandidate "workbenchCrc") -cne $historicalWorkbenchCrc) {
+		throw "Historical packaged focused evidence differs from its retained candidate identity."
 	}
 
 	$focusedRunnerSha = Require-Sha256 `
 		(Get-ObjectPropertyValue $packagedFocused "focusedRunnerSha256") `
-		"release_status.evidence.packagedFocusedAutotests.focusedRunnerSha256"
+		"release_status.historicalCandidateEvidence.evidence.packagedFocusedAutotests.focusedRunnerSha256"
 	$focusedCandidateModuleSha = Require-Sha256 `
 		(Get-ObjectPropertyValue $packagedFocused "candidateModuleSha256") `
-		"release_status.evidence.packagedFocusedAutotests.candidateModuleSha256"
+		"release_status.historicalCandidateEvidence.evidence.packagedFocusedAutotests.candidateModuleSha256"
 	if ([string] (Get-ObjectPropertyValue $focusedSummaryHarness "gitHead") -cne $packagedFocusedHarnessHead -or
 		(Get-ObjectPropertyValue $focusedSummaryHarness "dirty") -isnot [bool] -or
 		[bool] (Get-ObjectPropertyValue $focusedSummaryHarness "dirty") -or
@@ -894,26 +1087,25 @@ if ($releaseCandidateBuilt) {
 		$focusedUnapprovedDiagnostics -ne 0 -or $focusedEnvelopeFileCount -le 0) {
 		throw "Release status does not equal the packaged focused summary."
 	}
-	}
 
 	if ($null -eq $correctedCanary) {
 		throw "Release status must contain the corrected force-authority canary evidence."
 	}
 	$correctedCanaryStatus = Require-Text `
 		(Get-ObjectPropertyValue $correctedCanary "status") `
-		"release_status.evidence.correctedForceAuthorityCanary.status"
-	if ($correctedCanaryStatus -cne "failed-unapproved-hard-diagnostic") {
-		throw "The corrected force-authority canary must retain its fail-closed diagnostic result."
+		"release_status.historicalCandidateEvidence.evidence.correctedForceAuthorityCanary.status"
+	if ($correctedCanaryStatus -cne "historical-failed-unapproved-hard-diagnostic") {
+		throw "The historical corrected canary must retain its fail-closed diagnostic result."
 	}
 	$correctedCanarySummaryPath = Require-RepoRelativePath `
 		(Get-ObjectPropertyValue $correctedCanary "summaryPath") `
-		"release_status.evidence.correctedForceAuthorityCanary.summaryPath"
+		"release_status.historicalCandidateEvidence.evidence.correctedForceAuthorityCanary.summaryPath"
 	$correctedCanarySummarySha = Require-Sha256 `
 		(Get-ObjectPropertyValue $correctedCanary "summarySha256") `
-		"release_status.evidence.correctedForceAuthorityCanary.summarySha256"
+		"release_status.historicalCandidateEvidence.evidence.correctedForceAuthorityCanary.summarySha256"
 	$correctedCanaryHarnessHead = Require-Text `
 		(Get-ObjectPropertyValue $correctedCanary "harnessGitHead") `
-		"release_status.evidence.correctedForceAuthorityCanary.harnessGitHead"
+		"release_status.historicalCandidateEvidence.evidence.correctedForceAuthorityCanary.harnessGitHead"
 	if ($correctedCanaryHarnessHead -cnotmatch '^[0-9a-f]{40}$') {
 		throw "The corrected canary harness HEAD must be a lowercase full Git SHA."
 	}
@@ -1002,33 +1194,33 @@ if ($releaseCandidateBuilt) {
 		"approvedStockDiagnosticCount", "approvedIntentionalDiagnosticCount",
 		"unapprovedHardDiagnosticCount", "classifierSelfTestCount",
 		"canonicalScriptLogCount", "canonicalConsoleLogCount", "envelopeFileCount") `
-		"release_status.evidence.correctedForceAuthorityCanary"
+		"release_status.historicalCandidateEvidence.evidence.correctedForceAuthorityCanary"
 
-	if ([string] (Get-ObjectPropertyValue $correctedCanary "candidateId") -cne $candidateId -or
-		[string] (Get-ObjectPropertyValue $correctedCanary "candidateSourceHead") -cne $candidateSourceHead -or
-		[string] (Get-ObjectPropertyValue $correctedCanary "packageSha256") -cne $packageSha -or
-		[string] (Get-ObjectPropertyValue $correctedCanary "manifestSha256") -cne $candidateManifestSha -or
-		[string] (Get-ObjectPropertyValue $correctedCanary "readySha256") -cne $candidateReadySha -or
-		[string] (Get-ObjectPropertyValue $correctedSummaryCandidate "candidateId") -cne $candidateId -or
-		[string] (Get-ObjectPropertyValue $correctedSummaryCandidate "candidateSourceHead") -cne $candidateSourceHead -or
-		[string] (Get-ObjectPropertyValue $correctedSummaryCandidate "packageSha256") -cne $packageSha -or
-		[string] (Get-ObjectPropertyValue $correctedSummaryCandidate "manifestSha256") -cne $candidateManifestSha -or
-		[string] (Get-ObjectPropertyValue $correctedSummaryCandidate "readySha256") -cne $candidateReadySha -or
-		[string] (Get-ObjectPropertyValue $correctedSummaryCandidate "workbenchCrc") -cne $workbenchCrc -or
+	if ([string] (Get-ObjectPropertyValue $correctedCanary "candidateId") -cne $historicalCandidateId -or
+		[string] (Get-ObjectPropertyValue $correctedCanary "candidateSourceHead") -cne $historicalCandidateSourceHead -or
+		[string] (Get-ObjectPropertyValue $correctedCanary "packageSha256") -cne $historicalPackageSha -or
+		[string] (Get-ObjectPropertyValue $correctedCanary "manifestSha256") -cne $historicalCandidateManifestSha -or
+		[string] (Get-ObjectPropertyValue $correctedCanary "readySha256") -cne $historicalCandidateReadySha -or
+		[string] (Get-ObjectPropertyValue $correctedSummaryCandidate "candidateId") -cne $historicalCandidateId -or
+		[string] (Get-ObjectPropertyValue $correctedSummaryCandidate "candidateSourceHead") -cne $historicalCandidateSourceHead -or
+		[string] (Get-ObjectPropertyValue $correctedSummaryCandidate "packageSha256") -cne $historicalPackageSha -or
+		[string] (Get-ObjectPropertyValue $correctedSummaryCandidate "manifestSha256") -cne $historicalCandidateManifestSha -or
+		[string] (Get-ObjectPropertyValue $correctedSummaryCandidate "readySha256") -cne $historicalCandidateReadySha -or
+		[string] (Get-ObjectPropertyValue $correctedSummaryCandidate "workbenchCrc") -cne $historicalWorkbenchCrc -or
 		[string] (Get-ObjectPropertyValue $correctedSummaryCandidate "runtimeUseDispositionAtCapture") -cne
 			"active-runtime-candidate") {
-		throw "Corrected canary evidence differs from the immutable candidate identity."
+		throw "Historical corrected canary evidence differs from its retained candidate identity."
 	}
 
 	$correctedCampaignRunnerSha = Require-Sha256 `
 		(Get-ObjectPropertyValue $correctedCanary "campaignRunnerSha256") `
-		"release_status.evidence.correctedForceAuthorityCanary.campaignRunnerSha256"
+		"release_status.historicalCandidateEvidence.evidence.correctedForceAuthorityCanary.campaignRunnerSha256"
 	$correctedCandidateModuleSha = Require-Sha256 `
 		(Get-ObjectPropertyValue $correctedCanary "candidateModuleSha256") `
-		"release_status.evidence.correctedForceAuthorityCanary.candidateModuleSha256"
+		"release_status.historicalCandidateEvidence.evidence.correctedForceAuthorityCanary.candidateModuleSha256"
 	$correctedSettingsSha = Require-Sha256 `
 		(Get-ObjectPropertyValue $correctedCanary "settingsSha256") `
-		"release_status.evidence.correctedForceAuthorityCanary.settingsSha256"
+		"release_status.historicalCandidateEvidence.evidence.correctedForceAuthorityCanary.settingsSha256"
 	if ([string] (Get-ObjectPropertyValue $correctedSummaryHarness "gitHead") -cne
 			$correctedCanaryHarnessHead -or
 		(Get-ObjectPropertyValue $correctedSummaryHarness "dirty") -isnot [bool] -or
@@ -1074,7 +1266,7 @@ if ($releaseCandidateBuilt) {
 
 	$correctedCanaryError = "Campaign Debug runtime completed with unapproved hard diagnostics."
 	if ([string] (Get-ObjectPropertyValue $correctedSummaryResult "status") -cne
-			$correctedCanaryStatus -or
+			"failed-unapproved-hard-diagnostic" -or
 		(Get-ObjectPropertyValue $correctedCanary "outcomeSuccess") -isnot [bool] -or
 		[bool] (Get-ObjectPropertyValue $correctedCanary "outcomeSuccess") -or
 		(Get-ObjectPropertyValue $correctedSummaryResult "success") -isnot [bool] -or
@@ -1250,10 +1442,10 @@ if ($releaseCandidateBuilt) {
 
 	$correctedEnvelopeSha = Require-Sha256 `
 		(Get-ObjectPropertyValue $correctedCanary "envelopeSha256") `
-		"release_status.evidence.correctedForceAuthorityCanary.envelopeSha256"
+		"release_status.historicalCandidateEvidence.evidence.correctedForceAuthorityCanary.envelopeSha256"
 	$correctedRunSummarySha = Require-Sha256 `
 		(Get-ObjectPropertyValue $correctedCanary "runSummarySha256") `
-		"release_status.evidence.correctedForceAuthorityCanary.runSummarySha256"
+		"release_status.historicalCandidateEvidence.evidence.correctedForceAuthorityCanary.runSummarySha256"
 	if ($correctedEnvelopeSha -cne $correctedRunSummarySha -or
 		[string] (Get-ObjectPropertyValue $correctedSummaryIntegrity "envelopeSha256") -cne
 			$correctedEnvelopeSha -or
@@ -1279,17 +1471,17 @@ if ($releaseCandidateBuilt) {
 	}
 	$fullCampaignDebugStatus = Require-Text `
 		(Get-ObjectPropertyValue $fullCampaignDebug "status") `
-		"release_status.evidence.fullCampaignDebug.status"
-	if ($fullCampaignDebugStatus -ceq "preliminary-failed-diagnostic-census") {
+		"release_status.historicalCandidateEvidence.evidence.fullCampaignDebug.status"
+	if ($fullCampaignDebugStatus -ceq "historical-preliminary-failed-diagnostic-census") {
 		$fullCampaignSummaryPath = Require-RepoRelativePath `
 			(Get-ObjectPropertyValue $fullCampaignDebug "summaryPath") `
-			"release_status.evidence.fullCampaignDebug.summaryPath"
+			"release_status.historicalCandidateEvidence.evidence.fullCampaignDebug.summaryPath"
 		$fullCampaignSummarySha = Require-Sha256 `
 			(Get-ObjectPropertyValue $fullCampaignDebug "summarySha256") `
-			"release_status.evidence.fullCampaignDebug.summarySha256"
+			"release_status.historicalCandidateEvidence.evidence.fullCampaignDebug.summarySha256"
 		$fullCampaignHarnessHead = Require-Text `
 			(Get-ObjectPropertyValue $fullCampaignDebug "harnessGitHead") `
-			"release_status.evidence.fullCampaignDebug.harnessGitHead"
+			"release_status.historicalCandidateEvidence.evidence.fullCampaignDebug.harnessGitHead"
 		if ($fullCampaignHarnessHead -cnotmatch '^[0-9a-f]{40}$') {
 			throw "The Full Campaign Debug harness HEAD must be a lowercase full Git SHA."
 		}
@@ -1357,30 +1549,30 @@ if ($releaseCandidateBuilt) {
 			throw "The tracked Campaign Debug corrected diagnostic audit is incomplete."
 		}
 
-		if ([string] (Get-ObjectPropertyValue $fullCampaignDebug "candidateId") -cne $candidateId -or
-			[string] (Get-ObjectPropertyValue $fullCampaignDebug "candidateSourceHead") -cne $candidateSourceHead -or
-			[string] (Get-ObjectPropertyValue $fullCampaignDebug "sourceSha") -cne $candidateSourceHead -or
-			[string] (Get-ObjectPropertyValue $fullCampaignDebug "packageSha256") -cne $packageSha -or
-			[string] (Get-ObjectPropertyValue $fullCampaignDebug "manifestSha256") -cne $candidateManifestSha -or
-			[string] (Get-ObjectPropertyValue $fullCampaignDebug "readySha256") -cne $candidateReadySha -or
-			[string] (Get-ObjectPropertyValue $fullSummaryCandidate "candidateId") -cne $candidateId -or
-			[string] (Get-ObjectPropertyValue $fullSummaryCandidate "candidateSourceHead") -cne $candidateSourceHead -or
-			[string] (Get-ObjectPropertyValue $fullSummaryCandidate "packageSha256") -cne $packageSha -or
-			[string] (Get-ObjectPropertyValue $fullSummaryCandidate "manifestSha256") -cne $candidateManifestSha -or
-			[string] (Get-ObjectPropertyValue $fullSummaryCandidate "readySha256") -cne $candidateReadySha -or
-			[string] (Get-ObjectPropertyValue $fullSummaryCandidate "workbenchCrc") -cne $workbenchCrc) {
-			throw "Full Campaign Debug evidence differs from the active candidate identity."
+		if ([string] (Get-ObjectPropertyValue $fullCampaignDebug "candidateId") -cne $historicalCandidateId -or
+			[string] (Get-ObjectPropertyValue $fullCampaignDebug "candidateSourceHead") -cne $historicalCandidateSourceHead -or
+			[string] (Get-ObjectPropertyValue $fullCampaignDebug "sourceSha") -cne $historicalCandidateSourceHead -or
+			[string] (Get-ObjectPropertyValue $fullCampaignDebug "packageSha256") -cne $historicalPackageSha -or
+			[string] (Get-ObjectPropertyValue $fullCampaignDebug "manifestSha256") -cne $historicalCandidateManifestSha -or
+			[string] (Get-ObjectPropertyValue $fullCampaignDebug "readySha256") -cne $historicalCandidateReadySha -or
+			[string] (Get-ObjectPropertyValue $fullSummaryCandidate "candidateId") -cne $historicalCandidateId -or
+			[string] (Get-ObjectPropertyValue $fullSummaryCandidate "candidateSourceHead") -cne $historicalCandidateSourceHead -or
+			[string] (Get-ObjectPropertyValue $fullSummaryCandidate "packageSha256") -cne $historicalPackageSha -or
+			[string] (Get-ObjectPropertyValue $fullSummaryCandidate "manifestSha256") -cne $historicalCandidateManifestSha -or
+			[string] (Get-ObjectPropertyValue $fullSummaryCandidate "readySha256") -cne $historicalCandidateReadySha -or
+			[string] (Get-ObjectPropertyValue $fullSummaryCandidate "workbenchCrc") -cne $historicalWorkbenchCrc) {
+			throw "Historical Full Campaign Debug evidence differs from its retained candidate identity."
 		}
 
 		$fullCampaignRunnerSha = Require-Sha256 `
 			(Get-ObjectPropertyValue $fullCampaignDebug "campaignRunnerSha256") `
-			"release_status.evidence.fullCampaignDebug.campaignRunnerSha256"
+			"release_status.historicalCandidateEvidence.evidence.fullCampaignDebug.campaignRunnerSha256"
 		$fullCandidateModuleSha = Require-Sha256 `
 			(Get-ObjectPropertyValue $fullCampaignDebug "candidateModuleSha256") `
-			"release_status.evidence.fullCampaignDebug.candidateModuleSha256"
+			"release_status.historicalCandidateEvidence.evidence.fullCampaignDebug.candidateModuleSha256"
 		$fullSettingsSha = Require-Sha256 `
 			(Get-ObjectPropertyValue $fullCampaignDebug "settingsSha256") `
-			"release_status.evidence.fullCampaignDebug.settingsSha256"
+			"release_status.historicalCandidateEvidence.evidence.fullCampaignDebug.settingsSha256"
 		if ([string] (Get-ObjectPropertyValue $fullSummaryHarness "gitHead") -cne $fullCampaignHarnessHead -or
 			(Get-ObjectPropertyValue $fullSummaryHarness "dirty") -isnot [bool] -or
 			[bool] (Get-ObjectPropertyValue $fullSummaryHarness "dirty") -or
@@ -1832,7 +2024,7 @@ if ($releaseCandidateBuilt) {
 		}
 	}
 	elseif ($fullCampaignDebugStatus -cne "historical-failed") {
-		throw "Full Campaign Debug status must be preliminary-failed-diagnostic-census or historical-failed."
+		throw "Historical Full Campaign Debug status is unsupported."
 	}
 
 	Push-Location $root
@@ -1861,7 +2053,7 @@ if ($releaseCandidateBuilt) {
 			}
 		}
 
-		if ($fullCampaignDebugStatus -ceq "preliminary-failed-diagnostic-census") {
+		if ($fullCampaignDebugStatus -ceq "historical-preliminary-failed-diagnostic-census") {
 			& git merge-base --is-ancestor $fullCampaignHarnessHead $checkoutHead
 			if ($LASTEXITCODE -ne 0) {
 				throw "Full Campaign Debug harness HEAD $fullCampaignHarnessHead is not an ancestor of checkout HEAD $checkoutHead."
@@ -1887,6 +2079,20 @@ foreach ($rung in $status.proofRungs) {
 	}
 }
 Assert-UniqueStrings $proofRungIds "Proof rung IDs"
+$activePackageChainIncomplete = $null -eq $activePackagedFocused -or
+	$null -eq $activeCorrectedCanary -or
+	$null -eq $activeFullCampaignDebug
+if ($activePackageChainIncomplete) {
+	$canaryRung = $proofRungById["canary"]
+	$stableCertificationRung = $proofRungById["stable-certification"]
+	if ($releaseDecision -cne "NO-GO" -or
+		$null -eq $canaryRung -or
+		[string] (Get-ObjectPropertyValue $canaryRung "status") -cne "blocked" -or
+		$null -eq $stableCertificationRung -or
+		[string] (Get-ObjectPropertyValue $stableCertificationRung "status") -cne "blocked") {
+		throw "An incomplete active package-evidence chain requires NO-GO with blocked canary and stable-certification rungs."
+	}
+}
 if ($fullCampaignDebugStatus -ceq "preliminary-failed-diagnostic-census") {
 	$nativeEngineWorldRung = $proofRungById["native-engine-world"]
 	$stableCertificationRung = $proofRungById["stable-certification"]
@@ -2082,15 +2288,21 @@ Add-Line $statusBuilder "## Retained evidence"
 Add-Line $statusBuilder
 Add-Line $statusBuilder "- Foundation: **$($status.evidence.foundation.status)** at $($status.evidence.foundation.referenceCount) references for $mdTick$($status.evidence.foundation.sourceSha)$mdTick."
 Add-Line $statusBuilder "- Workbench: **$($status.evidence.workbench.status)** at $($status.evidence.workbench.fileCount) files / $($status.evidence.workbench.classCount) classes / CRC $mdTick$($status.evidence.workbench.crc)$mdTick for $mdTick$($status.evidence.workbench.sourceSha)$mdTick."
+if ($null -eq $activePackagedFocused) {
+	Add-Line $statusBuilder "- Active packaged focused autotests: **not run** for replacement candidate $mdTick$candidateId${mdTick}; no prior-package result transfers to this package."
+}
+if ($null -eq $activeCorrectedCanary -and $null -eq $activeFullCampaignDebug) {
+	Add-Line $statusBuilder "- Active Campaign Debug: **not run** for replacement candidate $mdTick$candidateId${mdTick}; the corrected canary follows only after the packaged focused set is accepted."
+}
 if ($null -ne $packagedFocused) {
-	Add-Line $statusBuilder "- Packaged focused autotests: **$($packagedFocused.passedCases)/$($packagedFocused.caseCount)** cases and JUnit **$($packagedFocused.junitTests)/$($packagedFocused.junitFailures)/$($packagedFocused.junitErrors)/$($packagedFocused.junitSkipped)** tests/failures/errors/skips against exact candidate $mdTick$candidateId$mdTick. Hard diagnostics are explicitly not free: $($packagedFocused.hardDiagnosticCount) total = $($packagedFocused.approvedStockFilterDiagnosticCount) approved stock + $($packagedFocused.approvedIntentionalFaultDiagnosticCount) approved intentional + $($packagedFocused.unapprovedHardDiagnosticCount) unapproved, with $($packagedFocused.envelopeFileCount) envelope files rehashed and zero cleanup/spill residue. Summary: $mdTick$(Escape-MarkdownCell $packagedFocusedSummaryPath)$mdTick / SHA-256 $mdTick$packagedFocusedSummarySha$mdTick; harness $mdTick$packagedFocusedHarnessHead$mdTick. This is passed non-certifying service evidence."
+	Add-Line $statusBuilder "- Historical packaged focused autotests: **$($packagedFocused.passedCases)/$($packagedFocused.caseCount)** cases and JUnit **$($packagedFocused.junitTests)/$($packagedFocused.junitFailures)/$($packagedFocused.junitErrors)/$($packagedFocused.junitSkipped)** tests/failures/errors/skips against prior exact candidate $mdTick$historicalCandidateId$mdTick. Hard diagnostics are explicitly not free: $($packagedFocused.hardDiagnosticCount) total = $($packagedFocused.approvedStockFilterDiagnosticCount) approved stock + $($packagedFocused.approvedIntentionalFaultDiagnosticCount) approved intentional + $($packagedFocused.unapprovedHardDiagnosticCount) unapproved, with $($packagedFocused.envelopeFileCount) envelope files rehashed and zero cleanup/spill residue. Summary: $mdTick$(Escape-MarkdownCell $packagedFocusedSummaryPath)$mdTick / SHA-256 $mdTick$packagedFocusedSummarySha$mdTick; harness $mdTick$packagedFocusedHarnessHead$mdTick. This immutable non-certifying result does not attach to the active replacement."
 }
 Add-Line $statusBuilder "- Focused force-authority profile: **$($status.evidence.focusedForceAuthority.passedCases)/$($status.evidence.focusedForceAuthority.caseCount)** cases and **$($status.evidence.focusedForceAuthority.passedConditions)/$($status.evidence.focusedForceAuthority.countedConditions)** counted conditions for $mdTick$($status.evidence.focusedForceAuthority.sourceSha)$mdTick, with ${mdTick}CertificationPassed:$($status.evidence.focusedForceAuthority.certificationPassed.ToString().ToLowerInvariant())${mdTick}. This is historical state-only, non-package, non-certifying evidence."
 if ($null -ne $correctedCanary) {
-	Add-Line $statusBuilder "- Corrected force-authority canary: **rejected fail-closed** on exact candidate $mdTick$candidateId${mdTick}. The focused proof remained $($correctedCanary.focusedAssertionsPassed)/$($correctedCanary.focusedAssertionCount) assertions and $($correctedCanary.certificationProven)/$($correctedCanary.certificationRequired) counted certification conditions, but the 33-check classifier found $($correctedCanary.hardDiagnosticCount) hard diagnostics = $($correctedCanary.approvedStockDiagnosticCount) approved stock + $($correctedCanary.approvedIntentionalDiagnosticCount) approved intentional + $($correctedCanary.unapprovedHardDiagnosticCount) unapproved $mdTick$($correctedCanary.unapprovedHardDiagnosticKind)${mdTick}. All $($correctedCanary.envelopeFileCount) envelope files rehashed with zero cleanup/spill residue. Summary: $mdTick$(Escape-MarkdownCell $correctedCanarySummaryPath)$mdTick / SHA-256 $mdTick$correctedCanarySummarySha$mdTick; harness $mdTick$correctedCanaryHarnessHead$mdTick. The unchanged candidate is not accepted for further promotion."
+	Add-Line $statusBuilder "- Historical corrected force-authority canary: **rejected fail-closed** on prior exact candidate $mdTick$historicalCandidateId${mdTick}. The focused proof remained $($correctedCanary.focusedAssertionsPassed)/$($correctedCanary.focusedAssertionCount) assertions and $($correctedCanary.certificationProven)/$($correctedCanary.certificationRequired) counted certification conditions, but the 33-check classifier found $($correctedCanary.hardDiagnosticCount) hard diagnostics = $($correctedCanary.approvedStockDiagnosticCount) approved stock + $($correctedCanary.approvedIntentionalDiagnosticCount) approved intentional + $($correctedCanary.unapprovedHardDiagnosticCount) unapproved $mdTick$($correctedCanary.unapprovedHardDiagnosticKind)${mdTick}. All $($correctedCanary.envelopeFileCount) envelope files rehashed with zero cleanup/spill residue. Summary: $mdTick$(Escape-MarkdownCell $correctedCanarySummaryPath)$mdTick / SHA-256 $mdTick$correctedCanarySummarySha$mdTick; harness $mdTick$correctedCanaryHarnessHead$mdTick. This rejection does not color the active replacement's not-run rung."
 }
-if ($fullCampaignDebugStatus -ceq "preliminary-failed-diagnostic-census") {
-	Add-Line $statusBuilder "- Earlier Full Campaign Debug capture: **preliminary and unaccepted** on exact candidate $mdTick$candidateId${mdTick}: $($fullCampaignDebug.pass) PASS, $($fullCampaignDebug.warn) WARN, $($fullCampaignDebug.fail) FAIL, $($fullCampaignDebug.blocked) BLOCKED, and $($fullCampaignDebug.skipped) SKIPPED; $($fullCampaignDebug.provenAssertions)/$($fullCampaignDebug.requiredAssertions) required assertions proven, with $($fullCampaignDebug.failedAssertions) failed and $($fullCampaignDebug.blockedAssertions) blocked. Candidate identity, packed mount, artifact stability, cleanup, and envelope rehash were mechanically verified, but the original wrapper missed timestamp-prefixed errors. Its corrected overlay found 3 canary diagnostics with 1 unapproved and 25 full-run diagnostics with 10 unapproved; wrapper-reported success is not acceptance. Summary: $mdTick$(Escape-MarkdownCell $fullCampaignSummaryPath)$mdTick / SHA-256 $mdTick$fullCampaignSummarySha$mdTick; capture harness $mdTick$fullCampaignHarnessHead$mdTick."
+if ($fullCampaignDebugStatus -ceq "historical-preliminary-failed-diagnostic-census") {
+	Add-Line $statusBuilder "- Historical Full Campaign Debug capture: **preliminary and unaccepted** on prior exact candidate $mdTick$historicalCandidateId${mdTick}: $($fullCampaignDebug.pass) PASS, $($fullCampaignDebug.warn) WARN, $($fullCampaignDebug.fail) FAIL, $($fullCampaignDebug.blocked) BLOCKED, and $($fullCampaignDebug.skipped) SKIPPED; $($fullCampaignDebug.provenAssertions)/$($fullCampaignDebug.requiredAssertions) required assertions proven, with $($fullCampaignDebug.failedAssertions) failed and $($fullCampaignDebug.blockedAssertions) blocked. Candidate identity, packed mount, artifact stability, cleanup, and envelope rehash were mechanically verified, but the original wrapper missed timestamp-prefixed errors. Its corrected overlay found 3 canary diagnostics with 1 unapproved and 25 full-run diagnostics with 10 unapproved; wrapper-reported success is not acceptance. Summary: $mdTick$(Escape-MarkdownCell $fullCampaignSummaryPath)$mdTick / SHA-256 $mdTick$fullCampaignSummarySha$mdTick; capture harness $mdTick$fullCampaignHarnessHead$mdTick. This result does not attach to the active replacement."
 }
 else {
 	Add-Line $statusBuilder "- Full Campaign Debug: **historical and failed** on $mdTick$($fullCampaignDebug.sourceSha)${mdTick}: $($fullCampaignDebug.pass) PASS, $($fullCampaignDebug.warn) WARN, $($fullCampaignDebug.fail) FAIL, $($fullCampaignDebug.blocked) BLOCKED, and $($fullCampaignDebug.skipped) SKIPPED; $($fullCampaignDebug.provenAssertions)/$($fullCampaignDebug.requiredAssertions) required assertions proven. It predates the audited revision and must be rerun before its individual failures are treated as current."
@@ -2119,20 +2331,20 @@ Add-Line $statusBuilder
 Add-Line $statusBuilder "## Next release-closure step"
 Add-Line $statusBuilder
 if ($releaseCandidateBuilt) {
-	if ($correctedCanaryStatus -ceq "failed-unapproved-hard-diagnostic") {
-		Add-Line $statusBuilder "The corrected canary rejected exact candidate $mdTick$(Escape-MarkdownCell $candidateId)$mdTick for further promotion. Fix the single MapLocator runtime lifecycle defect, seal one source-fixed replacement candidate with a new package identity, and rerun the corrected force-authority canary before any full profile. Preserve this candidate and its earlier full capture as immutable rejected evidence."
-	}
-	elseif ($runtimeUseDisposition -ceq "supersede-before-runtime") {
+	if ($runtimeUseDisposition -ceq "supersede-before-runtime") {
 		Add-Line $statusBuilder "Gate 1 retained candidate $mdTick$(Escape-MarkdownCell $candidateId)$mdTick remains sealed but is superseded before runtime use. Build exactly one replacement candidate for the focused-suite registration repair; retain both package identities, and do not combine evidence across their aggregate SHA-256 digests."
 	}
-	elseif ($fullCampaignDebugStatus -ceq "preliminary-failed-diagnostic-census") {
-		Add-Line $statusBuilder "Gate 1 retained an immutable preliminary capture for exact candidate $mdTick$(Escape-MarkdownCell $candidateId)$mdTick. Commit and validate the timestamp-aware, proof-bound external classifier, then rerun the unchanged package before acting on gameplay failures. A gameplay or packaged-fixture correction must be sealed as a new candidate; only the repaired external harness may extend evidence for this unchanged package."
+	elseif ($null -eq $activePackagedFocused) {
+		Add-Line $statusBuilder "Run the individually named packaged focused service suites next against active replacement $mdTick$(Escape-MarkdownCell $candidateId)$mdTick, manifest $mdTick$(Escape-MarkdownCell $candidateManifestPath)$mdTick, and aggregate package SHA-256 $mdTick$packageSha${mdTick}. If that exact-package set is accepted, run the corrected force-authority canary next; do not transfer the historical candidate's pass or rejection into either gate."
 	}
-	elseif ($null -ne $packagedFocused) {
-		Add-Line $statusBuilder "Gate 1 retained candidate $mdTick$(Escape-MarkdownCell $candidateId)$mdTick, and its five-case packaged focused service rung is accepted. Run current Full Campaign Debug next against the unchanged package identified by manifest $mdTick$(Escape-MarkdownCell $candidateManifestPath)$mdTick and aggregate SHA-256 $mdTick$packageSha$mdTick. Treat a valid-but-red integrated report as retained diagnostic evidence, not a pass; rebuilding creates a different candidate rather than extending this evidence chain."
+	elseif ($null -eq $activeCorrectedCanary) {
+		Add-Line $statusBuilder "The active replacement's packaged focused set is retained. Run the corrected force-authority canary next against the unchanged package identified by manifest $mdTick$(Escape-MarkdownCell $candidateManifestPath)$mdTick and aggregate SHA-256 $mdTick$packageSha${mdTick}."
+	}
+	elseif ($null -eq $activeFullCampaignDebug) {
+		Add-Line $statusBuilder "The active replacement's packaged focused set and corrected canary are retained. Run Full Campaign Debug next against the same immutable package identity."
 	}
 	else {
-		Add-Line $statusBuilder "Gate 1 retained candidate $mdTick$(Escape-MarkdownCell $candidateId)$mdTick. Run the individually named packaged focused service suites next against the package identified by manifest $mdTick$(Escape-MarkdownCell $candidateManifestPath)$mdTick and aggregate SHA-256 $mdTick$packageSha$mdTick; rebuilding creates a different candidate rather than extending this evidence chain."
+		Add-Line $statusBuilder "Continue release-rung closure using only evidence bound to active replacement $mdTick$(Escape-MarkdownCell $candidateId)${mdTick}."
 	}
 }
 else {

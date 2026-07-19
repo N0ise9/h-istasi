@@ -43,16 +43,16 @@ the profile-journal case's proven non-mutating fault injection and fails every
 other script/engine error.
 
 The accepted classifier-aware set passed all five individually named suites
-against the active replacement with JUnit 5/0/0/0, exact packed mounts, 40/40
+against the prior replacement with JUnit 5/0/0/0, exact packed mounts, 40/40
 envelope files rehashed, and zero cleanup/spill residue. Its diagnostic census
 was 11 = 10 approved stock + 1 approved intentional + 0 unapproved. That closes
 the scoped packaged deterministic-service parity rung as non-certifying; it
 does not close native-world, dedicated, multiplayer/JIP, restart breadth,
 performance, or soak parity.
 
-## Current Package-Bound Full Campaign Debug Parity Boundary
+## Retained Prior-Package Full Campaign Debug Parity Boundary
 
-The unchanged active replacement produced mechanically complete and stable raw
+The unchanged prior replacement produced mechanically complete and stable raw
 captures for the guarded focused profile and full run
 `seed1985_t0_p1_u1784414040`. Exact candidate and packed-mount identity, rehashed
 artifacts, an 18/0 state diff, final orphan cleanup, and zero cleanup/spill
@@ -82,9 +82,20 @@ layout, both text widgets, and world directions. Invalid state removes any
 remaining layout, cancels the stale callback, clears references, and returns;
 valid state preserves the stock path. Foundation and PC Workbench compile
 validation pass at 5,847 files/11,900 classes and CRC `3a399db1`, with zero
-errors and residue. This establishes source/compile parity only. The package
-change requires a newly sealed candidate and accepted canary before integrated
-parity or the full-run rung can advance.
+errors and residue. This establishes source/compile parity only. The change is
+now sealed in `partisan-rc-0e632ec4f63e-20260719T004133Z`, built from clean
+source HEAD `0e632ec4f63eab43e8c301d0755f10193d85131f`. Its four-file package SHA-256
+is `e5d29458c33aeef9cd2b37476359acc6021fe78cf0fc74513d9a2f69ef0614dc`,
+manifest SHA-256 is
+`ea06318a8f5161f000685fe37ecab4f5c8a77d6b0e8205f502a6418e3365e76b`,
+and ready-seal SHA-256 is
+`cd91e569b8a4a453dad6b0f884f22afbb36b9b5f0de629fd70b2188875e47c53`.
+Foundation and all five Workbench targets passed at 5,847/11,900 and common CRC
+`3a399db1`, with zero hard errors and exact-zero cleanup; the seal binds four
+package files and 50 evidence files. It has no package-bound focused, canary, or
+full result yet. Run all five focused cases first, then the corrected canary,
+then full only after an accepted canary. The prior package's captures remain
+historical and cannot advance this package's parity chain.
 
 ## Current Controlled-Shutdown Native Fence Parity Boundary
 
@@ -2145,6 +2156,11 @@ Debug and packaged-runtime gates remain open.
 
 ## Current Delivery Priorities
 
+- Begin the current candidate's parity chain with all five packaged focused
+  cases. Only after they pass, run the corrected `force_authority` canary; run
+  Full Campaign Debug only after that canary is accepted. The new seal is build
+  evidence, not runtime proof of the map-locator correction, and no result from
+  the superseded package transfers to it.
 - Treat R16's disposable exact radio fixture as the closed in-process proof:
   fixture-only selection, transmitter engine destruction before the normal
   callback, exact destruction/rebuild receipts, generated-equipment explosive
@@ -2155,8 +2171,8 @@ Debug and packaged-runtime gates remain open.
 - Use the final stamped durable field-vehicle checkpoint as the newest focused
   persistence boundary. Use the final stamped controlled campaign and native
   source-selection checkpoint and fresh-process exact-counterattack result as
-  preceding focused checkpoints, `seed1985_t0_p1_u1784414040` as the current
-  package-bound preliminary red capture, and `seed1985_t0_p1_u1784134163` as its
+  preceding focused checkpoints, `seed1985_t0_p1_u1784414040` as the retained
+  prior-package preliminary red capture, and `seed1985_t0_p1_u1784134163` as its
   historical aggregate comparison. Use R31
   as the preceding proof-ordering checkpoint, R30 as the artificial-scheduling
   diagnosis, R28b as the unchanged positive casualty comparison,

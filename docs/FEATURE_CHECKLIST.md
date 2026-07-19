@@ -29,7 +29,7 @@ passing mixed-native proof described below.
   action IDs, and all 17 concrete contextual action classes; fail generation
   on source/manifest drift or a missing contract mapping.
 - [x] Separate scoped focused evidence, the historical integrated comparison,
-  and the current package-bound preliminary Full Campaign Debug capture; keep
+  and the retained prior-package preliminary Full Campaign Debug capture; keep
   the failed report and release decision `NO-GO` distinct from evidence
   acceptance.
 - [x] Add one guarded Gate-1 build entry point that requires a clean checkout,
@@ -64,7 +64,7 @@ passing mixed-native proof described below.
 - [x] Repair the three service-only focused suites whose default stock world
   transition could unload the packaged test type before JUnit output. Require
   the empty-world override in Foundation.
-- [x] Build the single replacement candidate
+- [x] Build the first replacement candidate
   `partisan-rc-b8deddc4b631-20260718T213322Z` from clean source HEAD
   `b8deddc4b6314936b7ea04f36a35784622a46da6`, with canonical package SHA-256
   `82e1fd0bf7c3404b7fe842fa84efd10f225bf82fc76c11502b9a684b63f4f329`
@@ -112,10 +112,25 @@ passing mixed-native proof described below.
   and return. Preserve the valid stock path. Foundation and PC Workbench compile
   validation pass at 5,847 files/11,900 classes and CRC `3a399db1`, with zero
   errors or residue.
-- [ ] Seal a new immutable candidate because the map-locator correction changes
-  packaged source, then rerun the corrected canary. Run the full profile only if
-  that canary is accepted. Dedicated, multiplayer, JIP, restart breadth,
-  performance, and soak remain separate later gates.
+- [x] Seal the map-locator correction as immutable candidate
+  `partisan-rc-0e632ec4f63e-20260719T004133Z` from clean source HEAD
+  `0e632ec4f63eab43e8c301d0755f10193d85131f`. Its exact four-file package SHA-256
+  is `e5d29458c33aeef9cd2b37476359acc6021fe78cf0fc74513d9a2f69ef0614dc`,
+  manifest SHA-256 is
+  `ea06318a8f5161f000685fe37ecab4f5c8a77d6b0e8205f502a6418e3365e76b`,
+  and ready-seal SHA-256 is
+  `cd91e569b8a4a453dad6b0f884f22afbb36b9b5f0de629fd70b2188875e47c53`.
+  Foundation and all five Workbench targets passed at 5,847 files/11,900
+  classes, common CRC `3a399db1`, zero hard errors, and exact-zero cleanup; the
+  seal binds four package files and 50 evidence files.
+- [ ] Run all five packaged focused cases against only the new candidate. It has
+  no package-bound focused, corrected-canary, or full result yet; build success
+  is not runtime proof of the map-locator correction.
+- [ ] Run the corrected `force_authority` canary only after all five focused
+  cases pass. Run Full Campaign Debug only if that canary is accepted. Preserve
+  the old rejected canary/full captures as historical evidence and never combine
+  their package identity with the new chain. Dedicated, multiplayer, JIP,
+  restart breadth, performance, and soak remain separate later gates.
 
 ## Historical Focused Force-Authority Engine Checkpoint
 
@@ -1734,7 +1749,7 @@ projections of campaign state and must be restorable, foldable, or disposable.
 | Authoritative client projection and JIP | Host, clients, reconnects, and late joiners converge on the same snapshot watermark and ordered revisioned create/update/delete stream. | Implemented Foundation for marker records / Needs Runtime Proof | Schema 61 supplies delivery/ACK; Schema 62 adds source revision; Schema 66 protects native campaign-marker ownership without changing the wire protocol. Prove host/two-client/late-join equality, ownership revision correlation, immutable/self-healing campaign markers, editable player markers, native rendering, and restart. Menu snapshots, campaign tasks, general notifications, and dynamic player markers remain outside this protocol. | Highest |
 | Modal map targeting | Target selection owns map/input/cursor/modal state through one idempotent state machine. | Broad Alpha / Needs Runtime Proof | Normal map targeting and confirmation flows exist with ESC handling and duplicate-click guards. Prove Closed -> Selecting -> Confirming -> Submitting/Closing behavior, Choose Again re-arm after pointer release, cursor/modal layering, and atomic ESC teardown at supported resolutions. | Highest |
 | Map/War information model | Players see contacted town pressure and resistance territory without redundant or misleading rows. | Sealed in Schema-64 Source/Workbench / Needs Runtime Verification | Zone Pressure contains only explicitly contacted valid canonical towns; the player's current contacted town sorts first, then remaining towns by ascending FIA basis points and stable name/ID ties. Resistance Territory includes every published resistance-owned strategic zone except mission bookkeeping, ordered deterministically by type/name/ID with no arbitrary six-row cap. Current ownership receipt authority is respected. Prove rendered output, paging/scale, restart, reconnect, and JIP. | High |
-| Full Campaign Debug | One button runs a true runtime certification suite and writes structured artifacts without changing the campaign under test. | Current package-bound preliminary-unaccepted capture / Report failed | Run `seed1985_t0_p1_u1784414040` consumed the exact active packed candidate and recorded 584 PASS/49 WARN/46 FAIL/7 BLOCKED/1 SKIPPED with 5,562/5,688 required assertions proven. Candidate/mount identity, artifact stability, rehash, state restoration, and cleanup remain mechanically valid, but the corrected census found 25 raw script errors, a 19-line Partisan subset, and ten unapproved diagnostics. Wrapper success is not acceptance. Correct the external classifier and rerun the unchanged package before gameplay correction; any gameplay or package change then requires a new immutable candidate. Dedicated/live server-client, network/JIP, migration, marker/UI, performance, and soak gates remain separate. | Highest |
+| Full Campaign Debug | One button runs a true runtime certification suite and writes structured artifacts without changing the campaign under test. | New candidate has no package-bound run / Prior-package report failed | Retained run `seed1985_t0_p1_u1784414040` consumed the superseded package and recorded 584 PASS/49 WARN/46 FAIL/7 BLOCKED/1 SKIPPED with 5,562/5,688 required assertions proven. Its candidate/mount identity, artifact stability, rehash, state restoration, and cleanup remain mechanically valid historical facts, while the corrected census found 25 raw script errors, a 19-line Partisan subset, and ten unapproved diagnostics. Current candidate `partisan-rc-0e632ec4f63e-20260719T004133Z` inherits none of that runtime evidence. Run all five packaged focused cases, then the corrected canary, then full only if the canary is accepted. Dedicated/live server-client, network/JIP, migration, marker/UI, performance, and soak gates remain separate. | Highest |
 | Scoped debug profiles | Smaller profiles isolate feature families for fast iteration. | Implemented Foundation | Keep profiles explicit and never treat external/restart/soak gaps as PASS. | Keep |
 | Build provenance | Runtime logs and artifacts identify the exact code build from one authoritative source. | Implemented Foundation / Needs Packaged Proof | Runtime, menu, admin, and debug artifact summaries now consume `HST_BuildInfo`; prove the stamped identity in a packaged dedicated-server/client run. | High |
 
@@ -1749,6 +1764,12 @@ projections of campaign state and must be restorable, foldable, or disposable.
 | Performance soak | Physical/abstract transitions do not leave stuck groups, duplicate vehicles, missing markers, or periodic frame stalls. | Needs Soak / Sealed Schema-64 Repair Plus Sealed Schema-65 Consequences And Schema-66 Local Security | The latest user run showed a visible once-per-second stutter. Schema 64 keeps influence aggregates incremental and throttles active-group logs; Schema 65 adds bounded queues/state iteration and consumes indexed combat facts rather than a hot-path world scan. None is runtime profiling evidence. Profile the exact sealed Schema-66 package identity for the Phase 8 exit and measure freezes per minute before calling the stutter fixed. The later sealed Schema-67 source identity does not replace that run. | Highest |
 
 ## Highest-Impact Next Tasks
+
+The immediate immutable-package order precedes the broader tasks below: run all
+five packaged focused cases on `partisan-rc-0e632ec4f63e-20260719T004133Z`, run
+the corrected `force_authority` canary only after they pass, and run Full
+Campaign Debug only after an accepted canary. Do not reuse the superseded
+package's focused, rejected-canary, or full results.
 
 1. Prove broader active-world records, Workshop/live server-client use, and
    networking/JIP/reconnect. Abrupt termination remains

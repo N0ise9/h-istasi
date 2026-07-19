@@ -60,13 +60,29 @@ its artifact-identity evidence remains valid, but the focused-suite defect below
 makes it ineligible for current runtime proof. No later runtime evidence may be
 attached to it or combined with its replacement.
 
-The single replacement is
+The first replacement was
 `partisan-rc-b8deddc4b631-20260718T213322Z`, built from clean source HEAD
 `b8deddc4b6314936b7ea04f36a35784622a46da6`. Its canonical package digest is
 `82e1fd0bf7c3404b7fe842fa84efd10f225bf82fc76c11502b9a684b63f4f329`, and
 all five Workbench targets pass at 5,846 files, 11,899 classes, and common CRC
-`f27e637b`. Release status marks this replacement as the active runtime
-candidate while retaining the first manifest and seal as superseded evidence.
+`f27e637b`. Its accepted focused set and rejected canary/full captures remain
+immutable evidence for that package only. The later map-locator correction
+changed packaged source, so this candidate is now superseded for current
+runtime proof.
+
+The current active runtime candidate is
+`partisan-rc-0e632ec4f63e-20260719T004133Z`, built from clean source HEAD
+`0e632ec4f63eab43e8c301d0755f10193d85131f`. Its exact four-file package digest
+is `e5d29458c33aeef9cd2b37476359acc6021fe78cf0fc74513d9a2f69ef0614dc`;
+the manifest SHA-256 is
+`ea06318a8f5161f000685fe37ecab4f5c8a77d6b0e8205f502a6418e3365e76b`,
+and the ready-seal SHA-256 is
+`cd91e569b8a4a453dad6b0f884f22afbb36b9b5f0de629fd70b2188875e47c53`.
+Foundation and all five Workbench targets passed. Every target records 5,847
+files, 11,900 classes, common CRC `3a399db1`, zero hard errors, and exact-zero
+cleanup; the seal binds four package files and 50 evidence files. This is
+artifact/build proof only. No package-bound focused, corrected-canary, or full
+Campaign Debug result exists for this candidate yet.
 
 Runtime consumers now bind the active tracked manifest and ready seal to the
 external sealed bundle before accepting a launch. They independently require
@@ -99,9 +115,10 @@ files, staged drift, and ambiguous add-on roots. Review of the stock autotest
 transition identified a release-critical package defect: three service-only
 suites lacked the empty-world override already used by two peer suites, so a
 base-only scenario transition could unload their test types before JUnit output.
-Those three overrides are source-enforced in the active replacement. The first
-candidate remains sealed, superseded evidence; all Gate-1 runtime rungs now
-start from the replacement rather than mixing package identities.
+Those three overrides are source-enforced in the first replacement. Each older
+candidate remains sealed, superseded evidence; every runtime rung for the
+current candidate must restart from its own package identity rather than mixing
+evidence chains.
 
 The first replacement-package execution emitted one passing JUnit result for
 each of the five named cases, but it also exposed a harness acceptance gap:
@@ -113,9 +130,10 @@ non-mutating proof tokens are present. Any other script or engine error, wrong
 count, wrong order, wrong case, or missing proof token fails the run. This
 harness-only correction did not change the sealed package identity.
 
-All five cases then passed under clean classifier-aware harness HEAD
-`b3fc1e6f56d9cf8805bac1702a54e0b5284e0043` against the unchanged active
-candidate. Aggregate JUnit was 5 tests, 0 failures, 0 errors, and 0 skips. Each
+All five cases then passed against that unchanged earlier package under clean
+classifier-aware harness HEAD
+`b3fc1e6f56d9cf8805bac1702a54e0b5284e0043`. Aggregate JUnit was 5 tests, 0
+failures, 0 errors, and 0 skips. Each
 engine log attested the exact staged packed project and candidate boundary; all
 40 retained envelope files rehashed, and cleanup plus monitored spill residue
 was zero. The exact diagnostic census was 11: ten approved stock post-result
@@ -129,7 +147,7 @@ This closes only the packaged deterministic-service rung as
 `passed-noncertifying`; Full Campaign Debug and every higher runtime rung remain
 independent.
 
-## Current Package-Bound Full Campaign Debug Boundary
+## Retained Prior-Package Full Campaign Debug Boundary
 
 The same unchanged candidate produced a mechanically complete and stable raw
 capture under clean harness HEAD `1bff1890830db08159826f63b550227aa7bb0da3`.
@@ -174,8 +192,12 @@ callback, clears the widget references, and returns; a valid state still uses
 the stock calculation unchanged. Foundation and PC Workbench compile validation
 pass at 5,847 files/11,900 classes and CRC `3a399db1`, with zero errors or
 residue. That is source/compile proof only. Because this correction changes the
-package, runtime proof requires a newly sealed candidate; the old candidate and
-its immutable captures remain preliminary-unaccepted.
+package, the old candidate and its immutable captures remain preliminary-
+unaccepted. The correction is now sealed in
+`partisan-rc-0e632ec4f63e-20260719T004133Z`, but sealing does not prove the
+delayed callback at runtime. Run all five packaged focused cases on the new
+package first, then the corrected `force_authority` canary, and run Full Campaign
+Debug only if that canary is accepted.
 
 ## Historical Focused Force-Authority Engine Checkpoint
 
@@ -3233,9 +3255,9 @@ balance or native-spawn evidence.
 | Radio physical authority | Schema 59 keeps one exact lifecycle owner per site. The current adapter queries the generic base, exact stock `SCR_DestructionMultiPhaseComponent`, and destruction base, then returns shared health/state authority across admission, polling, writes, restore, and suppression. Generated demolition resources enable the existing inherited multiphase/RPL pair, and zero-health destruction uses the engine `Kill()` path. | R16 proves the isolated disposable destroy -> stop-rebuild chain, including normal callback, deterministic receipts, unchanged destruction epoch, exact `$450`/`$350` rewards, second-attempt rejection, exact cleanup, and zero final state diff. Packaged authored binding, restart/streaming reapplication, multiplayer, and soak proof remain open. |
 | Destroy-target demolition witness | Nearby evidence must be an unparented physical projectile with active movement or a triggered blast; parented/inventory equipment is rejected before text classification. Witness scans and entity-backed callbacks share one canonical source key. A target retains at most 64 lifetime source receipts, fails closed at capacity, and writes local bookkeeping only after authoritative asset mutation. | Fresh Workbench validation passes. R23 passes all six generic `primitive.destroy.no_ambient_witness_score` assertions and all seven destroy-family start/runtime/primitive cases. Preserve one-source/one-score behavior through callback-plus-scan overlap, carried equipment, restore, multiplayer, and soak proof. |
 | Controlled campaign persistence | Schema 71 gives typed automatic, manual, and shutdown requests one staged snapshot and one persisted checkpoint sequence. Native-active requests advance the verified two-slot profile journal only after the post-commit `SaveGameManager` callback; native-unavailable or explicitly profile-only sessions write it synchronously. Startup reconciles native and journal snapshots by checkpoint sequence, restore sequence, save second, and matching normalized fingerprint. Future or ambiguous authority is preserved and fenced. Controlled end drains pending work, uses a 270-second retry window, then requests blocking shutdown and preserves or purges native state according to the authority that committed. | The focused 41-case journal authority proof and strict automatic/manual/shutdown/native/journal five-process chain pass. The sealed extension proves one mixed-native captive/carrier/player/seat and guard graph across the same stages, with durable carrier rebind, stable seat recovery, native/profile fallback, and zero cleanup. This is crash-tolerant single-writer recovery, not atomic rename, authenticated storage, an off-device backup, or broad active-world/client/network certification. |
-| Campaign Debug isolation | The runner deep-clones campaign state, suspends normal persistence, and restores the live state. Bounded probes additionally capture/restore the shared clock and enemy-strategic fingerprint; the coordinator holds ambient commander cadence while the clone is active. It also holds ambient local-security progression whenever its matching worker is held. The separate restart harness is not a Campaign Debug clone: a strict startup guard authorizes one disposable source-selection carrier and one-use prepare/recover/replay lease. | Current package-bound run `seed1985_t0_p1_u1784414040` produced a mechanically complete, stable, preliminary-unaccepted capture with exact candidate/mount identity and zero drift or cleanup residue. Its report remains red at 584 PASS/49 WARN/46 FAIL/7 BLOCKED/1 SKIPPED and 5,562/5,688 required assertions, while the corrected census records 25 raw script errors, 19 in the Partisan subset, and ten unapproved diagnostics. The guarded native restart branch proves one separate source-precedence chain; neither result generalizes to arbitrary client/network or certification behavior. |
+| Campaign Debug isolation | The runner deep-clones campaign state, suspends normal persistence, and restores the live state. Bounded probes additionally capture/restore the shared clock and enemy-strategic fingerprint; the coordinator holds ambient commander cadence while the clone is active. It also holds ambient local-security progression whenever its matching worker is held. The separate restart harness is not a Campaign Debug clone: a strict startup guard authorizes one disposable source-selection carrier and one-use prepare/recover/replay lease. | Retained prior-package run `seed1985_t0_p1_u1784414040` produced a mechanically complete, stable, preliminary-unaccepted capture with exact candidate/mount identity and zero drift or cleanup residue. Its report remains red at 584 PASS/49 WARN/46 FAIL/7 BLOCKED/1 SKIPPED and 5,562/5,688 required assertions, while the corrected census records 25 raw script errors, 19 in the Partisan subset, and ten unapproved diagnostics. The current candidate has no package-bound Campaign Debug result yet. The guarded native restart branch proves one separate source-precedence chain; neither result generalizes to arbitrary client/network or certification behavior. |
 | Workbench compiler shape | Large Campaign Debug methods use compact context/result objects and focused helpers. The render-bubble proof keeps clock state in `HST_CampaignDebugClockIsolationContext` rather than extending an already-large local frame. | Preserve this boundary and require a fresh Game compile plus bounded cold open for future large proof additions; repository text/static validation cannot exclude a native compiler heap failure. |
-| Certification | Campaign Schema 71 and runtime-settings Schema 24 are current. `32727238d74b29905c68e5a80bb5897dfdc783c0`, UTC `2026-07-18T16:34:38Z`, label `schema71-settings24-focused-force-authority`, is the sealed implementation/source identity. The active replacement passed Foundation, all five Workbench targets, and the packaged five-case deterministic-service rung. | Current package-bound Full Campaign Debug is a preliminary-unaccepted red capture at 584/49/46/7/1 with 5,562/5,688 required assertions proven; wrapper success is not acceptance, and ten full-run diagnostics remain unapproved. Historical focused, journal, mixed-native, stale-journal/native, admin-reset, and exact-rebuild evidence remains sealed within its own scope. Correct the external harness and rerun the unchanged package before gameplay correction; active-world corrections, Workshop/server/client/network/JIP/reconnect, markers/UI, arbitrary migration, performance, and soak remain open. |
+| Certification | Campaign Schema 71 and runtime-settings Schema 24 are current. `32727238d74b29905c68e5a80bb5897dfdc783c0`, UTC `2026-07-18T16:34:38Z`, label `schema71-settings24-focused-force-authority`, is the sealed embedded implementation identity. Active candidate `partisan-rc-0e632ec4f63e-20260719T004133Z` passed Foundation and all five Workbench targets at 5,847/11,900 and CRC `3a399db1`, with exact-zero cleanup. | The current candidate has no package-bound focused, canary, or Full Campaign Debug result. Run all five focused cases first, then the corrected `force_authority` canary, and full only if that canary is accepted. The prior package's red 584/49/46/7/1 full capture and rejected canary remain preliminary-unaccepted historical evidence and cannot be combined with the new package. Active-world corrections, Workshop/server/client/network/JIP/reconnect, markers/UI, arbitrary migration, performance, and soak remain open. |
 
 The canonical ownership dependency and first shared crew-aware combat-presence/
 heat dependency remain sealed through Schema 63. Sealed Schema 64 adds the

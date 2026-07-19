@@ -3665,3 +3665,46 @@ Consequences:
 - The release decision remains `NO-GO`; dedicated, multiplayer/JIP, restart
   breadth, performance, soak, canary-release, and stable certification remain
   independent.
+
+Outcome update: The required package replacement is now sealed as
+`partisan-rc-0e632ec4f63e-20260719T004133Z`. CRI-066 records its exact identity,
+evidence disposition, and runtime-gate order. This closes CRI-065's build action
+only; it does not prove the delayed callback safe at runtime.
+
+## CRI-066 - Activate the Map-Locator Replacement Without Inheriting Runtime Evidence
+
+- Status: Accepted
+- Date: 2026-07-18
+
+Context: CRI-065 required a new package because the map-locator lifecycle guard
+changed packaged source. The preceding candidate's accepted focused set and its
+preliminary-unaccepted canary/full captures remain useful package-bound history,
+but none can prove the changed package. The replacement therefore needed a new
+immutable seal and a fresh evidence chain.
+
+Decision: Activate `partisan-rc-0e632ec4f63e-20260719T004133Z`, built from clean
+source HEAD `0e632ec4f63eab43e8c301d0755f10193d85131f`. Its canonical four-file
+package SHA-256 is
+`e5d29458c33aeef9cd2b37476359acc6021fe78cf0fc74513d9a2f69ef0614dc`,
+its manifest SHA-256 is
+`ea06318a8f5161f000685fe37ecab4f5c8a77d6b0e8205f502a6418e3365e76b`,
+and its ready-seal SHA-256 is
+`cd91e569b8a4a453dad6b0f884f22afbb36b9b5f0de629fd70b2188875e47c53`.
+Foundation and all five Workbench targets passed at 5,847 files/11,900 classes
+and common CRC `3a399db1`, with zero hard errors and exact-zero cleanup. The
+sealed inventories contain four package files and 50 evidence files.
+
+Consequences:
+
+- The seal is artifact/build evidence only. The candidate has no package-bound
+  focused, corrected-canary, or Full Campaign Debug result yet and does not prove
+  the map-locator correction at runtime.
+- Run all five packaged focused cases on this exact package first. Run the
+  corrected `force_authority` canary only after all five pass, and run Full
+  Campaign Debug only if that canary is accepted.
+- Keep the preceding rejected canary and full capture immutable as historical
+  preliminary-unaccepted evidence. Never combine their candidate, package, or
+  runtime result identities with this chain.
+- The release decision remains `NO-GO`; dedicated, multiplayer/JIP, restart
+  breadth, performance, soak, canary-release, and stable certification remain
+  independent.
