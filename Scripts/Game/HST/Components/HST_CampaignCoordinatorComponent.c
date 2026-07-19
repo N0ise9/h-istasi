@@ -21458,8 +21458,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	protected HST_CampaignDebugCaseResult BuildCampaignDebugPhysicalResponseFoldbackCaseOnDisposableClone()
 	{
 		HST_CampaignDebugCaseResult responseCase = CreateCampaignDebugCase("enemy_physical_response.foldback.runtime", "enemy_commander", "physical_response", "baseline");
-		bool servicesReady = m_State != null && m_Preset != null && m_EnemyDirector != null && m_EnemyCommander != null && m_SupportRequests != null && m_PhysicalWar != null && m_Garrisons != null;
-		AddCampaignDebugAssertion(responseCase, "enemy_physical_response.prerequisite", "state, preset, enemy commander, support, physical war, and garrison services ready", string.Format("state %1 | preset %2 | director %3 | commander %4 | support %5 | physical %6 | garrisons %7", m_State != null, m_Preset != null, m_EnemyDirector != null, m_EnemyCommander != null, m_SupportRequests != null, m_PhysicalWar != null, m_Garrisons != null), CampaignDebugStatus(servicesReady, "BLOCKED"), "physical response prerequisites missing");
+		bool servicesReady = m_State != null && m_Preset != null && m_Balance != null && m_EnemyDirector != null && m_EnemyCommander != null && m_SupportRequests != null && m_PhysicalWar != null && m_Garrisons != null;
+		AddCampaignDebugAssertion(responseCase, "enemy_physical_response.prerequisite", "state, preset, balance, enemy commander, support, physical war, and garrison services ready", string.Format("state %1 | preset %2 | balance %3 | director %4 | commander %5 | support %6 | physical %7 | garrisons %8", m_State != null, m_Preset != null, m_Balance != null, m_EnemyDirector != null, m_EnemyCommander != null, m_SupportRequests != null, m_PhysicalWar != null, m_Garrisons != null), CampaignDebugStatus(servicesReady, "BLOCKED"), "physical response prerequisites missing");
 		if (!servicesReady)
 		{
 			FinalizeCampaignDebugCaseFromAssertions(responseCase);
@@ -21552,11 +21552,88 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			vehicleRuntimeBeforeFold = m_PhysicalWar.CampaignDebugHasRuntimeVehicleEntity(group.m_sGroupId);
 			vehicleRuntimeEvidenceBeforeFold = m_PhysicalWar.CampaignDebugBuildActiveGroupRuntimeVisualEvidence(group.m_sGroupId);
 		}
+		vector playerPositionBeforeFoldback;
+		bool playerPositionCaptured;
+		IEntity foldbackPlayer = ResolveControlledPlayerEntity(m_iCampaignDebugPlayerId);
+		if (IsLivingEntity(foldbackPlayer))
+		{
+			playerPositionBeforeFoldback = foldbackPlayer.GetOrigin();
+			playerPositionCaptured = !IsZeroVector(playerPositionBeforeFoldback);
+		}
+		bool nearTeleport;
+		bool insideBubbleBeforeLeave;
+		bool farTeleport;
+		bool outsideBubbleAfterLeave;
+		bool deactivationTickChanged;
+		bool zoneDeactivated;
+		bool physicalFoldChanged;
+		bool runtimeGroupAfterFold;
+		bool runtimeVehicleAfterFold;
+		string foldDriveEvidence = "not attempted";
 		bool foldTickChanged;
 		bool orderSyncChanged;
 		if (request && group)
 		{
-			targetZone.m_bActive = false;
+			string foldGroupId = group.m_sGroupId;
+			vector nearPosition = group.m_vPosition + "12 0 12";
+			if (IsZeroVector(group.m_vPosition))
+				nearPosition = targetZone.m_vPosition + "12 0 12";
+			nearTeleport = TeleportCampaignDebugPlayer(
+				nearPosition,
+				"enemy physical response foldback near");
+			insideBubbleBeforeLeave
+				= HST_WorldPositionService.IsPositionInsidePlayerEventBubble(
+					group.m_vPosition);
+
+			vector farPosition
+				= ResolveCampaignDebugPhysicalResponseFoldbackFarPosition(
+					group.m_vPosition);
+			farTeleport = TeleportCampaignDebugPlayer(
+				farPosition,
+				"enemy physical response foldback leave");
+			outsideBubbleAfterLeave
+				= !HST_WorldPositionService.IsPositionInsidePlayerEventBubble(
+					group.m_vPosition);
+			HST_CampaignState deactivationState = new HST_CampaignState();
+			deactivationState.m_ePhase = m_State.m_ePhase;
+			deactivationState.m_iElapsedSeconds = m_State.m_iElapsedSeconds;
+			deactivationState.m_vHQPosition = m_State.m_vHQPosition;
+			deactivationState.m_aZones.Insert(targetZone);
+			deactivationState.m_aGeneratedRoutes.Insert(targetRoute);
+			deactivationState.m_aSupportRequests.Insert(request);
+			deactivationState.m_aActiveGroups.Insert(group);
+			HST_EnemyDirectorService noDeactivationEnemyDirector = null;
+			HST_ZoneCompositionService noDeactivationCompositions = null;
+			deactivationTickChanged = m_PhysicalWar.UpdateZoneActivation(
+				deactivationState,
+				m_Balance,
+				m_Preset,
+				noDeactivationEnemyDirector,
+				noDeactivationCompositions);
+			zoneDeactivated = !targetZone.m_bActive;
+			group = m_State.FindActiveGroup(foldGroupId);
+			if (group && outsideBubbleAfterLeave && zoneDeactivated)
+				physicalFoldChanged
+					= m_PhysicalWar.FoldActiveSupportGroup(
+						m_State,
+						foldGroupId);
+			group = m_State.FindActiveGroup(foldGroupId);
+			runtimeGroupAfterFold
+				= m_PhysicalWar.CampaignDebugHasRuntimeGroupEntity(foldGroupId);
+			runtimeVehicleAfterFold
+				= m_PhysicalWar.CampaignDebugHasRuntimeVehicleEntity(foldGroupId);
+			foldDriveEvidence = string.Format(
+				"near teleport %1 inside %2 | far teleport %3 outside %4 | deactivation tick %5 zone inactive %6 | physical fold %7 | runtime group/vehicle %8/%9",
+				nearTeleport,
+				insideBubbleBeforeLeave,
+				farTeleport,
+				outsideBubbleAfterLeave,
+				deactivationTickChanged,
+				zoneDeactivated,
+				physicalFoldChanged,
+				runtimeGroupAfterFold,
+				runtimeVehicleAfterFold);
+
 			int arrivalAtSecond = request.m_iRequestedAtSecond + Math.Max(0, request.m_iETASeconds);
 			if (m_State.m_iElapsedSeconds < arrivalAtSecond)
 				m_State.m_iElapsedSeconds = arrivalAtSecond;
@@ -21581,6 +21658,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				request = m_State.FindSupportRequest(request.m_sRequestId);
 			if (group)
 				group = m_State.FindActiveGroup(group.m_sGroupId);
+			if (playerPositionCaptured)
+				TeleportCampaignDebugPlayer(
+					playerPositionBeforeFoldback,
+					"enemy physical response foldback restore");
 		}
 
 		HST_CampaignSaveData roundTripSaveData = new HST_CampaignSaveData();
@@ -21602,6 +21683,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugMetric(responseCase, "enemy_physical_response.orders_before", string.Format("%1", orderCountBefore), "count");
 		AddCampaignDebugMetric(responseCase, "enemy_physical_response.support_before", string.Format("%1", supportCountBefore), "count");
 		AddCampaignDebugMetric(responseCase, "enemy_physical_response.groups_before", string.Format("%1", groupCountBefore), "count");
+		AddCampaignDebugMetric(responseCase, "enemy_physical_response.foldback_deactivation_samples", "1", "count");
 
 		AddCampaignDebugAssertion(responseCase, "enemy_physical_response.order_created", "enemy QRF order queues through commander", BuildCampaignDebugEnemyOrderSpendActual(order), CampaignDebugStatus(order && order.m_eType == HST_EEnemyOrderType.HST_ENEMY_ORDER_QRF), "physical response debug order was not created");
 		AddCampaignDebugAssertion(responseCase, "enemy_physical_response.support_created", "enemy order physicalizes into a linked support request", BuildCampaignDebugSupportRequestActual(request), CampaignDebugStatus(order && request && order.m_bPhysicalized && order.m_sSupportRequestId == request.m_sRequestId), "enemy order did not physicalize into support");
@@ -21643,6 +21725,30 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			positionExpected = !IsZeroVector(group.m_vSourcePosition) && !IsZeroVector(group.m_vTargetPosition) && (groupStatusBeforeFold == "support_active" || groupStatusBeforeFold == "support_arrived" || IsCampaignDebugAsyncRuntimePending(groupStatusBeforeFold));
 		}
 		AddCampaignDebugAssertion(responseCase, "enemy_physical_response.group_staged", "active group has valid staging and target positions before fold-back", positionActual, CampaignDebugStatus(positionExpected, "WARN"), "physical response group did not reach a support runtime state before fold-back");
+		responseCase.m_aEvidence.Insert("fold drive | " + foldDriveEvidence);
+		bool bubbleTransitionExpected = nearTeleport
+			&& insideBubbleBeforeLeave
+			&& farTeleport
+			&& outsideBubbleAfterLeave;
+		AddCampaignDebugAssertion(
+			responseCase,
+			"enemy_physical_response.foldback_bubble_transition",
+			"controlled player moves from inside to outside the active-group event bubble",
+			foldDriveEvidence,
+			CampaignDebugStatus(bubbleTransitionExpected),
+			"physical response foldback did not prove an inside-to-outside event-bubble transition");
+		bool deactivationFoldExpected = deactivationTickChanged
+			&& zoneDeactivated
+			&& physicalFoldChanged
+			&& !runtimeGroupAfterFold
+			&& !runtimeVehicleAfterFold;
+		AddCampaignDebugAssertion(
+			responseCase,
+			"enemy_physical_response.foldback_physical_path",
+			"one bounded Physical War deactivation sample folds the linked support group and removes its runtime handles",
+			foldDriveEvidence,
+			CampaignDebugStatus(deactivationFoldExpected),
+			"Physical War deactivation/foldback did not retire the linked runtime group cleanly");
 		string foldActual = "missing";
 		bool foldExpected = false;
 		if (request && group)
@@ -21737,6 +21843,39 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return bestZone;
 
 		return FindCampaignDebugSpawnPlacementOutpost();
+	}
+
+	protected vector ResolveCampaignDebugPhysicalResponseFoldbackFarPosition(
+		vector groupPosition)
+	{
+		float minimumDistance
+			= HST_WorldPositionService.GetPlayerEventBubbleRadiusMeters() + 500.0;
+		float minimumDistanceSq = minimumDistance * minimumDistance;
+		if (m_State && !IsZeroVector(m_State.m_vHQPosition)
+			&& DistanceSq2D(groupPosition, m_State.m_vHQPosition)
+				>= minimumDistanceSq)
+			return m_State.m_vHQPosition + "8 0 8";
+
+		HST_ZoneState farthestZone;
+		float farthestDistanceSq;
+		if (m_State)
+		{
+			foreach (HST_ZoneState zone : m_State.m_aZones)
+			{
+				if (!zone || IsZeroVector(zone.m_vPosition))
+					continue;
+				float distanceSq
+					= DistanceSq2D(groupPosition, zone.m_vPosition);
+				if (farthestZone && distanceSq <= farthestDistanceSq)
+					continue;
+				farthestZone = zone;
+				farthestDistanceSq = distanceSq;
+			}
+		}
+		if (farthestZone && farthestDistanceSq >= minimumDistanceSq)
+			return farthestZone.m_vPosition + "8 0 8";
+
+		return groupPosition + "5000 0 5000";
 	}
 
 	protected HST_ZoneState BuildCampaignDebugPhysicalResponseZone(string zoneId, string factionKey, HST_ZoneState baseZone)
@@ -22372,10 +22511,50 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return foldbackCase;
 		}
 
-		HST_ZoneState targetZone = SelectCampaignDebugGarrisonZone();
-		string factionKey = ResolveCampaignDebugResistanceFactionKey();
-		bool targetReady = targetZone != null && !targetZone.m_sZoneId.IsEmpty() && !factionKey.IsEmpty();
-		AddCampaignDebugAssertion(foldbackCase, "garrison_foldback.target", "debug garrison zone and faction available", string.Format("zone %1 | faction %2", ResolveZoneLabel(targetZone), EmptyCampaignDebugField(factionKey)), CampaignDebugStatus(targetReady, "BLOCKED"), "garrison fold-back target zone or faction missing");
+		string factionKey;
+		HST_ZoneState targetZone
+			= SelectCampaignDebugGarrisonFoldbackZone(factionKey);
+		HST_FactionPoolState targetPool;
+		if (!factionKey.IsEmpty())
+			targetPool = m_State.FindFactionPool(factionKey);
+		string targetOwner;
+		int targetSlots;
+		bool targetActive;
+		int targetActiveInfantry;
+		int targetActiveVehicles;
+		if (targetZone)
+		{
+			targetOwner = targetZone.m_sOwnerFactionKey;
+			targetSlots = targetZone.m_iGarrisonSlots;
+			targetActive = targetZone.m_bActive;
+			targetActiveInfantry = targetZone.m_iActiveInfantryCount;
+			targetActiveVehicles = targetZone.m_iActiveVehicleCount;
+		}
+		bool targetReady = targetZone != null
+			&& !targetZone.m_sZoneId.IsEmpty()
+			&& !factionKey.IsEmpty()
+			&& targetPool != null
+			&& targetZone.m_sOwnerFactionKey == factionKey
+			&& targetZone.m_iGarrisonSlots > 0
+			&& !targetZone.m_bActive
+			&& targetZone.m_iActiveInfantryCount == 0
+			&& targetZone.m_iActiveVehicleCount == 0;
+		AddCampaignDebugAssertion(
+			foldbackCase,
+			"garrison_foldback.target",
+			"inactive garrison-capable zone uses its owning faction and a valid faction pool",
+			string.Format(
+				"zone %1 | owner %2 | faction %3 | pool %4 | slots %5 | active %6 forces %7/%8",
+				ResolveZoneLabel(targetZone),
+				EmptyCampaignDebugField(targetOwner),
+				EmptyCampaignDebugField(factionKey),
+				targetPool != null,
+				targetSlots,
+				targetActive,
+				targetActiveInfantry,
+				targetActiveVehicles),
+			CampaignDebugStatus(targetReady, "BLOCKED"),
+			"garrison fold-back target was missing, active, or disconnected from its owning faction");
 		if (!targetReady)
 		{
 			FinalizeCampaignDebugCaseFromAssertions(foldbackCase);
@@ -43080,6 +43259,83 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return m_State.FindActiveMission(m_sCampaignDebugEarlyMissionInstanceId);
 
 		return null;
+	}
+
+	protected HST_ZoneState SelectCampaignDebugGarrisonFoldbackZone(
+		out string factionKey)
+	{
+		factionKey = "";
+		if (!m_State || !m_Preset || !m_Garrisons)
+			return null;
+
+		HST_ZoneState resistanceZone = SelectCampaignDebugGarrisonZone();
+		if (IsCampaignDebugGarrisonFoldbackZoneCandidate(resistanceZone))
+		{
+			factionKey = resistanceZone.m_sOwnerFactionKey;
+			return resistanceZone;
+		}
+
+		HST_ZoneState resistanceFallback;
+		foreach (HST_ZoneState zone : m_State.m_aZones)
+		{
+			if (!IsCampaignDebugGarrisonFoldbackZoneCandidate(zone))
+				continue;
+
+			string ownerFactionKey = zone.m_sOwnerFactionKey;
+			if (HST_FactionRelationService.IsEnemyFaction(
+				m_Preset,
+				ownerFactionKey))
+			{
+				factionKey = ownerFactionKey;
+				return zone;
+			}
+			if (!resistanceFallback
+				&& ownerFactionKey == m_Preset.m_sResistanceFactionKey)
+				resistanceFallback = zone;
+		}
+
+		if (resistanceFallback)
+		{
+			factionKey = resistanceFallback.m_sOwnerFactionKey;
+			return resistanceFallback;
+		}
+
+		return null;
+	}
+
+	protected bool IsCampaignDebugGarrisonFoldbackZoneCandidate(
+		HST_ZoneState zone)
+	{
+		if (!m_State || !m_Preset || !m_Garrisons || !zone)
+			return false;
+		if (zone.m_sZoneId.IsEmpty() || zone.m_sOwnerFactionKey.IsEmpty())
+			return false;
+		if (zone.m_eType == HST_EZoneType.HST_ZONE_HIDEOUT
+			|| zone.m_eType == HST_EZoneType.HST_ZONE_MISSION_SITE)
+			return false;
+		if (zone.m_bActive
+			|| zone.m_iActiveInfantryCount != 0
+			|| zone.m_iActiveVehicleCount != 0)
+			return false;
+		if (zone.m_iGarrisonSlots <= 0
+			|| CountCampaignDebugZoneActiveGroups(zone.m_sZoneId) > 0)
+			return false;
+		if (!m_State.FindFactionPool(zone.m_sOwnerFactionKey))
+			return false;
+		bool contractFaction
+			= zone.m_sOwnerFactionKey == m_Preset.m_sResistanceFactionKey
+			|| HST_FactionRelationService.IsEnemyFaction(
+				m_Preset,
+				zone.m_sOwnerFactionKey);
+		if (!contractFaction)
+			return false;
+
+		HST_GarrisonState garrison = m_State.FindGarrison(
+			zone.m_sZoneId,
+			zone.m_sOwnerFactionKey);
+		return m_Garrisons.CountExecutableManifestInfantry(
+			m_State,
+			garrison) == 0;
 	}
 
 	protected HST_ZoneState SelectCampaignDebugGarrisonZone()
