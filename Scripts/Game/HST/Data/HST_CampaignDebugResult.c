@@ -310,7 +310,12 @@ class HST_CampaignDebugVehicleLoadoutProbeContext
 	string m_sInvalidLoadoutApplyResult;
 	string m_sPhysicalLoadoutApplyResult;
 	string m_sRestoreLoadoutApplyResult;
+	string m_sPhysicalCleanupRestoreResult;
+	string m_sOriginalSerializedLoadout;
 	string m_sSerializedLoadoutFailure;
+	string m_sPhysicalCarrierPrefabBefore;
+	string m_sPhysicalCarrierPreconditionFailure;
+	string m_sPhysicalRestoreVerificationFailure;
 	string m_sPhysicalDraftLocationsAfterApply;
 	string m_sPhysicalDraftLocationsAfterRestore;
 	string m_sStoredVehicleHeatReasonBeforeRedeploy;
@@ -348,9 +353,15 @@ class HST_CampaignDebugVehicleLoadoutProbeContext
 	bool m_bPhysicalLoadoutSeeded;
 	bool m_bRestoreLoadoutSeeded;
 	bool m_bPhysicalInventoryAccessible;
+	bool m_bPhysicalDirectCapacityAvailable;
+	bool m_bPhysicalTemporaryCarrierCapacityAvailable;
 	bool m_bPhysicalInventoryCapacityAvailable;
 	bool m_bPhysicalInventoryReflected;
 	bool m_bPhysicalInventoryRestored;
+	bool m_bPhysicalCarrierPreconditioned;
+	bool m_bPhysicalPrimarySerializedLoadoutRestored;
+	bool m_bPhysicalSerializedLoadoutRestored;
+	bool m_bPhysicalCarrierCleanupComplete;
 	bool m_bPhysicalDraftAccessible;
 	bool m_bPhysicalDraftReflected;
 	bool m_bPhysicalDraftRestored;
@@ -368,6 +379,7 @@ class HST_CampaignDebugVehicleLoadoutProbeContext
 	bool m_bLoadoutCleanupRestoredArsenal;
 	bool m_bLoadoutCleanupRestoredStorageArsenal;
 	bool m_bLoadoutCleanupRestoredIssued;
+	IEntity m_PhysicalDetachedCarrierEntity;
 	int m_iGarageCountBefore;
 	int m_iGarageCountAfterStore;
 	int m_iGarageCountAfterRedeploy;

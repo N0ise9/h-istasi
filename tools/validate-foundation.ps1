@@ -13719,6 +13719,112 @@ foreach ($physicalLoadoutStatusFunction in @(
 		throw "Campaign debug physical loadout missing-capacity path must be BLOCKED, not WARN: $physicalLoadoutStatusFunction"
 	}
 }
+$campaignDebugPhysicalLoadoutProbeBlock = Get-ScriptMethodBlock `
+	$coordinatorText `
+	'protected void RunCampaignDebugPhysicalLoadoutApplyProbe('
+$campaignDebugPhysicalCarrierBlock = Get-ScriptMethodBlock `
+	$coordinatorText `
+	'protected bool ArrangeCampaignDebugPhysicalLoadoutCarrierCapacity('
+$campaignDebugPhysicalRestoreVerifyBlock = Get-ScriptMethodBlock `
+	$coordinatorText `
+	'protected bool VerifyCampaignDebugPhysicalSerializedLoadoutRestore('
+$campaignDebugPhysicalCleanupBlock = Get-ScriptMethodBlock `
+	$coordinatorText `
+	'protected void CleanupCampaignDebugPhysicalLoadoutPrecondition('
+$campaignDebugPhysicalReattachBlock = Get-ScriptMethodBlock `
+	$coordinatorText `
+	'protected bool ReattachCampaignDebugOriginalLoadoutCarrier('
+$campaignDebugPhysicalRestoreStatusBlock = Get-ScriptMethodBlock `
+	$coordinatorText `
+	'protected string CampaignDebugLoadoutPhysicalRestoreStatus('
+foreach ($campaignDebugPhysicalLoadoutMethod in @(
+	$campaignDebugPhysicalLoadoutProbeBlock,
+	$campaignDebugPhysicalCarrierBlock,
+	$campaignDebugPhysicalRestoreVerifyBlock,
+	$campaignDebugPhysicalCleanupBlock,
+	$campaignDebugPhysicalReattachBlock,
+	$campaignDebugPhysicalRestoreStatusBlock
+)) {
+	if ([string]::IsNullOrWhiteSpace($campaignDebugPhysicalLoadoutMethod)) {
+		throw 'Campaign debug full-inventory physical saved-loadout arrangement and restoration methods are incomplete.'
+	}
+}
+foreach ($campaignDebugPhysicalCarrierEntry in @(
+	'EquipedLoadoutStorageComponent.Cast',
+	'GetClothFromArea(LoadoutBackpackArea)',
+	'carrierItem.GetParentSlot()',
+	'inventory.TryRemoveItemFromStorage(originalCarrier, parentSlot.GetStorage())',
+	'm_PhysicalDetachedCarrierEntity = originalCarrier',
+	'm_bPhysicalCarrierPreconditioned = true',
+	'CanCampaignDebugPlayerInventoryAcceptPrefab(m_iCampaignDebugPlayerId, CAMPAIGN_DEBUG_LOADOUT_STORAGE_PREFAB)'
+)) {
+	if ($campaignDebugPhysicalCarrierBlock.IndexOf(
+		$campaignDebugPhysicalCarrierEntry,
+		[StringComparison]::Ordinal) -lt 0) {
+		throw "Campaign debug full-inventory carrier arrangement bypasses native equipped-backpack authority: $campaignDebugPhysicalCarrierEntry"
+	}
+}
+foreach ($campaignDebugPhysicalProbeEntry in @(
+	'carrierCapacity = ArrangeCampaignDebugPhysicalLoadoutCarrierCapacity(vehicleLoadoutContext)',
+	'bool useTemporaryCarrier = !directFiniteCapacity',
+	'AppendCampaignDebugTransientLoadoutSlot(physicalLoadout, CAMPAIGN_DEBUG_LOADOUT_STORAGE_PREFAB',
+	'm_bPhysicalPrimarySerializedLoadoutRestored = VerifyCampaignDebugPhysicalSerializedLoadoutRestore(vehicleLoadoutContext)',
+	'm_bPhysicalSerializedLoadoutRestored = vehicleLoadoutContext.m_bPhysicalPrimarySerializedLoadoutRestored'
+)) {
+	if ($campaignDebugPhysicalLoadoutProbeBlock.IndexOf(
+		$campaignDebugPhysicalProbeEntry,
+		[StringComparison]::Ordinal) -lt 0) {
+		throw "Campaign debug physical saved-loadout probe no longer exercises arranged carrier capacity and exact restore: $campaignDebugPhysicalProbeEntry"
+	}
+}
+foreach ($campaignDebugPhysicalRestoreEntry in @(
+	'TryBuildCampaignDebugSerializedLoadout(m_iCampaignDebugPlayerId, currentSerializedLoadout, verificationFailure)',
+	'currentSerializedLoadout != vehicleLoadoutContext.m_sOriginalSerializedLoadout'
+)) {
+	if ($campaignDebugPhysicalRestoreVerifyBlock.IndexOf(
+		$campaignDebugPhysicalRestoreEntry,
+		[StringComparison]::Ordinal) -lt 0) {
+		throw "Campaign debug physical saved-loadout restore must compare the native post-restore serialization to the exact pre-probe snapshot: $campaignDebugPhysicalRestoreEntry"
+	}
+}
+foreach ($campaignDebugPhysicalCleanupEntry in @(
+	'RequestMemberApplySavedLoadout(m_iCampaignDebugPlayerId, vehicleLoadoutContext.m_sRestoreLoadoutId)',
+	'if (vehicleLoadoutContext.m_bPhysicalSerializedLoadoutRestored)',
+	'SCR_EntityHelper.DeleteEntityAndChildren(vehicleLoadoutContext.m_PhysicalDetachedCarrierEntity)',
+	'ReattachCampaignDebugOriginalLoadoutCarrier(vehicleLoadoutContext)'
+)) {
+	if ($campaignDebugPhysicalCleanupBlock.IndexOf(
+		$campaignDebugPhysicalCleanupEntry,
+		[StringComparison]::Ordinal) -lt 0) {
+		throw "Campaign debug physical saved-loadout cleanup must restore exact native state before retiring or reattaching the original carrier: $campaignDebugPhysicalCleanupEntry"
+	}
+}
+foreach ($campaignDebugPhysicalReattachEntry in @(
+	'inventory.FindStorageForInsert(originalCarrier, null, EStoragePurpose.PURPOSE_ANY)',
+	'inventory.TryInsertItemInStorage(originalCarrier, targetStorage)'
+)) {
+	if ($campaignDebugPhysicalReattachBlock.IndexOf(
+		$campaignDebugPhysicalReattachEntry,
+		[StringComparison]::Ordinal) -lt 0) {
+		throw "Campaign debug physical saved-loadout cleanup fallback must reattach the unchanged original carrier through native inventory authority: $campaignDebugPhysicalReattachEntry"
+	}
+}
+foreach ($campaignDebugPhysicalRestoreStatusEntry in @(
+	'm_bPhysicalPrimarySerializedLoadoutRestored',
+	'm_bPhysicalSerializedLoadoutRestored',
+	'm_bPhysicalCarrierCleanupComplete'
+)) {
+	if ($campaignDebugPhysicalRestoreStatusBlock.IndexOf(
+		$campaignDebugPhysicalRestoreStatusEntry,
+		[StringComparison]::Ordinal) -lt 0) {
+		throw "Campaign debug physical saved-loadout restore status must require primary exact native restore and completed carrier cleanup: $campaignDebugPhysicalRestoreStatusEntry"
+	}
+}
+if ($coordinatorText.IndexOf(
+	'Prefabs/Items/Equipment/Backpacks/Backpack_ALICE_Medium.et',
+	[StringComparison]::Ordinal) -lt 0) {
+	throw 'Campaign debug physical saved-loadout probe must use the known first-party carrier-capable backpack fixture.'
+}
 $loadoutPreviewChromeMethods = @(
 	@{ Name = "AddCandidatePreviewToListRow"; Pattern = "protected void AddCandidatePreviewToListRow[\s\S]*?\r?\n\t}\r?\n\r?\n\tprotected void AddCandidateListOverlayText" },
 	@{ Name = "AddNodePreviewToRow"; Pattern = "protected void AddNodePreviewToRow[\s\S]*?\r?\n\t}\r?\n\r?\n\tprotected void AddCandidatePreviewToRow" },

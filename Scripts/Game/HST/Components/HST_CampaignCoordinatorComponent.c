@@ -117,7 +117,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	static const string PHASE15_SMOKE_VEHICLE_PREFAB = "{4AE9D080927D3CB9}Prefabs/Vehicles/Wheeled/S1203/S1203_base.et";
 	static const string PHASE15_SMOKE_CARGO_PREFAB = "{6985327711303720}Prefabs/Objects/HST/HST_MissionProp_Cargo.et";
 	static const string CAMPAIGN_DEBUG_LOADOUT_FINITE_PREFAB = "{BBB50A815A2F916B}Prefabs/Weapons/Magazines/Magazine_545x39_AK_30rnd_Ball.et";
-	static const string CAMPAIGN_DEBUG_LOADOUT_STORAGE_PREFAB = "{FDA7B6630DB87991}Prefabs/Items/Equipment/Backpacks/Backpack_M70_Swiss.et";
+	static const string CAMPAIGN_DEBUG_LOADOUT_STORAGE_PREFAB = "{06B68C58B72EAAC6}Prefabs/Items/Equipment/Backpacks/Backpack_ALICE_Medium.et";
 	static const string CAMPAIGN_DEBUG_LOADOUT_INVALID_PREFAB = "{0000000000000000}Prefabs/Weapons/Magazines/HST_CampaignDebug_MissingMagazine.et";
 	static const string CAMPAIGN_DEBUG_RUNTIME_HVT_PREFAB = "{6985327711303700}Prefabs/Objects/HST/HST_MissionProp_HVT.et";
 	static const string CAMPAIGN_DEBUG_RUNTIME_DESTROY_TARGET_PREFAB = "{6985327711303710}Prefabs/Objects/HST/HST_MissionProp_DestroyTarget.et";
@@ -41860,7 +41860,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugAssertion(vehicleLoadoutCase, "loadout_editor.live_draft_apply", "loadout editor live draft model reflects the physically inserted finite items", BuildCampaignDebugLoadoutDraftApplyActual(vehicleLoadoutContext), CampaignDebugLoadoutDraftApplyStatus(vehicleLoadoutContext), "loadout editor live draft model did not reflect the physically inserted finite items", vehicleLoadoutContext.m_sPhysicalLoadoutId);
 		AddCampaignDebugAssertion(vehicleLoadoutCase, "loadout_editor.physical_restore", "original serialized loadout restores player inventory after the physical apply probe", BuildCampaignDebugLoadoutPhysicalRestoreActual(vehicleLoadoutContext), CampaignDebugLoadoutPhysicalRestoreStatus(vehicleLoadoutContext), "physical saved-loadout apply probe did not restore player inventory with the original serialized loadout", vehicleLoadoutContext.m_sRestoreLoadoutId);
 		AddCampaignDebugAssertion(vehicleLoadoutCase, "loadout_editor.live_draft_restore", "loadout editor live draft model returns to baseline after the serialized restore loadout", BuildCampaignDebugLoadoutDraftRestoreActual(vehicleLoadoutContext), CampaignDebugLoadoutDraftRestoreStatus(vehicleLoadoutContext), "loadout editor live draft model did not return to baseline after serialized restore", vehicleLoadoutContext.m_sRestoreLoadoutId);
-		AddCampaignDebugAssertion(vehicleLoadoutCase, "loadout_editor.apply_cleanup", "transient saved loadouts, finite/storage arsenal deltas, issued ledger, and editor session are restored after apply probe", BuildCampaignDebugLoadoutApplyCleanupActual(vehicleLoadoutContext), CampaignDebugStatus(vehicleLoadoutContext.m_bLoadoutApplySnapshotCaptured && vehicleLoadoutContext.m_iSavedLoadoutsAfterLoadoutCleanup == vehicleLoadoutContext.m_iSavedLoadoutsAfterClose && vehicleLoadoutContext.m_iFiniteArsenalCountAfterLoadoutCleanup == vehicleLoadoutContext.m_iFiniteArsenalCountBefore && vehicleLoadoutContext.m_iStorageArsenalCountAfterLoadoutCleanup == vehicleLoadoutContext.m_iStorageArsenalCountBefore && vehicleLoadoutContext.m_iFiniteIssuedCountAfterLoadoutCleanup == vehicleLoadoutContext.m_iFiniteIssuedCountBefore && vehicleLoadoutContext.m_iIssuedItemsAfterLoadoutCleanup == vehicleLoadoutContext.m_iIssuedItemsAfterClose && vehicleLoadoutContext.m_bLoadoutCleanupRestoredArsenal && vehicleLoadoutContext.m_bLoadoutCleanupRestoredStorageArsenal && vehicleLoadoutContext.m_bLoadoutCleanupRestoredIssued && IsCampaignDebugResultSuccessful(vehicleLoadoutContext.m_sPostApplyCloseResult)), "loadout apply probe did not restore debug state or close the editor session");
+		AddCampaignDebugAssertion(vehicleLoadoutCase, "loadout_editor.apply_cleanup", "transient saved loadouts, finite/storage arsenal deltas, issued ledger, physical carrier precondition, and editor session are restored after apply probe", BuildCampaignDebugLoadoutApplyCleanupActual(vehicleLoadoutContext), CampaignDebugStatus(vehicleLoadoutContext.m_bLoadoutApplySnapshotCaptured && vehicleLoadoutContext.m_iSavedLoadoutsAfterLoadoutCleanup == vehicleLoadoutContext.m_iSavedLoadoutsAfterClose && vehicleLoadoutContext.m_iFiniteArsenalCountAfterLoadoutCleanup == vehicleLoadoutContext.m_iFiniteArsenalCountBefore && vehicleLoadoutContext.m_iStorageArsenalCountAfterLoadoutCleanup == vehicleLoadoutContext.m_iStorageArsenalCountBefore && vehicleLoadoutContext.m_iFiniteIssuedCountAfterLoadoutCleanup == vehicleLoadoutContext.m_iFiniteIssuedCountBefore && vehicleLoadoutContext.m_iIssuedItemsAfterLoadoutCleanup == vehicleLoadoutContext.m_iIssuedItemsAfterClose && vehicleLoadoutContext.m_bLoadoutCleanupRestoredArsenal && vehicleLoadoutContext.m_bLoadoutCleanupRestoredStorageArsenal && vehicleLoadoutContext.m_bLoadoutCleanupRestoredIssued && vehicleLoadoutContext.m_bPhysicalCarrierCleanupComplete && IsCampaignDebugResultSuccessful(vehicleLoadoutContext.m_sPostApplyCloseResult)), "loadout apply probe did not restore debug state, physical carrier precondition, or editor session");
 		AddCampaignDebugAssertion(vehicleLoadoutCase, "garage_loadout.cleanup", "debug garage, runtime vehicle, and vehicle cargo records are removed", BuildCampaignDebugVehicleLoadoutCleanupActual(vehicleLoadoutContext), CampaignDebugStatus(vehicleLoadoutContext.m_iGarageCountAfterCleanup == vehicleLoadoutContext.m_iGarageCountBefore && vehicleLoadoutContext.m_iRuntimeVehicleCountAfterCleanup == vehicleLoadoutContext.m_iRuntimeVehicleCountBefore && vehicleLoadoutContext.m_iVehicleCargoCountAfterCleanup == vehicleLoadoutContext.m_iVehicleCargoCountBefore), "garage/loadout probe left debug garage, runtime vehicle, or cargo records behind");
 		FinalizeCampaignDebugCaseFromAssertions(vehicleLoadoutCase);
 		return vehicleLoadoutCase;
@@ -41937,7 +41937,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		string serializedLoadout;
 		string serializedFailure;
 		if (TryBuildCampaignDebugSerializedLoadout(m_iCampaignDebugPlayerId, serializedLoadout, serializedFailure))
+		{
 			vehicleLoadoutContext.m_bSerializedLoadoutAvailable = true;
+			vehicleLoadoutContext.m_sOriginalSerializedLoadout = serializedLoadout;
+		}
 		else
 			vehicleLoadoutContext.m_sSerializedLoadoutFailure = serializedFailure;
 
@@ -41988,15 +41991,22 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!vehicleLoadoutContext || !m_State || !m_Arsenal)
 			return;
 
+		bool directFiniteCapacity;
+		bool carrierCapacity;
 		int inventoryCountBefore;
 		if (CountCampaignDebugPlayerInventoryPrefab(m_iCampaignDebugPlayerId, CAMPAIGN_DEBUG_LOADOUT_FINITE_PREFAB, inventoryCountBefore))
 		{
 			vehicleLoadoutContext.m_bPhysicalInventoryAccessible = true;
 			vehicleLoadoutContext.m_iPhysicalInventoryCountBefore = inventoryCountBefore;
-			bool directFiniteCapacity = CanCampaignDebugPlayerInventoryAcceptPrefab(m_iCampaignDebugPlayerId, CAMPAIGN_DEBUG_LOADOUT_FINITE_PREFAB);
-			bool carrierCapacity = false;
+			directFiniteCapacity = CanCampaignDebugPlayerInventoryAcceptPrefab(m_iCampaignDebugPlayerId, CAMPAIGN_DEBUG_LOADOUT_FINITE_PREFAB);
 			if (!directFiniteCapacity)
+			{
 				carrierCapacity = CanCampaignDebugPlayerInventoryAcceptPrefab(m_iCampaignDebugPlayerId, CAMPAIGN_DEBUG_LOADOUT_STORAGE_PREFAB);
+				if (!carrierCapacity && vehicleLoadoutContext.m_bSerializedLoadoutAvailable)
+					carrierCapacity = ArrangeCampaignDebugPhysicalLoadoutCarrierCapacity(vehicleLoadoutContext);
+			}
+			vehicleLoadoutContext.m_bPhysicalDirectCapacityAvailable = directFiniteCapacity;
+			vehicleLoadoutContext.m_bPhysicalTemporaryCarrierCapacityAvailable = carrierCapacity;
 			vehicleLoadoutContext.m_bPhysicalInventoryCapacityAvailable = directFiniteCapacity || carrierCapacity;
 		}
 		int draftCountBefore;
@@ -42024,7 +42034,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return;
 		}
 
-		bool useTemporaryCarrier = !CanCampaignDebugPlayerInventoryAcceptPrefab(m_iCampaignDebugPlayerId, CAMPAIGN_DEBUG_LOADOUT_FINITE_PREFAB);
+		bool useTemporaryCarrier = !directFiniteCapacity;
 		HST_ArsenalItemState storageItem;
 		if (useTemporaryCarrier)
 		{
@@ -42094,6 +42104,149 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			vehicleLoadoutContext.m_sPhysicalDraftLocationsAfterRestore = draftLocationsAfterRestore;
 		}
 		vehicleLoadoutContext.m_bPhysicalDraftRestored = vehicleLoadoutContext.m_bPhysicalDraftAccessible && draftCountAfterRestoreAvailable && vehicleLoadoutContext.m_iPhysicalDraftCountAfterRestore == vehicleLoadoutContext.m_iPhysicalDraftCountBefore && vehicleLoadoutContext.m_iPhysicalDraftStorageItemCountAfterRestore == vehicleLoadoutContext.m_iPhysicalDraftStorageItemCountBefore;
+		vehicleLoadoutContext.m_bPhysicalPrimarySerializedLoadoutRestored = VerifyCampaignDebugPhysicalSerializedLoadoutRestore(vehicleLoadoutContext);
+		vehicleLoadoutContext.m_bPhysicalSerializedLoadoutRestored = vehicleLoadoutContext.m_bPhysicalPrimarySerializedLoadoutRestored;
+	}
+
+	protected bool ArrangeCampaignDebugPhysicalLoadoutCarrierCapacity(HST_CampaignDebugVehicleLoadoutProbeContext vehicleLoadoutContext)
+	{
+		if (!vehicleLoadoutContext)
+			return false;
+
+		IEntity playerEntity = ResolveControlledPlayerEntity(m_iCampaignDebugPlayerId);
+		if (!playerEntity)
+		{
+			vehicleLoadoutContext.m_sPhysicalCarrierPreconditionFailure = "no controlled player entity";
+			return false;
+		}
+
+		SCR_InventoryStorageManagerComponent inventory = SCR_InventoryStorageManagerComponent.Cast(playerEntity.FindComponent(SCR_InventoryStorageManagerComponent));
+		EquipedLoadoutStorageComponent equippedLoadout = EquipedLoadoutStorageComponent.Cast(playerEntity.FindComponent(EquipedLoadoutStorageComponent));
+		if (!inventory || !equippedLoadout)
+		{
+			vehicleLoadoutContext.m_sPhysicalCarrierPreconditionFailure = "player inventory or equipped loadout storage unavailable";
+			return false;
+		}
+
+		IEntity originalCarrier = equippedLoadout.GetClothFromArea(LoadoutBackpackArea);
+		if (!originalCarrier)
+		{
+			vehicleLoadoutContext.m_sPhysicalCarrierPreconditionFailure = "no equipped backpack to detach after direct carrier preflight failed";
+			return false;
+		}
+
+		InventoryItemComponent carrierItem = InventoryItemComponent.Cast(originalCarrier.FindComponent(InventoryItemComponent));
+		InventoryStorageSlot parentSlot;
+		if (carrierItem)
+			parentSlot = carrierItem.GetParentSlot();
+		if (!parentSlot || !parentSlot.GetStorage())
+		{
+			vehicleLoadoutContext.m_sPhysicalCarrierPreconditionFailure = "equipped backpack has no native parent storage";
+			return false;
+		}
+
+		vehicleLoadoutContext.m_sPhysicalCarrierPrefabBefore = ResolveCampaignDebugEntityPrefabName(originalCarrier);
+		if (!inventory.TryRemoveItemFromStorage(originalCarrier, parentSlot.GetStorage()))
+		{
+			vehicleLoadoutContext.m_sPhysicalCarrierPreconditionFailure = "native inventory refused to detach the equipped backpack";
+			return false;
+		}
+
+		vehicleLoadoutContext.m_PhysicalDetachedCarrierEntity = originalCarrier;
+		vehicleLoadoutContext.m_bPhysicalCarrierPreconditioned = true;
+		if (!CanCampaignDebugPlayerInventoryAcceptPrefab(m_iCampaignDebugPlayerId, CAMPAIGN_DEBUG_LOADOUT_STORAGE_PREFAB))
+		{
+			vehicleLoadoutContext.m_sPhysicalCarrierPreconditionFailure = "temporary carrier slot remained unavailable after equipped backpack detach";
+			return false;
+		}
+
+		vehicleLoadoutContext.m_sPhysicalCarrierPreconditionFailure = "";
+		return true;
+	}
+
+	protected bool VerifyCampaignDebugPhysicalSerializedLoadoutRestore(HST_CampaignDebugVehicleLoadoutProbeContext vehicleLoadoutContext)
+	{
+		if (!vehicleLoadoutContext || vehicleLoadoutContext.m_sOriginalSerializedLoadout.IsEmpty())
+			return false;
+
+		string currentSerializedLoadout;
+		string verificationFailure;
+		if (!TryBuildCampaignDebugSerializedLoadout(m_iCampaignDebugPlayerId, currentSerializedLoadout, verificationFailure))
+		{
+			vehicleLoadoutContext.m_sPhysicalRestoreVerificationFailure = verificationFailure;
+			return false;
+		}
+
+		if (currentSerializedLoadout != vehicleLoadoutContext.m_sOriginalSerializedLoadout)
+		{
+			vehicleLoadoutContext.m_sPhysicalRestoreVerificationFailure = "native serialized loadout differs from the pre-probe snapshot";
+			return false;
+		}
+
+		vehicleLoadoutContext.m_sPhysicalRestoreVerificationFailure = "";
+		return true;
+	}
+
+	protected void CleanupCampaignDebugPhysicalLoadoutPrecondition(HST_CampaignDebugVehicleLoadoutProbeContext vehicleLoadoutContext)
+	{
+		if (!vehicleLoadoutContext)
+			return;
+
+		if (!vehicleLoadoutContext.m_bPhysicalCarrierPreconditioned)
+		{
+			vehicleLoadoutContext.m_bPhysicalCarrierCleanupComplete = true;
+			return;
+		}
+
+		if (!vehicleLoadoutContext.m_bPhysicalSerializedLoadoutRestored && vehicleLoadoutContext.m_bRestoreLoadoutSeeded)
+		{
+			vehicleLoadoutContext.m_sPhysicalCleanupRestoreResult = RequestMemberApplySavedLoadout(m_iCampaignDebugPlayerId, vehicleLoadoutContext.m_sRestoreLoadoutId);
+			vehicleLoadoutContext.m_bPhysicalSerializedLoadoutRestored = VerifyCampaignDebugPhysicalSerializedLoadoutRestore(vehicleLoadoutContext);
+		}
+
+		if (vehicleLoadoutContext.m_bPhysicalSerializedLoadoutRestored)
+		{
+			if (vehicleLoadoutContext.m_PhysicalDetachedCarrierEntity)
+				SCR_EntityHelper.DeleteEntityAndChildren(vehicleLoadoutContext.m_PhysicalDetachedCarrierEntity);
+			vehicleLoadoutContext.m_PhysicalDetachedCarrierEntity = null;
+			vehicleLoadoutContext.m_bPhysicalCarrierCleanupComplete = true;
+			return;
+		}
+
+		vehicleLoadoutContext.m_bPhysicalCarrierCleanupComplete = ReattachCampaignDebugOriginalLoadoutCarrier(vehicleLoadoutContext);
+	}
+
+	protected bool ReattachCampaignDebugOriginalLoadoutCarrier(HST_CampaignDebugVehicleLoadoutProbeContext vehicleLoadoutContext)
+	{
+		if (!vehicleLoadoutContext || !vehicleLoadoutContext.m_PhysicalDetachedCarrierEntity)
+			return false;
+
+		IEntity playerEntity = ResolveControlledPlayerEntity(m_iCampaignDebugPlayerId);
+		if (!playerEntity)
+			return false;
+
+		SCR_InventoryStorageManagerComponent inventory = SCR_InventoryStorageManagerComponent.Cast(playerEntity.FindComponent(SCR_InventoryStorageManagerComponent));
+		EquipedLoadoutStorageComponent equippedLoadout = EquipedLoadoutStorageComponent.Cast(playerEntity.FindComponent(EquipedLoadoutStorageComponent));
+		if (!inventory || !equippedLoadout)
+			return false;
+
+		IEntity originalCarrier = vehicleLoadoutContext.m_PhysicalDetachedCarrierEntity;
+		IEntity currentCarrier = equippedLoadout.GetClothFromArea(LoadoutBackpackArea);
+		if (currentCarrier == originalCarrier)
+		{
+			vehicleLoadoutContext.m_PhysicalDetachedCarrierEntity = null;
+			return true;
+		}
+
+		if (currentCarrier && !inventory.TryDeleteItem(currentCarrier))
+			return false;
+
+		BaseInventoryStorageComponent targetStorage = inventory.FindStorageForInsert(originalCarrier, null, EStoragePurpose.PURPOSE_ANY);
+		if (!targetStorage || !inventory.TryInsertItemInStorage(originalCarrier, targetStorage))
+			return false;
+
+		vehicleLoadoutContext.m_PhysicalDetachedCarrierEntity = null;
+		return true;
 	}
 
 	protected void CaptureCampaignDebugLoadoutApplyBaseline(HST_CampaignDebugVehicleLoadoutProbeContext vehicleLoadoutContext)
@@ -42439,6 +42592,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	{
 		if (!vehicleLoadoutContext || !m_State)
 			return;
+
+		CleanupCampaignDebugPhysicalLoadoutPrecondition(vehicleLoadoutContext);
 
 		if (!vehicleLoadoutContext.m_sValidLoadoutId.IsEmpty() && RemoveCampaignDebugSavedLoadoutById(vehicleLoadoutContext.m_sIdentityId, vehicleLoadoutContext.m_sValidLoadoutId))
 			vehicleLoadoutContext.m_iLoadoutSavedCleanupRemoved++;
@@ -43081,6 +43236,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		bool restorePassed = vehicleLoadoutContext.m_bRestoreLoadoutSeeded;
 		restorePassed = restorePassed && IsCampaignDebugResultSuccessful(vehicleLoadoutContext.m_sRestoreLoadoutApplyResult);
 		restorePassed = restorePassed && vehicleLoadoutContext.m_bPhysicalInventoryRestored;
+		restorePassed = restorePassed && vehicleLoadoutContext.m_bPhysicalPrimarySerializedLoadoutRestored;
+		restorePassed = restorePassed && vehicleLoadoutContext.m_bPhysicalSerializedLoadoutRestored;
+		restorePassed = restorePassed && vehicleLoadoutContext.m_bPhysicalCarrierCleanupComplete;
 		return CampaignDebugStatus(restorePassed);
 	}
 
@@ -43096,6 +43254,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		bool draftRestorePassed = IsCampaignDebugResultSuccessful(vehicleLoadoutContext.m_sRestoreLoadoutApplyResult);
 		draftRestorePassed = draftRestorePassed && vehicleLoadoutContext.m_bPhysicalDraftRestored;
+		draftRestorePassed = draftRestorePassed && vehicleLoadoutContext.m_bPhysicalPrimarySerializedLoadoutRestored;
 		return CampaignDebugStatus(draftRestorePassed);
 	}
 
@@ -43164,9 +43323,11 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!vehicleLoadoutContext)
 			return "missing";
 
-		string physicalActual = string.Format("inventory accessible %1 | capacity %2 | seeded %3 | carrier %4 -> %5 | result %6", vehicleLoadoutContext.m_bPhysicalInventoryAccessible, vehicleLoadoutContext.m_bPhysicalInventoryCapacityAvailable, vehicleLoadoutContext.m_bPhysicalLoadoutSeeded, vehicleLoadoutContext.m_iStorageArsenalCountBefore, vehicleLoadoutContext.m_iStorageArsenalCountAfterPhysicalSeed, ShortCampaignDebugLine(vehicleLoadoutContext.m_sPhysicalLoadoutApplyResult, 120));
+		string physicalActual = string.Format("inventory accessible %1 | capacity direct/carrier %2/%3 | preconditioned %4 | original carrier %5 | seeded %6 | carrier %7 -> %8 | result %9", vehicleLoadoutContext.m_bPhysicalInventoryAccessible, vehicleLoadoutContext.m_bPhysicalDirectCapacityAvailable, vehicleLoadoutContext.m_bPhysicalTemporaryCarrierCapacityAvailable, vehicleLoadoutContext.m_bPhysicalCarrierPreconditioned, EmptyCampaignDebugField(vehicleLoadoutContext.m_sPhysicalCarrierPrefabBefore), vehicleLoadoutContext.m_bPhysicalLoadoutSeeded, vehicleLoadoutContext.m_iStorageArsenalCountBefore, vehicleLoadoutContext.m_iStorageArsenalCountAfterPhysicalSeed, ShortCampaignDebugLine(vehicleLoadoutContext.m_sPhysicalLoadoutApplyResult, 120));
 		physicalActual = physicalActual + string.Format(" | inventory %1 -> %2", vehicleLoadoutContext.m_iPhysicalInventoryCountBefore, vehicleLoadoutContext.m_iPhysicalInventoryCountAfterApply);
 		physicalActual = physicalActual + string.Format(" | arsenal %1 -> %2 | issued finite %3", vehicleLoadoutContext.m_iFiniteArsenalCountAfterPhysicalSeed, vehicleLoadoutContext.m_iFiniteArsenalCountAfterPhysicalApply, vehicleLoadoutContext.m_iFiniteIssuedCountAfterPhysicalApply);
+		if (!vehicleLoadoutContext.m_sPhysicalCarrierPreconditionFailure.IsEmpty())
+			physicalActual = physicalActual + " | precondition " + vehicleLoadoutContext.m_sPhysicalCarrierPreconditionFailure;
 		return physicalActual;
 	}
 
@@ -43188,7 +43349,11 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		string restoreActual = string.Format("seeded %1 | result %2", vehicleLoadoutContext.m_bRestoreLoadoutSeeded, ShortCampaignDebugLine(vehicleLoadoutContext.m_sRestoreLoadoutApplyResult, 120));
 		restoreActual = restoreActual + string.Format(" | inventory %1 -> %2 -> %3", vehicleLoadoutContext.m_iPhysicalInventoryCountBefore, vehicleLoadoutContext.m_iPhysicalInventoryCountAfterApply, vehicleLoadoutContext.m_iPhysicalInventoryCountAfterRestore);
-		restoreActual = restoreActual + string.Format(" | restored %1", vehicleLoadoutContext.m_bPhysicalInventoryRestored);
+		restoreActual = restoreActual + string.Format(" | restored count/serialized-primary/serialized-final/carrier %1/%2/%3/%4", vehicleLoadoutContext.m_bPhysicalInventoryRestored, vehicleLoadoutContext.m_bPhysicalPrimarySerializedLoadoutRestored, vehicleLoadoutContext.m_bPhysicalSerializedLoadoutRestored, vehicleLoadoutContext.m_bPhysicalCarrierCleanupComplete);
+		if (!vehicleLoadoutContext.m_sPhysicalRestoreVerificationFailure.IsEmpty())
+			restoreActual = restoreActual + " | verify " + vehicleLoadoutContext.m_sPhysicalRestoreVerificationFailure;
+		if (!vehicleLoadoutContext.m_sPhysicalCleanupRestoreResult.IsEmpty())
+			restoreActual = restoreActual + " | cleanup retry " + ShortCampaignDebugLine(vehicleLoadoutContext.m_sPhysicalCleanupRestoreResult, 120);
 		return restoreActual;
 	}
 
@@ -43211,6 +43376,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		string cleanupActual = string.Format("snapshot %1 | saved %2 -> %3 | removed %4", vehicleLoadoutContext.m_bLoadoutApplySnapshotCaptured, vehicleLoadoutContext.m_iSavedLoadoutsAfterApplySeed, vehicleLoadoutContext.m_iSavedLoadoutsAfterLoadoutCleanup, vehicleLoadoutContext.m_iLoadoutSavedCleanupRemoved);
 		cleanupActual = cleanupActual + string.Format(" | arsenal %1 -> %2 | carrier %3 -> %4 | issued finite %5 -> %6", vehicleLoadoutContext.m_iFiniteArsenalCountBefore, vehicleLoadoutContext.m_iFiniteArsenalCountAfterLoadoutCleanup, vehicleLoadoutContext.m_iStorageArsenalCountBefore, vehicleLoadoutContext.m_iStorageArsenalCountAfterLoadoutCleanup, vehicleLoadoutContext.m_iFiniteIssuedCountBefore, vehicleLoadoutContext.m_iFiniteIssuedCountAfterLoadoutCleanup);
 		cleanupActual = cleanupActual + string.Format(" | total issued %1 -> %2 | restored %3/%4/%5", vehicleLoadoutContext.m_iIssuedItemsAfterClose, vehicleLoadoutContext.m_iIssuedItemsAfterLoadoutCleanup, vehicleLoadoutContext.m_bLoadoutCleanupRestoredArsenal, vehicleLoadoutContext.m_bLoadoutCleanupRestoredStorageArsenal, vehicleLoadoutContext.m_bLoadoutCleanupRestoredIssued);
+		cleanupActual = cleanupActual + string.Format(" | physical carrier precondition/cleanup %1/%2", vehicleLoadoutContext.m_bPhysicalCarrierPreconditioned, vehicleLoadoutContext.m_bPhysicalCarrierCleanupComplete);
 		cleanupActual = cleanupActual + " | close " + ShortCampaignDebugLine(vehicleLoadoutContext.m_sPostApplyCloseResult, 120);
 		return cleanupActual;
 	}
