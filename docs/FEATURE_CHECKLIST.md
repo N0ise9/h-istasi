@@ -131,11 +131,22 @@ passing mixed-native proof described below.
   plus spill residue were zero. The exact diagnostic census was 11 = ten
   approved stock + one approved intentional + zero unapproved. Mark this rung
   `passed-noncertifying`; it does not prove the map-locator correction.
-- [ ] Run the corrected `force_authority` canary next. Run Full Campaign Debug
-  only if that canary is accepted. Preserve
+- [x] Run the corrected `force_authority` canary against the unchanged active
+  candidate. Clean harness HEAD `20375141f840f74316ca46e7df047fcba3e6e344`
+  completed run `seed1985_t0_p1_u1784424219` in 40 canonical runtime seconds.
+  The 11-case report was 9 PASS/1 WARN/0 FAIL/1 BLOCKED/0 SKIPPED; focused proof
+  passed 35/35 and 87/87, state restoration was 18/0, final orphan cleanup
+  passed, and all ten envelope files rehashed. The exact census was two approved
+  stock diagnostics, zero intentional, and zero unapproved; all 33 classifier
+  self-tests and every cleanup/spill check passed. Portable summary SHA-256 is
+  `f47fa5f0539c0c8c6024e096f3e034699bc6bfaf656734a0a2b32c9fee7b4aa8`.
+  The map-locator exception is absent for this scoped path. Mark the scoped
+  native-engine/world canary rung `passed-noncertifying`.
+- [ ] Run Full Campaign Debug next against the unchanged candidate. Preserve
   the old rejected canary/full captures as historical evidence and never combine
   their package identity with the new chain. Dedicated, multiplayer, JIP,
-  restart breadth, performance, and soak remain separate later gates.
+  restart breadth, performance, and soak remain separate later gates; release
+  remains `NO-GO`.
 
 ## Historical Focused Force-Authority Engine Checkpoint
 
@@ -1757,7 +1768,7 @@ projections of campaign state and must be restorable, foldable, or disposable.
 | Authoritative client projection and JIP | Host, clients, reconnects, and late joiners converge on the same snapshot watermark and ordered revisioned create/update/delete stream. | Implemented Foundation for marker records / Needs Runtime Proof | Schema 61 supplies delivery/ACK; Schema 62 adds source revision; Schema 66 protects native campaign-marker ownership without changing the wire protocol. Prove host/two-client/late-join equality, ownership revision correlation, immutable/self-healing campaign markers, editable player markers, native rendering, and restart. Menu snapshots, campaign tasks, general notifications, and dynamic player markers remain outside this protocol. | Highest |
 | Modal map targeting | Target selection owns map/input/cursor/modal state through one idempotent state machine. | Broad Alpha / Needs Runtime Proof | Normal map targeting and confirmation flows exist with ESC handling and duplicate-click guards. Prove Closed -> Selecting -> Confirming -> Submitting/Closing behavior, Choose Again re-arm after pointer release, cursor/modal layering, and atomic ESC teardown at supported resolutions. | Highest |
 | Map/War information model | Players see contacted town pressure and resistance territory without redundant or misleading rows. | Sealed in Schema-64 Source/Workbench / Needs Runtime Verification | Zone Pressure contains only explicitly contacted valid canonical towns; the player's current contacted town sorts first, then remaining towns by ascending FIA basis points and stable name/ID ties. Resistance Territory includes every published resistance-owned strategic zone except mission bookkeeping, ordered deterministically by type/name/ID with no arbitrary six-row cap. Current ownership receipt authority is respected. Prove rendered output, paging/scale, restart, reconnect, and JIP. | High |
-| Full Campaign Debug | One button runs a true runtime certification suite and writes structured artifacts without changing the campaign under test. | Current packaged focused rung passed-noncertifying / No current package-bound canary or full run / Prior-package report failed | Retained run `seed1985_t0_p1_u1784414040` consumed the superseded package and recorded 584 PASS/49 WARN/46 FAIL/7 BLOCKED/1 SKIPPED with 5,562/5,688 required assertions proven. Its candidate/mount identity, artifact stability, rehash, state restoration, and cleanup remain mechanically valid historical facts, while the corrected census found 25 raw script errors, a 19-line Partisan subset, and ten unapproved diagnostics. Current candidate `partisan-rc-0e632ec4f63e-20260719T004133Z` inherits none of that integrated evidence, but its own five focused cases passed with JUnit 5/0/0/0 and zero unapproved diagnostics or residue. Run the corrected canary next, then full only if the canary is accepted. Dedicated/live server-client, network/JIP, migration, marker/UI, performance, and soak gates remain separate. | Highest |
+| Full Campaign Debug | One button runs a true runtime certification suite and writes structured artifacts without changing the campaign under test. | Current packaged focused and scoped canary rungs passed-noncertifying / No current package-bound full run / Prior-package report failed | Retained run `seed1985_t0_p1_u1784414040` consumed the superseded package and recorded 584 PASS/49 WARN/46 FAIL/7 BLOCKED/1 SKIPPED with 5,562/5,688 required assertions proven. Its candidate/mount identity, artifact stability, rehash, state restoration, and cleanup remain mechanically valid historical facts, while the corrected census found 25 raw script errors, a 19-line Partisan subset, and ten unapproved diagnostics. Current candidate `partisan-rc-0e632ec4f63e-20260719T004133Z` inherits none of that integrated evidence. Its five focused cases passed with JUnit 5/0/0/0; its corrected canary passed the scoped gate at 9/1/0/1/0, 35/35, 87/87, and 18/0 with two approved stock diagnostics, zero unapproved diagnostics, and zero residue. The map-locator exception is absent on this path. Run Full Campaign Debug next. Dedicated/live server-client, network/JIP, migration, marker/UI, performance, and soak gates remain separate; release remains `NO-GO`. | Highest |
 | Scoped debug profiles | Smaller profiles isolate feature families for fast iteration. | Implemented Foundation | Keep profiles explicit and never treat external/restart/soak gaps as PASS. | Keep |
 | Build provenance | Runtime logs and artifacts identify the exact code build from one authoritative source. | Implemented Foundation / Needs Packaged Proof | Runtime, menu, admin, and debug artifact summaries now consume `HST_BuildInfo`; prove the stamped identity in a packaged dedicated-server/client run. | High |
 
@@ -1773,10 +1784,9 @@ projections of campaign state and must be restorable, foldable, or disposable.
 
 ## Highest-Impact Next Tasks
 
-The immediate immutable-package order precedes the broader tasks below: run all
-five packaged focused cases on `partisan-rc-0e632ec4f63e-20260719T004133Z`, run
-the corrected `force_authority` canary only after they pass, and run Full
-Campaign Debug only after an accepted canary. Do not reuse the superseded
+The current immutable package has passed all five packaged focused cases and the
+corrected scoped `force_authority` canary. Run Full Campaign Debug next against
+`partisan-rc-0e632ec4f63e-20260719T004133Z`. Do not reuse the superseded
 package's focused, rejected-canary, or full results.
 
 1. Prove broader active-world records, Workshop/live server-client use, and

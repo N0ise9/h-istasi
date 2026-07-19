@@ -3747,3 +3747,50 @@ Consequences:
 - Preserve the preceding package's focused, rejected-canary, and failed-full
   results as immutable historical evidence; none transfers into this chain.
 - The release decision remains `NO-GO`.
+
+Outcome update: The active candidate's corrected scoped `force_authority`
+canary is now accepted as `passed-noncertifying`. CRI-068 records its exact
+identity, counts, map-locator finding, and progression to Full Campaign Debug.
+
+## CRI-068 - Accept the Corrected Active-Candidate Canary as Scoped Evidence
+
+- Status: Accepted
+- Date: 2026-07-18
+
+Context: CRI-067 advanced the active package's deterministic-service rung and
+required a corrected canary before the full profile. Clean harness HEAD
+`20375141f840f74316ca46e7df047fcba3e6e344` ran `force_authority` against the
+unchanged candidate `partisan-rc-0e632ec4f63e-20260719T004133Z`. Run
+`seed1985_t0_p1_u1784424219`, leaf
+`20260719T012319Z-47423d741d0e4690b3c7dbbbab68cebd`, started at
+`2026-07-19T01:23:19.5837772Z`, completed at
+`2026-07-19T01:24:02.2143579Z`, and recorded 40 canonical runtime seconds.
+
+The 11-case report recorded 9 PASS, 1 WARN, 0 FAIL, 1 BLOCKED, and 0 SKIPPED.
+The focused proof passed all 35/35 assertions and all 87/87 certification-
+counting conditions. State restoration was 18/0, final orphan cleanup passed
+with zero active groups, all ten envelope files rehashed, and every owned
+cleanup and monitored spill counter was zero. The exact hard-diagnostic census
+was two = two approved stock + zero approved intentional + zero unapproved.
+All 33 classifier self-tests passed. Envelope SHA-256 is
+`e3705a849590b9fd3086fdb0caf5659df6e0c1029784612965c848a0f8f0a851`.
+The portable summary is
+`docs/evidence/campaign-debug/partisan-rc-0e632ec4f63e-20260719T004133Z-corrected-canary-20260719T012319Z.json`,
+SHA-256 `f47fa5f0539c0c8c6024e096f3e034699bc6bfaf656734a0a2b32c9fee7b4aa8`.
+
+Decision: Accept this corrected canary as `passed-noncertifying` scoped native-
+engine/world evidence. The unapproved map-locator VM exception reproduced by
+the prior package is absent for this scoped path. This result validates the
+specific canary path and permits the staged sequence to proceed; it does not
+certify the full native engine-world surface.
+
+Consequences:
+
+- Run Full Campaign Debug next against the unchanged active package.
+- Preserve the accepted canary summary and external raw sidecar as one exact
+  candidate/harness evidence chain; do not combine them with prior-package
+  captures.
+- Keep broader map lifecycle, dedicated server/client, multiplayer/JIP,
+  restart breadth, performance, soak, canary-release, and stable certification
+  as independent gates.
+- The release decision remains `NO-GO`.

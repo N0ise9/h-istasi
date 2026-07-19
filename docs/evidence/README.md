@@ -78,8 +78,26 @@ Clean harness HEAD `d4d8f29cda9896ce2c6a5b073dac2cbd03757700` completed the set 
 spill residue were zero, and the exact census was 11 = ten approved stock + one
 approved intentional + zero unapproved. This is a `passed-noncertifying`
 deterministic-service rung, not corrected-canary, Full Campaign Debug, or
-runtime proof of the map-locator correction. The corrected `force_authority`
-canary is next; Full Campaign Debug runs only after an accepted canary.
+runtime proof of the map-locator correction.
+
+The accepted corrected-canary summary for the active candidate is
+`campaign-debug/partisan-rc-0e632ec4f63e-20260719T004133Z-corrected-canary-20260719T012319Z.json`,
+SHA-256 `f47fa5f0539c0c8c6024e096f3e034699bc6bfaf656734a0a2b32c9fee7b4aa8`.
+Clean harness HEAD `20375141f840f74316ca46e7df047fcba3e6e344` retained run
+`seed1985_t0_p1_u1784424219` under leaf
+`20260719T012319Z-47423d741d0e4690b3c7dbbbab68cebd`. The run started at
+`2026-07-19T01:23:19.5837772Z`, completed at
+`2026-07-19T01:24:02.2143579Z`, and recorded 40 canonical runtime seconds. Its
+11 cases were 9 PASS/1 WARN/0 FAIL/1 BLOCKED/0 SKIPPED; focused proof passed
+35/35 assertions and 87/87 certification-counting conditions. State
+restoration was 18/0, final orphan cleanup passed, all ten envelope files
+rehashed, and every cleanup/spill counter was zero. The exact diagnostic census
+was two approved stock + zero approved intentional + zero unapproved, with all
+33 classifier self-tests passing. Envelope SHA-256 is
+`e3705a849590b9fd3086fdb0caf5659df6e0c1029784612965c848a0f8f0a851`.
+The prior map-locator exception is absent for this scoped path. This is accepted
+`passed-noncertifying` native-engine/world canary evidence, not full
+certification. Full Campaign Debug is next and release remains `NO-GO`.
 
 Canonical LF is required for the tracked summaries, and the release generator
 rehashes and cross-checks them against current status without transferring the

@@ -105,6 +105,23 @@ implementation/source identity is
   `passed-noncertifying` deterministic-service rung, not corrected-canary, Full
   Campaign Debug, or runtime map-lifecycle proof. Its portable summary SHA-256
   is `961ef6b0a84c26446468b31dd7ac5120448b21a442e9a823de4ff5dc804da7f9`.
+- The current candidate's corrected `force_authority` canary then passed under
+  clean harness HEAD `20375141f840f74316ca46e7df047fcba3e6e344`. Run
+  `seed1985_t0_p1_u1784424219`, leaf
+  `20260719T012319Z-47423d741d0e4690b3c7dbbbab68cebd`, recorded 40 canonical
+  runtime seconds from `2026-07-19T01:23:19.5837772Z` through
+  `2026-07-19T01:24:02.2143579Z`. Its 11 cases were 9 PASS/1 WARN/0 FAIL/1
+  BLOCKED/0 SKIPPED, focused proof passed 35/35 and 87/87, state restoration was
+  18/0, final orphan cleanup passed, and all ten envelope files rehashed. The
+  exact census was two approved stock diagnostics + zero intentional + zero
+  unapproved; all 33 classifier self-tests and every cleanup/spill check passed.
+  The envelope SHA-256 is
+  `e3705a849590b9fd3086fdb0caf5659df6e0c1029784612965c848a0f8f0a851` and the
+  portable summary SHA-256 is
+  `f47fa5f0539c0c8c6024e096f3e034699bc6bfaf656734a0a2b32c9fee7b4aa8`.
+  The prior map-locator exception is absent on this scoped path. Treat the
+  native-engine/world canary rung as `passed-noncertifying`, run the full profile
+  next, and keep release `NO-GO`.
 - The prior candidate's accepted packaged focused set uses clean classifier-
   aware harness HEAD
   `b3fc1e6f56d9cf8805bac1702a54e0b5284e0043` without changing candidate bytes.
@@ -156,7 +173,9 @@ implementation/source identity is
   cancel the stale callback, clear the widget references, and return. Do not
   create a second timer or alter valid stock behavior. Foundation and PC
   Workbench compile validation pass at 5,847 files/11,900 classes and CRC
-  `3a399db1`, with zero errors and residue; packaged runtime proof remains open.
+  `3a399db1`, with zero errors and residue. The active package's accepted
+  corrected canary now proves this formerly failing scoped path without the
+  exception; broader map lifecycle and full native-world proof remain open.
 - The retained prior-package full capture has exact candidate/packed-mount
   identity, stable and rehashed artifacts, an 18/0 state diff, final orphan cleanup, and zero
   cleanup/spill residue. Its canonical script log has 25 raw diagnostics,
@@ -172,12 +191,11 @@ implementation/source identity is
   the sequence when that canary rejects; do not spend a full run to reconfirm a
   known gate failure. The map-locator correction is now sealed in a new
   immutable candidate, and all five packaged focused cases now pass against it.
-  Rerun the corrected canary next, and run the full profile only after that
-  canary is accepted. The retained prior-package full capture's
+  Its own corrected canary also passes as scoped non-certifying evidence. Run
+  the full profile next. The retained prior-package full capture's
   case-exclusive triage still reconciles all 46/7 cases and 282/19 failed/
   blocked assertion occurrences. Convoy materialization is its largest cascade,
-  but it is not the next release action before the current candidate's canary
-  passes.
+  but the active candidate's full run is the next release action.
 - A helper that receives `requiredHold - holdBefore + 1` in one call does not
   prove that the engine advanced the objective by that many seconds. For area
   objectives, use bounded per-second/frame ticks and log both mission-runtime
@@ -7587,10 +7605,9 @@ This file is for practical engine/script behavior, not project planning. Keep en
   `e5d29458c33aeef9cd2b37476359acc6021fe78cf0fc74513d9a2f69ef0614dc`.
   The sealed build binds four package files, 50 evidence files, and five passing
   Workbench targets at 5,847 files/11,900 classes and CRC `3a399db1`, with
-  exact-zero cleanup. Do not treat the build as runtime proof: run all five
-  packaged focused cases on this identity, then the corrected
-  `force_authority` canary, then Full Campaign Debug only after an accepted
-  canary. Never reuse the preceding package's results.
+  exact-zero cleanup. All five packaged focused cases and the corrected scoped
+  `force_authority` canary now pass as non-certifying evidence on this identity.
+  Run Full Campaign Debug next. Never reuse the preceding package's results.
 - A passing focused JUnit result does not classify the surrounding engine error
   channel. Bind a separate hard-diagnostic census into the runner's success
   predicate. For the current diagnostic client, exactly two stock filter-

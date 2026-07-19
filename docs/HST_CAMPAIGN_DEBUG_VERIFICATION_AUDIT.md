@@ -40,8 +40,8 @@ only to that package. No result may cross either package boundary into the
 current chain.
 
 The new candidate is `active-runtime-candidate` and remains uncertified. Its
-package-bound deterministic-service rung is now `passed-noncertifying`; it has
-no corrected-canary or Full Campaign Debug result yet.
+package-bound deterministic-service rung and scoped native-engine/world canary
+rung are now `passed-noncertifying`; it has no Full Campaign Debug result yet.
 Candidate-aware Campaign Debug and focused-runner preflights now pass exact
 tracked/external manifest and seal
 binding, complete package/evidence hashing, guarded byte-identical staging,
@@ -85,6 +85,36 @@ classification are both required truths. The portable summary SHA-256 is
 `961ef6b0a84c26446468b31dd7ac5120448b21a442e9a823de4ff5dc804da7f9`.
 This closes only the active package's deterministic-service rung as
 `passed-noncertifying`.
+
+## Current Active-Candidate Corrected Canary Boundary
+
+Clean harness HEAD `20375141f840f74316ca46e7df047fcba3e6e344` ran the corrected
+`force_authority` profile against the unchanged active candidate. Run
+`seed1985_t0_p1_u1784424219`, retained under leaf
+`20260719T012319Z-47423d741d0e4690b3c7dbbbab68cebd`, started at
+`2026-07-19T01:23:19.5837772Z`, completed at
+`2026-07-19T01:24:02.2143579Z`, and recorded 40 canonical runtime seconds.
+Across 11 cases the report was 9 PASS, 1 WARN, 0 FAIL, 1 BLOCKED, and 0
+SKIPPED. The focused case passed all 35/35 assertions and all 87/87
+certification-counting conditions. The isolated state boundary restored 18/0
+rows, final orphan cleanup passed with zero active groups, all ten envelope
+files rehashed, and every owned cleanup and monitored spill counter was zero.
+
+The exact hard-diagnostic census was two = two approved stock + zero approved
+intentional + zero unapproved. Script errors were two; engine errors, Partisan
+errors, Partisan severity lines, crash markers, and malformed diagnostics were
+all zero. All 33 classifier self-tests passed, with one canonical script log
+and one canonical console log from the same directory. The envelope SHA-256 is
+`e3705a849590b9fd3086fdb0caf5659df6e0c1029784612965c848a0f8f0a851`.
+The portable summary is
+`docs/evidence/campaign-debug/partisan-rc-0e632ec4f63e-20260719T004133Z-corrected-canary-20260719T012319Z.json`,
+SHA-256 `f47fa5f0539c0c8c6024e096f3e034699bc6bfaf656734a0a2b32c9fee7b4aa8`.
+
+The unapproved map-locator VM exception seen in the prior package is absent for
+this scoped path. Accept the canary as `passed-noncertifying` scoped native-
+engine/world evidence, not full certification. Its release disposition is to
+proceed to Full Campaign Debug against the unchanged active package. Release
+remains `NO-GO`.
 
 ## Retained Prior-Package Full Campaign Debug and Corrected Canary Boundary
 
@@ -136,10 +166,10 @@ layout, cancels the stale callback, clears the references, and returns; valid
 state continues through the stock implementation. The correction is now sealed
 in `partisan-rc-0e632ec4f63e-20260719T004133Z`; Foundation and all five
 Workbench targets pass at 5,847 files/11,900 classes and CRC `3a399db1`, with
-zero hard errors and exact-zero cleanup. This is still not runtime proof. Run
-the corrected `force_authority` canary next; the accepted focused service set
-does not exercise the delayed map callback. Run Full Campaign Debug only if the
-canary is accepted.
+zero hard errors and exact-zero cleanup. The accepted corrected canary now
+exercises the formerly failing scoped path without the unapproved exception.
+That is `passed-noncertifying` scoped runtime proof, not broad map-lifecycle or
+full native-world certification. Run Full Campaign Debug next.
 
 As preliminary diagnostic triage, the first failure-family pass assigns 23
 failed cases to `mission_runtime`, four
@@ -186,9 +216,9 @@ need independent focused proof.
 The raw capture and its hashes are frozen, but the acceptance chain remains open.
 The corrected prior-package canary already rejected, so its full profile was not
 rerun. The newly sealed candidate cannot inherit that package's focused, canary,
-or full results. Its own five packaged focused cases now pass as non-certifying
-service evidence. Its chain continues to the corrected canary next and reaches
-full only after an accepted canary.
+or full results. Its own five packaged focused cases and corrected scoped canary
+now pass as non-certifying evidence. Its chain continues to Full Campaign Debug
+next.
 
 ## Historical Focused Force-Authority Engine Checkpoint
 

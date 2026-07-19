@@ -786,6 +786,402 @@ function Assert-PackagedFocusedEvidence {
 	}
 }
 
+function Assert-CorrectedCanaryEvidence {
+	param(
+		[object] $Evidence,
+		[object] $CandidateIdentity,
+		[string] $ExpectedStatus,
+		[ValidateSet("accepted", "rejected")]
+		[string] $ExpectedOutcome,
+		[string] $Label,
+		[DateTimeOffset] $StatusAsOfUtc,
+		[int] $SourceSettingsSchema
+	)
+
+	if ($null -eq $Evidence) {
+		throw "$Label is missing."
+	}
+	if ([string] (Get-ObjectPropertyValue $Evidence "status") -cne $ExpectedStatus) {
+		throw "$Label.status must be $ExpectedStatus."
+	}
+
+	$summaryPath = Require-RepoRelativePath `
+		(Get-ObjectPropertyValue $Evidence "summaryPath") "$Label.summaryPath"
+	$summarySha = (Require-Sha256 `
+		(Get-ObjectPropertyValue $Evidence "summarySha256") "$Label.summarySha256").ToLowerInvariant()
+	$harnessHead = Require-Text `
+		(Get-ObjectPropertyValue $Evidence "harnessGitHead") "$Label.harnessGitHead"
+	if ($harnessHead -cnotmatch '^[0-9a-f]{40}$') {
+		throw "$Label.harnessGitHead must be a lowercase full Git SHA."
+	}
+
+	$repositoryPrefix = [IO.Path]::GetFullPath($root).TrimEnd(
+		[IO.Path]::DirectorySeparatorChar,
+		[IO.Path]::AltDirectorySeparatorChar) + [IO.Path]::DirectorySeparatorChar
+	$summaryFullPath = [IO.Path]::GetFullPath((Join-Path $root $summaryPath))
+	if (-not $summaryFullPath.StartsWith(
+		$repositoryPrefix,
+		[StringComparison]::OrdinalIgnoreCase) -or
+		-not (Test-Path -LiteralPath $summaryFullPath -PathType Leaf)) {
+		throw "$Label summary is missing or outside the repository."
+	}
+	$summaryItem = Get-Item -LiteralPath $summaryFullPath -Force
+	if (($summaryItem.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+		throw "$Label summary must not be a reparse point."
+	}
+	$actualSummarySha = (Get-FileHash `
+		-LiteralPath $summaryFullPath -Algorithm SHA256).Hash.ToLowerInvariant()
+	if ($actualSummarySha -cne $summarySha) {
+		throw "$Label summary SHA-256 does not match release status."
+	}
+
+	$summaryText = Get-Content -Raw -LiteralPath $summaryFullPath
+	if ($summaryText -match '(?i)[A-Z]:[\\/]') {
+		throw "$Label summary contains a local absolute path."
+	}
+	$summary = $summaryText | ConvertFrom-Json
+	$summaryCandidate = Get-ObjectPropertyValue $summary "candidate"
+	$summaryHarness = Get-ObjectPropertyValue $summary "harness"
+	$summarySettings = Get-ObjectPropertyValue $summary "settings"
+	$summaryCapture = Get-ObjectPropertyValue $summary "capture"
+	$summaryResult = Get-ObjectPropertyValue $summary "result"
+	$summaryProof = Get-ObjectPropertyValue $summary "proof"
+	$summaryDiagnostics = Get-ObjectPropertyValue $summary "diagnostics"
+	$summaryCleanup = Get-ObjectPropertyValue $summary "cleanup"
+	$summaryIntegrity = Get-ObjectPropertyValue $summary "integrity"
+	$summaryFinding = Get-ObjectPropertyValue $summary "finding"
+	$summarySchemaVersion = Require-IntegerProperty `
+		$summary "schemaVersion" "$Label summary.schemaVersion"
+	if ($summarySchemaVersion -ne 1 -or
+		[string] (Get-ObjectPropertyValue $summary "evidenceKind") -cne
+			"packaged-campaign-debug-corrected-canary" -or
+		$null -eq $summaryCandidate -or $null -eq $summaryHarness -or
+		$null -eq $summarySettings -or $null -eq $summaryCapture -or
+		$null -eq $summaryResult -or $null -eq $summaryProof -or
+		$null -eq $summaryDiagnostics -or $null -eq $summaryCleanup -or
+		$null -eq $summaryIntegrity -or $null -eq $summaryFinding) {
+		throw "$Label summary is structurally incomplete."
+	}
+
+	Assert-IntegerProperties $summarySettings @("schemaVersion") "$Label summary.settings"
+	Assert-IntegerProperties $summaryCapture @("runtimeSeconds") "$Label summary.capture"
+	Assert-IntegerProperties $summaryProof @(
+		"caseCount", "pass", "warn", "fail", "blocked", "skipped",
+		"focusedAssertionCount", "focusedAssertionsPassed", "certificationRequired",
+		"certificationProven", "certificationFail", "certificationBlocked",
+		"stateDiffRows", "nonzeroStateDiffRows", "finalOrphanActiveGroups") `
+		"$Label summary.proof"
+	Assert-IntegerProperties $summaryDiagnostics @(
+		"hardDiagnosticCount", "scriptErrors", "engineErrors", "partisanErrors",
+		"crashMarkers", "partisanSeverityLineCount", "approvedStockDiagnosticCount",
+		"approvedIntentionalDiagnosticCount", "unapprovedHardDiagnosticCount",
+		"classifierSelfTestCount", "malformedHardDiagnosticCount",
+		"canonicalScriptLogCount", "canonicalConsoleLogCount") "$Label summary.diagnostics"
+	Assert-IntegerProperties $summaryCleanup @(
+		"guardRemaining", "ownedProcessesRemaining", "newEngineProcessesRemaining",
+		"unclaimedEngineProcessesObserved", "newDefaultEntriesRemaining",
+		"modifiedDefaultFiles", "deletedDefaultEntries", "missingDefaultRoots",
+		"externalSpillEntriesRemaining", "modifiedSpillFiles", "deletedSpillEntries",
+		"missingSpillRoots", "cleanupPhaseErrorCount") "$Label summary.cleanup"
+	Assert-IntegerProperties $summaryIntegrity @("envelopeFileCount") "$Label summary.integrity"
+	Assert-IntegerProperties $Evidence @(
+		"runtimeSeconds", "caseCount", "pass", "warn", "fail", "blocked", "skipped",
+		"focusedAssertionCount", "focusedAssertionsPassed", "certificationRequired",
+		"certificationProven", "stateDiffRows", "nonzeroStateDiffRows",
+		"hardDiagnosticCount", "scriptErrors", "engineErrors", "partisanErrors",
+		"approvedStockDiagnosticCount", "approvedIntentionalDiagnosticCount",
+		"unapprovedHardDiagnosticCount", "classifierSelfTestCount",
+		"canonicalScriptLogCount", "canonicalConsoleLogCount", "envelopeFileCount") $Label
+
+	if ([string] (Get-ObjectPropertyValue $Evidence "candidateId") -cne
+			[string] $CandidateIdentity.CandidateId -or
+		[string] (Get-ObjectPropertyValue $Evidence "candidateSourceHead") -cne
+			[string] $CandidateIdentity.CandidateSourceHead -or
+		[string] (Get-ObjectPropertyValue $Evidence "packageSha256") -cne
+			[string] $CandidateIdentity.PackageSha256 -or
+		[string] (Get-ObjectPropertyValue $Evidence "manifestSha256") -cne
+			[string] $CandidateIdentity.ManifestSha256 -or
+		[string] (Get-ObjectPropertyValue $Evidence "readySha256") -cne
+			[string] $CandidateIdentity.ReadySha256 -or
+		[string] (Get-ObjectPropertyValue $summaryCandidate "candidateId") -cne
+			[string] $CandidateIdentity.CandidateId -or
+		[string] (Get-ObjectPropertyValue $summaryCandidate "candidateSourceHead") -cne
+			[string] $CandidateIdentity.CandidateSourceHead -or
+		[string] (Get-ObjectPropertyValue $summaryCandidate "packageSha256") -cne
+			[string] $CandidateIdentity.PackageSha256 -or
+		[string] (Get-ObjectPropertyValue $summaryCandidate "manifestSha256") -cne
+			[string] $CandidateIdentity.ManifestSha256 -or
+		[string] (Get-ObjectPropertyValue $summaryCandidate "readySha256") -cne
+			[string] $CandidateIdentity.ReadySha256 -or
+		[string] (Get-ObjectPropertyValue $summaryCandidate "workbenchCrc") -cne
+			[string] $CandidateIdentity.WorkbenchCrc -or
+		[string] (Get-ObjectPropertyValue $summaryCandidate "runtimeUseDispositionAtCapture") -cne
+			"active-runtime-candidate") {
+		throw "$Label differs from its retained candidate identity."
+	}
+
+	$runnerSha = (Require-Sha256 `
+		(Get-ObjectPropertyValue $Evidence "campaignRunnerSha256") `
+		"$Label.campaignRunnerSha256").ToLowerInvariant()
+	$candidateModuleSha = (Require-Sha256 `
+		(Get-ObjectPropertyValue $Evidence "candidateModuleSha256") `
+		"$Label.candidateModuleSha256").ToLowerInvariant()
+	$settingsSha = (Require-Sha256 `
+		(Get-ObjectPropertyValue $Evidence "settingsSha256") `
+		"$Label.settingsSha256").ToLowerInvariant()
+	if ([string] (Get-ObjectPropertyValue $summaryHarness "gitHead") -cne $harnessHead -or
+		(Get-ObjectPropertyValue $summaryHarness "dirty") -isnot [bool] -or
+		[bool] (Get-ObjectPropertyValue $summaryHarness "dirty") -or
+		[string] (Get-ObjectPropertyValue $summaryHarness "campaignRunnerSha256") -cne $runnerSha -or
+		[string] (Get-ObjectPropertyValue $summaryHarness "candidateModuleSha256") -cne
+			$candidateModuleSha -or
+		[int] (Get-ObjectPropertyValue $summarySettings "schemaVersion") -ne $SourceSettingsSchema -or
+		[string] (Get-ObjectPropertyValue $summarySettings "sha256") -cne $settingsSha -or
+		(Get-ObjectPropertyValue $summarySettings "guardedRuntimeCopy") -isnot [bool] -or
+		-not [bool] (Get-ObjectPropertyValue $summarySettings "guardedRuntimeCopy")) {
+		throw "$Label harness or settings identity is inconsistent."
+	}
+
+	$startedUtc = Require-UtcTimestamp `
+		(Get-ObjectPropertyValue $summaryCapture "startedUtc") "$Label start time"
+	$completedUtc = Require-UtcTimestamp `
+		(Get-ObjectPropertyValue $summaryCapture "completedUtc") "$Label completion time"
+	$captureRuntimeSeconds = [int] (Get-ObjectPropertyValue $summaryCapture "runtimeSeconds")
+	if ($completedUtc -lt $startedUtc -or $StatusAsOfUtc -lt $completedUtc -or
+		[string] (Get-ObjectPropertyValue $Evidence "startedUtc") -cne
+			[string] (Get-ObjectPropertyValue $summaryCapture "startedUtc") -or
+		[string] (Get-ObjectPropertyValue $Evidence "completedUtc") -cne
+			[string] (Get-ObjectPropertyValue $summaryCapture "completedUtc") -or
+		[string] (Get-ObjectPropertyValue $Evidence "runLeafId") -cne
+			[string] (Get-ObjectPropertyValue $summaryCapture "runLeafId") -or
+		[string] (Get-ObjectPropertyValue $summaryCapture "runLeafId") -cnotmatch
+			'^\d{8}T\d{6}Z-[0-9a-f]{32}$' -or
+		[string] (Get-ObjectPropertyValue $Evidence "runId") -cne
+			[string] (Get-ObjectPropertyValue $summaryCapture "runId") -or
+		[string] (Get-ObjectPropertyValue $summaryCapture "runId") -cnotmatch
+			'^seed\d+_t\d+_p\d+_u\d+$' -or
+		[string] (Get-ObjectPropertyValue $summaryCapture "profile") -cne "force_authority" -or
+		[string] (Get-ObjectPropertyValue $summaryCapture "proofScope") -cne
+			"focused_force_authority" -or
+		$captureRuntimeSeconds -le 0 -or
+		[int] (Get-ObjectPropertyValue $Evidence "runtimeSeconds") -ne $captureRuntimeSeconds) {
+		throw "$Label capture identity, timestamps, or runtime are inconsistent."
+	}
+
+	$expectedSummaryStatus = "passed-noncertifying"
+	$expectedSuccess = $true
+	$expectedError = ""
+	$expectedAcceptanceDisposition = "accepted-noncertifying"
+	$expectedReleaseDisposition = "proceed-full-profile"
+	$expectedDiagnosticsValid = $true
+	$expectedHardCount = 2
+	$expectedScriptErrors = 2
+	$expectedUnapprovedCount = 0
+	$expectedUnapprovedKind = ""
+	$expectedFindingStatus = "accepted-noncertifying"
+	$expectedFindingDefect = "none"
+	if ($ExpectedOutcome -ceq "rejected") {
+		$expectedSummaryStatus = "failed-unapproved-hard-diagnostic"
+		$expectedSuccess = $false
+		$expectedError = "Campaign Debug runtime completed with unapproved hard diagnostics."
+		$expectedAcceptanceDisposition = "rejected-fail-closed"
+		$expectedReleaseDisposition = "replacement-required"
+		$expectedDiagnosticsValid = $false
+		$expectedHardCount = 3
+		$expectedScriptErrors = 3
+		$expectedUnapprovedCount = 1
+		$expectedUnapprovedKind = "virtual-machine-exception"
+		$expectedFindingStatus = "source-fix-required"
+		$expectedFindingDefect = "MapLocator runtime lifecycle"
+	}
+	if ([string] (Get-ObjectPropertyValue $summaryResult "status") -cne $expectedSummaryStatus -or
+		(Get-ObjectPropertyValue $Evidence "outcomeSuccess") -isnot [bool] -or
+		[bool] (Get-ObjectPropertyValue $Evidence "outcomeSuccess") -ne $expectedSuccess -or
+		(Get-ObjectPropertyValue $summaryResult "success") -isnot [bool] -or
+		[bool] (Get-ObjectPropertyValue $summaryResult "success") -ne $expectedSuccess -or
+		[string] (Get-ObjectPropertyValue $Evidence "error") -cne $expectedError -or
+		[string] (Get-ObjectPropertyValue $summaryResult "error") -cne $expectedError -or
+		[string] (Get-ObjectPropertyValue $Evidence "acceptanceDisposition") -cne
+			$expectedAcceptanceDisposition -or
+		[string] (Get-ObjectPropertyValue $summaryResult "acceptanceDisposition") -cne
+			$expectedAcceptanceDisposition -or
+		[string] (Get-ObjectPropertyValue $summaryResult "releaseDisposition") -cne
+			$expectedReleaseDisposition) {
+		throw "$Label outcome or acceptance disposition is inconsistent."
+	}
+	foreach ($requiredTrueResultField in @(
+		"armed", "started", "completed", "candidateBoundaryVerified", "mountPacked",
+		"artifactsStable", "evidenceCaptured", "artifactSchemaValidationValid")) {
+		if ((Get-ObjectPropertyValue $summaryResult $requiredTrueResultField) -isnot [bool] -or
+			-not [bool] (Get-ObjectPropertyValue $summaryResult $requiredTrueResultField)) {
+			throw "$Label result.$requiredTrueResultField must be true."
+		}
+	}
+	if ((Get-ObjectPropertyValue $summaryResult "certificationPassed") -isnot [bool] -or
+		[bool] (Get-ObjectPropertyValue $summaryResult "certificationPassed")) {
+		throw "$Label scoped canary must remain non-certifying."
+	}
+
+	$caseCount = [int] (Get-ObjectPropertyValue $summaryProof "caseCount")
+	$pass = [int] (Get-ObjectPropertyValue $summaryProof "pass")
+	$warn = [int] (Get-ObjectPropertyValue $summaryProof "warn")
+	$fail = [int] (Get-ObjectPropertyValue $summaryProof "fail")
+	$blocked = [int] (Get-ObjectPropertyValue $summaryProof "blocked")
+	$skipped = [int] (Get-ObjectPropertyValue $summaryProof "skipped")
+	if ($caseCount -ne 11 -or $pass -ne 9 -or $warn -ne 1 -or $fail -ne 0 -or
+		$blocked -ne 1 -or $skipped -ne 0 -or
+		$caseCount -ne ($pass + $warn + $fail + $blocked + $skipped) -or
+		[string] (Get-ObjectPropertyValue $summaryProof "focusedCaseId") -cne
+			"early_mechanics.force_authority" -or
+		[string] (Get-ObjectPropertyValue $summaryProof "focusedCaseStatus") -cne "PASS" -or
+		[int] (Get-ObjectPropertyValue $summaryProof "focusedAssertionCount") -ne 35 -or
+		[int] (Get-ObjectPropertyValue $summaryProof "focusedAssertionsPassed") -ne 35 -or
+		[int] (Get-ObjectPropertyValue $summaryProof "certificationRequired") -ne 87 -or
+		[int] (Get-ObjectPropertyValue $summaryProof "certificationProven") -ne 87 -or
+		[int] (Get-ObjectPropertyValue $summaryProof "certificationFail") -ne 0 -or
+		[int] (Get-ObjectPropertyValue $summaryProof "certificationBlocked") -ne 0 -or
+		[int] (Get-ObjectPropertyValue $summaryProof "stateDiffRows") -ne 18 -or
+		[int] (Get-ObjectPropertyValue $summaryProof "nonzeroStateDiffRows") -ne 0 -or
+		(Get-ObjectPropertyValue $summaryProof "finalOrphanCleanupPass") -isnot [bool] -or
+		-not [bool] (Get-ObjectPropertyValue $summaryProof "finalOrphanCleanupPass") -or
+		[int] (Get-ObjectPropertyValue $summaryProof "finalOrphanActiveGroups") -ne 0) {
+		throw "$Label proof totals are inconsistent."
+	}
+	foreach ($proofField in @(
+		"caseCount", "pass", "warn", "fail", "blocked", "skipped",
+		"focusedAssertionCount", "focusedAssertionsPassed", "certificationRequired",
+		"certificationProven", "stateDiffRows", "nonzeroStateDiffRows")) {
+		if ([int] (Get-ObjectPropertyValue $Evidence $proofField) -ne
+			[int] (Get-ObjectPropertyValue $summaryProof $proofField)) {
+			throw "$Label.$proofField differs from its summary."
+		}
+	}
+	if ((Get-ObjectPropertyValue $Evidence "finalOrphanCleanupPass") -isnot [bool] -or
+		-not [bool] (Get-ObjectPropertyValue $Evidence "finalOrphanCleanupPass")) {
+		throw "$Label final orphan cleanup proof is not retained."
+	}
+
+	$hardCount = [int] (Get-ObjectPropertyValue $summaryDiagnostics "hardDiagnosticCount")
+	$scriptErrors = [int] (Get-ObjectPropertyValue $summaryDiagnostics "scriptErrors")
+	$engineErrors = [int] (Get-ObjectPropertyValue $summaryDiagnostics "engineErrors")
+	$partisanErrors = [int] (Get-ObjectPropertyValue $summaryDiagnostics "partisanErrors")
+	$stockCount = [int] (Get-ObjectPropertyValue $summaryDiagnostics "approvedStockDiagnosticCount")
+	$intentionalCount = [int] (Get-ObjectPropertyValue $summaryDiagnostics "approvedIntentionalDiagnosticCount")
+	$unapprovedCount = [int] (Get-ObjectPropertyValue $summaryDiagnostics "unapprovedHardDiagnosticCount")
+	$unapprovedKinds = @(Get-ObjectPropertyValue $summaryDiagnostics "unapprovedHardDiagnosticKinds")
+	if ($ExpectedOutcome -ceq "rejected" -and $unapprovedKinds.Count -eq 1) {
+		Require-IntegerProperty $unapprovedKinds[0] "count" `
+			"$Label summary.diagnostics.unapprovedHardDiagnosticKinds[0].count" | Out-Null
+	}
+	if ((Get-ObjectPropertyValue $summaryDiagnostics "valid") -isnot [bool] -or
+		[bool] (Get-ObjectPropertyValue $summaryDiagnostics "valid") -ne $expectedDiagnosticsValid -or
+		(Get-ObjectPropertyValue $summaryDiagnostics "classificationValid") -isnot [bool] -or
+		[bool] (Get-ObjectPropertyValue $summaryDiagnostics "classificationValid") -ne
+			$expectedDiagnosticsValid -or
+		(Get-ObjectPropertyValue $summaryDiagnostics "hardDiagnosticFree") -isnot [bool] -or
+		[bool] (Get-ObjectPropertyValue $summaryDiagnostics "hardDiagnosticFree") -or
+		$hardCount -ne $expectedHardCount -or $scriptErrors -ne $expectedScriptErrors -or
+		$engineErrors -ne 0 -or $partisanErrors -ne 0 -or
+		$hardCount -ne ($scriptErrors + $engineErrors) -or
+		$stockCount -ne 2 -or $intentionalCount -ne 0 -or
+		$unapprovedCount -ne $expectedUnapprovedCount -or
+		$hardCount -ne ($stockCount + $intentionalCount + $unapprovedCount) -or
+		[int] (Get-ObjectPropertyValue $summaryDiagnostics "classifierSelfTestCount") -ne 33 -or
+		[int] (Get-ObjectPropertyValue $summaryDiagnostics "crashMarkers") -ne 0 -or
+		[int] (Get-ObjectPropertyValue $summaryDiagnostics "partisanSeverityLineCount") -ne 0 -or
+		[int] (Get-ObjectPropertyValue $summaryDiagnostics "malformedHardDiagnosticCount") -ne 0) {
+		throw "$Label diagnostic census is inconsistent."
+	}
+	if (($ExpectedOutcome -ceq "accepted" -and $unapprovedKinds.Count -ne 0) -or
+		($ExpectedOutcome -ceq "rejected" -and
+			($unapprovedKinds.Count -ne 1 -or
+			[string] (Get-ObjectPropertyValue $unapprovedKinds[0] "kind") -cne
+				$expectedUnapprovedKind -or
+			[int] (Get-ObjectPropertyValue $unapprovedKinds[0] "count") -ne 1))) {
+		throw "$Label unapproved diagnostic-kind census is inconsistent."
+	}
+	foreach ($requiredTrueDiagnosticField in @(
+		"channelArithmeticValid", "categoryArithmeticValid", "lifecycleMarkersValid",
+		"identityBaselinePairValid", "intentionalFixtureStructureExact",
+		"intentionalFixtureSetValid", "canonicalLogPairSameDirectory")) {
+		if ((Get-ObjectPropertyValue $summaryDiagnostics $requiredTrueDiagnosticField) -isnot [bool] -or
+			-not [bool] (Get-ObjectPropertyValue $summaryDiagnostics $requiredTrueDiagnosticField)) {
+			throw "$Label diagnostics.$requiredTrueDiagnosticField must be true."
+		}
+	}
+	if ([int] (Get-ObjectPropertyValue $summaryDiagnostics "canonicalScriptLogCount") -ne 1 -or
+		[int] (Get-ObjectPropertyValue $summaryDiagnostics "canonicalConsoleLogCount") -ne 1 -or
+		(Get-ObjectPropertyValue $Evidence "diagnosticClassificationValid") -isnot [bool] -or
+		[bool] (Get-ObjectPropertyValue $Evidence "diagnosticClassificationValid") -ne
+			$expectedDiagnosticsValid -or
+		(Get-ObjectPropertyValue $Evidence "hardDiagnosticFree") -isnot [bool] -or
+		[bool] (Get-ObjectPropertyValue $Evidence "hardDiagnosticFree") -or
+		[string] (Get-ObjectPropertyValue $Evidence "unapprovedHardDiagnosticKind") -cne
+			$expectedUnapprovedKind) {
+		throw "$Label diagnostic classification disposition is inconsistent."
+	}
+	foreach ($diagnosticField in @(
+		"hardDiagnosticCount", "scriptErrors", "engineErrors", "partisanErrors",
+		"approvedStockDiagnosticCount", "approvedIntentionalDiagnosticCount",
+		"unapprovedHardDiagnosticCount", "classifierSelfTestCount",
+		"canonicalScriptLogCount", "canonicalConsoleLogCount")) {
+		if ([int] (Get-ObjectPropertyValue $Evidence $diagnosticField) -ne
+			[int] (Get-ObjectPropertyValue $summaryDiagnostics $diagnosticField)) {
+			throw "$Label.$diagnosticField differs from its summary."
+		}
+	}
+	if ((Get-ObjectPropertyValue $Evidence "canonicalLogPairSameDirectory") -isnot [bool] -or
+		-not [bool] (Get-ObjectPropertyValue $Evidence "canonicalLogPairSameDirectory")) {
+		throw "$Label canonical log pair is not retained."
+	}
+
+	foreach ($cleanupField in @(
+		"guardRemaining", "ownedProcessesRemaining", "newEngineProcessesRemaining",
+		"unclaimedEngineProcessesObserved", "newDefaultEntriesRemaining",
+		"modifiedDefaultFiles", "deletedDefaultEntries", "missingDefaultRoots",
+		"externalSpillEntriesRemaining", "modifiedSpillFiles", "deletedSpillEntries",
+		"missingSpillRoots", "cleanupPhaseErrorCount")) {
+		if ([int] (Get-ObjectPropertyValue $summaryCleanup $cleanupField) -ne 0) {
+			throw "$Label cleanup field $cleanupField must be zero."
+		}
+	}
+	if ((Get-ObjectPropertyValue $summaryCleanup "monitoringRootsAreDetectionOnly") -isnot [bool] -or
+		-not [bool] (Get-ObjectPropertyValue $summaryCleanup "monitoringRootsAreDetectionOnly") -or
+		(Get-ObjectPropertyValue $Evidence "cleanupAndSpillZero") -isnot [bool] -or
+		-not [bool] (Get-ObjectPropertyValue $Evidence "cleanupAndSpillZero")) {
+		throw "$Label cleanup and spill boundary is not clean."
+	}
+
+	$envelopeSha = (Require-Sha256 `
+		(Get-ObjectPropertyValue $Evidence "envelopeSha256") "$Label.envelopeSha256").ToLowerInvariant()
+	$runSummarySha = (Require-Sha256 `
+		(Get-ObjectPropertyValue $Evidence "runSummarySha256") "$Label.runSummarySha256").ToLowerInvariant()
+	if ($envelopeSha -cne $runSummarySha -or
+		[string] (Get-ObjectPropertyValue $summaryIntegrity "envelopeSha256") -cne $envelopeSha -or
+		[string] (Get-ObjectPropertyValue $summaryIntegrity "runSummarySha256") -cne
+			$runSummarySha -or
+		[int] (Get-ObjectPropertyValue $summaryIntegrity "envelopeFileCount") -ne 10 -or
+		[int] (Get-ObjectPropertyValue $Evidence "envelopeFileCount") -ne 10 -or
+		(Get-ObjectPropertyValue $summaryIntegrity "envelopeFilesRehashed") -isnot [bool] -or
+		-not [bool] (Get-ObjectPropertyValue $summaryIntegrity "envelopeFilesRehashed") -or
+		(Get-ObjectPropertyValue $Evidence "envelopeFilesRehashed") -isnot [bool] -or
+		-not [bool] (Get-ObjectPropertyValue $Evidence "envelopeFilesRehashed") -or
+		[string] (Get-ObjectPropertyValue $summaryFinding "status") -cne
+			$expectedFindingStatus -or
+		[string] (Get-ObjectPropertyValue $summaryFinding "defect") -cne
+			$expectedFindingDefect -or
+		[string]::IsNullOrWhiteSpace([string] (Get-ObjectPropertyValue $summaryFinding "nextStep"))) {
+		throw "$Label integrity or next-step disposition is inconsistent."
+	}
+
+	return [PSCustomObject] @{
+		SummaryPath = $summaryPath
+		SummarySha256 = $summarySha
+		HarnessGitHead = $harnessHead
+		CompletedUtc = $completedUtc
+	}
+}
+
 function Resolve-ActionRule {
 	param(
 		[object] $Parity,
@@ -906,6 +1302,10 @@ $activePackagedFocusedValidation = $null
 $activePackagedFocusedSummaryPath = ""
 $activePackagedFocusedSummarySha = ""
 $activePackagedFocusedHarnessHead = ""
+$activeCorrectedCanaryValidation = $null
+$activeCorrectedCanarySummaryPath = ""
+$activeCorrectedCanarySummarySha = ""
+$activeCorrectedCanaryHarnessHead = ""
 $historicalCandidateEvidence = Get-ObjectPropertyValue $status "historicalCandidateEvidence"
 $historicalCandidate = $null
 $historicalEvidence = $null
@@ -1227,6 +1627,12 @@ if ($releaseCandidateBuilt) {
 		$nativeEngineWorldRungStatus -cne "not-run") {
 		throw "Missing active Campaign Debug evidence requires a not-run native-engine-world rung."
 	}
+	if ($null -ne $activeCorrectedCanary -and $null -eq $activeFullCampaignDebug -and
+		($nativeEngineWorldRungStatus -cne "passed-noncertifying" -or
+			[string] (Get-ObjectPropertyValue $activeCorrectedCanary "status") -cne
+				"passed-noncertifying")) {
+		throw "An accepted scoped canary requires passed-noncertifying active evidence and native-engine-world rung."
+	}
 	if ($null -ne $activePackagedFocused) {
 		$activePackagedFocusedValidation = Assert-PackagedFocusedEvidence `
 			$activePackagedFocused `
@@ -1256,385 +1662,33 @@ if ($releaseCandidateBuilt) {
 		$historicalPackagedFocusedValidation.PreliminaryCaseCount -ne 5) {
 		throw "Historical packaged focused evidence must retain its superseded preliminary-run disposition."
 	}
-
-	if ($null -eq $correctedCanary) {
-		throw "Release status must contain the corrected force-authority canary evidence."
-	}
-	$correctedCanaryStatus = Require-Text `
-		(Get-ObjectPropertyValue $correctedCanary "status") `
-		"release_status.historicalCandidateEvidence.evidence.correctedForceAuthorityCanary.status"
-	if ($correctedCanaryStatus -cne "historical-failed-unapproved-hard-diagnostic") {
-		throw "The historical corrected canary must retain its fail-closed diagnostic result."
-	}
-	$correctedCanarySummaryPath = Require-RepoRelativePath `
-		(Get-ObjectPropertyValue $correctedCanary "summaryPath") `
-		"release_status.historicalCandidateEvidence.evidence.correctedForceAuthorityCanary.summaryPath"
-	$correctedCanarySummarySha = Require-Sha256 `
-		(Get-ObjectPropertyValue $correctedCanary "summarySha256") `
-		"release_status.historicalCandidateEvidence.evidence.correctedForceAuthorityCanary.summarySha256"
-	$correctedCanaryHarnessHead = Require-Text `
-		(Get-ObjectPropertyValue $correctedCanary "harnessGitHead") `
-		"release_status.historicalCandidateEvidence.evidence.correctedForceAuthorityCanary.harnessGitHead"
-	if ($correctedCanaryHarnessHead -cnotmatch '^[0-9a-f]{40}$') {
-		throw "The corrected canary harness HEAD must be a lowercase full Git SHA."
-	}
-
-	$correctedCanarySummaryFullPath = [IO.Path]::GetFullPath(
-		(Join-Path $root $correctedCanarySummaryPath))
-	if (-not $correctedCanarySummaryFullPath.StartsWith(
-		$repositoryPrefix,
-		[StringComparison]::OrdinalIgnoreCase) -or
-		-not (Test-Path -LiteralPath $correctedCanarySummaryFullPath -PathType Leaf)) {
-		throw "The tracked corrected canary summary is missing or outside the repository."
-	}
-	$correctedCanarySummaryItem = Get-Item -LiteralPath $correctedCanarySummaryFullPath -Force
-	if (($correctedCanarySummaryItem.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
-		throw "The tracked corrected canary summary must not be a reparse point."
-	}
-	$actualCorrectedCanarySummarySha = (Get-FileHash `
-		-LiteralPath $correctedCanarySummaryFullPath `
-		-Algorithm SHA256).Hash.ToLowerInvariant()
-	if ($actualCorrectedCanarySummarySha -cne $correctedCanarySummarySha.ToLowerInvariant()) {
-		throw "The corrected canary summary SHA-256 does not match release status."
-	}
-
-	$correctedCanarySummaryText = Get-Content -Raw -LiteralPath $correctedCanarySummaryFullPath
-	if ($correctedCanarySummaryText -match '(?i)[A-Z]:[\\/]') {
-		throw "The tracked corrected canary summary contains a local absolute path."
-	}
-	$correctedCanarySummary = $correctedCanarySummaryText | ConvertFrom-Json
-	$correctedSummaryCandidate = Get-ObjectPropertyValue $correctedCanarySummary "candidate"
-	$correctedSummaryHarness = Get-ObjectPropertyValue $correctedCanarySummary "harness"
-	$correctedSummarySettings = Get-ObjectPropertyValue $correctedCanarySummary "settings"
-	$correctedSummaryCapture = Get-ObjectPropertyValue $correctedCanarySummary "capture"
-	$correctedSummaryResult = Get-ObjectPropertyValue $correctedCanarySummary "result"
-	$correctedSummaryProof = Get-ObjectPropertyValue $correctedCanarySummary "proof"
-	$correctedSummaryDiagnostics = Get-ObjectPropertyValue $correctedCanarySummary "diagnostics"
-	$correctedSummaryCleanup = Get-ObjectPropertyValue $correctedCanarySummary "cleanup"
-	$correctedSummaryIntegrity = Get-ObjectPropertyValue $correctedCanarySummary "integrity"
-	$correctedSummaryFinding = Get-ObjectPropertyValue $correctedCanarySummary "finding"
-	$correctedSummarySchemaVersion = Require-IntegerProperty `
-		$correctedCanarySummary "schemaVersion" "corrected canary summary.schemaVersion"
-	if ($correctedSummarySchemaVersion -ne 1 -or
-		[string] (Get-ObjectPropertyValue $correctedCanarySummary "evidenceKind") -cne
-			"packaged-campaign-debug-corrected-canary" -or
-		$null -eq $correctedSummaryCandidate -or
-		$null -eq $correctedSummaryHarness -or
-		$null -eq $correctedSummarySettings -or
-		$null -eq $correctedSummaryCapture -or
-		$null -eq $correctedSummaryResult -or
-		$null -eq $correctedSummaryProof -or
-		$null -eq $correctedSummaryDiagnostics -or
-		$null -eq $correctedSummaryCleanup -or
-		$null -eq $correctedSummaryIntegrity -or
-		$null -eq $correctedSummaryFinding) {
-		throw "The tracked corrected canary summary is structurally incomplete."
-	}
-	Assert-IntegerProperties $correctedSummarySettings @("schemaVersion") `
-		"corrected canary summary.settings"
-	Assert-IntegerProperties $correctedSummaryCapture @("runtimeSeconds") `
-		"corrected canary summary.capture"
-	Assert-IntegerProperties $correctedSummaryProof @(
-		"caseCount", "pass", "warn", "fail", "blocked", "skipped",
-		"focusedAssertionCount", "focusedAssertionsPassed",
-		"certificationRequired", "certificationProven", "certificationFail",
-		"certificationBlocked", "stateDiffRows", "nonzeroStateDiffRows",
-		"finalOrphanActiveGroups") "corrected canary summary.proof"
-	Assert-IntegerProperties $correctedSummaryDiagnostics @(
-		"hardDiagnosticCount", "scriptErrors", "engineErrors", "partisanErrors",
-		"crashMarkers", "partisanSeverityLineCount", "approvedStockDiagnosticCount",
-		"approvedIntentionalDiagnosticCount", "unapprovedHardDiagnosticCount",
-		"classifierSelfTestCount", "malformedHardDiagnosticCount",
-		"canonicalScriptLogCount", "canonicalConsoleLogCount") `
-		"corrected canary summary.diagnostics"
-	Assert-IntegerProperties $correctedSummaryCleanup @(
-		"guardRemaining", "ownedProcessesRemaining", "newEngineProcessesRemaining",
-		"unclaimedEngineProcessesObserved", "newDefaultEntriesRemaining",
-		"modifiedDefaultFiles", "deletedDefaultEntries", "missingDefaultRoots",
-		"externalSpillEntriesRemaining", "modifiedSpillFiles", "deletedSpillEntries",
-		"missingSpillRoots", "cleanupPhaseErrorCount") "corrected canary summary.cleanup"
-	Assert-IntegerProperties $correctedSummaryIntegrity @("envelopeFileCount") `
-		"corrected canary summary.integrity"
-	Assert-IntegerProperties $correctedCanary @(
-		"runtimeSeconds", "caseCount", "pass", "warn", "fail", "blocked", "skipped",
-		"focusedAssertionCount", "focusedAssertionsPassed", "certificationRequired",
-		"certificationProven", "stateDiffRows", "nonzeroStateDiffRows",
-		"hardDiagnosticCount", "scriptErrors", "engineErrors", "partisanErrors",
-		"approvedStockDiagnosticCount", "approvedIntentionalDiagnosticCount",
-		"unapprovedHardDiagnosticCount", "classifierSelfTestCount",
-		"canonicalScriptLogCount", "canonicalConsoleLogCount", "envelopeFileCount") `
-		"release_status.historicalCandidateEvidence.evidence.correctedForceAuthorityCanary"
-
-	if ([string] (Get-ObjectPropertyValue $correctedCanary "candidateId") -cne $historicalCandidateId -or
-		[string] (Get-ObjectPropertyValue $correctedCanary "candidateSourceHead") -cne $historicalCandidateSourceHead -or
-		[string] (Get-ObjectPropertyValue $correctedCanary "packageSha256") -cne $historicalPackageSha -or
-		[string] (Get-ObjectPropertyValue $correctedCanary "manifestSha256") -cne $historicalCandidateManifestSha -or
-		[string] (Get-ObjectPropertyValue $correctedCanary "readySha256") -cne $historicalCandidateReadySha -or
-		[string] (Get-ObjectPropertyValue $correctedSummaryCandidate "candidateId") -cne $historicalCandidateId -or
-		[string] (Get-ObjectPropertyValue $correctedSummaryCandidate "candidateSourceHead") -cne $historicalCandidateSourceHead -or
-		[string] (Get-ObjectPropertyValue $correctedSummaryCandidate "packageSha256") -cne $historicalPackageSha -or
-		[string] (Get-ObjectPropertyValue $correctedSummaryCandidate "manifestSha256") -cne $historicalCandidateManifestSha -or
-		[string] (Get-ObjectPropertyValue $correctedSummaryCandidate "readySha256") -cne $historicalCandidateReadySha -or
-		[string] (Get-ObjectPropertyValue $correctedSummaryCandidate "workbenchCrc") -cne $historicalWorkbenchCrc -or
-		[string] (Get-ObjectPropertyValue $correctedSummaryCandidate "runtimeUseDispositionAtCapture") -cne
-			"active-runtime-candidate") {
-		throw "Historical corrected canary evidence differs from its retained candidate identity."
-	}
-
-	$correctedCampaignRunnerSha = Require-Sha256 `
-		(Get-ObjectPropertyValue $correctedCanary "campaignRunnerSha256") `
-		"release_status.historicalCandidateEvidence.evidence.correctedForceAuthorityCanary.campaignRunnerSha256"
-	$correctedCandidateModuleSha = Require-Sha256 `
-		(Get-ObjectPropertyValue $correctedCanary "candidateModuleSha256") `
-		"release_status.historicalCandidateEvidence.evidence.correctedForceAuthorityCanary.candidateModuleSha256"
-	$correctedSettingsSha = Require-Sha256 `
-		(Get-ObjectPropertyValue $correctedCanary "settingsSha256") `
-		"release_status.historicalCandidateEvidence.evidence.correctedForceAuthorityCanary.settingsSha256"
-	if ([string] (Get-ObjectPropertyValue $correctedSummaryHarness "gitHead") -cne
-			$correctedCanaryHarnessHead -or
-		(Get-ObjectPropertyValue $correctedSummaryHarness "dirty") -isnot [bool] -or
-		[bool] (Get-ObjectPropertyValue $correctedSummaryHarness "dirty") -or
-		[string] (Get-ObjectPropertyValue $correctedSummaryHarness "campaignRunnerSha256") -cne
-			$correctedCampaignRunnerSha -or
-		[string] (Get-ObjectPropertyValue $correctedSummaryHarness "candidateModuleSha256") -cne
-			$correctedCandidateModuleSha -or
-		[int] (Get-ObjectPropertyValue $correctedSummarySettings "schemaVersion") -ne $sourceSettingsSchema -or
-		[string] (Get-ObjectPropertyValue $correctedSummarySettings "sha256") -cne $correctedSettingsSha -or
-		(Get-ObjectPropertyValue $correctedSummarySettings "guardedRuntimeCopy") -isnot [bool] -or
-		-not [bool] (Get-ObjectPropertyValue $correctedSummarySettings "guardedRuntimeCopy")) {
-		throw "The corrected canary harness or settings identity is inconsistent."
-	}
-
-	$correctedStartedUtc = Require-UtcTimestamp `
-		(Get-ObjectPropertyValue $correctedSummaryCapture "startedUtc") `
-		"corrected canary start time"
-	$correctedCompletedUtc = Require-UtcTimestamp `
-		(Get-ObjectPropertyValue $correctedSummaryCapture "completedUtc") `
-		"corrected canary completion time"
 	$statusAsOfUtc = Require-UtcTimestamp $status.statusAsOfUtc "release_status.statusAsOfUtc"
-	if ($correctedCompletedUtc -lt $correctedStartedUtc -or $statusAsOfUtc -lt $correctedCompletedUtc -or
-		[string] (Get-ObjectPropertyValue $correctedCanary "startedUtc") -cne
-			[string] (Get-ObjectPropertyValue $correctedSummaryCapture "startedUtc") -or
-		[string] (Get-ObjectPropertyValue $correctedCanary "completedUtc") -cne
-			[string] (Get-ObjectPropertyValue $correctedSummaryCapture "completedUtc") -or
-		[string] (Get-ObjectPropertyValue $correctedCanary "runLeafId") -cne
-			[string] (Get-ObjectPropertyValue $correctedSummaryCapture "runLeafId") -or
-		[string] (Get-ObjectPropertyValue $correctedSummaryCapture "runLeafId") -cnotmatch
-			'^\d{8}T\d{6}Z-[0-9a-f]{32}$' -or
-		[string] (Get-ObjectPropertyValue $correctedCanary "runId") -cne
-			[string] (Get-ObjectPropertyValue $correctedSummaryCapture "runId") -or
-		[string] (Get-ObjectPropertyValue $correctedSummaryCapture "runId") -cne
-			"seed1985_t0_p1_u1784420040" -or
-		[string] (Get-ObjectPropertyValue $correctedSummaryCapture "profile") -cne "force_authority" -or
-		[string] (Get-ObjectPropertyValue $correctedSummaryCapture "proofScope") -cne
-			"focused_force_authority" -or
-		[int] (Get-ObjectPropertyValue $correctedCanary "runtimeSeconds") -ne 45 -or
-		[int] (Get-ObjectPropertyValue $correctedSummaryCapture "runtimeSeconds") -ne 45) {
-		throw "The corrected canary capture identity, timestamps, or runtime are inconsistent."
+	if ($null -ne $activeCorrectedCanary) {
+		$activeCorrectedCanaryValidation = Assert-CorrectedCanaryEvidence `
+			$activeCorrectedCanary `
+			$activeCandidateIdentity `
+			"passed-noncertifying" `
+			"accepted" `
+			"release_status.evidence.correctedForceAuthorityCanary" `
+			$statusAsOfUtc `
+			$sourceSettingsSchema
+		$activeCorrectedCanarySummaryPath = $activeCorrectedCanaryValidation.SummaryPath
+		$activeCorrectedCanarySummarySha = $activeCorrectedCanaryValidation.SummarySha256
+		$activeCorrectedCanaryHarnessHead = $activeCorrectedCanaryValidation.HarnessGitHead
 	}
 
-	$correctedCanaryError = "Campaign Debug runtime completed with unapproved hard diagnostics."
-	if ([string] (Get-ObjectPropertyValue $correctedSummaryResult "status") -cne
-			"failed-unapproved-hard-diagnostic" -or
-		(Get-ObjectPropertyValue $correctedCanary "outcomeSuccess") -isnot [bool] -or
-		[bool] (Get-ObjectPropertyValue $correctedCanary "outcomeSuccess") -or
-		(Get-ObjectPropertyValue $correctedSummaryResult "success") -isnot [bool] -or
-		[bool] (Get-ObjectPropertyValue $correctedSummaryResult "success") -or
-		[string] (Get-ObjectPropertyValue $correctedCanary "error") -cne $correctedCanaryError -or
-		[string] (Get-ObjectPropertyValue $correctedSummaryResult "error") -cne $correctedCanaryError -or
-		[string] (Get-ObjectPropertyValue $correctedCanary "acceptanceDisposition") -cne
-			"rejected-fail-closed" -or
-		[string] (Get-ObjectPropertyValue $correctedSummaryResult "acceptanceDisposition") -cne
-			"rejected-fail-closed" -or
-		[string] (Get-ObjectPropertyValue $correctedSummaryResult "releaseDisposition") -cne
-			"replacement-required" -or
-		(Get-ObjectPropertyValue $correctedSummaryResult "armed") -isnot [bool] -or
-		-not [bool] (Get-ObjectPropertyValue $correctedSummaryResult "armed") -or
-		(Get-ObjectPropertyValue $correctedSummaryResult "started") -isnot [bool] -or
-		-not [bool] (Get-ObjectPropertyValue $correctedSummaryResult "started") -or
-		(Get-ObjectPropertyValue $correctedSummaryResult "completed") -isnot [bool] -or
-		-not [bool] (Get-ObjectPropertyValue $correctedSummaryResult "completed") -or
-		(Get-ObjectPropertyValue $correctedSummaryResult "candidateBoundaryVerified") -isnot [bool] -or
-		-not [bool] (Get-ObjectPropertyValue $correctedSummaryResult "candidateBoundaryVerified") -or
-		(Get-ObjectPropertyValue $correctedSummaryResult "mountPacked") -isnot [bool] -or
-		-not [bool] (Get-ObjectPropertyValue $correctedSummaryResult "mountPacked") -or
-		(Get-ObjectPropertyValue $correctedSummaryResult "artifactsStable") -isnot [bool] -or
-		-not [bool] (Get-ObjectPropertyValue $correctedSummaryResult "artifactsStable") -or
-		(Get-ObjectPropertyValue $correctedSummaryResult "evidenceCaptured") -isnot [bool] -or
-		-not [bool] (Get-ObjectPropertyValue $correctedSummaryResult "evidenceCaptured") -or
-		(Get-ObjectPropertyValue $correctedSummaryResult "artifactSchemaValidationValid") -isnot [bool] -or
-		-not [bool] (Get-ObjectPropertyValue $correctedSummaryResult "artifactSchemaValidationValid") -or
-		(Get-ObjectPropertyValue $correctedSummaryResult "certificationPassed") -isnot [bool] -or
-		[bool] (Get-ObjectPropertyValue $correctedSummaryResult "certificationPassed")) {
-		throw "The corrected canary did not retain its exact fail-closed outcome."
-	}
-
-	$correctedCaseCount = [int] (Get-ObjectPropertyValue $correctedSummaryProof "caseCount")
-	$correctedPass = [int] (Get-ObjectPropertyValue $correctedSummaryProof "pass")
-	$correctedWarn = [int] (Get-ObjectPropertyValue $correctedSummaryProof "warn")
-	$correctedFail = [int] (Get-ObjectPropertyValue $correctedSummaryProof "fail")
-	$correctedBlocked = [int] (Get-ObjectPropertyValue $correctedSummaryProof "blocked")
-	$correctedSkipped = [int] (Get-ObjectPropertyValue $correctedSummaryProof "skipped")
-	if ($correctedCaseCount -ne 11 -or $correctedPass -ne 9 -or $correctedWarn -ne 1 -or
-		$correctedFail -ne 0 -or $correctedBlocked -ne 1 -or $correctedSkipped -ne 0 -or
-		$correctedCaseCount -ne
-			($correctedPass + $correctedWarn + $correctedFail + $correctedBlocked + $correctedSkipped) -or
-		[string] (Get-ObjectPropertyValue $correctedSummaryProof "focusedCaseId") -cne
-			"early_mechanics.force_authority" -or
-		[string] (Get-ObjectPropertyValue $correctedSummaryProof "focusedCaseStatus") -cne "PASS" -or
-		[int] (Get-ObjectPropertyValue $correctedSummaryProof "focusedAssertionCount") -ne 35 -or
-		[int] (Get-ObjectPropertyValue $correctedSummaryProof "focusedAssertionsPassed") -ne 35 -or
-		[int] (Get-ObjectPropertyValue $correctedSummaryProof "certificationRequired") -ne 87 -or
-		[int] (Get-ObjectPropertyValue $correctedSummaryProof "certificationProven") -ne 87 -or
-		[int] (Get-ObjectPropertyValue $correctedSummaryProof "certificationFail") -ne 0 -or
-		[int] (Get-ObjectPropertyValue $correctedSummaryProof "certificationBlocked") -ne 0 -or
-		[int] (Get-ObjectPropertyValue $correctedSummaryProof "stateDiffRows") -ne 18 -or
-		[int] (Get-ObjectPropertyValue $correctedSummaryProof "nonzeroStateDiffRows") -ne 0 -or
-		(Get-ObjectPropertyValue $correctedSummaryProof "finalOrphanCleanupPass") -isnot [bool] -or
-		-not [bool] (Get-ObjectPropertyValue $correctedSummaryProof "finalOrphanCleanupPass") -or
-		[int] (Get-ObjectPropertyValue $correctedSummaryProof "finalOrphanActiveGroups") -ne 0 -or
-		[int] (Get-ObjectPropertyValue $correctedCanary "caseCount") -ne $correctedCaseCount -or
-		[int] (Get-ObjectPropertyValue $correctedCanary "pass") -ne $correctedPass -or
-		[int] (Get-ObjectPropertyValue $correctedCanary "warn") -ne $correctedWarn -or
-		[int] (Get-ObjectPropertyValue $correctedCanary "fail") -ne $correctedFail -or
-		[int] (Get-ObjectPropertyValue $correctedCanary "blocked") -ne $correctedBlocked -or
-		[int] (Get-ObjectPropertyValue $correctedCanary "skipped") -ne $correctedSkipped -or
-		[int] (Get-ObjectPropertyValue $correctedCanary "focusedAssertionCount") -ne 35 -or
-		[int] (Get-ObjectPropertyValue $correctedCanary "focusedAssertionsPassed") -ne 35 -or
-		[int] (Get-ObjectPropertyValue $correctedCanary "certificationRequired") -ne 87 -or
-		[int] (Get-ObjectPropertyValue $correctedCanary "certificationProven") -ne 87 -or
-		[int] (Get-ObjectPropertyValue $correctedCanary "stateDiffRows") -ne 18 -or
-		[int] (Get-ObjectPropertyValue $correctedCanary "nonzeroStateDiffRows") -ne 0 -or
-		(Get-ObjectPropertyValue $correctedCanary "finalOrphanCleanupPass") -isnot [bool] -or
-		-not [bool] (Get-ObjectPropertyValue $correctedCanary "finalOrphanCleanupPass")) {
-		throw "The corrected canary proof totals are inconsistent."
-	}
-
-	$correctedHardCount = [int] (Get-ObjectPropertyValue $correctedSummaryDiagnostics "hardDiagnosticCount")
-	$correctedScriptErrors = [int] (Get-ObjectPropertyValue $correctedSummaryDiagnostics "scriptErrors")
-	$correctedEngineErrors = [int] (Get-ObjectPropertyValue $correctedSummaryDiagnostics "engineErrors")
-	$correctedPartisanErrors = [int] (Get-ObjectPropertyValue $correctedSummaryDiagnostics "partisanErrors")
-	$correctedStockCount = [int] (Get-ObjectPropertyValue $correctedSummaryDiagnostics "approvedStockDiagnosticCount")
-	$correctedIntentionalCount = [int] (Get-ObjectPropertyValue $correctedSummaryDiagnostics "approvedIntentionalDiagnosticCount")
-	$correctedUnapprovedCount = [int] (Get-ObjectPropertyValue $correctedSummaryDiagnostics "unapprovedHardDiagnosticCount")
-	$correctedUnapprovedKinds = @(Get-ObjectPropertyValue $correctedSummaryDiagnostics "unapprovedHardDiagnosticKinds")
-	if ($correctedUnapprovedKinds.Count -eq 1) {
-		Require-IntegerProperty $correctedUnapprovedKinds[0] "count" `
-			"corrected canary summary.diagnostics.unapprovedHardDiagnosticKinds[0].count" | Out-Null
-	}
-	if ((Get-ObjectPropertyValue $correctedSummaryDiagnostics "valid") -isnot [bool] -or
-		[bool] (Get-ObjectPropertyValue $correctedSummaryDiagnostics "valid") -or
-		(Get-ObjectPropertyValue $correctedSummaryDiagnostics "classificationValid") -isnot [bool] -or
-		[bool] (Get-ObjectPropertyValue $correctedSummaryDiagnostics "classificationValid") -or
-		(Get-ObjectPropertyValue $correctedSummaryDiagnostics "hardDiagnosticFree") -isnot [bool] -or
-		[bool] (Get-ObjectPropertyValue $correctedSummaryDiagnostics "hardDiagnosticFree") -or
-		$correctedHardCount -ne 3 -or $correctedScriptErrors -ne 3 -or
-		$correctedEngineErrors -ne 0 -or $correctedPartisanErrors -ne 0 -or
-		$correctedHardCount -ne ($correctedScriptErrors + $correctedEngineErrors) -or
-		$correctedStockCount -ne 2 -or $correctedIntentionalCount -ne 0 -or
-		$correctedUnapprovedCount -ne 1 -or
-		$correctedHardCount -ne
-			($correctedStockCount + $correctedIntentionalCount + $correctedUnapprovedCount) -or
-		$correctedUnapprovedKinds.Count -ne 1 -or
-		[string] (Get-ObjectPropertyValue $correctedUnapprovedKinds[0] "kind") -cne
-			"virtual-machine-exception" -or
-		[int] (Get-ObjectPropertyValue $correctedUnapprovedKinds[0] "count") -ne 1 -or
-		[int] (Get-ObjectPropertyValue $correctedSummaryDiagnostics "classifierSelfTestCount") -ne 33 -or
-		[int] (Get-ObjectPropertyValue $correctedSummaryDiagnostics "crashMarkers") -ne 0 -or
-		[int] (Get-ObjectPropertyValue $correctedSummaryDiagnostics "partisanSeverityLineCount") -ne 0 -or
-		[int] (Get-ObjectPropertyValue $correctedSummaryDiagnostics "malformedHardDiagnosticCount") -ne 0 -or
-		(Get-ObjectPropertyValue $correctedSummaryDiagnostics "channelArithmeticValid") -isnot [bool] -or
-		-not [bool] (Get-ObjectPropertyValue $correctedSummaryDiagnostics "channelArithmeticValid") -or
-		(Get-ObjectPropertyValue $correctedSummaryDiagnostics "categoryArithmeticValid") -isnot [bool] -or
-		-not [bool] (Get-ObjectPropertyValue $correctedSummaryDiagnostics "categoryArithmeticValid") -or
-		(Get-ObjectPropertyValue $correctedSummaryDiagnostics "lifecycleMarkersValid") -isnot [bool] -or
-		-not [bool] (Get-ObjectPropertyValue $correctedSummaryDiagnostics "lifecycleMarkersValid") -or
-		(Get-ObjectPropertyValue $correctedSummaryDiagnostics "identityBaselinePairValid") -isnot [bool] -or
-		-not [bool] (Get-ObjectPropertyValue $correctedSummaryDiagnostics "identityBaselinePairValid") -or
-		(Get-ObjectPropertyValue $correctedSummaryDiagnostics "intentionalFixtureStructureExact") -isnot [bool] -or
-		-not [bool] (Get-ObjectPropertyValue $correctedSummaryDiagnostics "intentionalFixtureStructureExact") -or
-		(Get-ObjectPropertyValue $correctedSummaryDiagnostics "intentionalFixtureSetValid") -isnot [bool] -or
-		-not [bool] (Get-ObjectPropertyValue $correctedSummaryDiagnostics "intentionalFixtureSetValid") -or
-		[int] (Get-ObjectPropertyValue $correctedSummaryDiagnostics "canonicalScriptLogCount") -ne 1 -or
-		[int] (Get-ObjectPropertyValue $correctedSummaryDiagnostics "canonicalConsoleLogCount") -ne 1 -or
-		(Get-ObjectPropertyValue $correctedSummaryDiagnostics "canonicalLogPairSameDirectory") -isnot [bool] -or
-		-not [bool] (Get-ObjectPropertyValue $correctedSummaryDiagnostics "canonicalLogPairSameDirectory") -or
-		(Get-ObjectPropertyValue $correctedCanary "diagnosticClassificationValid") -isnot [bool] -or
-		[bool] (Get-ObjectPropertyValue $correctedCanary "diagnosticClassificationValid") -or
-		(Get-ObjectPropertyValue $correctedCanary "hardDiagnosticFree") -isnot [bool] -or
-		[bool] (Get-ObjectPropertyValue $correctedCanary "hardDiagnosticFree") -or
-		[int] (Get-ObjectPropertyValue $correctedCanary "hardDiagnosticCount") -ne $correctedHardCount -or
-		[int] (Get-ObjectPropertyValue $correctedCanary "scriptErrors") -ne $correctedScriptErrors -or
-		[int] (Get-ObjectPropertyValue $correctedCanary "engineErrors") -ne $correctedEngineErrors -or
-		[int] (Get-ObjectPropertyValue $correctedCanary "partisanErrors") -ne $correctedPartisanErrors -or
-		[int] (Get-ObjectPropertyValue $correctedCanary "approvedStockDiagnosticCount") -ne $correctedStockCount -or
-		[int] (Get-ObjectPropertyValue $correctedCanary "approvedIntentionalDiagnosticCount") -ne
-			$correctedIntentionalCount -or
-		[int] (Get-ObjectPropertyValue $correctedCanary "unapprovedHardDiagnosticCount") -ne
-			$correctedUnapprovedCount -or
-		[string] (Get-ObjectPropertyValue $correctedCanary "unapprovedHardDiagnosticKind") -cne
-			"virtual-machine-exception" -or
-		[int] (Get-ObjectPropertyValue $correctedCanary "classifierSelfTestCount") -ne 33 -or
-		[int] (Get-ObjectPropertyValue $correctedCanary "canonicalScriptLogCount") -ne 1 -or
-		[int] (Get-ObjectPropertyValue $correctedCanary "canonicalConsoleLogCount") -ne 1 -or
-		(Get-ObjectPropertyValue $correctedCanary "canonicalLogPairSameDirectory") -isnot [bool] -or
-		-not [bool] (Get-ObjectPropertyValue $correctedCanary "canonicalLogPairSameDirectory")) {
-		throw "The corrected canary diagnostic census is inconsistent."
-	}
-
-	$correctedCleanupFields = @(
-		"guardRemaining",
-		"ownedProcessesRemaining",
-		"newEngineProcessesRemaining",
-		"unclaimedEngineProcessesObserved",
-		"newDefaultEntriesRemaining",
-		"modifiedDefaultFiles",
-		"deletedDefaultEntries",
-		"missingDefaultRoots",
-		"externalSpillEntriesRemaining",
-		"modifiedSpillFiles",
-		"deletedSpillEntries",
-		"missingSpillRoots",
-		"cleanupPhaseErrorCount")
-	foreach ($correctedCleanupField in $correctedCleanupFields) {
-		if ($null -eq (Get-ObjectPropertyValue $correctedSummaryCleanup $correctedCleanupField) -or
-			[int] (Get-ObjectPropertyValue $correctedSummaryCleanup $correctedCleanupField) -ne 0) {
-			throw "The corrected canary cleanup field $correctedCleanupField must be present and zero."
-		}
-	}
-	if ((Get-ObjectPropertyValue $correctedSummaryCleanup "monitoringRootsAreDetectionOnly") -isnot [bool] -or
-		-not [bool] (Get-ObjectPropertyValue $correctedSummaryCleanup "monitoringRootsAreDetectionOnly") -or
-		(Get-ObjectPropertyValue $correctedCanary "cleanupAndSpillZero") -isnot [bool] -or
-		-not [bool] (Get-ObjectPropertyValue $correctedCanary "cleanupAndSpillZero")) {
-		throw "The corrected canary cleanup and spill boundary is not clean."
-	}
-
-	$correctedEnvelopeSha = Require-Sha256 `
-		(Get-ObjectPropertyValue $correctedCanary "envelopeSha256") `
-		"release_status.historicalCandidateEvidence.evidence.correctedForceAuthorityCanary.envelopeSha256"
-	$correctedRunSummarySha = Require-Sha256 `
-		(Get-ObjectPropertyValue $correctedCanary "runSummarySha256") `
-		"release_status.historicalCandidateEvidence.evidence.correctedForceAuthorityCanary.runSummarySha256"
-	if ($correctedEnvelopeSha -cne $correctedRunSummarySha -or
-		[string] (Get-ObjectPropertyValue $correctedSummaryIntegrity "envelopeSha256") -cne
-			$correctedEnvelopeSha -or
-		[string] (Get-ObjectPropertyValue $correctedSummaryIntegrity "runSummarySha256") -cne
-			$correctedRunSummarySha -or
-		[int] (Get-ObjectPropertyValue $correctedSummaryIntegrity "envelopeFileCount") -ne 10 -or
-		[int] (Get-ObjectPropertyValue $correctedCanary "envelopeFileCount") -ne 10 -or
-		(Get-ObjectPropertyValue $correctedSummaryIntegrity "envelopeFilesRehashed") -isnot [bool] -or
-		-not [bool] (Get-ObjectPropertyValue $correctedSummaryIntegrity "envelopeFilesRehashed") -or
-		(Get-ObjectPropertyValue $correctedCanary "envelopeFilesRehashed") -isnot [bool] -or
-		-not [bool] (Get-ObjectPropertyValue $correctedCanary "envelopeFilesRehashed") -or
-		[string] (Get-ObjectPropertyValue $correctedSummaryFinding "status") -cne
-			"source-fix-required" -or
-		[string] (Get-ObjectPropertyValue $correctedSummaryFinding "defect") -cne
-			"MapLocator runtime lifecycle" -or
-		[string]::IsNullOrWhiteSpace(
-			[string] (Get-ObjectPropertyValue $correctedSummaryFinding "nextStep"))) {
-		throw "The corrected canary integrity or source-fix disposition is inconsistent."
-	}
-
+	$historicalCorrectedCanaryValidation = Assert-CorrectedCanaryEvidence `
+		$correctedCanary `
+		$historicalIdentity `
+		"historical-failed-unapproved-hard-diagnostic" `
+		"rejected" `
+		"release_status.historicalCandidateEvidence.evidence.correctedForceAuthorityCanary" `
+		$statusAsOfUtc `
+		$sourceSettingsSchema
+	$correctedCanaryStatus = [string] (Get-ObjectPropertyValue $correctedCanary "status")
+	$correctedCanarySummaryPath = $historicalCorrectedCanaryValidation.SummaryPath
+	$correctedCanarySummarySha = $historicalCorrectedCanaryValidation.SummarySha256
+	$correctedCanaryHarnessHead = $historicalCorrectedCanaryValidation.HarnessGitHead
 	if ($null -eq $fullCampaignDebug) {
 		throw "Release status must contain Full Campaign Debug evidence."
 	}
@@ -2230,6 +2284,17 @@ if ($releaseCandidateBuilt) {
 			}
 		}
 
+		if ($null -ne $activeCorrectedCanary) {
+			& git merge-base --is-ancestor $candidateSourceHead $activeCorrectedCanaryHarnessHead
+			if ($LASTEXITCODE -ne 0) {
+				throw "Active candidate source HEAD $candidateSourceHead is not an ancestor of corrected canary harness HEAD $activeCorrectedCanaryHarnessHead."
+			}
+			& git merge-base --is-ancestor $activeCorrectedCanaryHarnessHead $checkoutHead
+			if ($LASTEXITCODE -ne 0) {
+				throw "Active corrected canary harness HEAD $activeCorrectedCanaryHarnessHead is not an ancestor of checkout HEAD $checkoutHead."
+			}
+		}
+
 		if ($null -ne $correctedCanary) {
 			& git merge-base --is-ancestor $correctedCanaryHarnessHead $checkoutHead
 			if ($LASTEXITCODE -ne 0) {
@@ -2481,12 +2546,15 @@ else {
 if ($null -eq $activeCorrectedCanary -and $null -eq $activeFullCampaignDebug) {
 	Add-Line $statusBuilder "- Active Campaign Debug: **not run** for replacement candidate $mdTick$candidateId${mdTick}; the corrected canary follows only after the packaged focused set is accepted."
 }
+elseif ($null -ne $activeCorrectedCanary) {
+	Add-Line $statusBuilder "- Active corrected force-authority canary: **accepted, passed-noncertifying** on exact candidate $mdTick$candidateId${mdTick}. The focused proof passed $($activeCorrectedCanary.focusedAssertionsPassed)/$($activeCorrectedCanary.focusedAssertionCount) assertions and $($activeCorrectedCanary.certificationProven)/$($activeCorrectedCanary.certificationRequired) counted conditions; the 33-check classifier accepted $($activeCorrectedCanary.hardDiagnosticCount) hard diagnostics = $($activeCorrectedCanary.approvedStockDiagnosticCount) approved stock + $($activeCorrectedCanary.approvedIntentionalDiagnosticCount) approved intentional + $($activeCorrectedCanary.unapprovedHardDiagnosticCount) unapproved. All $($activeCorrectedCanary.envelopeFileCount) envelope files were rehashed with an exact $($activeCorrectedCanary.stateDiffRows)-row zero-delta state diff, final orphan cleanup, and zero cleanup/spill residue. Summary: $mdTick$(Escape-MarkdownCell $activeCorrectedCanarySummaryPath)$mdTick / SHA-256 $mdTick$activeCorrectedCanarySummarySha$mdTick; clean harness $mdTick$activeCorrectedCanaryHarnessHead${mdTick}. This scoped canary does not certify Full Campaign Debug."
+}
 if ($null -ne $packagedFocused) {
 	Add-Line $statusBuilder "- Historical packaged focused autotests: **$($packagedFocused.passedCases)/$($packagedFocused.caseCount)** cases and JUnit **$($packagedFocused.junitTests)/$($packagedFocused.junitFailures)/$($packagedFocused.junitErrors)/$($packagedFocused.junitSkipped)** tests/failures/errors/skips against prior exact candidate $mdTick$historicalCandidateId$mdTick. Hard diagnostics are explicitly not free: $($packagedFocused.hardDiagnosticCount) total = $($packagedFocused.approvedStockFilterDiagnosticCount) approved stock + $($packagedFocused.approvedIntentionalFaultDiagnosticCount) approved intentional + $($packagedFocused.unapprovedHardDiagnosticCount) unapproved, with $($packagedFocused.envelopeFileCount) envelope files rehashed and zero cleanup/spill residue. Summary: $mdTick$(Escape-MarkdownCell $packagedFocusedSummaryPath)$mdTick / SHA-256 $mdTick$packagedFocusedSummarySha$mdTick; harness $mdTick$packagedFocusedHarnessHead$mdTick. This immutable non-certifying result does not attach to the active replacement."
 }
 Add-Line $statusBuilder "- Focused force-authority profile: **$($status.evidence.focusedForceAuthority.passedCases)/$($status.evidence.focusedForceAuthority.caseCount)** cases and **$($status.evidence.focusedForceAuthority.passedConditions)/$($status.evidence.focusedForceAuthority.countedConditions)** counted conditions for $mdTick$($status.evidence.focusedForceAuthority.sourceSha)$mdTick, with ${mdTick}CertificationPassed:$($status.evidence.focusedForceAuthority.certificationPassed.ToString().ToLowerInvariant())${mdTick}. This is historical state-only, non-package, non-certifying evidence."
 if ($null -ne $correctedCanary) {
-	Add-Line $statusBuilder "- Historical corrected force-authority canary: **rejected fail-closed** on prior exact candidate $mdTick$historicalCandidateId${mdTick}. The focused proof remained $($correctedCanary.focusedAssertionsPassed)/$($correctedCanary.focusedAssertionCount) assertions and $($correctedCanary.certificationProven)/$($correctedCanary.certificationRequired) counted certification conditions, but the 33-check classifier found $($correctedCanary.hardDiagnosticCount) hard diagnostics = $($correctedCanary.approvedStockDiagnosticCount) approved stock + $($correctedCanary.approvedIntentionalDiagnosticCount) approved intentional + $($correctedCanary.unapprovedHardDiagnosticCount) unapproved $mdTick$($correctedCanary.unapprovedHardDiagnosticKind)${mdTick}. All $($correctedCanary.envelopeFileCount) envelope files rehashed with zero cleanup/spill residue. Summary: $mdTick$(Escape-MarkdownCell $correctedCanarySummaryPath)$mdTick / SHA-256 $mdTick$correctedCanarySummarySha$mdTick; harness $mdTick$correctedCanaryHarnessHead$mdTick. This rejection does not color the active replacement's not-run rung."
+	Add-Line $statusBuilder "- Historical corrected force-authority canary: **rejected fail-closed** on prior exact candidate $mdTick$historicalCandidateId${mdTick}. The focused proof remained $($correctedCanary.focusedAssertionsPassed)/$($correctedCanary.focusedAssertionCount) assertions and $($correctedCanary.certificationProven)/$($correctedCanary.certificationRequired) counted certification conditions, but the 33-check classifier found $($correctedCanary.hardDiagnosticCount) hard diagnostics = $($correctedCanary.approvedStockDiagnosticCount) approved stock + $($correctedCanary.approvedIntentionalDiagnosticCount) approved intentional + $($correctedCanary.unapprovedHardDiagnosticCount) unapproved $mdTick$($correctedCanary.unapprovedHardDiagnosticKind)${mdTick}. All $($correctedCanary.envelopeFileCount) envelope files rehashed with zero cleanup/spill residue. Summary: $mdTick$(Escape-MarkdownCell $correctedCanarySummaryPath)$mdTick / SHA-256 $mdTick$correctedCanarySummarySha$mdTick; harness $mdTick$correctedCanaryHarnessHead$mdTick. This immutable rejection does not transfer to the active replacement."
 }
 if ($fullCampaignDebugStatus -ceq "historical-preliminary-failed-diagnostic-census") {
 	Add-Line $statusBuilder "- Historical Full Campaign Debug capture: **preliminary and unaccepted** on prior exact candidate $mdTick$historicalCandidateId${mdTick}: $($fullCampaignDebug.pass) PASS, $($fullCampaignDebug.warn) WARN, $($fullCampaignDebug.fail) FAIL, $($fullCampaignDebug.blocked) BLOCKED, and $($fullCampaignDebug.skipped) SKIPPED; $($fullCampaignDebug.provenAssertions)/$($fullCampaignDebug.requiredAssertions) required assertions proven, with $($fullCampaignDebug.failedAssertions) failed and $($fullCampaignDebug.blockedAssertions) blocked. Candidate identity, packed mount, artifact stability, cleanup, and envelope rehash were mechanically verified, but the original wrapper missed timestamp-prefixed errors. Its corrected overlay found 3 canary diagnostics with 1 unapproved and 25 full-run diagnostics with 10 unapproved; wrapper-reported success is not acceptance. Summary: $mdTick$(Escape-MarkdownCell $fullCampaignSummaryPath)$mdTick / SHA-256 $mdTick$fullCampaignSummarySha$mdTick; capture harness $mdTick$fullCampaignHarnessHead$mdTick. This result does not attach to the active replacement."

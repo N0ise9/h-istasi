@@ -99,9 +99,19 @@ cases passed from `2026-07-19T01:08:50.9577409Z` through
 rehashed, all 12 classifier checks passed per run, cleanup/spill residue was
 zero, and the exact diagnostic census was 11 = ten approved stock + one
 approved intentional + zero unapproved. This closes deterministic-service
-parity only as `passed-noncertifying`. Run the corrected canary next, then full
-only after an accepted canary. The prior package's captures remain historical
-and cannot advance this package's parity chain.
+parity only as `passed-noncertifying`. The corrected canary then ran under clean
+harness HEAD `20375141f840f74316ca46e7df047fcba3e6e344`: run
+`seed1985_t0_p1_u1784424219` completed its 40-second canonical runtime at
+9 PASS/1 WARN/0 FAIL/1 BLOCKED/0 SKIPPED, with 35/35 and 87/87 focused proof,
+18/0 state restoration, final orphan cleanup, and ten rehashed envelope files.
+Its diagnostic census was two approved stock + zero intentional + zero
+unapproved; all 33 classifier checks and every cleanup/spill check passed. The
+portable summary SHA-256 is
+`f47fa5f0539c0c8c6024e096f3e034699bc6bfaf656734a0a2b32c9fee7b4aa8`.
+The prior map-locator exception is absent for this scoped path, advancing the
+native-engine/world canary rung only to `passed-noncertifying`. Run Full
+Campaign Debug next. The prior package's captures remain historical and cannot
+advance this package's parity chain; release remains `NO-GO`.
 
 ## Current Controlled-Shutdown Native Fence Parity Boundary
 
@@ -2166,10 +2176,11 @@ Debug and packaged-runtime gates remain open.
 ## Current Delivery Priorities
 
 - Retain the current candidate's accepted five-case packaged focused set as a
-  `passed-noncertifying` deterministic-service rung. Run the corrected
-  `force_authority` canary next; run Full Campaign Debug only after that canary
-  is accepted. The focused service set is not runtime proof of the map-locator
-  correction, and no result from the superseded package transfers to it.
+  `passed-noncertifying` deterministic-service rung and its corrected scoped
+  `force_authority` canary as a `passed-noncertifying` native-engine/world rung.
+  The map-locator exception is absent on that path. Run Full Campaign Debug
+  next; no result from the superseded package transfers to this chain, and
+  release remains `NO-GO`.
 - Treat R16's disposable exact radio fixture as the closed in-process proof:
   fixture-only selection, transmitter engine destruction before the normal
   callback, exact destruction/rebuild receipts, generated-equipment explosive
