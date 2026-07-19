@@ -47,11 +47,18 @@ Its accepted packaged focused set, accepted corrected scoped canary, and
 rejected full-profile capture remain immutable historical evidence for that
 exact package. No result may cross any package boundary into the current chain.
 
-The new candidate is `active-runtime-candidate` and remains uncertified. It is
-artifact-only: no package-bound focused set, corrected canary, or Full Campaign
-Debug run has executed against its bytes. The deterministic-service and scoped
-native-engine/world rungs are therefore both `not-run`; no prior result is
-carried forward.
+The new candidate is `active-runtime-candidate` and remains uncertified. Under
+clean harness HEAD `b1940f241e28f163202807385f7140f048921447`, all five
+package-bound focused suites passed against its exact bytes with aggregate JUnit
+5/0/0/0. All 40 retained envelope files independently rehashed, every cleanup
+and spill counter was zero, and the exact hard-diagnostic census was 11 = ten
+approved stock + one approved intentional journal injection + zero unapproved.
+The tracked portable summary is
+`docs/evidence/focused-autotest/partisan-rc-e11e7ea88a44-20260719T040154Z.json`,
+SHA-256 `9ddade1cb86a209acf4aae02ded6f1a7713fe1e25ba577ae00ef1980e3de149a`.
+This advances deterministic-service only to `passed-noncertifying`. The
+corrected canary and Full Campaign Debug remain `not-run`, so scoped native-
+engine/world remains `not-run`; no prior-package result is carried forward.
 Candidate-aware Campaign Debug and focused-runner preflights now pass exact
 tracked/external manifest and seal
 binding, complete package/evidence hashing, guarded byte-identical staging,
@@ -299,13 +306,14 @@ The full post-capture source batch is now sealed as active candidate
 script-symbol references. Guarded Workbench validation passes PC, PS4, PS5,
 XBOX_ONE, and XBOX_SERIES at 5,848 files/11,901 classes and common CRC
 `e4cde465`, with zero hard errors and exact-zero owned cleanup. The immutable
-artifact contains four package files and 50 evidence files. This seals source,
-native compilation, and package identity only: focused, corrected-canary, and
-full-profile runtime evidence are all `not-run`, as are the deterministic-
-service and native-engine/world rungs. Execute the fresh chain strictly as
-focused -> canary -> full, stopping if either earlier gate rejects. Nothing in
-this seal alters the superseded candidate's rejected full result or closes a
-Campaign Debug runtime assertion.
+artifact contains four package files and 50 evidence files. The subsequent
+package-bound focused gate passed 5/5 with JUnit 5/0/0/0, 40/40 files rehashed,
+11 approved diagnostics, zero unapproved diagnostics, and zero cleanup/spill
+residue under clean harness `b1940f2`. Deterministic-service is therefore
+`passed-noncertifying`. Execute the corrected canary next and run the full
+profile only if that canary is accepted. Native-engine/world remains `not-run`.
+Nothing in the new focused result alters the superseded candidate's rejected
+full result or closes a Campaign Debug runtime assertion.
 
 ## Retained Prior-Package Full Campaign Debug and Corrected Canary Boundary
 
@@ -426,9 +434,9 @@ production support tick must admit the held strategic projection, and typed
 production recall must terminalize it while retaining the money debit and
 refunding unused roster HR. Foundation guards forbid the no-map endpoint,
 identity retagging, direct status mutation, and direct aggregate removal. This
-source now passes the combined Foundation/PC compile gate above. The current
-release remains `NO-GO` until the active package completes its strict focused,
-canary, and Full Campaign Debug evidence chain.
+source now passes the combined Foundation/PC compile gate above. The active
+package has passed the focused gate, but the current release remains `NO-GO`
+until its corrected canary and Full Campaign Debug evidence chain is accepted.
 
 The two retained civilian failed-move VM diagnostics identify a production
 waypoint-admission gap rather than a fixture expectation. Ambient pedestrians
@@ -463,12 +471,14 @@ All other item support stations still call stock `OnDelete`, and
 boundaries; the combined PC compile gate above is clean, while package-bound
 runtime evidence remains required.
 
-The raw capture and its hashes are frozen, but the active acceptance chain
-remains open. The corrected prior-package canary already rejected, so its full
-profile was not rerun. The newly sealed candidate cannot inherit that package's
-focused, canary, or full results. Its own runtime evidence is `not-run`; execute
-the five packaged focused cases first, the corrected scoped canary only if they
-pass, and Full Campaign Debug only if the canary passes.
+The preliminary `b8deddc4b631` capture and its hashes are frozen; its corrected
+canary rejected, so that package's full profile was not rerun. The later
+`0e632ec4f63e` package produced its own accepted corrected canary and rejected
+full-profile boundary, which are also historical. The active replacement cannot
+inherit either package's focused, canary, or full results. Its own five packaged
+focused cases now pass, advancing deterministic-service only to
+`passed-noncertifying`; execute the corrected scoped canary next and Full
+Campaign Debug only if the canary is accepted.
 
 ## Historical Focused Force-Authority Engine Checkpoint
 

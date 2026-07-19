@@ -26,12 +26,17 @@ Foundation passed all 874 checks. All five Workbench targets passed at 5,848
 files/11,901 classes, common CRC `e4cde465`, zero hard errors, and exact-zero
 cleanup. The manifest binds four package files and 50 evidence files.
 
-This is an artifact-only active boundary. No package-bound focused result,
-corrected canary, or full Campaign Debug result has been accepted for it; both
-the deterministic-service and native-engine/world rungs are `not-run`. Runtime
-proof must proceed against this unchanged package in strict order: all five
-focused cases, then the `force_authority` canary, then the full profile. Release
-remains `NO-GO` until those independent gates accept.
+The active candidate's package-bound focused set is accepted as
+`passed-noncertifying`. Clean harness `b1940f2` ran all five cases against the
+exact staged packed candidate from `2026-07-19T04:44:01.2295133Z` through
+`2026-07-19T04:45:58.8756237Z`: JUnit 5/0/0/0, all 40 envelope files rehashed,
+11 hard diagnostics = ten approved stock + one approved intentional + zero
+unapproved, and zero cleanup/spill residue. The portable summary is
+`focused-autotest/partisan-rc-e11e7ea88a44-20260719T040154Z.json`, SHA-256
+`9ddade1cb86a209acf4aae02ded6f1a7713fe1e25ba577ae00ef1980e3de149a`.
+This closes only the deterministic-service rung. The native-engine/world rung
+remains `not-run`: run the corrected `force_authority` canary next and the full
+profile only if that canary accepts. Release remains `NO-GO`.
 
 `partisan-rc-c2b16c4a2d85-20260718T201442Z`,
 `partisan-rc-b8deddc4b631-20260718T213322Z`, and

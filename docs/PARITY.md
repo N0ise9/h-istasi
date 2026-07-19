@@ -7,7 +7,7 @@
 > surface. Historical boundaries below do not supersede either generated file.
 
 Campaign Schema 71 and runtime-settings Schema 24 are current. The active
-artifact-only release candidate is
+source-fixed release candidate is
 `partisan-rc-e11e7ea88a44-20260719T040154Z`, version
 `0.1.0-rc.20260719T040154Z.e11e7ea8`, from clean source HEAD
 `e11e7ea88a44ea07d7a81c0b4009f029f0b297e1`. Its package, manifest, and ready
@@ -16,14 +16,32 @@ SHA-256 values are respectively
 `daed6876ce839a7fc6551257e4a4dd9bb0c92772c7e2d07be595acddde19e714`, and
 `0ca7a5e2fbe6bf298baa542250cc7b47bf2b135a5382e032fc5febdddf579acc`.
 Foundation passed 874 references; PC, PS4, PS5, XBOX_ONE, and XBOX_SERIES each
-passed at 5,848 files/11,901 classes with common CRC `e4cde465`. No focused,
-canary, or full-profile result belongs to this package yet, so both the packaged
-deterministic-service and native-engine/world rungs are `not-run`. Separately,
+passed at 5,848 files/11,901 classes with common CRC `e4cde465`. Its five
+package-bound focused suites now pass 5/5 with JUnit 5/0/0/0, 40/40 files
+rehashed, 11 approved diagnostics, zero unapproved diagnostics, and zero
+cleanup/spill residue under clean harness `b1940f2`. Packaged deterministic-
+service is `passed-noncertifying`; the corrected canary and full profile remain
+`not-run`, so native-engine/world remains `not-run`. Separately,
 the sealed embedded implementation identity remains
 `32727238d74b29905c68e5a80bb5897dfdc783c0`,
 UTC `2026-07-18T16:34:38Z`, label
 `schema71-settings24-focused-force-authority`; its non-package proof remains
 historical evidence.
+
+## Current Packaged Focused Deterministic-Service Boundary
+
+Clean harness HEAD `b1940f241e28f163202807385f7140f048921447` ran all five
+individually named suites against the exact active package. All five passed with
+aggregate JUnit 5/0/0/0, exact packed mounts, 40/40 retained envelope files
+rehashed, and zero cleanup/spill residue. The exact hard-diagnostic census was
+11 = ten approved stock + one approved intentional journal injection + zero
+unapproved. This closes only the active package's scoped deterministic-service
+rung as `passed-noncertifying`.
+
+The corrected `force_authority` canary is the next gate. Full Campaign Debug may
+run only if that canary is accepted. Native-world, dedicated, multiplayer/JIP,
+restart breadth, performance, and soak parity remain open, and release remains
+`NO-GO`.
 
 ## Historical Focused Force-Authority Parity Boundary
 
@@ -127,8 +145,10 @@ profile failed at 584/49/46/7/1 and 5,561/5,687 required assertions, with 112
 failed, 14 blocked, and ten unapproved hard diagnostics. Its wrapper capture
 integrity is valid but does not advance parity; native-engine/world was
 `failed` for that candidate. The package and its results are historical. The
-replacement is sealed artifact-only, its corresponding rungs are `not-run`,
-and release remains `NO-GO`.
+active replacement has since passed its own package-bound focused set, advancing
+deterministic-service only to `passed-noncertifying`; its corrected canary and
+full profile remain `not-run`, native-engine/world remains `not-run`, and
+release remains `NO-GO`.
 
 ## Current Controlled-Shutdown Native Fence Parity Boundary
 
@@ -2193,11 +2213,13 @@ Debug and packaged-runtime gates remain open.
 
 ## Current Delivery Priorities
 
-- [ ] Run all five focused cases against only active artifact-only candidate
-  `partisan-rc-e11e7ea88a44-20260719T040154Z`; deterministic-service remains
-  `not-run` until the complete set is accepted.
-- [ ] Only after all five focused cases are accepted, run and accept the scoped
-  `force_authority` canary; native-engine/world remains `not-run` meanwhile.
+- [x] Run all five focused cases against only active candidate
+  `partisan-rc-e11e7ea88a44-20260719T040154Z`. All five are accepted with JUnit
+  5/0/0/0, 40/40 rehashed files, 11 approved diagnostics, zero unapproved
+  diagnostics, and zero cleanup/spill residue; deterministic-service is
+  `passed-noncertifying`.
+- [ ] Run and accept the scoped `force_authority` canary next; native-engine/
+  world remains `not-run` meanwhile.
 - [ ] Only after the canary is accepted, run the full profile against the same
   immutable candidate. Release remains `NO-GO` until its later independent
   gates are also satisfied.

@@ -3879,3 +3879,48 @@ Consequences:
 - Keep release `NO-GO`. Dedicated server/client, multiplayer/JIP, restart
   breadth, performance, soak, canary-release, and stable certification remain
   independent gates.
+
+Outcome update: The source-fixed replacement's five canonical packaged focused
+cases are now accepted as a scoped `passed-noncertifying` deterministic-service
+rung. CRI-071 records the exact package and harness binding, diagnostic census,
+and progression to the corrected canary without advancing native-engine/world
+or release certification.
+
+## CRI-071 - Accept the Source-Fixed Replacement Packaged Focused Set
+
+- Status: Accepted
+- Date: 2026-07-19
+
+Context: CRI-070 activated a source-fixed replacement and required a fresh
+package-bound chain beginning with the five canonical focused cases. Exact
+candidate `partisan-rc-e11e7ea88a44-20260719T040154Z`, built from source HEAD
+`e11e7ea88a44ea07d7a81c0b4009f029f0b297e1` with package SHA-256
+`75b61eb19513de00e56a43ad3778885f89a7497c0eebe4d870bf3b11e62a0dad`,
+ran serially in canonical order under clean harness HEAD
+`b1940f241e28f163202807385f7140f048921447`. The evidence window began at
+`2026-07-19T04:44:01.2295133Z` and ended at
+`2026-07-19T04:45:58.8756237Z`.
+
+Decision: Accept the five-case set as the active package's scoped
+`passed-noncertifying` deterministic-service rung. All 5/5 cases passed with
+aggregate JUnit 5/0/0/0. All 40 retained envelope files rehashed, every cleanup
+and monitored spill count was zero, and all 12 diagnostic-classifier checks
+passed in each run. The exact hard-diagnostic census was 11 = ten approved
+stock diagnostics + one approved intentional journal fault + zero unapproved.
+Record `HardDiagnosticFree:false`; valid classification and exactly zero
+unapproved diagnostics, rather than an empty raw error channel, satisfy this
+focused gate. Bind the aggregate through portable summary SHA-256
+`9ddade1cb86a209acf4aae02ded6f1a7713fe1e25ba577ae00ef1980e3de149a`.
+
+Consequences:
+
+- The focused result is package-bound to the exact active candidate and clean
+  harness above. Do not combine it with any preceding candidate's canary or
+  full-profile evidence.
+- The deterministic-service rung is `passed-noncertifying`; native-engine/world
+  remains `not-run`. The result does not certify Full Campaign Debug, dedicated
+  server/client, multiplayer/JIP, restart breadth, performance, soak,
+  canary-release, or stable certification.
+- Run the corrected `force_authority` canary next against the unchanged active
+  package. Run Full Campaign Debug only if that canary is accepted.
+- The release decision remains `NO-GO`.

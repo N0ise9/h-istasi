@@ -12,7 +12,7 @@ The retained candidate identity below binds its exact source HEAD, manifest, can
 
 | Field | Current value |
 | --- | --- |
-| Status data as of | `2026-07-19T04:04:14.5724744Z` |
+| Status data as of | `2026-07-19T04:45:58.8756237Z` |
 | Audited gameplay Git HEAD | `25dedb3e82ad516c28826830bc1e06a2d3940f53` |
 | Embedded implementation identity | `32727238d74b29905c68e5a80bb5897dfdc783c0` |
 | Embedded build UTC / label | `2026-07-18T16:34:38Z` / `schema71-settings24-focused-force-authority` |
@@ -35,8 +35,8 @@ A pass never inherits upward. `partial` means some scoped evidence exists but th
 | --- | --- | --- |
 | Static/source/resource contracts | `passed` | Retained Foundation evidence is green inside the immutable candidate build for its exact source HEAD. |
 | Enforce compile and configuration | `passed` | All five explicit Workbench targets are retained and green for the candidate source and canonical four-file package build. |
-| Deterministic service contracts | `not-run` | The five packaged focused service suites have not run against the active replacement package; prior-package results remain historical and do not transfer. |
-| Native engine-world behavior | `not-run` | Neither the corrected force-authority canary nor Full Campaign Debug has run against the active replacement package; prior-package results remain historical and do not transfer. |
+| Deterministic service contracts | `passed-noncertifying` | All five canonical packaged focused service suites passed against the exact active replacement package: 5 tests with zero failures, errors, or skips; all 40 envelope files rehashed; 11 approved and zero unapproved hard diagnostics; zero cleanup or spill residue. |
+| Native engine-world behavior | `not-run` | Neither the corrected force-authority canary nor Full Campaign Debug has run against the active replacement package; the accepted focused set is deterministic-service evidence only, and prior-package results remain historical. |
 | Packaged dedicated server | `not-run` | The active replacement candidate is sealed but has not been launched through the standard dedicated-server runtime gate. |
 | Multiple clients, reconnect, and JIP | `not-run` | Host, two-client, reconnect, late-join, and packet-disruption convergence are not certified. |
 | Fresh-process restart and fault injection | `partial` | Selected journal, shutdown, field-vehicle, exact-QRF, counterattack, and rebuild cuts pass; the arbitrary full campaign graph and fault matrix remain open. |
@@ -48,8 +48,8 @@ A pass never inherits upward. `partial` means some scoped evidence exists but th
 
 - Foundation: **passed** at 874 references for `e11e7ea88a44ea07d7a81c0b4009f029f0b297e1`.
 - Workbench: **passed** at 5848 files / 11901 classes / CRC `e4cde465` for `e11e7ea88a44ea07d7a81c0b4009f029f0b297e1`.
-- Active packaged focused autotests: **not run** for replacement candidate `partisan-rc-e11e7ea88a44-20260719T040154Z`; no prior-package result transfers to this package.
-- Active Campaign Debug: **not run** for replacement candidate `partisan-rc-e11e7ea88a44-20260719T040154Z`; the corrected canary follows only after the packaged focused set is accepted.
+- Active packaged focused autotests: **5/5** cases and JUnit **5/0/0/0** tests/failures/errors/skips against exact candidate `partisan-rc-e11e7ea88a44-20260719T040154Z`. Hard diagnostics are explicitly not free: 11 total = 10 approved stock + 1 approved intentional + 0 unapproved, with 40 envelope files rehashed and zero cleanup/spill residue. Summary: `docs/evidence/focused-autotest/partisan-rc-e11e7ea88a44-20260719T040154Z.json` / SHA-256 `9ddade1cb86a209acf4aae02ded6f1a7713fe1e25ba577ae00ef1980e3de149a`; clean harness `b1940f241e28f163202807385f7140f048921447`. This exact-package deterministic-service result is non-certifying and does not color the native-engine-world rung.
+- Active Campaign Debug: **not run** for replacement candidate `partisan-rc-e11e7ea88a44-20260719T040154Z`; the packaged focused set is accepted, so the corrected canary is the next gate.
 - Historical packaged focused autotests: **5/5** cases and JUnit **5/0/0/0** tests/failures/errors/skips against prior exact candidate `partisan-rc-0e632ec4f63e-20260719T004133Z`. Hard diagnostics are explicitly not free: 11 total = 10 approved stock + 1 approved intentional + 0 unapproved, with 40 envelope files rehashed and zero cleanup/spill residue. Summary: `docs/evidence/focused-autotest/partisan-rc-0e632ec4f63e-20260719T004133Z.json` / SHA-256 `961ef6b0a84c26446468b31dd7ac5120448b21a442e9a823de4ff5dc804da7f9`; harness `d4d8f29cda9896ce2c6a5b073dac2cbd03757700`. This immutable non-certifying result does not attach to the active replacement.
 - Focused force-authority profile: **35/35** cases and **87/87** counted conditions for `32727238d74b29905c68e5a80bb5897dfdc783c0`, with `CertificationPassed:false`. This is historical state-only, non-package, non-certifying evidence.
 - Historical corrected force-authority canary: **accepted non-certifying** on prior exact candidate `partisan-rc-0e632ec4f63e-20260719T004133Z`. The focused proof passed 35/35 assertions and 87/87 counted certification conditions. The 33-check classifier found 2 hard diagnostics = 2 approved stock + 0 approved intentional + 0 unapproved. All 10 envelope files rehashed with zero cleanup/spill residue. Summary: `docs/evidence/campaign-debug/partisan-rc-0e632ec4f63e-20260719T004133Z-corrected-canary-20260719T012319Z.json` / SHA-256 `f47fa5f0539c0c8c6024e096f3e034699bc6bfaf656734a0a2b32c9fee7b4aa8`; harness `20375141f840f74316ca46e7df047fcba3e6e344`. This immutable scoped acceptance does not transfer to the active replacement.
@@ -69,8 +69,8 @@ Coverage means the surface is named and classified. It does not mean the behavio
 
 | ID | Category | Blocker |
 | --- | --- | --- |
-| `STATUS-001` | `AUTH` | The active replacement package is sealed with green Foundation and all-target Workbench evidence, but its packaged focused set, corrected canary, and Full Campaign Debug have not run. The deterministic-service and native engine-world rungs are therefore not-run; dedicated, multiplayer/JIP, restart breadth, performance, and soak remain pending. |
-| `STATUS-002` | `TEST` | Run the exact active package through the five focused suites in canonical order, accept the corrected force-authority canary, then run Full Campaign Debug. The prior package's red full-profile result and all prior scoped passes are historical only. |
+| `STATUS-001` | `AUTH` | The active replacement package is sealed with green Foundation, all-target Workbench, and five-case packaged focused evidence. The deterministic-service rung is passed-noncertifying, but the corrected canary and Full Campaign Debug have not run, so native engine-world remains not-run; dedicated, multiplayer/JIP, restart breadth, performance, and soak remain pending. |
+| `STATUS-002` | `TEST` | Run the corrected force-authority canary against the exact active package next. Run Full Campaign Debug only if that canary is accepted; the prior package's red full-profile result and all prior scoped passes are historical only. |
 | `STATUS-003` | `UI` | Known command-menu and modal-map defects remain open until source correction plus rendered packaged-client proof. |
 | `STATUS-004` | `MOVE` | Natural sustained infantry and convoy travel, identical-waypoint suppression, and measured no-stutter behavior are not proven. |
 | `STATUS-005` | `PROJ` | Campaign read-model convergence is not proven with host, two clients, reconnect, JIP, restart, and marker-cap boundaries. |
@@ -80,4 +80,4 @@ Coverage means the surface is named and classified. It does not mean the behavio
 
 ## Next release-closure step
 
-Run the individually named packaged focused service suites next against active replacement `partisan-rc-e11e7ea88a44-20260719T040154Z`, manifest `docs/evidence/release-candidates/partisan-rc-e11e7ea88a44-20260719T040154Z/candidate.json`, and aggregate package SHA-256 `75b61eb19513de00e56a43ad3778885f89a7497c0eebe4d870bf3b11e62a0dad`. If that exact-package set is accepted, run the corrected force-authority canary next; do not transfer the historical candidate's pass or rejection into either gate.
+The active replacement's packaged focused set is retained. Run the corrected force-authority canary next against the unchanged package identified by manifest `docs/evidence/release-candidates/partisan-rc-e11e7ea88a44-20260719T040154Z/candidate.json` and aggregate SHA-256 `75b61eb19513de00e56a43ad3778885f89a7497c0eebe4d870bf3b11e62a0dad`.

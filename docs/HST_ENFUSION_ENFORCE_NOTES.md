@@ -111,11 +111,21 @@ The embedded implementation stamp remains
   Foundation passes all 874 references. PC, PS4, PS5, XBOX_ONE, and XBOX_SERIES
   each pass at 5,848 files/11,901 classes and common CRC `e4cde465`, with zero
   hard errors and exact-zero cleanup. The seal binds four package files and 50
-  evidence files. This active candidate is artifact-only: focused, corrected-
-  canary, and full-profile evidence are all `not-run`; its package-bound
-  deterministic-service and native-engine/world rungs are also `not-run`.
-  Execute its evidence chain strictly as focused -> canary -> full, stopping at
-  the first rejected gate.
+  evidence files. Its five-case packaged focused set now passes as a scoped
+  `passed-noncertifying` deterministic-service rung. The corrected canary and
+  full profile remain `not-run`, and native-engine/world remains `not-run`.
+  Continue the unchanged package through canary -> full, stopping at the first
+  rejected gate.
+- The active candidate's focused set ran serially in canonical order under
+  clean harness HEAD `b1940f241e28f163202807385f7140f048921447` from
+  `2026-07-19T04:44:01.2295133Z` through
+  `2026-07-19T04:45:58.8756237Z`. All 5/5 cases passed with aggregate JUnit
+  5/0/0/0, all 40 envelope files rehashed, and every cleanup and spill count
+  zero. Each run passed all 12 classifier checks. The hard-diagnostic census is
+  11 = ten approved stock + one approved intentional journal fault + zero
+  unapproved, so record `HardDiagnosticFree:false` even though diagnostic
+  classification is valid. The portable summary SHA-256 is
+  `9ddade1cb86a209acf4aae02ded6f1a7713fe1e25ba577ae00ef1980e3de149a`.
 - The now-historical `0e632ec4f63e` candidate's five classifier-aware packaged
   cases passed under
   clean harness HEAD `d4d8f29cda9896ce2c6a5b073dac2cbd03757700` from
@@ -246,8 +256,9 @@ The embedded implementation stamp remains
   CRC `e4cde465`, with successful script validation, zero hard errors, and
   exact-zero owned cleanup and monitored spill changes. This supersedes the
   narrower local compile checkpoints for current source shape. The batch is
-  sealed in the active `e11e7ea88a44` candidate but still needs fresh focused,
-  canary, and full runtime evidence from that exact package.
+  sealed in the active `e11e7ea88a44` candidate. Its fresh packaged focused set
+  passes as scoped non-certifying evidence; canary and full runtime evidence
+  remain open for that exact package.
 - The Search-and-Destroy Campaign Debug fixture correction, based on clean
   source identity `02dfd84`, must exercise the same two-step production
   contract as gameplay: issue a real map-target quote with one run-prefixed
@@ -413,8 +424,9 @@ The embedded implementation stamp remains
   blocked assertion occurrences. Convoy materialization is its largest cascade.
   The `0e632ec4f63e` package's exact 46/7 case, 112/14 required-assertion, and
   ten-unapproved-diagnostic boundary remains immutable. Its post-capture source
-  corrections are sealed in active candidate `e11e7ea88a44`; that package has
-  no runtime evidence yet and must begin a fresh focused -> canary -> full chain.
+  corrections are sealed in active candidate `e11e7ea88a44`; that package's
+  fresh focused set passes as scoped non-certifying evidence and its unchanged
+  chain must continue through canary -> full.
 - A helper that receives `requiredHold - holdBefore + 1` in one call does not
   prove that the engine advanced the objective by that many seconds. For area
   objectives, use bounded per-second/frame ticks and log both mission-runtime
@@ -7863,10 +7875,29 @@ This file is for practical engine/script behavior, not project planning. Keep en
   and `0ca7a5e2fbe6bf298baa542250cc7b47bf2b135a5382e032fc5febdddf579acc`.
   Foundation passes all 874 references; all five Workbench targets pass at
   5,848 files/11,901 classes and CRC `e4cde465`; and the seal binds four package
-  files plus 50 evidence files. This is artifact-only evidence. Focused,
-  corrected-canary, Full Campaign Debug, deterministic-service, and native-
-  engine/world results are all `not-run`. Keep release `NO-GO` and run this
-  exact package strictly through focused -> canary -> full.
+  files plus 50 evidence files. Its five canonical packaged focused cases pass
+  5/5 as a `passed-noncertifying` deterministic-service rung under clean harness
+  HEAD `b1940f241e28f163202807385f7140f048921447`. Corrected-canary, Full
+  Campaign Debug, and native-engine/world results remain `not-run`. Keep release
+  `NO-GO`; run the corrected canary next and run full only if it is accepted.
+- Exact package binding is part of focused acceptance, not merely launch
+  configuration. Every retained envelope must bind and reverify the same
+  candidate, source HEAD, package digest, manifest, ready seal, runner, and
+  candidate-consumer code before and after the engine run. A passing case from
+  another package or dirty harness cannot advance this chain.
+- Execute the five canonical focused cases serially and in their declared order
+  from one unchanged clean harness boundary. This keeps candidate staging,
+  process ownership, and cleanup isolation observable between cases instead of
+  allowing overlapping engine processes or residue to blur the evidence.
+- An approved diagnostic classification does not mean a run is hard-diagnostic-
+  free. Keep the raw hard count and `HardDiagnosticFree:false`; acceptance
+  requires every classifier self-check to remain valid and the unapproved count
+  to be exactly zero. Approved stock diagnostics and proof-bound intentional
+  diagnostics remain explicit parts of the census.
+- The accepted focused set proves only the scoped deterministic-service gate.
+  It is non-certifying and does not advance native-engine/world, canary-release,
+  or stable certification. Preserve the serial gate order: corrected canary
+  next, then Full Campaign Debug only after an accepted canary.
 - A passing focused JUnit result does not classify the surrounding engine error
   channel. Bind a separate hard-diagnostic census into the runner's success
   predicate. For the current diagnostic client, exactly two stock filter-

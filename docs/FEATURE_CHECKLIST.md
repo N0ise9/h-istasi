@@ -7,7 +7,7 @@
 > scoped evidence but do not supersede those generated files.
 
 Campaign Schema 71 and runtime-settings Schema 24 are current. The active
-artifact-only release candidate is
+source-fixed release candidate is
 `partisan-rc-e11e7ea88a44-20260719T040154Z`, version
 `0.1.0-rc.20260719T040154Z.e11e7ea8`, from clean source HEAD
 `e11e7ea88a44ea07d7a81c0b4009f029f0b297e1`. Its four-file package SHA-256 is
@@ -17,9 +17,12 @@ manifest SHA-256 is
 ready-seal SHA-256 is
 `0ca7a5e2fbe6bf298baa542250cc7b47bf2b135a5382e032fc5febdddf579acc`.
 Foundation passed all 874 references and all five Workbench targets passed at
-5,848 files/11,901 classes with common CRC `e4cde465`. This candidate has no
-package-bound focused, canary, or full-profile result yet: deterministic-service
-and native-engine/world are both `not-run`. Separately, the sealed embedded
+5,848 files/11,901 classes with common CRC `e4cde465`. All five package-bound
+focused cases passed against this candidate under clean harness `b1940f2`, with
+JUnit 5/0/0/0, 40/40 envelope files rehashed, 11 approved diagnostics, zero
+unapproved diagnostics, and zero cleanup/spill residue. Deterministic-service is
+therefore `passed-noncertifying`; the corrected canary and full profile remain
+`not-run`, so native-engine/world remains `not-run`. Separately, the sealed embedded
 implementation identity remains `32727238d74b29905c68e5a80bb5897dfdc783c0`, UTC
 `2026-07-18T16:34:38Z`, label
 `schema71-settings24-focused-force-authority`; its non-package proof remains
@@ -283,10 +286,15 @@ historical evidence.
   `0ca7a5e2fbe6bf298baa542250cc7b47bf2b135a5382e032fc5febdddf579acc`.
   Foundation passed 874 references and PC, PS4, PS5, XBOX_ONE, and XBOX_SERIES
   each passed at 5,848 files/11,901 classes with CRC `e4cde465`.
-- [ ] Run all five package-bound focused cases against only the replacement;
-  deterministic-service remains `not-run` until every case is accepted.
+- [x] Run all five package-bound focused cases against only the replacement.
+  Clean harness HEAD `b1940f241e28f163202807385f7140f048921447` passed 5/5 named
+  suites with aggregate JUnit 5/0/0/0. All 40 retained envelope files rehashed;
+  the exact diagnostic census was 11 = ten approved stock + one approved
+  intentional journal injection + zero unapproved, and cleanup/spill residue
+  was zero. Mark deterministic-service `passed-noncertifying`.
 - [ ] Only after all five focused cases are accepted, run and accept the scoped
-  `force_authority` canary; native-engine/world remains `not-run` meanwhile.
+  `force_authority` canary. The prerequisite is now met, so this is the next
+  gate; native-engine/world remains `not-run` meanwhile.
 - [ ] Only after the canary is accepted, run Full Campaign Debug against the
   same immutable package and harness chain. No focused, canary, or full result
   from a superseded package transfers. Dedicated, multiplayer, JIP, restart
@@ -1470,8 +1478,9 @@ stock, 13 proof-bound intentional, and ten unapproved diagnostics. The wrapper's
 reported success is not acceptance, so this mechanically complete and stable
 capture remains preliminary-unaccepted. Historical run
 `seed1985_t0_p1_u1784134163` remains a comparison at 583/50/46/7/1 and
-5,537/5,685, not an active-candidate result. The active artifact-only candidate
-has no focused, canary, or full-profile runtime result yet.
+5,537/5,685, not an active-candidate result. The active replacement now has its
+own accepted five-case packaged focused result, while its corrected canary and
+full-profile runtime results remain `not-run`.
 
 An earlier Schema-71 journal checkpoint has separate final stamped focused and
 fresh-process evidence rather than new integrated-suite totals: Foundation
@@ -1915,7 +1924,7 @@ projections of campaign state and must be restorable, foldable, or disposable.
 | Authoritative client projection and JIP | Host, clients, reconnects, and late joiners converge on the same snapshot watermark and ordered revisioned create/update/delete stream. | Implemented Foundation for marker records / Needs Runtime Proof | Schema 61 supplies delivery/ACK; Schema 62 adds source revision; Schema 66 protects native campaign-marker ownership without changing the wire protocol. Prove host/two-client/late-join equality, ownership revision correlation, immutable/self-healing campaign markers, editable player markers, native rendering, and restart. Menu snapshots, campaign tasks, general notifications, and dynamic player markers remain outside this protocol. | Highest |
 | Modal map targeting | Target selection owns map/input/cursor/modal state through one idempotent state machine. | Broad Alpha / Needs Runtime Proof | Normal map targeting and confirmation flows exist with ESC handling and duplicate-click guards. Prove Closed -> Selecting -> Confirming -> Submitting/Closing behavior, Choose Again re-arm after pointer release, cursor/modal layering, and atomic ESC teardown at supported resolutions. | Highest |
 | Map/War information model | Players see contacted town pressure and resistance territory without redundant or misleading rows. | Sealed in Schema-64 Source/Workbench / Needs Runtime Verification | Zone Pressure contains only explicitly contacted valid canonical towns; the player's current contacted town sorts first, then remaining towns by ascending FIA basis points and stable name/ID ties. Resistance Territory includes every published resistance-owned strategic zone except mission bookkeeping, ordered deterministically by type/name/ID with no arbitrary six-row cap. Current ownership receipt authority is respected. Prove rendered output, paging/scale, restart, reconnect, and JIP. | High |
-| Full Campaign Debug | One button runs a true runtime certification suite and writes structured artifacts without changing the campaign under test. | Active replacement is artifact-only / Focused, canary, and full profiles not run | Active candidate `partisan-rc-e11e7ea88a44-20260719T040154Z` has no runtime evidence yet, so deterministic-service and native-engine/world remain `not-run`. Execute five focused cases, then an accepted scoped canary, then the full profile against that same package. Historical run `seed1985_t0_p1_u1784425330` on `partisan-rc-0e632ec4f63e-20260719T004133Z` remains an immutable red result at 584 PASS/49 WARN/46 FAIL/7 BLOCKED/1 SKIPPED, 5,561/5,687 required assertions, and ten unapproved hard diagnostics; none of its results transfer. Dedicated/live server-client, network/JIP, migration, marker/UI, performance, and soak gates remain separate; release remains `NO-GO`. | Highest |
+| Full Campaign Debug | One button runs a true runtime certification suite and writes structured artifacts without changing the campaign under test. | Active replacement focused gate passed / Canary and full profiles not run | Active candidate `partisan-rc-e11e7ea88a44-20260719T040154Z` passed all five package-bound focused suites with JUnit 5/0/0/0, 40/40 files rehashed, an exact approved diagnostic census of 10 stock + 1 intentional + 0 unapproved, and zero cleanup/spill residue under clean harness `b1940f2`. This advances deterministic-service only to `passed-noncertifying`. Run and accept the corrected scoped canary next; run the full profile against that same package only if the canary is accepted. Historical run `seed1985_t0_p1_u1784425330` on `partisan-rc-0e632ec4f63e-20260719T004133Z` remains an immutable red result at 584 PASS/49 WARN/46 FAIL/7 BLOCKED/1 SKIPPED, 5,561/5,687 required assertions, and ten unapproved hard diagnostics; none of its results transfer. Dedicated/live server-client, network/JIP, migration, marker/UI, performance, and soak gates remain separate; release remains `NO-GO`. | Highest |
 | Scoped debug profiles | Smaller profiles isolate feature families for fast iteration. | Implemented Foundation | Keep profiles explicit and never treat external/restart/soak gaps as PASS. | Keep |
 | Build provenance | Runtime logs and artifacts identify the exact code build from one authoritative source. | Implemented Foundation / Needs Packaged Proof | Runtime, menu, admin, and debug artifact summaries now consume `HST_BuildInfo`; prove the stamped identity in a packaged dedicated-server/client run. | High |
 
@@ -1931,11 +1940,12 @@ projections of campaign state and must be restorable, foldable, or disposable.
 
 ## Highest-Impact Next Tasks
 
-The active immutable package is artifact-only candidate
-`partisan-rc-e11e7ea88a44-20260719T040154Z`. Run its evidence chain in strict
-order: all five focused cases, then an accepted scoped `force_authority` canary,
-then Full Campaign Debug. Deterministic-service and native-engine/world remain
-`not-run`; no superseded-package result transfers. Preserve historical run
+The active immutable package is candidate
+`partisan-rc-e11e7ea88a44-20260719T040154Z`. Its five package-bound focused cases
+are accepted, advancing deterministic-service to `passed-noncertifying`. Run and
+accept the scoped `force_authority` canary next, then run Full Campaign Debug
+only if that canary is accepted. Native-engine/world remains `not-run`; no
+superseded-package result transfers. Preserve historical run
 `seed1985_t0_p1_u1784425330` as the exact red boundary for its former
 `partisan-rc-0e632ec4f63e-20260719T004133Z` package only.
 
