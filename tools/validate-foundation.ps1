@@ -50774,6 +50774,12 @@ if (-not (Test-Path -LiteralPath $releaseStatusDataPath -PathType Leaf)) {
 $releaseStatusDataText = Get-Content -Raw $releaseStatusDataPath
 $releaseStatusData = $releaseStatusDataText | ConvertFrom-Json
 $releaseStatusHistory = $releaseStatusData.historicalCandidateEvidence
+$releaseStatusActiveFocused =
+	$releaseStatusData.evidence.packagedFocusedAutotests
+$releaseStatusDeterministicRungs = @($releaseStatusData.proofRungs |
+	Where-Object { [string] $_.id -ceq 'deterministic-service' })
+$releaseStatusNativeRungs = @($releaseStatusData.proofRungs |
+	Where-Object { [string] $_.id -ceq 'native-engine-world' })
 if ([int] $releaseStatusData.schemaVersion -ne 3 -or
 	$releaseStatusData.artifact.releaseCandidateBuilt -isnot [bool] -or
 	-not [bool] $releaseStatusData.artifact.releaseCandidateBuilt -or
@@ -50791,8 +50797,27 @@ if (@($releaseStatusHistory).Count -ne 2 -or
 	[string] $releaseStatusHistory[1].candidate.candidateId -cne
 		'partisan-rc-e11e7ea88a44-20260719T040154Z' -or
 	[string] $releaseStatusData.artifact.candidateId -cne
-		'partisan-rc-ee0e8add2a29-20260719T063815Z') {
-	throw 'Schema-3 current state must retain the ordered 0e and e11 retirements before the active ee0 candidate.'
+		'partisan-rc-ee0e8add2a29-20260719T063815Z' -or
+	[string] $releaseStatusActiveFocused.status -cne
+		'passed-noncertifying' -or
+	[string] $releaseStatusActiveFocused.summaryPath -cne
+		'docs/evidence/focused-autotest/partisan-rc-ee0e8add2a29-20260719T063815Z.json' -or
+	[string] $releaseStatusActiveFocused.summarySha256 -cne
+		'0a8fcfc5ca739ff261be644cdfcb02311e4ef967c374f093e2963e4b1374800b' -or
+	[string] $releaseStatusActiveFocused.harnessGitHead -cne
+		'273ed14ba8526259c8b0d248177fa53b59ade683' -or
+	[int] $releaseStatusActiveFocused.caseCount -ne 5 -or
+	[int] $releaseStatusActiveFocused.passedCases -ne 5 -or
+	$null -ne $releaseStatusData.evidence.PSObject.Properties[
+		'correctedForceAuthorityCanary'] -or
+	$null -ne $releaseStatusData.evidence.PSObject.Properties[
+		'fullCampaignDebug'] -or
+	$releaseStatusDeterministicRungs.Count -ne 1 -or
+	[string] $releaseStatusDeterministicRungs[0].status -cne
+		'passed-noncertifying' -or
+	$releaseStatusNativeRungs.Count -ne 1 -or
+	[string] $releaseStatusNativeRungs[0].status -cne 'not-run') {
+	throw 'Schema-3 current state must retain ordered 0e/e11 history and the active ee0 focused pass with canary pending.'
 }
 foreach ($releaseDocsRejectedRuntimeEntry in @(
 		'"rejected-after-runtime"',

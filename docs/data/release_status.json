@@ -1,6 +1,6 @@
 {
   "schemaVersion": 3,
-  "statusAsOfUtc": "2026-07-19T06:40:36Z",
+  "statusAsOfUtc": "2026-07-19T07:02:45.6073540Z",
   "releaseStage": "development alpha",
   "releaseDecision": "NO-GO",
   "auditedRevision": "25dedb3e82ad516c28826830bc1e06a2d3940f53",
@@ -29,7 +29,7 @@
     "workbenchCrc": "f64e0868",
     "serverVersion": "1.7.0.54",
     "clientVersion": "1.7.0.54",
-    "note": "This immutable replacement is the active runtime candidate. Foundation and all five Workbench targets passed for its exact source HEAD and package identity. Packaged focused autotests, the corrected force-authority canary, and Full Campaign Debug have not run for this package; no result from either historical candidate transfers forward. Release remains NO-GO while the fresh evidence chain begins."
+    "note": "This immutable replacement is the active runtime candidate. Foundation, all five Workbench targets, and all five packaged focused suites passed for its exact source HEAD and package identity. The deterministic-service result is non-certifying; the corrected force-authority canary and Full Campaign Debug have not run for this package, and no historical result transfers forward. Release remains NO-GO, with the corrected canary as the next gate."
   },
   "evidence": {
     "foundation": {
@@ -45,6 +45,34 @@
       "classCount": 11901,
       "crc": "f64e0868",
       "summary": "PC, PS4, PS5, XBOX_ONE, and XBOX_SERIES validation passed with one common CRC, zero first-party hard errors, and zero cleanup or monitored-boundary residue for the active candidate source HEAD."
+    },
+    "packagedFocusedAutotests": {
+      "status": "passed-noncertifying",
+      "summaryPath": "docs/evidence/focused-autotest/partisan-rc-ee0e8add2a29-20260719T063815Z.json",
+      "summarySha256": "0a8fcfc5ca739ff261be644cdfcb02311e4ef967c374f093e2963e4b1374800b",
+      "candidateId": "partisan-rc-ee0e8add2a29-20260719T063815Z",
+      "candidateSourceHead": "ee0e8add2a298e83fd304b7660c4fc480dc6383f",
+      "packageSha256": "981258439b9d08866c4883471cacfe33aa373a36a667a39e8c939f285db74daf",
+      "manifestSha256": "1b877e3aa21773a268704bcb3fe889768fca3aa2d78541aa7285b061398ce907",
+      "readySha256": "01741b85d0edba69f54b07388cdd7c452b8f6f1ad7ef4f6faf253918a4bbf280",
+      "harnessGitHead": "273ed14ba8526259c8b0d248177fa53b59ade683",
+      "focusedRunnerSha256": "dc3e8db039801470884148f72ef7f2e00fad58670c9ee370675f847a1c87920e",
+      "candidateModuleSha256": "22d2f7367d122ca9307140ef6400e5b1646bdf6b12922257811b6185fe345ba7",
+      "caseCount": 5,
+      "passedCases": 5,
+      "junitTests": 5,
+      "junitFailures": 0,
+      "junitErrors": 0,
+      "junitSkipped": 0,
+      "hardDiagnosticClassifierChecksPerRun": 12,
+      "hardDiagnosticFree": false,
+      "hardDiagnosticCount": 11,
+      "approvedStockFilterDiagnosticCount": 10,
+      "approvedIntentionalFaultDiagnosticCount": 1,
+      "unapprovedHardDiagnosticCount": 0,
+      "envelopeFileCount": 40,
+      "cleanupAndSpillZero": true,
+      "summary": "All five canonical focused suites passed against the exact active packed candidate: 5 tests, zero failures, errors, or skips; all 40 envelope files rehashed; 11 approved hard diagnostics; zero unapproved hard diagnostics; and zero cleanup or spill residue. This deterministic-service result is non-certifying and advances only to the corrected force-authority canary."
     },
     "focusedForceAuthority": {
       "status": "passed-noncertifying",
@@ -333,14 +361,14 @@
     {
       "id": "deterministic-service",
       "label": "Deterministic service contracts",
-      "status": "not-run",
-      "summary": "The five canonical packaged focused service suites have not run against the active replacement package; historical focused results do not transfer."
+      "status": "passed-noncertifying",
+      "summary": "All five canonical packaged focused service suites passed against the exact active package: JUnit 5/0/0/0, all 40 envelope files rehashed, 11 approved and zero unapproved hard diagnostics, and zero cleanup or spill residue. This result is non-certifying."
     },
     {
       "id": "native-engine-world",
       "label": "Native engine-world behavior",
       "status": "not-run",
-      "summary": "No corrected force-authority canary or Full Campaign Debug evidence exists for the active replacement package; native engine-world proof begins only after its packaged focused set is accepted."
+      "summary": "The active package's five-case focused set is accepted, but its corrected force-authority canary and Full Campaign Debug have not run; native engine-world proof remains not-run."
     },
     {
       "id": "packaged-dedicated",
@@ -370,25 +398,25 @@
       "id": "canary",
       "label": "Canary release",
       "status": "blocked",
-      "summary": "Blocked until the active package passes each lower release-proof rung."
+      "summary": "Blocked until the active package passes each lower release-proof rung, beginning with its corrected force-authority canary."
     },
     {
       "id": "stable-certification",
       "label": "Stable certification",
       "status": "blocked",
-      "summary": "No current matrix row is certified, and the active package evidence chain has not passed its first runtime gate."
+      "summary": "No current matrix row is certified; corrected canary, full-profile, dedicated, multiplayer, restart, performance, soak, and release-canary gates remain incomplete."
     }
   ],
   "activeBlockers": [
     {
       "id": "STATUS-001",
       "category": "AUTH",
-      "summary": "The active replacement package has green Foundation and all-target Workbench evidence, but its packaged focused set has not run. Deterministic-service and native engine-world proof are not run, and no historical candidate result transfers into this fresh package evidence chain."
+      "summary": "The active replacement package has green Foundation, all-target Workbench, and five-case packaged focused evidence. Deterministic-service is passed-noncertifying, but native engine-world remains not-run until the exact unchanged package passes its corrected force-authority canary; no historical result transfers."
     },
     {
       "id": "STATUS-002",
       "category": "TEST",
-      "summary": "Run the five individually named packaged focused service suites against the exact active candidate first. Only after that package-bound set is accepted may the corrected force-authority canary and then Full Campaign Debug run against the same unchanged package."
+      "summary": "Run the corrected force-authority canary next against the exact unchanged active candidate. Run Full Campaign Debug only if that package-bound canary is accepted, and do not transfer historical or state-only evidence into either gate."
     },
     {
       "id": "STATUS-003",

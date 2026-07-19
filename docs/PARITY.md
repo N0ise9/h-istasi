@@ -17,9 +17,13 @@ SHA-256 values are respectively
 Foundation passed 874 references; PC, PS4, PS5, XBOX_ONE, and XBOX_SERIES each
 passed at 5,848 files/11,901 classes with common CRC `f64e0868`. The seal binds
 four package files and 50 evidence files. Packaged focused, corrected-canary,
-and full-profile gates are all `not-run`; the five canonical packaged focused
-cases are next. Historical state-only 35/35 and 87/87 proof remains nonpackage
-and does not advance ee0. Release remains `NO-GO`. Separately, the sealed
+and full-profile gates began fresh. At approximately `2026-07-19T07:02Z`, clean
+harness HEAD `273ed14ba8526259c8b0d248177fa53b59ade683` passed all five
+canonical packaged focused cases with JUnit 5/0/0/0, 40 retained envelope files,
+12 classifier checks per run, 11 approved diagnostics, exact candidate/mount,
+and zero cleanup/spill residue. Deterministic-service is
+`passed-noncertifying`; native-engine/world remains `not-run`. Corrected canary
+is next and full is conditional. Release remains `NO-GO`. Separately, the sealed
 embedded implementation identity remains
 `32727238d74b29905c68e5a80bb5897dfdc783c0`,
 UTC `2026-07-18T16:34:38Z`, label
@@ -53,6 +57,18 @@ corrected-canary evidence while full evidence remains absent. The same checked
 transition replaced the complete current-candidate surface with ee0. These
 ledger mechanics change none of the historical counts, hashes, failed rungs, or
 the `NO-GO` decision.
+
+## Current ee0 Packaged Focused Deterministic-Service Boundary
+
+Clean harness HEAD `273ed14ba8526259c8b0d248177fa53b59ade683` ran all five
+canonical cases at approximately `2026-07-19T07:02Z` against exact candidate
+`partisan-rc-ee0e8add2a29-20260719T063815Z` and its packed mount. All five
+passed with aggregate JUnit 5/0/0/0. All 40 envelope files were retained, every
+run passed all 12 classifier checks, the exact diagnostic census was 11 = ten
+approved stock + one approved intentional + zero unapproved, and cleanup/spill
+residue was zero. This closes only deterministic-service as
+`passed-noncertifying`. Native-engine/world remains `not-run`; run corrected
+`force_authority` canary next and full only if accepted.
 
 ## Historical e11 Packaged Focused Deterministic-Service Boundary
 
@@ -94,8 +110,8 @@ adds a negative unknown-source control that must remain military zone-capture
 provenance, and separates political exact-once from mission-provenance
 diagnostics. Foundation guards pin those boundaries. This correction belongs to
 source after the immutable package; it transfers no evidence. It is sealed in
-the active ee0 candidate, which must restart focused, corrected-canary, and full
-gates. Native-world, dedicated,
+the active ee0 candidate, whose focused rung now passes on its own bytes.
+Corrected canary is next and full remains conditional. Native-world, dedicated,
 multiplayer/JIP, restart breadth, performance, and soak parity remain open, and
 release remains `NO-GO`.
 
@@ -203,8 +219,9 @@ integrity is valid but does not advance parity; native-engine/world was
 `failed` for that candidate. The package and its results are historical.
 Historical e11 passed its own package-bound focused set but was retired as
 `rejected-after-corrected-canary`; its full profile was stopped. Active ee0 has
-green Foundation and all-target Workbench evidence, while its packaged focused,
-corrected-canary, and full-profile gates are not run. Release remains `NO-GO`.
+green Foundation and all-target Workbench evidence plus an accepted
+`passed-noncertifying` packaged focused set. Corrected canary and full are not
+run. Release remains `NO-GO`.
 
 ## Current Controlled-Shutdown Native Fence Parity Boundary
 
@@ -2286,8 +2303,12 @@ Debug and packaged-runtime gates remain open.
 - [x] Seal active immutable candidate
   `partisan-rc-ee0e8add2a29-20260719T063815Z` and append e11 as ordered
   `history[1]` with `rejected-after-corrected-canary` and no full result.
-- [ ] Run the five canonical packaged focused cases against ee0. Corrected
-  canary and full remain later conditional gates, and no evidence transfers.
+- [x] Run the five canonical packaged focused cases against ee0 under clean
+  harness `273ed14ba8526259c8b0d248177fa53b59ade683`. Accept the exact
+  JUnit/classifier/diagnostic/rehash/cleanup boundary as
+  `passed-noncertifying` deterministic-service evidence.
+- [ ] Run corrected `force_authority` canary next. Full remains conditional on
+  canary acceptance, and no evidence transfers.
   Release remains `NO-GO` until its independent gates are also satisfied.
 - Retain the historical `partisan-rc-0e632ec4f63e-20260719T004133Z` candidate's
   accepted five-case focused set and scoped canary as package-bound

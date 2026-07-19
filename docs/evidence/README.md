@@ -55,11 +55,16 @@ and ready-seal SHA-256 is
 `01741b85d0edba69f54b07388cdd7c452b8f6f1ad7ef4f6faf253918a4bbf280`.
 Foundation passed all 874 checks. All five Workbench targets passed at 5,848
 files/11,901 classes with common CRC `f64e0868`; the seal binds four package
-files and 50 evidence files. This active package has no packaged focused,
-corrected-canary, or full-profile result yet. The 35/35 and 87/87 state-only
-force-authority proof remains historical nonpackage evidence and does not
-advance this candidate. The next gate is the five canonical packaged focused
-cases, and release remains `NO-GO`.
+files and 50 evidence files. At approximately `2026-07-19T07:02Z`, clean harness
+HEAD `273ed14ba8526259c8b0d248177fa53b59ade683` passed all five canonical
+packaged focused cases against the exact ee0 candidate and packed mount. The
+aggregate was JUnit 5/0/0/0, all 40 envelope files were retained, every run
+passed all 12 classifier checks, the diagnostic census was 11 = ten approved
+stock + one approved intentional + zero unapproved, and cleanup/spill residue
+was zero. This advances deterministic-service only to
+`passed-noncertifying`. Native-engine/world remains `not-run`; the corrected
+`force_authority` canary is next, and the full profile may run only if that
+canary is accepted. Release remains `NO-GO`.
 
 The then-active candidate's package-bound focused set is accepted as
 `passed-noncertifying`. Clean harness `b1940f2` ran all five cases against the
@@ -97,8 +102,9 @@ still supplied unbacked mission IDs. The source correction seeds the exact
 active missions in both fixtures, pins mission cause/type/ID provenance, retains
 an unresolved-source negative case as military capture, and separates political
 from mission diagnostics. Because that correction changed source, it was sealed
-in the active ee0 candidate and must earn a fresh focused/canary/full evidence
-chain. It does not repair or transfer evidence from the rejected e11 package.
+in the active ee0 candidate. Its focused rung has now passed; corrected canary
+is next and full remains conditional. No evidence transferred from the rejected
+e11 package.
 
 `partisan-rc-c2b16c4a2d85-20260718T201442Z`,
 `partisan-rc-b8deddc4b631-20260718T213322Z`,

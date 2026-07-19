@@ -66,9 +66,15 @@ and its ready-seal SHA-256 is
 Foundation passed all 874 references. PC, PS4, PS5, XBOX_ONE, and XBOX_SERIES
 each passed at 5,848 files, 11,901 classes, and common CRC `f64e0868`. The seal
 binds exactly four package files and 50 evidence files. Its packaged focused,
-corrected-canary, and full-profile gates are `not-run`. Historical state-only
-35/35 and 87/87 proof is nonpackage and cannot advance this candidate. The next
-gate is the five canonical packaged focused cases.
+corrected-canary, and full-profile gates began fresh. At approximately
+`2026-07-19T07:02Z`, clean harness HEAD
+`273ed14ba8526259c8b0d248177fa53b59ade683` passed all five canonical packaged
+focused cases against the exact candidate and packed mount. JUnit was 5/0/0/0;
+all 40 envelope files were retained; all 12 classifier checks passed per run;
+the diagnostic census was 11 = ten approved stock + one approved intentional +
+zero unapproved; and cleanup/spill residue was zero. Deterministic-service is
+`passed-noncertifying`, while native-engine/world remains `not-run`. Corrected
+`force_authority` canary is next and full is conditional on acceptance.
 
 The first candidate, `partisan-rc-c2b16c4a2d85-20260718T201442Z`, remains sealed
 with digest `8f60260331c6c7473465dc4517b1063a179a8f4efeffdcfe3d5eccac9af476db`
@@ -83,6 +89,18 @@ Its accepted packaged focused set, accepted corrected scoped canary, and
 rejected full-profile capture remain immutable historical evidence for that
 exact package. Historical e11 evidence is detailed below. No result may cross
 any package boundary into the active ee0 chain.
+
+## Current `ee0e8add2a29` Packaged Focused Boundary
+
+Clean harness HEAD `273ed14ba8526259c8b0d248177fa53b59ade683` ran all five
+canonical packaged cases at approximately `2026-07-19T07:02Z`. Each consumed
+the exact active ee0 candidate and packed mount. All five passed with aggregate
+JUnit 5/0/0/0, all 40 envelope files retained, all 12 classifier checks passed
+per run, 11 diagnostics = ten approved stock + one approved intentional + zero
+unapproved, and zero cleanup/spill residue. Accept this only as
+`passed-noncertifying` deterministic-service evidence. Native-engine/world is
+still `not-run`; corrected canary is the next gate and full may run only if it
+is accepted.
 
 ## Historical `e11e7ea88a44` Packaged Focused Boundary
 
@@ -404,7 +422,7 @@ residue under clean harness `b1940f2`. Deterministic-service is therefore
 stopped for this package. The stale ownership proof has since been corrected in
 source with exact active-mission fixtures and Foundation guards and sealed in
 active ee0. That candidate requires a fresh focused -> canary -> full chain,
-beginning with the five canonical packaged focused cases.
+whose focused rung now passes. Corrected canary is next; full remains conditional.
 Nothing in the focused result or source correction alters either immutable
 rejected result or closes a Campaign Debug runtime assertion.
 
@@ -574,8 +592,8 @@ Its own five packaged
 focused cases now pass, advancing deterministic-service only to
 `passed-noncertifying`; its corrected scoped canary is rejected and Full
 Campaign Debug is stopped. The exact active-mission proof-fixture correction is
-sealed in active ee0, which must restart focused, canary, and full without
-transferring evidence.
+sealed in active ee0, whose focused rung now passes without evidence transfer.
+Corrected canary is next and full remains conditional.
 
 ## Historical Focused Force-Authority Engine Checkpoint
 

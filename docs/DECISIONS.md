@@ -4102,11 +4102,48 @@ Its corrected-canary envelope SHA-256 remains
 
 Consequences:
 
-- The ee0 candidate is runtime-eligible but not runtime-proven. Its packaged
-  focused, corrected-canary, and full-profile rungs are all `not-run`.
+- At activation, the ee0 candidate was runtime-eligible but not runtime-proven;
+  its packaged focused, corrected-canary, and full-profile rungs were `not-run`.
 - Historical 35/35 and 87/87 state-only force-authority proof remains nonpackage
   and noncertifying; no historical result advances ee0.
-- The next gate is the five canonical packaged focused cases. Corrected canary
-  and full remain later conditional gates.
+- The activation's next gate was the five canonical packaged focused cases.
+  Corrected canary and full remained later conditional gates.
 - Release remains `NO-GO`; all independent dedicated, multiplayer/JIP, restart,
   migration, performance, soak, and certification gates remain open.
+
+Outcome update: The ee0 candidate's five canonical packaged focused cases are
+now accepted as `passed-noncertifying`. CRI-075 records the exact harness and
+result boundary. Native-engine/world remains `not-run`.
+
+## CRI-075 - Accept the ee0 Packaged Focused Gate
+
+- Status: Accepted
+- Date: 2026-07-19
+
+Context: CRI-074 activated exact candidate
+`partisan-rc-ee0e8add2a29-20260719T063815Z` with no transferred runtime
+evidence. Its first required runtime gate was the five canonical packaged
+focused cases against the exact staged package.
+
+Decision: Accept the five-case set run at approximately
+`2026-07-19T07:02Z` under clean harness HEAD
+`273ed14ba8526259c8b0d248177fa53b59ade683` as the active package's scoped
+`passed-noncertifying` deterministic-service rung. All 5/5 cases passed with
+aggregate JUnit 5/0/0/0. All 40 envelope files were retained, every run passed
+all 12 diagnostic-classifier checks, exact candidate and packed-mount binding
+passed, and every cleanup and monitored spill count was zero. The exact hard-
+diagnostic census was 11 = ten approved stock + one approved intentional + zero
+unapproved.
+
+Consequences:
+
+- This acceptance belongs only to ee0 and clean harness
+  `273ed14ba8526259c8b0d248177fa53b59ade683`. Historical 0e/e11 package or
+  state-only evidence does not contribute to it.
+- Deterministic-service is `passed-noncertifying`; native-engine/world remains
+  `not-run`. This does not certify Full Campaign Debug, dedicated server/client,
+  multiplayer/JIP, restart breadth, performance, soak, canary release, or stable
+  release.
+- Run the corrected `force_authority` canary next against the exact unchanged
+  candidate. Run the full profile only if that canary is accepted.
+- Release remains `NO-GO`.

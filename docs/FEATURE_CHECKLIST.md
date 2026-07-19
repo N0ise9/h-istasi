@@ -17,10 +17,15 @@ ready-seal SHA-256 values are
 Foundation passed all 874 references and all five Workbench targets passed at
 5,848 files/11,901 classes with common CRC `f64e0868`; the seal binds four
 package files and 50 evidence files. Packaged focused, corrected-canary, and
-full-profile gates are all `not-run` for ee0. The historical 35/35 and 87/87
-state-only force-authority proof is nonpackage and cannot advance this candidate.
-The next gate is the five canonical packaged focused cases, and release remains
-`NO-GO`. Separately, the sealed embedded implementation identity remains
+full-profile gates began fresh for ee0. At approximately `2026-07-19T07:02Z`,
+clean harness HEAD `273ed14ba8526259c8b0d248177fa53b59ade683` passed all five
+canonical packaged focused cases against the exact candidate and packed mount:
+JUnit 5/0/0/0, 40 retained envelope files, 12 classifier checks per run, 11
+diagnostics = ten approved stock + one approved intentional + zero unapproved,
+and zero cleanup/spill residue. Deterministic-service advances only to
+`passed-noncertifying`; native-engine/world remains `not-run`. The corrected
+`force_authority` canary is next, and full may run only if it is accepted.
+Release remains `NO-GO`. Separately, the sealed embedded implementation identity remains
 `32727238d74b29905c68e5a80bb5897dfdc783c0`, UTC `2026-07-18T16:34:38Z`, label
 `schema71-settings24-focused-force-authority`.
 
@@ -347,9 +352,13 @@ The next gate is the five canonical packaged focused cases, and release remains
 - [x] Seal that correction in active immutable candidate
   `partisan-rc-ee0e8add2a29-20260719T063815Z` and retire e11 as ordered
   `history[1]` with `rejected-after-corrected-canary` and no full result.
-- [ ] Run the five canonical packaged focused cases against ee0. Only after
-  focused acceptance may its corrected canary run; full remains later and
-  conditional. No result transfers from e11 or any other package. Dedicated,
+- [x] Run the five canonical packaged focused cases against ee0 under clean
+  harness `273ed14ba8526259c8b0d248177fa53b59ade683`. Accept JUnit 5/0/0/0,
+  40 retained envelope files, 12 classifier checks per run, 11 approved
+  diagnostics, and zero cleanup/spill residue as a scoped
+  `passed-noncertifying` deterministic-service rung.
+- [ ] Run ee0's corrected `force_authority` canary next. Full remains conditional
+  on canary acceptance. No result transfers from e11 or any other package. Dedicated,
   multiplayer, JIP, restart breadth, performance, and soak remain separate
   later gates.
 
@@ -1978,7 +1987,7 @@ projections of campaign state and must be restorable, foldable, or disposable.
 | Authoritative client projection and JIP | Host, clients, reconnects, and late joiners converge on the same snapshot watermark and ordered revisioned create/update/delete stream. | Implemented Foundation for marker records / Needs Runtime Proof | Schema 61 supplies delivery/ACK; Schema 62 adds source revision; Schema 66 protects native campaign-marker ownership without changing the wire protocol. Prove host/two-client/late-join equality, ownership revision correlation, immutable/self-healing campaign markers, editable player markers, native rendering, and restart. Menu snapshots, campaign tasks, general notifications, and dynamic player markers remain outside this protocol. | Highest |
 | Modal map targeting | Target selection owns map/input/cursor/modal state through one idempotent state machine. | Broad Alpha / Needs Runtime Proof | Normal map targeting and confirmation flows exist with ESC handling and duplicate-click guards. Prove Closed -> Selecting -> Confirming -> Submitting/Closing behavior, Choose Again re-arm after pointer release, cursor/modal layering, and atomic ESC teardown at supported resolutions. | Highest |
 | Map/War information model | Players see contacted town pressure and resistance territory without redundant or misleading rows. | Sealed in Schema-64 Source/Workbench / Needs Runtime Verification | Zone Pressure contains only explicitly contacted valid canonical towns; the player's current contacted town sorts first, then remaining towns by ascending FIA basis points and stable name/ID ties. Resistance Territory includes every published resistance-owned strategic zone except mission bookkeeping, ordered deterministically by type/name/ID with no arbitrary six-row cap. Current ownership receipt authority is respected. Prove rendered output, paging/scale, restart, reconnect, and JIP. | High |
-| Full Campaign Debug | One button runs a true runtime certification suite and writes structured artifacts without changing the campaign under test. | Active ee0 package / Focused not run / Canary and full not run | Active candidate `partisan-rc-ee0e8add2a29-20260719T063815Z` has Foundation and all-five Workbench proof at 5,848/11,901 and CRC `f64e0868`, but no packaged focused, corrected-canary, or full result. Run the five canonical packaged focused cases next. Historical e11 passed its focused set, then failed corrected canary at 33/35 and 85/87; it is ledger `history[1]` as `rejected-after-corrected-canary`, with full absent. Historical 0e retains its own rejected full-profile boundary. No historical package or state-only result transfers. Dedicated/live server-client, network/JIP, migration, marker/UI, performance, and soak gates remain separate; release remains `NO-GO`. | Highest |
+| Full Campaign Debug | One button runs a true runtime certification suite and writes structured artifacts without changing the campaign under test. | Active ee0 package / Focused passed noncertifying / Canary and full not run | Active candidate `partisan-rc-ee0e8add2a29-20260719T063815Z` passed all five canonical packaged focused cases under clean harness `273ed14ba8526259c8b0d248177fa53b59ade683`: JUnit 5/0/0/0, 40 retained envelope files, 12 classifier checks per run, 11 approved diagnostics, exact candidate/mount, and zero cleanup/spill residue. Deterministic-service is `passed-noncertifying`; native-engine/world remains `not-run`. Run corrected `force_authority` canary next and full only if accepted. Historical 0e/e11 evidence does not transfer. Dedicated/live server-client, network/JIP, migration, marker/UI, performance, and soak gates remain separate; release remains `NO-GO`. | Highest |
 | Scoped debug profiles | Smaller profiles isolate feature families for fast iteration. | Implemented Foundation | Keep profiles explicit and never treat external/restart/soak gaps as PASS. | Keep |
 | Build provenance | Runtime logs and artifacts identify the exact code build from one authoritative source. | Implemented Foundation / Needs Packaged Proof | Runtime, menu, admin, and debug artifact summaries now consume `HST_BuildInfo`; prove the stamped identity in a packaged dedicated-server/client run. | High |
 
@@ -1996,9 +2005,11 @@ projections of campaign state and must be restorable, foldable, or disposable.
 
 The active immutable package is candidate
 `partisan-rc-ee0e8add2a29-20260719T063815Z`. Its Foundation and all-five
-Workbench gates pass, but packaged focused, corrected-canary, and full-profile
-results are `not-run`. Run the five canonical packaged focused cases next; no
-historical package or state-only evidence transfers. Preserve historical e11 as
+Workbench gates pass, and its five canonical packaged focused cases pass as a
+`passed-noncertifying` deterministic-service rung under clean harness
+`273ed14ba8526259c8b0d248177fa53b59ade683`. Native-engine/world remains
+`not-run`. Run corrected `force_authority` canary next and full only if it is
+accepted; no historical package or state-only evidence transfers. Preserve historical e11 as
 `history[1]` with `rejected-after-corrected-canary` and no full result, and
 preserve historical run
 `seed1985_t0_p1_u1784425330` as the exact red boundary for its former
