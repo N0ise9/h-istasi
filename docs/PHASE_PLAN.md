@@ -84,15 +84,21 @@ cleanup/spill residue, and 11 classified hard diagnostics consisting of ten
 approved stock messages, one approved intentional journal injection, and zero
 unapproved errors. The first five sidecars remain preliminary.
 
-The current guarded `force_authority` canary passed its non-certifying scope,
-then Full Campaign Debug consumed the exact active replacement and retained a
-trustworthy red envelope. The full profile completed at 584 PASS, 49 WARN, 46
-FAIL, 7 BLOCKED, and 1 SKIPPED, with 5,562/5,688 required assertions proven,
-112 failed, and 14 blocked. The next Gate-1 action is case-exclusive failure
-classification and focused reproduction of the smallest concrete root. Any
-source correction starts a new immutable candidate rather than extending this
-evidence chain. Dedicated, multiplayer/JIP, restart breadth, performance, and
-soak remain later independent gates.
+The current guarded `force_authority` canary and Full Campaign Debug produced
+mechanically complete, stable raw captures against the exact active replacement,
+but both are preliminary-unaccepted. A timestamp-aware census found three raw
+canary diagnostics = two exact approved stock + one unapproved. The full run has
+25 raw diagnostics, including a 19-line Partisan subset; two are exact approved
+stock, 13 are proof-bound intentional, and ten are unapproved. Its report remains
+failed at 584 PASS, 49 WARN, 46 FAIL, 7 BLOCKED, and 1 SKIPPED, with
+5,562/5,688 required assertions proven, 112 failed, and 14 blocked.
+
+The next Gate-1 action is to correct the external census/classifier and rerun
+both profiles against the unchanged package. Wrapper success is not acceptance.
+Only after an accepted rerun does case-exclusive failure classification select
+the smallest concrete gameplay root. Any source or package correction starts a
+new immutable candidate; dedicated, multiplayer/JIP, restart breadth,
+performance, and soak remain later independent gates.
 
 ## Historical Focused Force-Authority Plan Checkpoint
 
@@ -103,12 +109,14 @@ state diff with zero errors, crashes, or artifact drift and exact-zero owned
 cleanup. Its Foundation gate passed at 874; stamped Workbench passed 5,846
 files/11,899 classes at CRC `cad640f3` with zero hard errors.
 
-The current Full Campaign Debug run now provides package-bound integrated
-evidence, but its red 46/7 case boundary proves that focused success did not
-certify the integrated owners. Next work reproduces and corrects those current
-roots before broadening into native-world effects, real persistence/restart,
-rendered client projection, packaged server/client, multiplayer/network/JIP/
-reconnect, performance, and soak.
+The current Full Campaign Debug run provides a package-bound preliminary
+diagnostic capture, not accepted integrated evidence. Its red 46/7 case boundary
+shows that the focused observations did not certify the integrated owners, while
+the ten unapproved diagnostics independently block acceptance. Next work fixes
+the external runner and reruns the unchanged package before reproducing or
+correcting gameplay roots, then broadens into native-world effects, real
+persistence/restart, rendered client projection, packaged server/client,
+multiplayer/network/JIP/reconnect, performance, and soak.
 
 ## Current Controlled-Shutdown Native Fence Plan
 
@@ -1477,7 +1485,7 @@ publishing a build does not waive them.
 | Enemy Commander | Sealed resource, planning, and Schema-69 counterattack authority remains intact. Schema 70 makes newly admitted garrison rebuilds exact while leaving historical rebuilds on contract `0`; delivery-pending and physical-live-fold cuts now pass fresh-process recovery/replay | Preserve the validated ambient cadence isolation and explicit production-tick ownership; then prove natural route/combat behavior, other force families, multiplayer/JIP, and soak. |
 | Mission Parity | All 39 configured IDs map to MVP primitives; convoy, all assassination guards, newly started `rescue_pows`, and exact radio lifecycle use narrow contracts. R16 proves the disposable isolated radio pair end to end. Current source adds structural active demolition-witness admission and a quiet pre-action assertion | Fresh Workbench validation passes. R23 proves all six generic `primitive.destroy.no_ambient_witness_score` assertions and all seven destroy-family start/runtime/primitive cases. Next package-prove authored radio binding/restart/streaming and runtime-prove callback-plus-scan deduplication, convoy, all three assassination guards, and Schema-58 rescue. Keep refugees, historical POWs, and other mission families legacy until their own explicit cutovers. |
 | Resistance Progression | Arsenal, garage, training, undercover, HQ/Petros, and end-state foundations exist | Complete exact logistics/loadouts/static defenses and tune the full progression loop. |
-| Campaign Certification | The active replacement passed Foundation, all five Workbench targets, classifier-bound packaged focused services, and the guarded focused canary. Current package-bound Full Campaign Debug produced trustworthy exact-candidate artifacts but failed certification | Current integrated status is 584 PASS/49 WARN/46 FAIL/7 BLOCKED/1 SKIPPED and 5,562/5,688 required assertions. Classify/reproduce current roots before a new candidate. Fuel/damage/attachments/trunk parity, abrupt-termination recovery beyond the last completed checkpoint, broader active-world records, Workshop/live clients, network/JIP/reconnect/soak, arbitrary migration, multi-writer/off-device recovery, markers, and performance remain open. |
+| Campaign Certification | The active replacement passed Foundation, all five Workbench targets, and classifier-bound packaged focused services. Its guarded Campaign Debug canary and full run are mechanically complete, stable, preliminary-unaccepted captures; the full report failed certification | Current report status is 584 PASS/49 WARN/46 FAIL/7 BLOCKED/1 SKIPPED and 5,562/5,688 required assertions. The corrected census records 3 canary and 25 full raw diagnostics, with one and ten unapproved respectively. Correct the external harness and rerun the unchanged package before selecting gameplay roots; gameplay or package changes require a new candidate. Fuel/damage/attachments/trunk parity, abrupt-termination recovery beyond the last completed checkpoint, broader active-world records, Workshop/live clients, network/JIP/reconnect/soak, arbitrary migration, multi-writer/off-device recovery, markers, and performance remain open. |
 
 CRI-1 and the first CRI-2 vertical slices remain intentionally narrow. Troop
 training is the first production ledger consumer; exact visible garrison

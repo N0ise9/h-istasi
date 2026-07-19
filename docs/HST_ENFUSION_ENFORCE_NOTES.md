@@ -103,18 +103,31 @@ implementation/source identity is
   helper instead of direct member access; the release-document generator uses
   `Get-ObjectPropertyValue` for optional command disposition overrides so its
   result is identical in ordinary and strict release-builder scopes.
-- The active candidate's guarded `force_authority` canary passed its exact
-  focused scope, then the current full profile completed with exact candidate/
-  packed-mount identity, stable and rehashed artifacts, zero script/Partisan/
-  crash census, 18/0 state diff, final orphan cleanup, and zero cleanup/spill
-  residue. Those facts make the report trustworthy; they do not override
-  `CertificationPassed:false`. Wrapper success and certification success are
-  deliberately different predicates.
+- Timestamped runtime lines do not begin with `SCRIPT`. Census one canonical
+  script log with a timestamp-aware `SCRIPT (E)` expression and pair it only with
+  the canonical console log from the same session directory. Merge the two as a
+  multiset: mirrored events count once, same-source duplicates and console-only
+  `SCRIPT (E)`, `ENGINE (E)`, severity, or crash signals remain visible. Count
+  Partisan diagnostics as a subset of raw hard diagnostics rather than adding
+  them to the raw total.
+- The active candidate's guarded `force_authority` canary is mechanically
+  complete and stable but preliminary-unaccepted. Its canonical script log has
+  three raw diagnostics: two exact approved stock diagnostics and one unapproved
+  diagnostic. Report-level focused PASS observations do not make the canary
+  evidence gate pass.
+- The current full capture retains exact candidate/packed-mount identity, stable
+  and rehashed artifacts, an 18/0 state diff, final orphan cleanup, and zero
+  cleanup/spill residue. Its canonical script log has 25 raw diagnostics,
+  including a 19-line Partisan subset. Exact classification accounts for two
+  approved stock diagnostics and 13 proof-bound intentional diagnostics, leaving
+  ten unapproved. Wrapper-reported success is not evidence acceptance.
 - The current full result is 584 PASS, 49 WARN, 46 FAIL, 7 BLOCKED, and 1
   SKIPPED, with 5,562/5,688 required assertions proven, 112 failed, and 14
   blocked. Retain the historical 583/50/46/7/1 result only as a comparison; do
   not call it current.
-- Classify red evidence by case and assertion before editing production code.
+- Correct the external census/classifier and rerun both profiles against the
+  unchanged package before editing production code. Then classify red evidence
+  by case and assertion before selecting a gameplay correction.
   Current case-exclusive triage reconciles all 46/7 cases and 282/19 failed/
   blocked assertion occurrences. Convoy materialization is the largest cascade,
   but repeated player deaths and zone folding can contaminate several probes;
@@ -7287,10 +7300,11 @@ This file is for practical engine/script behavior, not project planning. Keep en
   attributed rather than swept. Bind the suspended child to kill-on-close job
   ownership before resume, validate PID/start identity, stop every owned engine
   before the final census, extract only a sanitized in-memory result, and remove
-  the guarded tree. Do not copy raw artifacts into another directory. Current
+  the guarded tree. Do not copy raw artifacts into another directory. Historical
   run `seed1985_t0_p1_u1784134163` finished with zero guarded roots, owned or new
   engine processes, default-root changes, external spill, missing roots, or
-  cleanup errors.
+  cleanup errors; the current package-bound run preserves that exact-zero
+  hygiene under its own candidate and envelope identity.
 
 - A correctly armed run can wait without producing artifacts when settings were
   seeded one directory too high. The first R27 attempt demonstrated that failure

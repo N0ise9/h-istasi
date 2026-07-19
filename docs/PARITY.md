@@ -52,17 +52,22 @@ performance, or soak parity.
 
 ## Current Package-Bound Full Campaign Debug Parity Boundary
 
-The unchanged active replacement passed the guarded focused canary, then full
-run `seed1985_t0_p1_u1784414040` retained exact candidate and packed-mount
-identity, stable and rehashed artifacts, zero error census, 18/0 state diff,
-final orphan cleanup, and zero cleanup/spill residue. The report is therefore
-trustworthy but red: 584 PASS, 49 WARN, 46 FAIL, 7 BLOCKED, and 1 SKIPPED, with
-5,562/5,688 required assertions proven, 112 failed, and 14 blocked. Wrapper
-success does not override `CertificationPassed:false`.
+The unchanged active replacement produced mechanically complete and stable raw
+captures for the guarded focused profile and full run
+`seed1985_t0_p1_u1784414040`. Exact candidate and packed-mount identity, rehashed
+artifacts, an 18/0 state diff, final orphan cleanup, and zero cleanup/spill
+residue remain valid capture facts. The canary's canonical script log contains
+three raw diagnostics = two exact approved stock + one unapproved. The full log
+contains 25 raw diagnostics, including a 19-line Partisan subset. Across all 25,
+two are exact approved stock, 13 are proof-bound intentional, and ten are
+unapproved.
 
-This closes evidence collection for that immutable candidate, not integrated
-parity. The 46/7 case boundary is now case-exclusively classified; a correction
-must be packaged as a new candidate before any result can advance this rung.
+The full report remains red at 584 PASS, 49 WARN, 46 FAIL, 7 BLOCKED, and 1
+SKIPPED, with 5,562/5,688 required assertions proven, 112 failed, and 14 blocked.
+Wrapper-reported success is not acceptance, so both captures are preliminary-
+unaccepted and do not advance integrated parity. The 46/7 case boundary remains
+useful preliminary triage. A corrected external harness may rerun the unchanged
+package; any gameplay or package correction requires a new candidate.
 
 ## Current Controlled-Shutdown Native Fence Parity Boundary
 
@@ -2134,7 +2139,7 @@ Debug and packaged-runtime gates remain open.
   persistence boundary. Use the final stamped controlled campaign and native
   source-selection checkpoint and fresh-process exact-counterattack result as
   preceding focused checkpoints, `seed1985_t0_p1_u1784414040` as the current
-  package-bound integrated red proof, and `seed1985_t0_p1_u1784134163` as its
+  package-bound preliminary red capture, and `seed1985_t0_p1_u1784134163` as its
   historical aggregate comparison. Use R31
   as the preceding proof-ordering checkpoint, R30 as the artificial-scheduling
   diagnosis, R28b as the unchanged positive casualty comparison,

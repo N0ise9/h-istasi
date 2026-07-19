@@ -131,31 +131,35 @@ independent.
 
 ## Current Package-Bound Full Campaign Debug Boundary
 
-The same unchanged candidate then passed the guarded `force_authority` canary
-under clean harness HEAD `1bff1890830db08159826f63b550227aa7bb0da3` before
-running the full profile. The canary retained 10 rehashed files, exact candidate
-and packed-mount attestations, zero error or cleanup residue, the focused case at
-35/35 assertions, and 87/87 certification-counting conditions. Its one blocked
-case is an external non-certifying gap, so `CertificationPassed:false` remains
-intentional for that scoped profile.
+The same unchanged candidate produced a mechanically complete and stable raw
+capture under clean harness HEAD `1bff1890830db08159826f63b550227aa7bb0da3`.
+The `force_authority` canary report recorded its focused case at 35/35 assertions
+and 87/87 certification-counting conditions, with exact candidate and packed-
+mount attestations, ten rehashed files, an 18/0 state diff, final orphan cleanup,
+and zero cleanup or spill residue. An independent timestamp-aware audit of its
+canonical script log found three raw `SCRIPT (E)` lines: two exact approved stock
+diagnostics and one unapproved diagnostic. The canary capture is therefore
+preliminary and unaccepted; its report-level PASS observations do not constitute
+a passed canary evidence gate.
 
-The full package-bound run `seed1985_t0_p1_u1784414040` completed with a valid
-runner envelope and stable artifacts: exact candidate and packed mount, all ten
-files rehashed, zero script or Partisan errors, zero crash markers, zero state
-drift, final orphan cleanup, and zero cleanup or spill residue. Its certification
-result is nevertheless red at 584 PASS, 49 WARN, 46 FAIL, 7 BLOCKED, and 1
-SKIPPED, with 5,562/5,688 required assertions proven, 112 failed, and 14 blocked.
-The portable summary is
-`docs/evidence/campaign-debug/partisan-rc-b8deddc4b631-20260718T213322Z.json`
-with SHA-256
-`bbc88ab51b8f053d8aff14d263c09489bd1bb0d7578290d0894a5ccd683e2a77`.
-Wrapper success proves that this is trustworthy evidence; it does not override
-`CertificationPassed:false` or make the native-engine/world rung pass.
+The full package-bound run `seed1985_t0_p1_u1784414040` likewise retained exact
+candidate and packed-mount identity, ten stable rehashed files, zero state drift,
+final orphan cleanup, and zero cleanup or spill residue. Its canonical script log
+contains 25 raw `SCRIPT (E)` lines, of which 19 are Partisan diagnostics. Exact
+classification accounts for two approved stock diagnostics and 13 proof-bound
+intentional diagnostics, leaving ten unapproved diagnostics. The report itself
+remains red at 584 PASS, 49 WARN, 46 FAIL, 7 BLOCKED, and 1 SKIPPED, with
+5,562/5,688 required assertions proven, 112 failed, and 14 blocked. The portable
+summary is
+`docs/evidence/campaign-debug/partisan-rc-b8deddc4b631-20260718T213322Z.json`.
 
-This result freezes the active candidate's evidence chain at a trustworthy red
-boundary. Failure classification and the smallest reproducible root come next.
-Any gameplay or fixture correction changes source and therefore requires a new
-immutable candidate rather than being attached to this package.
+The wrapper-reported success records the behavior of the original wrapper; it is
+not evidence acceptance. Both raw captures remain immutable and useful for
+diagnosis, but their evidence disposition is preliminary-unaccepted until a
+corrected external harness reruns both profiles against the unchanged package.
+That harness-only rerun may extend this candidate's evidence chain because it
+does not alter the package. Any gameplay or in-package fixture correction changes
+source and still requires a new immutable candidate.
 
 ## Historical Focused Force-Authority Engine Checkpoint
 
@@ -3213,9 +3217,9 @@ balance or native-spawn evidence.
 | Radio physical authority | Schema 59 keeps one exact lifecycle owner per site. The current adapter queries the generic base, exact stock `SCR_DestructionMultiPhaseComponent`, and destruction base, then returns shared health/state authority across admission, polling, writes, restore, and suppression. Generated demolition resources enable the existing inherited multiphase/RPL pair, and zero-health destruction uses the engine `Kill()` path. | R16 proves the isolated disposable destroy -> stop-rebuild chain, including normal callback, deterministic receipts, unchanged destruction epoch, exact `$450`/`$350` rewards, second-attempt rejection, exact cleanup, and zero final state diff. Packaged authored binding, restart/streaming reapplication, multiplayer, and soak proof remain open. |
 | Destroy-target demolition witness | Nearby evidence must be an unparented physical projectile with active movement or a triggered blast; parented/inventory equipment is rejected before text classification. Witness scans and entity-backed callbacks share one canonical source key. A target retains at most 64 lifetime source receipts, fails closed at capacity, and writes local bookkeeping only after authoritative asset mutation. | Fresh Workbench validation passes. R23 passes all six generic `primitive.destroy.no_ambient_witness_score` assertions and all seven destroy-family start/runtime/primitive cases. Preserve one-source/one-score behavior through callback-plus-scan overlap, carried equipment, restore, multiplayer, and soak proof. |
 | Controlled campaign persistence | Schema 71 gives typed automatic, manual, and shutdown requests one staged snapshot and one persisted checkpoint sequence. Native-active requests advance the verified two-slot profile journal only after the post-commit `SaveGameManager` callback; native-unavailable or explicitly profile-only sessions write it synchronously. Startup reconciles native and journal snapshots by checkpoint sequence, restore sequence, save second, and matching normalized fingerprint. Future or ambiguous authority is preserved and fenced. Controlled end drains pending work, uses a 270-second retry window, then requests blocking shutdown and preserves or purges native state according to the authority that committed. | The focused 41-case journal authority proof and strict automatic/manual/shutdown/native/journal five-process chain pass. The sealed extension proves one mixed-native captive/carrier/player/seat and guard graph across the same stages, with durable carrier rebind, stable seat recovery, native/profile fallback, and zero cleanup. This is crash-tolerant single-writer recovery, not atomic rename, authenticated storage, an off-device backup, or broad active-world/client/network certification. |
-| Campaign Debug isolation | The runner deep-clones campaign state, suspends normal persistence, and restores the live state. Bounded probes additionally capture/restore the shared clock and enemy-strategic fingerprint; the coordinator holds ambient commander cadence while the clone is active. It also holds ambient local-security progression whenever its matching worker is held. The separate restart harness is not a Campaign Debug clone: a strict startup guard authorizes one disposable source-selection carrier and one-use prepare/recover/replay lease. | Current package-bound run `seed1985_t0_p1_u1784414040` produced trustworthy stable evidence with exact candidate/mount identity and zero drift or cleanup residue, but remains uncertified at 584 PASS/49 WARN/46 FAIL/7 BLOCKED/1 SKIPPED and 5,562/5,688 required assertions. The guarded native restart branch proves one separate source-precedence chain; neither result generalizes to arbitrary client/network or certification behavior. |
+| Campaign Debug isolation | The runner deep-clones campaign state, suspends normal persistence, and restores the live state. Bounded probes additionally capture/restore the shared clock and enemy-strategic fingerprint; the coordinator holds ambient commander cadence while the clone is active. It also holds ambient local-security progression whenever its matching worker is held. The separate restart harness is not a Campaign Debug clone: a strict startup guard authorizes one disposable source-selection carrier and one-use prepare/recover/replay lease. | Current package-bound run `seed1985_t0_p1_u1784414040` produced a mechanically complete, stable, preliminary-unaccepted capture with exact candidate/mount identity and zero drift or cleanup residue. Its report remains red at 584 PASS/49 WARN/46 FAIL/7 BLOCKED/1 SKIPPED and 5,562/5,688 required assertions, while the corrected census records 25 raw script errors, 19 in the Partisan subset, and ten unapproved diagnostics. The guarded native restart branch proves one separate source-precedence chain; neither result generalizes to arbitrary client/network or certification behavior. |
 | Workbench compiler shape | Large Campaign Debug methods use compact context/result objects and focused helpers. The render-bubble proof keeps clock state in `HST_CampaignDebugClockIsolationContext` rather than extending an already-large local frame. | Preserve this boundary and require a fresh Game compile plus bounded cold open for future large proof additions; repository text/static validation cannot exclude a native compiler heap failure. |
-| Certification | Campaign Schema 71 and runtime-settings Schema 24 are current. `32727238d74b29905c68e5a80bb5897dfdc783c0`, UTC `2026-07-18T16:34:38Z`, label `schema71-settings24-focused-force-authority`, is the sealed implementation/source identity. The active replacement passed Foundation, all five Workbench targets, and the packaged five-case deterministic-service rung. | Current package-bound Full Campaign Debug is trustworthy but red at 584/49/46/7/1 with 5,562/5,688 required assertions proven. Historical focused, journal, mixed-native, stale-journal/native, admin-reset, and exact-rebuild evidence remains sealed within its own scope. Active-world corrections, Workshop/server/client/network/JIP/reconnect, markers/UI, arbitrary migration, performance, and soak remain open. |
+| Certification | Campaign Schema 71 and runtime-settings Schema 24 are current. `32727238d74b29905c68e5a80bb5897dfdc783c0`, UTC `2026-07-18T16:34:38Z`, label `schema71-settings24-focused-force-authority`, is the sealed implementation/source identity. The active replacement passed Foundation, all five Workbench targets, and the packaged five-case deterministic-service rung. | Current package-bound Full Campaign Debug is a preliminary-unaccepted red capture at 584/49/46/7/1 with 5,562/5,688 required assertions proven; wrapper success is not acceptance, and ten full-run diagnostics remain unapproved. Historical focused, journal, mixed-native, stale-journal/native, admin-reset, and exact-rebuild evidence remains sealed within its own scope. Correct the external harness and rerun the unchanged package before gameplay correction; active-world corrections, Workshop/server/client/network/JIP/reconnect, markers/UI, arbitrary migration, performance, and soak remain open. |
 
 The canonical ownership dependency and first shared crew-aware combat-presence/
 heat dependency remain sealed through Schema 63. Sealed Schema 64 adds the

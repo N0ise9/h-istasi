@@ -61,36 +61,39 @@ required truths. The tracked portable summary SHA-256 is
 `8bb36919f0649e0f48fad50305878ec883cf98a0021323ba1442017f1aa113b8`.
 This is accepted non-certifying deterministic-service evidence.
 
-## Current Package-Bound Full Campaign Debug Evidence
+## Current Package-Bound Full Campaign Debug Preliminary Capture
 
-Clean harness HEAD `1bff1890830db08159826f63b550227aa7bb0da3` first ran the
-guarded `force_authority` canary against the unchanged active candidate. Its
-focused case passed all 35 assertions and all 87 certification-counting
-conditions. The run retained ten rehashed files, exact candidate and packed-
-mount attestations, stable artifacts, zero script or Partisan errors, zero crash
-markers, 18/0 state-diff rows, final orphan cleanup, and zero cleanup/spill
-residue. The profile's one blocked case is external and non-certifying;
-`CertificationPassed:false` is therefore still intentional.
+Clean harness HEAD `1bff1890830db08159826f63b550227aa7bb0da3` first captured the
+guarded `force_authority` profile against the unchanged active candidate. Its
+report recorded the focused case at all 35 assertions and all 87 certification-
+counting conditions. The run retained ten rehashed files, exact candidate and
+packed-mount attestations, stable artifacts, 18/0 state-diff rows, final orphan
+cleanup, and zero cleanup/spill residue. A timestamp-aware audit of the canonical
+script log found three raw `SCRIPT (E)` lines: two exact approved stock
+diagnostics and one unapproved diagnostic. The canary is preliminary-unaccepted,
+regardless of its report-level PASS observations and wrapper-reported success.
 
 The subsequent full profile produced run `seed1985_t0_p1_u1784414040` against
-the same exact candidate and guarded settings bytes. The wrapper completed
-successfully and its ten-file envelope SHA-256 is
+the same exact candidate and guarded settings bytes. Its ten-file envelope
+SHA-256 is
 `245f9709e054f591c2306295f4aba1972503dfef65ad8bf8cb6916e23b626906`.
-Candidate identity, packed mount, artifact stability, validation, all file
-rehashes, error census, 18/0 state restoration, final orphan cleanup, and all
-cleanup/spill counters passed. This makes the report trustworthy; it does not
-make it green.
+Candidate identity, packed mount, artifact stability, all file rehashes, 18/0
+state restoration, final orphan cleanup, and all cleanup/spill counters remain
+mechanically valid. The canonical script log instead contains 25 raw
+`SCRIPT (E)` lines, including a 19-line Partisan subset. Exact classification
+accounts for two approved stock diagnostics and 13 proof-bound intentional
+diagnostics, leaving ten unapproved.
 
-The full certification result is 584 PASS, 49 WARN, 46 FAIL, 7 BLOCKED, and 1
-SKIPPED across 687 cases. It proves 5,562/5,688 required assertions, with 112
-failed and 14 blocked, so `CertificationPassed:false` controls the release
-result. Phase 17 passes 11/11, both Phase 24 assertions pass, and staged cleanup
-passes 6/6. The portable two-run summary is
-`docs/evidence/campaign-debug/partisan-rc-b8deddc4b631-20260718T213322Z.json`
-with SHA-256
-`bbc88ab51b8f053d8aff14d263c09489bd1bb0d7578290d0894a5ccd683e2a77`.
+The full report remains failed at 584 PASS, 49 WARN, 46 FAIL, 7 BLOCKED, and 1
+SKIPPED across 687 cases. It records 5,562/5,688 required assertions proven, with
+112 failed and 14 blocked; Phase 17 records 11/11, both Phase 24 assertions record
+PASS, and staged cleanup records 6/6. The portable two-run summary is
+`docs/evidence/campaign-debug/partisan-rc-b8deddc4b631-20260718T213322Z.json`.
+The immutable raw capture is mechanically complete and stable, but wrapper
+success is not acceptance and both runs remain preliminary-unaccepted.
 
-The first failure-family pass assigns 23 failed cases to `mission_runtime`, four
+As preliminary diagnostic triage, the first failure-family pass assigns 23
+failed cases to `mission_runtime`, four
 to `early_mechanics`, four to `phase_smoke`, three to `support`, and the
 remaining twelve across action, civilians, economy, enemy commander, HQ,
 missions, and physical war. Three blocked cases are `mission_runtime`; cleanup,
@@ -130,9 +133,10 @@ need independent focused proof.
 | External restart/client/soak gaps | 0/3 | 0/5 | 0/0 | Route restart, second-client/JIP, two-hour soak, and session restore through external harnesses. |
 | **Total** | **46/7** | **282/19** | **112/14** | Every case is assigned once; mixed rows do not imply one root. |
 
-The active candidate's evidence chain is now frozen at this trustworthy red
-boundary. A source or fixture correction must be packaged as a new immutable
-candidate and cannot inherit this candidate's runtime result.
+The raw capture and its hashes are frozen, but the acceptance chain remains open.
+A corrected external harness may rerun both profiles against the unchanged
+package. A gameplay, in-package fixture, or package correction must be packaged
+as a new immutable candidate and cannot inherit this candidate's runtime result.
 
 ## Historical Focused Force-Authority Engine Checkpoint
 

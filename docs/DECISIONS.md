@@ -3546,38 +3546,69 @@ Consequences:
   unchanged package. A valid but red integrated report remains diagnostic
   evidence and must not be called a pass.
 
-## CRI-063 - Retain Trustworthy Red Full-Suite Evidence Without Certifying It
+## CRI-063 - Superseded Full-Suite Evidence Acceptance
+
+- Status: Superseded by CRI-064
+- Date: 2026-07-18
+
+Context: This decision recorded the then-believed conclusion that the guarded
+canary and full run had clean error censuses and that wrapper success made the
+red full report acceptable as current evidence. A later audit showed that the
+wrapper's line-start expressions missed timestamp-prefixed `SCRIPT (E)` lines.
+Its zero-error premise and resulting evidence-acceptance conclusion were false.
+
+Decision: Retain CRI-063 only as the superseded record of that mistaken
+classification. Its `NO-GO`, failed native-engine/world, and blocked stable-
+certification outcomes remain conservative, but it no longer authorizes the
+canary or full capture as accepted evidence.
+
+Consequences:
+
+- The raw files and wrapper-reported result remain immutable historical facts.
+- CRI-064 owns the corrected census, evidence disposition, and rerun rule.
+
+## CRI-064 - Retain Preliminary Captures and Correct the Diagnostic Gate
 
 - Status: Accepted
 - Date: 2026-07-18
 
-Context: The active replacement passed its package-bound focused service rung
-and guarded focused canary. Full Campaign Debug then consumed the exact same
-packed candidate under a clean harness. Candidate/mount identity, guarded
-settings, artifact stability, envelope rehash, error census, state restoration,
-final orphan cleanup, and cleanup/spill checks all passed, so the wrapper
-correctly reported success. The actual full report remained red at 584 PASS, 49
-WARN, 46 FAIL, 7 BLOCKED, and 1 SKIPPED, with 112 failed and 14 blocked required
-assertions.
+Context: An independent timestamp-aware census of each canonical script log
+found three raw `SCRIPT (E)` lines in the `force_authority` canary. Two are exact
+approved stock diagnostics and one is unapproved. The full run contains 25 raw
+`SCRIPT (E)` lines, including a 19-line Partisan subset. Exact classification
+accounts for two approved stock diagnostics and 13 proof-bound intentional
+diagnostics, leaving ten unapproved. The original wrapper reported zero because
+its census required `SCRIPT (E)` at the start of a timestamped line.
 
-Decision: Treat wrapper success as evidence-capture validity only. The report's
-`CertificationPassed:false` controls the release result and forces `NO-GO`, a
-failed native-engine/world rung, and blocked stable certification. Retain one
-portable package-bound summary, validate its identity, totals, chronology,
-category sums, run/envelope uniqueness, and cleanup predicates in the release
-generator, and keep the prior integrated run only as a historical comparison.
+The captures are otherwise mechanically complete and stable: candidate and
+packed-mount identity, guarded settings, artifact hashes and rehashes, state
+restoration, final orphan cleanup, and cleanup/spill hygiene remain recorded.
+The canary report recorded 35/35 focused assertions and 87/87 counted
+conditions. The full report remains failed at 584 PASS, 49 WARN, 46 FAIL, 7
+BLOCKED, and 1 SKIPPED, with 112 failed and 14 blocked required assertions.
 
-Classify every current failed and blocked case before changing source. Freeze
-the active candidate's evidence chain at this result. A gameplay, fixture, or
-in-package harness correction must enter a newly sealed candidate and may not
-inherit this package's runtime result.
+Decision: Preserve the immutable raw captures and their wrapper-reported fields,
+but classify both evidence sets as `preliminary-unaccepted`. Wrapper success is
+not acceptance. Record the independent raw, subset, approved, intentional, and
+unapproved counts separately, and require the release generator to fail closed
+unless the corrected classifier disposition is explicit and exact.
+
+Repair the external runner to census one canonical script log and one canonical
+console log with timestamp-aware matching. Count `SCRIPT (E)` from the script
+log, merge only unique or excess hard diagnostics from the console log, and
+retain console-only `ENGINE (E)` and crash signals. Then rerun the canary and
+full profile against the unchanged package. A runner-only correction may extend
+this candidate's evidence chain because it does not alter packaged bytes. Any
+gameplay, in-package fixture, or package change still requires a newly sealed
+candidate and a new evidence chain.
 
 Consequences:
 
-- A zero-error wrapper cannot turn a red certification report green.
-- Valid red evidence is actionable and retained; it is not discarded as a
-  runner failure or promoted as a pass.
-- Current failure families are triaged from exact cases and assertions before
-  production behavior is changed.
-- Later dedicated, multiplayer/JIP, restart, performance, soak, canary, and
-  stable-certification gates remain independent.
+- The release decision remains `NO-GO`; native-engine/world remains failed and
+  stable certification remains blocked.
+- Report totals and case-exclusive triage remain useful diagnostic coordinates,
+  but they are not accepted release evidence.
+- Gameplay correction does not begin from this capture until the corrected
+  external harness reruns both profiles and produces an accepted classification.
+- Dedicated, multiplayer/JIP, restart breadth, performance, soak, canary-release,
+  and stable-certification gates remain independent.

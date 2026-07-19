@@ -33,15 +33,20 @@ repository. The raw sidecars remain external and immutable.
 Repository attributes also keep these tracked summary JSON files on canonical
 LF endings so the status-recorded digest remains stable across checkouts.
 
-The current package-bound Campaign Debug evidence is summarized in
+The current package-bound Campaign Debug capture is summarized in
 `campaign-debug/partisan-rc-b8deddc4b631-20260718T213322Z.json`. It binds one
 guarded focused canary and one full run to the exact candidate, clean harness,
 runner/module, guarded settings, envelope hashes, result totals, category
-counts, rehash/error/cleanup predicates, and historical aggregate comparison.
-The full wrapper succeeded and its artifacts are trustworthy, while
-`fullCertificationPassed:false` remains the release result. Canonical LF is
-required for this summary too, and the release generator rehashes and
-cross-checks it against current status.
+counts, rehash/cleanup predicates, corrected diagnostic audit, and historical
+aggregate comparison. The immutable raw files are mechanically complete and
+stable, but their wrapper-reported success and zero census are not acceptance.
+The timestamp-aware audit records three canary diagnostics = two exact approved
+stock + one unapproved. The full capture has 25 diagnostics with a 19-line
+Partisan subset; across all 25, two are exact approved stock, 13 are proof-bound
+intentional, and ten are unapproved. Both captures are preliminary-unaccepted,
+and the full report remains failed. Canonical LF is required for this summary
+too, and the release generator rehashes and cross-checks it against current
+status.
 
 If a package defect requires a rebuild, the older record remains byte-identical
 and is described as retained superseded evidence. It remains available for

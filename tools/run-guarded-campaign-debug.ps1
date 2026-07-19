@@ -611,6 +611,14 @@ function Get-SafeArtifactValidationSummary {
         FocusedCaseId = ConvertTo-SafeArtifactScalar -Value $Validation.FocusedCaseId -GuardRoot $GuardRoot -ProjectDirectory $ProjectDirectory -ResolvedAddonRoots $ResolvedAddonRoots
         FocusedCaseStatus = ConvertTo-SafeArtifactScalar -Value $Validation.FocusedCaseStatus -GuardRoot $GuardRoot -ProjectDirectory $ProjectDirectory -ResolvedAddonRoots $ResolvedAddonRoots
         FocusedAssertions = $safeFocusedAssertions
+        IntentionalMissionConvoyAdmissionDiagnosticsProven =
+            [bool]$Validation.IntentionalMissionConvoyAdmissionDiagnosticsProven
+        IntentionalMissionConvoySettlementDiagnosticProven =
+            [bool]$Validation.IntentionalMissionConvoySettlementDiagnosticProven
+        IntentionalMissionConvoyCorruptionDiagnosticsProven =
+            [bool]$Validation.IntentionalMissionConvoyCorruptionDiagnosticsProven
+        IntentionalMissionConvoyWatchdogDiagnosticProven =
+            [bool]$Validation.IntentionalMissionConvoyWatchdogDiagnosticProven
         FinalOrphanCleanupPass = [bool]$Validation.FinalOrphanCleanupPass
         FinalOrphanActiveGroups = ConvertTo-SafeArtifactScalar -Value $Validation.FinalOrphanActiveGroups -GuardRoot $GuardRoot -ProjectDirectory $ProjectDirectory -ResolvedAddonRoots $ResolvedAddonRoots
     }
@@ -1551,6 +1559,10 @@ function Test-CampaignDebugArtifacts {
             FocusedCaseId = if ($focusedCase) { [string]$focusedCase.m_sCaseId } else { $null }
             FocusedCaseStatus = if ($focusedCase) { [string]$focusedCase.m_sStatus } else { $null }
             FocusedAssertions = $focusedAssertionStatus.ToArray()
+            IntentionalMissionConvoyAdmissionDiagnosticsProven = $false
+            IntentionalMissionConvoySettlementDiagnosticProven = $false
+            IntentionalMissionConvoyCorruptionDiagnosticsProven = $false
+            IntentionalMissionConvoyWatchdogDiagnosticProven = $false
             FinalOrphanCleanupPass = $cleanupPass
             FinalOrphanActiveGroups = $cleanupOrphans
         }
@@ -1858,6 +1870,33 @@ function Test-CampaignDebugArtifacts {
         }
     }
 
+    $intentionalMissionConvoyAdmissionDiagnosticsProven = $false
+    $intentionalMissionConvoySettlementDiagnosticProven = $false
+    $intentionalMissionConvoyCorruptionDiagnosticsProven = $false
+    $intentionalMissionConvoyWatchdogDiagnosticProven = $false
+    $forceAuthorityCases = @(Find-Case -Run $run -CaseId "early_mechanics.force_authority")
+    if ($forceAuthorityCases.Count -eq 1) {
+        $intentionalMissionConvoyAdmissionDiagnosticsProven =
+            (Test-ExactPassingAssertion `
+                -Case $forceAuthorityCases[0] `
+                -AssertionId "mission_convoy.admission") -and
+            (Test-ExactPassingAssertion `
+                -Case $forceAuthorityCases[0] `
+                -AssertionId "mission_convoy.admission_rollback")
+        $intentionalMissionConvoySettlementDiagnosticProven =
+            Test-ExactPassingAssertion `
+                -Case $forceAuthorityCases[0] `
+                -AssertionId "mission_convoy.settlement"
+        $intentionalMissionConvoyCorruptionDiagnosticsProven =
+            Test-ExactPassingAssertion `
+                -Case $forceAuthorityCases[0] `
+                -AssertionId "mission_convoy.corruption_rejection"
+        $intentionalMissionConvoyWatchdogDiagnosticProven =
+            Test-ExactPassingAssertion `
+                -Case $forceAuthorityCases[0] `
+                -AssertionId "mission_convoy.watchdog"
+    }
+
     return [pscustomobject]@{
         Valid = $problems.Count -eq 0
         Problems = $problems.ToArray()
@@ -1894,6 +1933,14 @@ function Test-CampaignDebugArtifacts {
         FocusedCaseId = $null
         FocusedCaseStatus = $null
         FocusedAssertions = @()
+        IntentionalMissionConvoyAdmissionDiagnosticsProven =
+            $intentionalMissionConvoyAdmissionDiagnosticsProven
+        IntentionalMissionConvoySettlementDiagnosticProven =
+            $intentionalMissionConvoySettlementDiagnosticProven
+        IntentionalMissionConvoyCorruptionDiagnosticsProven =
+            $intentionalMissionConvoyCorruptionDiagnosticsProven
+        IntentionalMissionConvoyWatchdogDiagnosticProven =
+            $intentionalMissionConvoyWatchdogDiagnosticProven
         FinalOrphanCleanupPass = $cleanupPass
         FinalOrphanActiveGroups = $cleanupOrphans
     }
@@ -2409,41 +2456,1211 @@ function Invoke-ArtifactValidatorSelfTest {
     return $result
 }
 
-function Get-GuardErrorCensus {
-    param([Parameter(Mandatory = $true)][string]$GuardRoot)
+function Get-CampaignDebugHardDiagnosticCensus {
+    param(
+        [AllowEmptyString()]
+        [Parameter(Mandatory = $true)]
+        [string]$ScriptText,
 
-    $scriptErrors = 0
-    $partisanErrors = 0
-    $crashMarkers = 0
-    $logRoot = Join-Path $GuardRoot "logs"
-    $logs = @()
-    if (Test-Path -LiteralPath $logRoot -PathType Container) {
-        $logs = @(Get-ChildItem -LiteralPath $logRoot -Recurse -File -Force -ErrorAction SilentlyContinue |
-            Where-Object { $_.Extension -in @(".log", ".rpt") })
-    }
-    foreach ($log in $logs) {
-        try {
-            $text = Read-SharedFileText -Path $log.FullName
-            $scriptErrors += [Regex]::Matches(
-                $text,
-                '(?im)^\s*SCRIPT\s+\(E\):').Count
-            $partisanErrors += [Regex]::Matches(
-                $text,
-                '(?im)^.*(?:Partisan|HST).*(?:\s\(E\):|\bERROR\s*:|\bFATAL\s*:).*$').Count
-            $crashMarkers += [Regex]::Matches(
-                $text,
-                '(?im)\b(?:ACCESS_VIOLATION|unhandled exception|fatal error|application crash)\b').Count
-        }
-        catch {
+        [AllowEmptyString()]
+        [string]$ConsoleText = '',
+
+        [ValidateSet("full_certification", "force_authority")]
+        [Parameter(Mandatory = $true)]
+        [string]$Profile,
+
+        [Parameter(Mandatory = $true)]
+        [bool]$IntentionalMissionConvoyAdmissionDiagnosticsProven,
+
+        [Parameter(Mandatory = $true)]
+        [bool]$IntentionalMissionConvoySettlementDiagnosticProven,
+
+        [Parameter(Mandatory = $true)]
+        [bool]$IntentionalMissionConvoyCorruptionDiagnosticsProven,
+
+        [Parameter(Mandatory = $true)]
+        [bool]$IntentionalMissionConvoyWatchdogDiagnosticProven
+    )
+
+    $lines = @($ScriptText -split "`r?`n")
+    $hardSignalPattern = '(?i)\b(?<channel>SCRIPT|ENGINE)\s*\(E\)'
+    $hardPattern =
+        '^\s*(?<timestamp>\d{2}:\d{2}:\d{2}\.\d+)\s+' +
+        '(?<channel>SCRIPT|ENGINE)\s+\(E\):\s*(?<message>.*?)\s*$'
+    $timestampPattern = '^\s*\d{2}:\d{2}:\d{2}\.\d+\s+'
+    $diagnostics = New-Object Collections.Generic.List[object]
+    $scriptDiagnosticKeyCounts = New-Object `
+        'Collections.Generic.Dictionary[string,int]' `
+        ([StringComparer]::Ordinal)
+    for ($index = 0; $index -lt $lines.Count; $index++) {
+        $line = [string]$lines[$index]
+        $signalMatch = [Regex]::Match($line, $hardSignalPattern)
+        if (-not $signalMatch.Success) {
             continue
         }
+        $match = [Regex]::Match($line, $hardPattern)
+        if (-not $match.Success) {
+            $malformedKey = @(
+                'malformed',
+                $signalMatch.Groups['channel'].Value,
+                (($line -replace '\s+', ' ').Trim())
+            ) -join ([char]31)
+            if (-not $scriptDiagnosticKeyCounts.ContainsKey($malformedKey)) {
+                $scriptDiagnosticKeyCounts[$malformedKey] = 0
+            }
+            $scriptDiagnosticKeyCounts[$malformedKey]++
+            [void]$diagnostics.Add([pscustomobject][ordered]@{
+                Index = $index
+                Timestamp = ''
+                Channel = $signalMatch.Groups['channel'].Value
+                Message = 'malformed-hard-diagnostic-header'
+                Body = @()
+                Source = 'script.log'
+                CandidateKind = 'malformed-hard-diagnostic-header'
+                Approved = $false
+            })
+            continue
+        }
+
+        $body = New-Object Collections.Generic.List[string]
+        for ($bodyIndex = $index + 1; $bodyIndex -lt $lines.Count; $bodyIndex++) {
+            $bodyLine = [string]$lines[$bodyIndex]
+            if ($bodyLine -match $timestampPattern) {
+                break
+            }
+            $normalizedBodyLine = (($bodyLine -replace '\s+', ' ').Trim())
+            if (-not [string]::IsNullOrEmpty($normalizedBodyLine)) {
+                [void]$body.Add($normalizedBodyLine)
+            }
+        }
+        $diagnosticKey = @(
+            $match.Groups['timestamp'].Value,
+            $match.Groups['channel'].Value,
+            $match.Groups['message'].Value,
+            ($body.ToArray() -join "`n")
+        ) -join ([char]31)
+        if (-not $scriptDiagnosticKeyCounts.ContainsKey($diagnosticKey)) {
+            $scriptDiagnosticKeyCounts[$diagnosticKey] = 0
+        }
+        $scriptDiagnosticKeyCounts[$diagnosticKey]++
+        [void]$diagnostics.Add([pscustomobject][ordered]@{
+            Index = $index
+            Timestamp = $match.Groups['timestamp'].Value
+            Channel = $match.Groups['channel'].Value
+            Message = $match.Groups['message'].Value
+            Body = $body.ToArray()
+            Source = 'script.log'
+            CandidateKind = ''
+            Approved = $false
+        })
     }
 
-    return [pscustomobject]@{
+    $consoleLines = @($ConsoleText -split "`r?`n")
+    $consoleDiagnosticKeyCounts = New-Object `
+        'Collections.Generic.Dictionary[string,int]' `
+        ([StringComparer]::Ordinal)
+    for ($index = 0; $index -lt $consoleLines.Count; $index++) {
+        $line = [string]$consoleLines[$index]
+        $signalMatch = [Regex]::Match($line, $hardSignalPattern)
+        if (-not $signalMatch.Success) {
+            continue
+        }
+        $match = [Regex]::Match($line, $hardPattern)
+        if (-not $match.Success) {
+            $malformedKey = @(
+                'malformed',
+                $signalMatch.Groups['channel'].Value,
+                (($line -replace '\s+', ' ').Trim())
+            ) -join ([char]31)
+            if (-not $consoleDiagnosticKeyCounts.ContainsKey($malformedKey)) {
+                $consoleDiagnosticKeyCounts[$malformedKey] = 0
+            }
+            $consoleDiagnosticKeyCounts[$malformedKey]++
+            $scriptMalformedCount = 0
+            if ($scriptDiagnosticKeyCounts.ContainsKey($malformedKey)) {
+                $scriptMalformedCount = $scriptDiagnosticKeyCounts[$malformedKey]
+            }
+            if ($consoleDiagnosticKeyCounts[$malformedKey] -le $scriptMalformedCount) {
+                continue
+            }
+            [void]$diagnostics.Add([pscustomobject][ordered]@{
+                Index = $index
+                Timestamp = ''
+                Channel = $signalMatch.Groups['channel'].Value
+                Message = 'malformed-hard-diagnostic-header'
+                Body = @()
+                Source = 'console.log'
+                CandidateKind = 'malformed-hard-diagnostic-header'
+                Approved = $false
+            })
+            continue
+        }
+
+        $body = New-Object Collections.Generic.List[string]
+        for ($bodyIndex = $index + 1; $bodyIndex -lt $consoleLines.Count; $bodyIndex++) {
+            $bodyLine = [string]$consoleLines[$bodyIndex]
+            if ($bodyLine -match $timestampPattern) {
+                break
+            }
+            $normalizedBodyLine = (($bodyLine -replace '\s+', ' ').Trim())
+            if (-not [string]::IsNullOrEmpty($normalizedBodyLine)) {
+                [void]$body.Add($normalizedBodyLine)
+            }
+        }
+        $diagnosticKey = @(
+            $match.Groups['timestamp'].Value,
+            $match.Groups['channel'].Value,
+            $match.Groups['message'].Value,
+            ($body.ToArray() -join "`n")
+        ) -join ([char]31)
+        if (-not $consoleDiagnosticKeyCounts.ContainsKey($diagnosticKey)) {
+            $consoleDiagnosticKeyCounts[$diagnosticKey] = 0
+        }
+        $consoleDiagnosticKeyCounts[$diagnosticKey]++
+        $scriptKeyCount = 0
+        if ($scriptDiagnosticKeyCounts.ContainsKey($diagnosticKey)) {
+            $scriptKeyCount = $scriptDiagnosticKeyCounts[$diagnosticKey]
+        }
+        if ($consoleDiagnosticKeyCounts[$diagnosticKey] -le $scriptKeyCount) {
+            continue
+        }
+        [void]$diagnostics.Add([pscustomobject][ordered]@{
+            Index = $index
+            Timestamp = $match.Groups['timestamp'].Value
+            Channel = $match.Groups['channel'].Value
+            Message = $match.Groups['message'].Value
+            Body = $body.ToArray()
+            Source = 'console.log'
+            CandidateKind = ''
+            Approved = $false
+        })
+    }
+
+    $editableIdentityBody = @(
+        'Reason: Wrong parameter value',
+        "Class: 'SCR_EditableEntityCore'",
+        "Function: 'GetPlayerIdentityId'",
+        'Stack trace:',
+        'Scripts/Game/Utilities/SCR_PlayerIdentityUtils.c:29 Function GetPlayerIdentityId',
+        'Scripts/Game/Editor/Core/SCR_EditableEntityCore.c:1189 Function OnPlayerIdentityAvailable',
+        'Scripts/Game/GameMode/SCR_BaseGameMode.c:842 Function OnPlayerAuditSuccess'
+    ) -join "`n"
+    $reconnectIdentityBody = @(
+        'Reason: Wrong parameter value',
+        "Class: 'SCR_ReconnectComponent'",
+        "Function: 'GetPlayerIdentityId'",
+        'Stack trace:',
+        'Scripts/Game/Utilities/SCR_PlayerIdentityUtils.c:29 Function GetPlayerIdentityId',
+        'Scripts/Game/GameMode/Components/SCR_ReconnectComponent.c:135 Function HandlePlayerReconnect',
+        'Scripts/Game/Respawn/Logic/SCR_SpawnLogic.c:534 Function ResolveReconnection',
+        'Scripts/Game/Respawn/Logic/SCR_SpawnLogic.c:329 Function OnPlayerDataLoaded_S',
+        'Scripts/Game/Respawn/Logic/SCR_SpawnLogic.c:298 Function RequestPlayerData_S',
+        'Scripts/Game/Respawn/Logic/SCR_SpawnLogic.c:273 Function ExcuteInitialLoadOrSpawn_S',
+        'Scripts/Game/Respawn/Logic/SCR_AutoSpawnLogic.c:18 Function OnPlayerAuditSuccess_S',
+        'Scripts/Game/GameMode/Respawn/SCR_RespawnSystemComponent.c:258 Function OnPlayerAuditSuccess_S',
+        'Scripts/Game/GameMode/SCR_BaseGameMode.c:845 Function OnPlayerAuditSuccess'
+    ) -join "`n"
+    foreach ($diagnostic in $diagnostics) {
+        if ($diagnostic.Channel -cne 'SCRIPT' -or
+            $diagnostic.Source -cne 'script.log' -or
+            $diagnostic.Message -cne 'Virtual Machine Exception' -or
+            [string]::IsNullOrEmpty($diagnostic.Timestamp)) {
+            continue
+        }
+        $bodyText = @($diagnostic.Body) -join "`n"
+        if ($bodyText -ceq $editableIdentityBody) {
+            $diagnostic.CandidateKind = 'stock-startup-editable-identity'
+        }
+        elseif ($bodyText -ceq $reconnectIdentityBody) {
+            $diagnostic.CandidateKind = 'stock-startup-reconnect-identity'
+        }
+    }
+
+    $lifecyclePrefix = '^\s*\d{2}:\d{2}:\d{2}\.\d+\s+SCRIPT\s+:\s*'
+    $armMessage = if ($Profile -ceq 'full_certification') {
+        'Partisan campaign debug CLI | armed exact HST_Dev full certification run'
+    }
+    else {
+        'Partisan campaign debug CLI | armed focused force_authority run ' +
+            '(not full certification)'
+    }
+    $armPattern = $lifecyclePrefix + [Regex]::Escape($armMessage) + '\s*$'
+    $startPattern = $lifecyclePrefix +
+        [Regex]::Escape("Partisan campaign debug CLI | started $Profile on attempt ") +
+        '\d+\s*$'
+    $forceResultPattern = $lifecyclePrefix +
+        'Partisan\ campaign\ debug\ \|\ ' +
+        '(?:PASS|WARN|FAIL|BLOCKED|SKIPPED)\ \|\ ' +
+        'early_mechanics\.force_authority\ \|\ .+\s*$'
+    $armIndices = New-Object Collections.Generic.List[int]
+    $startIndices = New-Object Collections.Generic.List[int]
+    $forceResultIndices = New-Object Collections.Generic.List[int]
+    for ($index = 0; $index -lt $lines.Count; $index++) {
+        if ([string]$lines[$index] -cmatch $armPattern) {
+            [void]$armIndices.Add($index)
+        }
+        if ([string]$lines[$index] -cmatch $startPattern) {
+            [void]$startIndices.Add($index)
+        }
+        if ([string]$lines[$index] -cmatch $forceResultPattern) {
+            [void]$forceResultIndices.Add($index)
+        }
+    }
+    $lifecycleMarkersValid = $armIndices.Count -eq 1 -and
+        $startIndices.Count -eq 1 -and
+        $forceResultIndices.Count -eq 1 -and
+        $startIndices[0] -gt $armIndices[0] -and
+        $forceResultIndices[0] -gt $startIndices[0]
+    $armIndex = if ($armIndices.Count -eq 1) { $armIndices[0] } else { -1 }
+    $identityCandidates = @($diagnostics | Where-Object {
+        $_.CandidateKind -like 'stock-startup-*-identity'
+    })
+    $identityPairExact = $lifecycleMarkersValid -and
+        $identityCandidates.Count -eq 2 -and
+        $identityCandidates[0].CandidateKind -ceq
+            'stock-startup-editable-identity' -and
+        $identityCandidates[1].CandidateKind -ceq
+            'stock-startup-reconnect-identity' -and
+        $identityCandidates[1].Index -gt $identityCandidates[0].Index -and
+        $armIndex -gt $identityCandidates[1].Index
+    if ($identityPairExact) {
+        $identityCandidates[0].Approved = $true
+        $identityCandidates[1].Approved = $true
+    }
+
+    $intentionalMessages = @(
+        'Partisan exact mission convoy | mission_convoy_proof_admission_rollback failed closed: exact mission convoy road route is missing or too short',
+        'Partisan exact mission convoy | mission_convoy_proof_cargo_duplicate failed closed: exact mission convoy admission contains more than one optional cargo row',
+        'Partisan exact mission convoy | mission_convoy_proof_cargo_invalid_prefab failed closed: exact mission convoy cargo prefab is missing, invalid, or not an entity prefab',
+        'Partisan exact mission convoy | mission_convoy_proof_cargo_wrong_kind failed closed: exact mission convoy cargo role or kind is incompatible with the mission',
+        'Partisan exact mission convoy | mission_convoy_proof_cargo_disallowed failed closed: exact mission convoy mission kind does not permit a cargo row',
+        'Partisan exact mission convoy | mission_convoy_proof_cargo_missing failed closed: exact mission convoy mission kind requires exactly one compatible cargo row',
+        'Partisan exact mission convoy | mission_convoy_proof_cargo_wrong_runtime failed closed: exact mission convoy runtime type is incompatible with frozen convoy authority',
+        'Partisan exact mission convoy | mission_convoy_proof_cargo_captive_non_character failed closed: exact mission convoy captive prefab is not a boardable character with compartment access',
+        'Partisan exact mission convoy | mission_convoy_proof_cargo_payload_character failed closed: exact mission convoy payload prefab must be a non-character mission-asset entity',
+        'Partisan exact mission convoy | mission_convoy_proof_arrival_outcome_boundary failed closed: restored exact convoy runtime could not be normalized without changing survivor or element authority',
+        'Partisan exact mission convoy | mission_convoy_proof_duplicate_corruption failed closed: exact mission convoy authority identity is ambiguous',
+        'Partisan exact mission convoy | mission_convoy_proof_hash_corruption failed closed: exact mission convoy manifest hash changed after admission',
+        'Partisan exact mission convoy | mission_convoy_proof_missing_backlink_corruption failed closed: exact mission convoy canonical mission authority links conflict',
+        'Partisan exact mission convoy | mission_convoy_proof_watchdog failed closed: all-or-nothing convoy materialization did not confirm every required surviving crew/vehicle root before timeout'
+    )
+    $intentionalCandidates = New-Object Collections.Generic.List[object]
+    foreach ($diagnostic in $diagnostics) {
+        if ($diagnostic.Source -cne 'script.log' -or
+            $diagnostic.Channel -cne 'SCRIPT' -or
+            @($diagnostic.Body).Count -ne 0) {
+            continue
+        }
+        $intentionalIndex = [Array]::IndexOf($intentionalMessages, $diagnostic.Message)
+        if ($intentionalIndex -lt 0) {
+            continue
+        }
+        $diagnostic.CandidateKind = "intentional-mission-convoy-$intentionalIndex"
+        [void]$intentionalCandidates.Add($diagnostic)
+    }
+    $intentionalSetExact = $intentionalCandidates.Count -eq $intentionalMessages.Count
+    if ($intentionalSetExact) {
+        for ($index = 0; $index -lt $intentionalCandidates.Count; $index++) {
+            if ($intentionalCandidates[$index].Message -cne $intentionalMessages[$index] -or
+                ($index -gt 0 -and
+                    $intentionalCandidates[$index].Index -le
+                        $intentionalCandidates[$index - 1].Index)) {
+                $intentionalSetExact = $false
+                break
+            }
+        }
+    }
+    $intentionalLifecycleBound = $lifecycleMarkersValid -and
+        $intentionalSetExact -and
+        $intentionalCandidates[0].Index -gt $startIndices[0] -and
+        $intentionalCandidates[$intentionalCandidates.Count - 1].Index -lt
+            $forceResultIndices[0]
+    if ($Profile -ceq 'full_certification' -and $intentionalLifecycleBound) {
+        for ($index = 0; $index -lt $intentionalCandidates.Count; $index++) {
+            $proofValid = if ($index -le 8) {
+                $IntentionalMissionConvoyAdmissionDiagnosticsProven
+            }
+            elseif ($index -eq 9) {
+                $IntentionalMissionConvoySettlementDiagnosticProven
+            }
+            elseif ($index -le 12) {
+                $IntentionalMissionConvoyCorruptionDiagnosticsProven
+            }
+            else {
+                $IntentionalMissionConvoyWatchdogDiagnosticProven
+            }
+            if ($proofValid) {
+                $intentionalCandidates[$index].Approved = $true
+            }
+        }
+    }
+
+    $unapproved = @($diagnostics | Where-Object { -not $_.Approved })
+    $unapprovedKinds = @($unapproved | ForEach-Object {
+        if ($_.Message -ceq 'Virtual Machine Exception') {
+            'virtual-machine-exception'
+        }
+        elseif ($_.Message -cmatch '^(?:Partisan|HST(?:_|\b))') {
+            'partisan-script-error'
+        }
+        elseif ($_.Message -cmatch '(?i)fatal|crash|access.violation') {
+            'crash-or-fatal-error'
+        }
+        else {
+            'runtime-script-error'
+        }
+    } | Group-Object | Sort-Object Name | ForEach-Object {
+        [pscustomobject][ordered]@{
+            kind = $_.Name
+            count = $_.Count
+        }
+    })
+    $crashPattern = '(?i)(?:\bACCESS_VIOLATION\b|\bunhandled exception\b|' +
+        '\bfatal error\b|\bFATAL\s*:|\bapplication crash\b)'
+    $crashCountsBySource = @()
+    foreach ($sourceText in @($ScriptText, $ConsoleText)) {
+        $sourceCounts = New-Object 'Collections.Generic.Dictionary[string,int]' `
+            ([StringComparer]::Ordinal)
+        foreach ($sourceLine in @($sourceText -split "`r?`n")) {
+            if ([string]$sourceLine -cnotmatch $crashPattern) {
+                continue
+            }
+            $crashKey = (([string]$sourceLine -replace '\s+', ' ').Trim())
+            if (-not $sourceCounts.ContainsKey($crashKey)) {
+                $sourceCounts[$crashKey] = 0
+            }
+            $sourceCounts[$crashKey]++
+        }
+        $crashCountsBySource += ,$sourceCounts
+    }
+    $crashKeys = New-Object 'Collections.Generic.HashSet[string]' `
+        ([StringComparer]::Ordinal)
+    foreach ($sourceCounts in $crashCountsBySource) {
+        foreach ($crashKey in $sourceCounts.Keys) {
+            [void]$crashKeys.Add($crashKey)
+        }
+    }
+    $crashMarkers = 0
+    foreach ($crashKey in $crashKeys) {
+        $maximumCount = 0
+        foreach ($sourceCounts in $crashCountsBySource) {
+            if ($sourceCounts.ContainsKey($crashKey) -and
+                $sourceCounts[$crashKey] -gt $maximumCount) {
+                $maximumCount = $sourceCounts[$crashKey]
+            }
+        }
+        $crashMarkers += $maximumCount
+    }
+    $partisanSeverityPattern = '(?i)\b(?:Partisan|HST(?:_|\b)).*\b(?:ERROR|FATAL)\s*:'
+    $partisanSeverityCountsBySource = @()
+    foreach ($sourceText in @($ScriptText, $ConsoleText)) {
+        $sourceCounts = New-Object 'Collections.Generic.Dictionary[string,int]' `
+            ([StringComparer]::Ordinal)
+        foreach ($sourceLine in @($sourceText -split "`r?`n")) {
+            if ([string]$sourceLine -cnotmatch $partisanSeverityPattern) {
+                continue
+            }
+            $severityKey = (([string]$sourceLine -replace '\s+', ' ').Trim())
+            if (-not $sourceCounts.ContainsKey($severityKey)) {
+                $sourceCounts[$severityKey] = 0
+            }
+            $sourceCounts[$severityKey]++
+        }
+        $partisanSeverityCountsBySource += ,$sourceCounts
+    }
+    $partisanSeverityKeys = New-Object 'Collections.Generic.HashSet[string]' `
+        ([StringComparer]::Ordinal)
+    foreach ($sourceCounts in $partisanSeverityCountsBySource) {
+        foreach ($severityKey in $sourceCounts.Keys) {
+            [void]$partisanSeverityKeys.Add($severityKey)
+        }
+    }
+    $partisanSeverityLineCount = 0
+    foreach ($severityKey in $partisanSeverityKeys) {
+        $maximumCount = 0
+        foreach ($sourceCounts in $partisanSeverityCountsBySource) {
+            if ($sourceCounts.ContainsKey($severityKey) -and
+                $sourceCounts[$severityKey] -gt $maximumCount) {
+                $maximumCount = $sourceCounts[$severityKey]
+            }
+        }
+        $partisanSeverityLineCount += $maximumCount
+    }
+    $scriptErrors = @($diagnostics | Where-Object {
+        $_.Channel -ceq 'SCRIPT'
+    }).Count
+    $engineErrors = @($diagnostics | Where-Object {
+        $_.Channel -ceq 'ENGINE'
+    }).Count
+    $partisanErrors = @($diagnostics | Where-Object {
+        $_.Message -cmatch '^(?:Partisan|HST(?:_|\b))'
+    }).Count
+    $approvedStockCount = @($diagnostics | Where-Object {
+        $_.Approved -and $_.CandidateKind -like 'stock-startup-*-identity'
+    }).Count
+    $approvedIntentionalCount = @($diagnostics | Where-Object {
+        $_.Approved -and $_.CandidateKind -like 'intentional-mission-convoy-*'
+    }).Count
+    $intentionalFixtureStructureValid = if ($Profile -ceq 'full_certification') {
+        $intentionalLifecycleBound
+    }
+    else {
+        $intentionalCandidates.Count -eq 0
+    }
+    $intentionalFixtureSetValid = if ($Profile -ceq 'full_certification') {
+        $intentionalLifecycleBound -and
+            $approvedIntentionalCount -eq $intentionalMessages.Count
+    }
+    else {
+        $intentionalCandidates.Count -eq 0
+    }
+    $channelArithmeticValid = $diagnostics.Count -eq
+        ($scriptErrors + $engineErrors)
+    $categoryArithmeticValid = $diagnostics.Count -eq
+        ($approvedStockCount + $approvedIntentionalCount + $unapproved.Count)
+
+    return [pscustomobject][ordered]@{
+        Valid = $lifecycleMarkersValid -and
+            $channelArithmeticValid -and
+            $categoryArithmeticValid -and
+            $intentionalFixtureSetValid -and
+            $unapproved.Count -eq 0 -and
+            $crashMarkers -eq 0 -and
+            $partisanSeverityLineCount -eq 0
+        HardDiagnosticFree = $diagnostics.Count -eq 0 -and
+            $crashMarkers -eq 0 -and
+            $partisanSeverityLineCount -eq 0
+        HardDiagnosticCount = $diagnostics.Count
         ScriptErrors = $scriptErrors
+        EngineErrors = $engineErrors
         PartisanErrors = $partisanErrors
         CrashMarkers = $crashMarkers
+        PartisanSeverityLineCount = $partisanSeverityLineCount
+        ApprovedStockDiagnosticCount = $approvedStockCount
+        ApprovedIntentionalDiagnosticCount = $approvedIntentionalCount
+        ChannelArithmeticValid = $channelArithmeticValid
+        CategoryArithmeticValid = $categoryArithmeticValid
+        MalformedHardDiagnosticCount = @($diagnostics | Where-Object {
+            $_.CandidateKind -ceq 'malformed-hard-diagnostic-header'
+        }).Count
+        UnapprovedHardDiagnosticCount = $unapproved.Count
+        UnapprovedHardDiagnosticKinds = $unapprovedKinds
+        LifecycleMarkersValid = $lifecycleMarkersValid
+        IdentityBaselinePairValid = $identityCandidates.Count -eq 0 -or
+            $identityPairExact
+        IntentionalFixtureStructureExact = $intentionalFixtureStructureValid
+        IntentionalFixtureSetValid = $intentionalFixtureSetValid
+        IntentionalMissionConvoyAdmissionDiagnosticsProven =
+            $IntentionalMissionConvoyAdmissionDiagnosticsProven
+        IntentionalMissionConvoySettlementDiagnosticProven =
+            $IntentionalMissionConvoySettlementDiagnosticProven
+        IntentionalMissionConvoyCorruptionDiagnosticsProven =
+            $IntentionalMissionConvoyCorruptionDiagnosticsProven
+        IntentionalMissionConvoyWatchdogDiagnosticProven =
+            $IntentionalMissionConvoyWatchdogDiagnosticProven
     }
+}
+
+function Test-CampaignDebugHardDiagnosticCensus {
+    $armLine =
+        '17:00:01.000 SCRIPT : Partisan campaign debug CLI | armed exact HST_Dev full certification run'
+    $startLine =
+        '17:00:01.100 SCRIPT : Partisan campaign debug CLI | started full_certification on attempt 1'
+    $forceResultLine =
+        '17:00:03.000 SCRIPT : Partisan campaign debug | PASS | early_mechanics.force_authority | assertions passed'
+    $fullLifecyclePrefix = @($armLine, $startLine)
+    $fullLifecycleSuffix = @($forceResultLine)
+    $forceArmLine =
+        '17:00:01.000 SCRIPT : Partisan campaign debug CLI | armed focused force_authority run (not full certification)'
+    $forceStartLine =
+        '17:00:01.100 SCRIPT : Partisan campaign debug CLI | started force_authority on attempt 1'
+    $forceResultLine =
+        '17:00:03.000 SCRIPT : Partisan campaign debug | PASS | early_mechanics.force_authority | assertions passed'
+    $forceLifecycleText = @($forceArmLine, $forceStartLine, $forceResultLine) -join "`n"
+    $editableBlock = @(
+        '17:00:00.000 SCRIPT (E): Virtual Machine Exception',
+        '',
+        'Reason: Wrong parameter value',
+        '',
+        "Class: 'SCR_EditableEntityCore'",
+        "Function: 'GetPlayerIdentityId'",
+        'Stack trace:',
+        'Scripts/Game/Utilities/SCR_PlayerIdentityUtils.c:29 Function GetPlayerIdentityId',
+        'Scripts/Game/Editor/Core/SCR_EditableEntityCore.c:1189 Function OnPlayerIdentityAvailable',
+        'Scripts/Game/GameMode/SCR_BaseGameMode.c:842 Function OnPlayerAuditSuccess'
+    )
+    $reconnectBlock = @(
+        '17:00:00.001 SCRIPT (E): Virtual Machine Exception',
+        '',
+        'Reason: Wrong parameter value',
+        '',
+        "Class: 'SCR_ReconnectComponent'",
+        "Function: 'GetPlayerIdentityId'",
+        'Stack trace:',
+        'Scripts/Game/Utilities/SCR_PlayerIdentityUtils.c:29 Function GetPlayerIdentityId',
+        'Scripts/Game/GameMode/Components/SCR_ReconnectComponent.c:135 Function HandlePlayerReconnect',
+        'Scripts/Game/Respawn/Logic/SCR_SpawnLogic.c:534 Function ResolveReconnection',
+        'Scripts/Game/Respawn/Logic/SCR_SpawnLogic.c:329 Function OnPlayerDataLoaded_S',
+        'Scripts/Game/Respawn/Logic/SCR_SpawnLogic.c:298 Function RequestPlayerData_S',
+        'Scripts/Game/Respawn/Logic/SCR_SpawnLogic.c:273 Function ExcuteInitialLoadOrSpawn_S',
+        'Scripts/Game/Respawn/Logic/SCR_AutoSpawnLogic.c:18 Function OnPlayerAuditSuccess_S',
+        'Scripts/Game/GameMode/Respawn/SCR_RespawnSystemComponent.c:258 Function OnPlayerAuditSuccess_S',
+        'Scripts/Game/GameMode/SCR_BaseGameMode.c:845 Function OnPlayerAuditSuccess'
+    )
+    $identityText = ($editableBlock + $reconnectBlock +
+        @($forceArmLine, $forceStartLine, $forceResultLine)) -join "`n"
+    $identityValid = Get-CampaignDebugHardDiagnosticCensus `
+        -ScriptText $identityText `
+        -Profile force_authority `
+        -IntentionalMissionConvoyAdmissionDiagnosticsProven $false `
+        -IntentionalMissionConvoySettlementDiagnosticProven $false `
+        -IntentionalMissionConvoyCorruptionDiagnosticsProven $false `
+        -IntentionalMissionConvoyWatchdogDiagnosticProven $false
+    if (-not $identityValid.Valid -or
+        $identityValid.HardDiagnosticFree -or
+        -not $identityValid.ChannelArithmeticValid -or
+        -not $identityValid.CategoryArithmeticValid -or
+        $identityValid.HardDiagnosticCount -ne 2 -or
+        $identityValid.ApprovedStockDiagnosticCount -ne 2 -or
+        $identityValid.UnapprovedHardDiagnosticCount -ne 0) {
+        throw 'Campaign Debug timestamped stock-diagnostic classification self-test failed.'
+    }
+
+    $clean = Get-CampaignDebugHardDiagnosticCensus `
+        -ScriptText $forceLifecycleText `
+        -Profile force_authority `
+        -IntentionalMissionConvoyAdmissionDiagnosticsProven $false `
+        -IntentionalMissionConvoySettlementDiagnosticProven $false `
+        -IntentionalMissionConvoyCorruptionDiagnosticsProven $false `
+        -IntentionalMissionConvoyWatchdogDiagnosticProven $false
+    if (-not $clean.Valid -or -not $clean.HardDiagnosticFree) {
+        throw 'Campaign Debug clean hard-diagnostic self-test failed.'
+    }
+
+    $unknown = Get-CampaignDebugHardDiagnosticCensus `
+        -ScriptText ($identityText + "`n17:00:02.000 SCRIPT (E): unknown") `
+        -Profile force_authority `
+        -IntentionalMissionConvoyAdmissionDiagnosticsProven $false `
+        -IntentionalMissionConvoySettlementDiagnosticProven $false `
+        -IntentionalMissionConvoyCorruptionDiagnosticsProven $false `
+        -IntentionalMissionConvoyWatchdogDiagnosticProven $false
+    if ($unknown.Valid -or $unknown.UnapprovedHardDiagnosticCount -ne 1) {
+        throw 'Campaign Debug unknown hard-diagnostic rejection self-test failed.'
+    }
+
+    $malformed = Get-CampaignDebugHardDiagnosticCensus `
+        -ScriptText 'prefix SCRIPT (E): malformed' `
+        -Profile full_certification `
+        -IntentionalMissionConvoyAdmissionDiagnosticsProven $false `
+        -IntentionalMissionConvoySettlementDiagnosticProven $false `
+        -IntentionalMissionConvoyCorruptionDiagnosticsProven $false `
+        -IntentionalMissionConvoyWatchdogDiagnosticProven $false
+    if ($malformed.Valid -or
+        $malformed.HardDiagnosticCount -ne 1 -or
+        $malformed.MalformedHardDiagnosticCount -ne 1 -or
+        $malformed.UnapprovedHardDiagnosticCount -ne 1) {
+        throw 'Campaign Debug malformed hard-diagnostic rejection self-test failed.'
+    }
+
+    $spacedColon = Get-CampaignDebugHardDiagnosticCensus `
+        -ScriptText ($forceLifecycleText + "`n17:00:04.000 SCRIPT (E) : unknown") `
+        -ConsoleText '17:00:04.000 SCRIPT (E) : unknown' `
+        -Profile force_authority `
+        -IntentionalMissionConvoyAdmissionDiagnosticsProven $false `
+        -IntentionalMissionConvoySettlementDiagnosticProven $false `
+        -IntentionalMissionConvoyCorruptionDiagnosticsProven $false `
+        -IntentionalMissionConvoyWatchdogDiagnosticProven $false
+    if ($spacedColon.Valid -or
+        $spacedColon.HardDiagnosticCount -ne 1 -or
+        $spacedColon.MalformedHardDiagnosticCount -ne 1 -or
+        $spacedColon.UnapprovedHardDiagnosticCount -ne 1) {
+        throw 'Campaign Debug spaced-colon hard-diagnostic rejection self-test failed.'
+    }
+    $compactChannel = Get-CampaignDebugHardDiagnosticCensus `
+        -ScriptText ($forceLifecycleText + "`n17:00:04.000 SCRIPT(E): unknown") `
+        -Profile force_authority `
+        -IntentionalMissionConvoyAdmissionDiagnosticsProven $false `
+        -IntentionalMissionConvoySettlementDiagnosticProven $false `
+        -IntentionalMissionConvoyCorruptionDiagnosticsProven $false `
+        -IntentionalMissionConvoyWatchdogDiagnosticProven $false
+    if ($compactChannel.Valid -or
+        $compactChannel.HardDiagnosticCount -ne 1 -or
+        $compactChannel.MalformedHardDiagnosticCount -ne 1) {
+        throw 'Campaign Debug compact-channel hard-diagnostic rejection self-test failed.'
+    }
+    $lowerMissingColon = Get-CampaignDebugHardDiagnosticCensus `
+        -ScriptText ($forceLifecycleText + "`n17:00:04.000 script (E) unknown") `
+        -Profile force_authority `
+        -IntentionalMissionConvoyAdmissionDiagnosticsProven $false `
+        -IntentionalMissionConvoySettlementDiagnosticProven $false `
+        -IntentionalMissionConvoyCorruptionDiagnosticsProven $false `
+        -IntentionalMissionConvoyWatchdogDiagnosticProven $false
+    if ($lowerMissingColon.Valid -or
+        $lowerMissingColon.HardDiagnosticCount -ne 1 -or
+        $lowerMissingColon.MalformedHardDiagnosticCount -ne 1) {
+        throw 'Campaign Debug lowercase missing-colon hard-diagnostic rejection self-test failed.'
+    }
+
+    $reversed = Get-CampaignDebugHardDiagnosticCensus `
+        -ScriptText (($reconnectBlock + $editableBlock +
+            @($forceArmLine, $forceStartLine, $forceResultLine)) -join "`n") `
+        -Profile force_authority `
+        -IntentionalMissionConvoyAdmissionDiagnosticsProven $false `
+        -IntentionalMissionConvoySettlementDiagnosticProven $false `
+        -IntentionalMissionConvoyCorruptionDiagnosticsProven $false `
+        -IntentionalMissionConvoyWatchdogDiagnosticProven $false
+    if ($reversed.Valid -or $reversed.UnapprovedHardDiagnosticCount -ne 2) {
+        throw 'Campaign Debug stock-diagnostic ordering rejection self-test failed.'
+    }
+
+    $thirdIdentity = Get-CampaignDebugHardDiagnosticCensus `
+        -ScriptText (($editableBlock + $reconnectBlock + $editableBlock +
+            @($forceArmLine, $forceStartLine, $forceResultLine)) -join "`n") `
+        -Profile force_authority `
+        -IntentionalMissionConvoyAdmissionDiagnosticsProven $false `
+        -IntentionalMissionConvoySettlementDiagnosticProven $false `
+        -IntentionalMissionConvoyCorruptionDiagnosticsProven $false `
+        -IntentionalMissionConvoyWatchdogDiagnosticProven $false
+    if ($thirdIdentity.Valid -or $thirdIdentity.UnapprovedHardDiagnosticCount -ne 3) {
+        throw 'Campaign Debug stock-diagnostic exact-count rejection self-test failed.'
+    }
+
+    $intentionalMessages = @(
+        'Partisan exact mission convoy | mission_convoy_proof_admission_rollback failed closed: exact mission convoy road route is missing or too short',
+        'Partisan exact mission convoy | mission_convoy_proof_cargo_duplicate failed closed: exact mission convoy admission contains more than one optional cargo row',
+        'Partisan exact mission convoy | mission_convoy_proof_cargo_invalid_prefab failed closed: exact mission convoy cargo prefab is missing, invalid, or not an entity prefab',
+        'Partisan exact mission convoy | mission_convoy_proof_cargo_wrong_kind failed closed: exact mission convoy cargo role or kind is incompatible with the mission',
+        'Partisan exact mission convoy | mission_convoy_proof_cargo_disallowed failed closed: exact mission convoy mission kind does not permit a cargo row',
+        'Partisan exact mission convoy | mission_convoy_proof_cargo_missing failed closed: exact mission convoy mission kind requires exactly one compatible cargo row',
+        'Partisan exact mission convoy | mission_convoy_proof_cargo_wrong_runtime failed closed: exact mission convoy runtime type is incompatible with frozen convoy authority',
+        'Partisan exact mission convoy | mission_convoy_proof_cargo_captive_non_character failed closed: exact mission convoy captive prefab is not a boardable character with compartment access',
+        'Partisan exact mission convoy | mission_convoy_proof_cargo_payload_character failed closed: exact mission convoy payload prefab must be a non-character mission-asset entity',
+        'Partisan exact mission convoy | mission_convoy_proof_arrival_outcome_boundary failed closed: restored exact convoy runtime could not be normalized without changing survivor or element authority',
+        'Partisan exact mission convoy | mission_convoy_proof_duplicate_corruption failed closed: exact mission convoy authority identity is ambiguous',
+        'Partisan exact mission convoy | mission_convoy_proof_hash_corruption failed closed: exact mission convoy manifest hash changed after admission',
+        'Partisan exact mission convoy | mission_convoy_proof_missing_backlink_corruption failed closed: exact mission convoy canonical mission authority links conflict',
+        'Partisan exact mission convoy | mission_convoy_proof_watchdog failed closed: all-or-nothing convoy materialization did not confirm every required surviving crew/vehicle root before timeout'
+    )
+    $intentionalLines = New-Object Collections.Generic.List[string]
+    for ($index = 0; $index -lt $intentionalMessages.Count; $index++) {
+        [void]$intentionalLines.Add(
+            ('17:00:02.{0:D3} SCRIPT (E): {1}' -f $index, $intentionalMessages[$index]))
+    }
+    $intentionalText = ($fullLifecyclePrefix +
+        $intentionalLines.ToArray() + $fullLifecycleSuffix) -join "`n"
+    $intentionalValid = Get-CampaignDebugHardDiagnosticCensus `
+        -ScriptText $intentionalText `
+        -Profile full_certification `
+        -IntentionalMissionConvoyAdmissionDiagnosticsProven $true `
+        -IntentionalMissionConvoySettlementDiagnosticProven $true `
+        -IntentionalMissionConvoyCorruptionDiagnosticsProven $true `
+        -IntentionalMissionConvoyWatchdogDiagnosticProven $true
+    if (-not $intentionalValid.Valid -or
+        -not $intentionalValid.ChannelArithmeticValid -or
+        -not $intentionalValid.CategoryArithmeticValid -or
+        $intentionalValid.ApprovedIntentionalDiagnosticCount -ne 14 -or
+        $intentionalValid.UnapprovedHardDiagnosticCount -ne 0 -or
+        $intentionalValid.HardDiagnosticCount -ne
+            ($intentionalValid.ApprovedStockDiagnosticCount +
+                $intentionalValid.ApprovedIntentionalDiagnosticCount +
+                $intentionalValid.UnapprovedHardDiagnosticCount)) {
+        throw 'Campaign Debug intentional-fixture classification self-test failed.'
+    }
+
+    $missingIntentional = Get-CampaignDebugHardDiagnosticCensus `
+        -ScriptText (($fullLifecyclePrefix + $fullLifecycleSuffix) -join "`n") `
+        -Profile full_certification `
+        -IntentionalMissionConvoyAdmissionDiagnosticsProven $true `
+        -IntentionalMissionConvoySettlementDiagnosticProven $true `
+        -IntentionalMissionConvoyCorruptionDiagnosticsProven $true `
+        -IntentionalMissionConvoyWatchdogDiagnosticProven $true
+    if ($missingIntentional.Valid -or
+        $missingIntentional.HardDiagnosticCount -ne 0 -or
+        $missingIntentional.IntentionalFixtureSetValid) {
+        throw 'Campaign Debug missing full-profile intentional-fixture self-test failed.'
+    }
+
+    $duplicateIntentionalText = ($fullLifecyclePrefix +
+        @($intentionalLines[0]) + $intentionalLines.ToArray() +
+        $fullLifecycleSuffix) -join "`n"
+    $duplicateIntentional = Get-CampaignDebugHardDiagnosticCensus `
+        -ScriptText $duplicateIntentionalText `
+        -Profile full_certification `
+        -IntentionalMissionConvoyAdmissionDiagnosticsProven $true `
+        -IntentionalMissionConvoySettlementDiagnosticProven $true `
+        -IntentionalMissionConvoyCorruptionDiagnosticsProven $true `
+        -IntentionalMissionConvoyWatchdogDiagnosticProven $true
+    if ($duplicateIntentional.Valid -or
+        $duplicateIntentional.HardDiagnosticCount -ne 15 -or
+        $duplicateIntentional.ApprovedIntentionalDiagnosticCount -ne 0 -or
+        $duplicateIntentional.UnapprovedHardDiagnosticCount -ne 15) {
+        throw 'Campaign Debug duplicate intentional-fixture rejection self-test failed.'
+    }
+
+    $settlementUnproven = Get-CampaignDebugHardDiagnosticCensus `
+        -ScriptText $intentionalText `
+        -Profile full_certification `
+        -IntentionalMissionConvoyAdmissionDiagnosticsProven $true `
+        -IntentionalMissionConvoySettlementDiagnosticProven $false `
+        -IntentionalMissionConvoyCorruptionDiagnosticsProven $true `
+        -IntentionalMissionConvoyWatchdogDiagnosticProven $true
+    if ($settlementUnproven.Valid -or
+        $settlementUnproven.ApprovedIntentionalDiagnosticCount -ne 13 -or
+        $settlementUnproven.UnapprovedHardDiagnosticCount -ne 1) {
+        throw 'Campaign Debug failed-settlement fixture rejection self-test failed.'
+    }
+
+    $intentionalUnproven = Get-CampaignDebugHardDiagnosticCensus `
+        -ScriptText $intentionalText `
+        -Profile full_certification `
+        -IntentionalMissionConvoyAdmissionDiagnosticsProven $false `
+        -IntentionalMissionConvoySettlementDiagnosticProven $false `
+        -IntentionalMissionConvoyCorruptionDiagnosticsProven $false `
+        -IntentionalMissionConvoyWatchdogDiagnosticProven $false
+    if ($intentionalUnproven.Valid -or
+        $intentionalUnproven.UnapprovedHardDiagnosticCount -ne 14) {
+        throw 'Campaign Debug unproven intentional-fixture rejection self-test failed.'
+    }
+
+    $intentionalPartial = Get-CampaignDebugHardDiagnosticCensus `
+        -ScriptText (($fullLifecyclePrefix +
+            $intentionalLines.ToArray()[0..12] + $fullLifecycleSuffix) -join "`n") `
+        -Profile full_certification `
+        -IntentionalMissionConvoyAdmissionDiagnosticsProven $true `
+        -IntentionalMissionConvoySettlementDiagnosticProven $true `
+        -IntentionalMissionConvoyCorruptionDiagnosticsProven $true `
+        -IntentionalMissionConvoyWatchdogDiagnosticProven $true
+    if ($intentionalPartial.Valid -or
+        $intentionalPartial.UnapprovedHardDiagnosticCount -ne 13) {
+        throw 'Campaign Debug partial intentional-fixture rejection self-test failed.'
+    }
+
+    $mutatedIntentionalLines = @($intentionalLines.ToArray())
+    $mutatedIntentionalLines[$mutatedIntentionalLines.Count - 1] += ' unexpected'
+    $intentionalMutationText = ($fullLifecyclePrefix +
+        $mutatedIntentionalLines + $fullLifecycleSuffix) -join "`n"
+    $intentionalMutation = Get-CampaignDebugHardDiagnosticCensus `
+        -ScriptText $intentionalMutationText `
+        -Profile full_certification `
+        -IntentionalMissionConvoyAdmissionDiagnosticsProven $true `
+        -IntentionalMissionConvoySettlementDiagnosticProven $true `
+        -IntentionalMissionConvoyCorruptionDiagnosticsProven $true `
+        -IntentionalMissionConvoyWatchdogDiagnosticProven $true
+    if ($intentionalMutation.Valid -or
+        $intentionalMutation.UnapprovedHardDiagnosticCount -ne 14) {
+        throw 'Campaign Debug intentional-fixture suffix-mutation self-test failed.'
+    }
+
+    $engineIntentionalLines = @($intentionalLines.ToArray() | ForEach-Object {
+        $_ -replace ' SCRIPT \(E\): ', ' ENGINE (E): '
+    })
+    $engineIntentionalText = ($fullLifecyclePrefix +
+        $engineIntentionalLines + $fullLifecycleSuffix) -join "`n"
+    $engineIntentional = Get-CampaignDebugHardDiagnosticCensus `
+        -ScriptText $engineIntentionalText `
+        -Profile full_certification `
+        -IntentionalMissionConvoyAdmissionDiagnosticsProven $true `
+        -IntentionalMissionConvoySettlementDiagnosticProven $true `
+        -IntentionalMissionConvoyCorruptionDiagnosticsProven $true `
+        -IntentionalMissionConvoyWatchdogDiagnosticProven $true
+    if ($engineIntentional.Valid -or
+        $engineIntentional.ApprovedIntentionalDiagnosticCount -ne 0 -or
+        $engineIntentional.EngineErrors -ne 14 -or
+        $engineIntentional.UnapprovedHardDiagnosticCount -ne 14) {
+        throw 'Campaign Debug intentional-fixture channel-mutation self-test failed.'
+    }
+
+    $bodyIntentionalLines = New-Object Collections.Generic.List[string]
+    [void]$bodyIntentionalLines.Add($intentionalLines[0])
+    [void]$bodyIntentionalLines.Add('unexpected continuation body')
+    for ($index = 1; $index -lt $intentionalLines.Count; $index++) {
+        [void]$bodyIntentionalLines.Add($intentionalLines[$index])
+    }
+    $bodyIntentionalText = ($fullLifecyclePrefix +
+        $bodyIntentionalLines.ToArray() + $fullLifecycleSuffix) -join "`n"
+    $bodyIntentional = Get-CampaignDebugHardDiagnosticCensus `
+        -ScriptText $bodyIntentionalText `
+        -Profile full_certification `
+        -IntentionalMissionConvoyAdmissionDiagnosticsProven $true `
+        -IntentionalMissionConvoySettlementDiagnosticProven $true `
+        -IntentionalMissionConvoyCorruptionDiagnosticsProven $true `
+        -IntentionalMissionConvoyWatchdogDiagnosticProven $true
+    if ($bodyIntentional.Valid -or
+        $bodyIntentional.ApprovedIntentionalDiagnosticCount -ne 0 -or
+        $bodyIntentional.UnapprovedHardDiagnosticCount -ne 14) {
+        throw 'Campaign Debug intentional-fixture continuation-body self-test failed.'
+    }
+
+    $outOfBoundsIntentionalText = (@($armLine) +
+        $intentionalLines.ToArray() + @($startLine, $forceResultLine)) -join "`n"
+    $outOfBoundsIntentional = Get-CampaignDebugHardDiagnosticCensus `
+        -ScriptText $outOfBoundsIntentionalText `
+        -Profile full_certification `
+        -IntentionalMissionConvoyAdmissionDiagnosticsProven $true `
+        -IntentionalMissionConvoySettlementDiagnosticProven $true `
+        -IntentionalMissionConvoyCorruptionDiagnosticsProven $true `
+        -IntentionalMissionConvoyWatchdogDiagnosticProven $true
+    if ($outOfBoundsIntentional.Valid -or
+        $outOfBoundsIntentional.ApprovedIntentionalDiagnosticCount -ne 0 -or
+        $outOfBoundsIntentional.UnapprovedHardDiagnosticCount -ne 14) {
+        throw 'Campaign Debug intentional-fixture lifecycle-boundary self-test failed.'
+    }
+
+    $canaryIntentional = Get-CampaignDebugHardDiagnosticCensus `
+        -ScriptText $intentionalText `
+        -Profile force_authority `
+        -IntentionalMissionConvoyAdmissionDiagnosticsProven $true `
+        -IntentionalMissionConvoySettlementDiagnosticProven $true `
+        -IntentionalMissionConvoyCorruptionDiagnosticsProven $true `
+        -IntentionalMissionConvoyWatchdogDiagnosticProven $true
+    if ($canaryIntentional.Valid -or
+        $canaryIntentional.UnapprovedHardDiagnosticCount -ne 14) {
+        throw 'Campaign Debug wrong-profile intentional-fixture rejection self-test failed.'
+    }
+
+    $fatal = Get-CampaignDebugHardDiagnosticCensus `
+        -ScriptText '17:00:03.000 ENGINE (E): fatal error synthetic' `
+        -Profile force_authority `
+        -IntentionalMissionConvoyAdmissionDiagnosticsProven $false `
+        -IntentionalMissionConvoySettlementDiagnosticProven $false `
+        -IntentionalMissionConvoyCorruptionDiagnosticsProven $false `
+        -IntentionalMissionConvoyWatchdogDiagnosticProven $false
+    if ($fatal.Valid -or $fatal.CrashMarkers -ne 1) {
+        throw 'Campaign Debug crash-marker rejection self-test failed.'
+    }
+
+    $normalChannelFatal = Get-CampaignDebugHardDiagnosticCensus `
+        -ScriptText ($forceLifecycleText + "`n17:00:04.000 SCRIPT : FATAL: synthetic") `
+        -Profile force_authority `
+        -IntentionalMissionConvoyAdmissionDiagnosticsProven $false `
+        -IntentionalMissionConvoySettlementDiagnosticProven $false `
+        -IntentionalMissionConvoyCorruptionDiagnosticsProven $false `
+        -IntentionalMissionConvoyWatchdogDiagnosticProven $false
+    if ($normalChannelFatal.Valid -or
+        $normalChannelFatal.HardDiagnosticFree -or
+        $normalChannelFatal.HardDiagnosticCount -ne 0 -or
+        $normalChannelFatal.CrashMarkers -ne 1) {
+        throw 'Campaign Debug normal-channel fatal-marker rejection self-test failed.'
+    }
+    $normalChannelPartisanError = Get-CampaignDebugHardDiagnosticCensus `
+        -ScriptText ($forceLifecycleText +
+            "`n17:00:04.000 SCRIPT : Partisan subsystem ERROR: synthetic") `
+        -Profile force_authority `
+        -IntentionalMissionConvoyAdmissionDiagnosticsProven $false `
+        -IntentionalMissionConvoySettlementDiagnosticProven $false `
+        -IntentionalMissionConvoyCorruptionDiagnosticsProven $false `
+        -IntentionalMissionConvoyWatchdogDiagnosticProven $false
+    if ($normalChannelPartisanError.Valid -or
+        $normalChannelPartisanError.HardDiagnosticFree -or
+        $normalChannelPartisanError.HardDiagnosticCount -ne 0 -or
+        $normalChannelPartisanError.PartisanSeverityLineCount -ne 1) {
+        throw 'Campaign Debug normal-channel Partisan severity rejection self-test failed.'
+    }
+    $mirroredFatalLine = '17:00:04.000 SCRIPT : FATAL: mirrored synthetic'
+    $mirroredFatal = Get-CampaignDebugHardDiagnosticCensus `
+        -ScriptText ($forceLifecycleText + "`n" + $mirroredFatalLine) `
+        -ConsoleText $mirroredFatalLine `
+        -Profile force_authority `
+        -IntentionalMissionConvoyAdmissionDiagnosticsProven $false `
+        -IntentionalMissionConvoySettlementDiagnosticProven $false `
+        -IntentionalMissionConvoyCorruptionDiagnosticsProven $false `
+        -IntentionalMissionConvoyWatchdogDiagnosticProven $false
+    if ($mirroredFatal.Valid -or $mirroredFatal.CrashMarkers -ne 1) {
+        throw 'Campaign Debug mirrored fatal-marker multiset self-test failed.'
+    }
+
+    $tempBase = [IO.Path]::GetFullPath([IO.Path]::GetTempPath())
+    $tempRoot = Join-Path $tempBase (
+        'PartisanCampaignDebugCensusSelfTest_' + [Guid]::NewGuid().ToString('N'))
+    if (-not (Test-ContainedPath -Root $tempBase -Candidate $tempRoot)) {
+        throw 'Campaign Debug census self-test root escaped the temporary directory.'
+    }
+    try {
+        $logDirectory = Join-Path $tempRoot 'logs\first'
+        New-Item -ItemType Directory -Path $logDirectory -Force | Out-Null
+        $missingCanonical = Get-GuardErrorCensus `
+            -GuardRoot $tempRoot `
+            -Profile force_authority `
+            -IntentionalMissionConvoyAdmissionDiagnosticsProven $false `
+            -IntentionalMissionConvoySettlementDiagnosticProven $false `
+            -IntentionalMissionConvoyCorruptionDiagnosticsProven $false `
+            -IntentionalMissionConvoyWatchdogDiagnosticProven $false
+        if ($missingCanonical.Valid -or
+            $missingCanonical.CanonicalScriptLogCount -ne 0) {
+            throw 'Campaign Debug missing canonical script-log self-test failed.'
+        }
+
+        $canonicalPath = Join-Path $logDirectory 'script.log'
+        [IO.File]::WriteAllText(
+            $canonicalPath,
+            $forceLifecycleText,
+            (New-Object Text.UTF8Encoding($false)))
+        [IO.File]::WriteAllText(
+            (Join-Path $logDirectory 'console.log'),
+            'no hard diagnostics',
+            (New-Object Text.UTF8Encoding($false)))
+        [IO.File]::WriteAllText(
+            (Join-Path $logDirectory 'error.log'),
+            '17:00:03.000 SCRIPT (E): noncanonical error-log mirror is ignored',
+            (New-Object Text.UTF8Encoding($false)))
+        $singleCanonical = Get-GuardErrorCensus `
+            -GuardRoot $tempRoot `
+            -Profile force_authority `
+            -IntentionalMissionConvoyAdmissionDiagnosticsProven $false `
+            -IntentionalMissionConvoySettlementDiagnosticProven $false `
+            -IntentionalMissionConvoyCorruptionDiagnosticsProven $false `
+            -IntentionalMissionConvoyWatchdogDiagnosticProven $false
+        if (-not $singleCanonical.Valid -or
+            $singleCanonical.CanonicalScriptLogCount -ne 1 -or
+            $singleCanonical.CanonicalConsoleLogCount -ne 1 -or
+            $singleCanonical.HardDiagnosticCount -ne 0) {
+            throw 'Campaign Debug canonical script-log isolation self-test failed.'
+        }
+
+        [IO.File]::WriteAllText(
+            (Join-Path $logDirectory 'console.log'),
+            '17:00:04.000 SCRIPT (E): unique console script error',
+            (New-Object Text.UTF8Encoding($false)))
+        $uniqueConsoleScript = Get-GuardErrorCensus `
+            -GuardRoot $tempRoot `
+            -Profile force_authority `
+            -IntentionalMissionConvoyAdmissionDiagnosticsProven $false `
+            -IntentionalMissionConvoySettlementDiagnosticProven $false `
+            -IntentionalMissionConvoyCorruptionDiagnosticsProven $false `
+            -IntentionalMissionConvoyWatchdogDiagnosticProven $false
+        if ($uniqueConsoleScript.Valid -or
+            $uniqueConsoleScript.ScriptErrors -ne 1 -or
+            $uniqueConsoleScript.UnapprovedHardDiagnosticCount -ne 1) {
+            throw 'Campaign Debug unique console SCRIPT-diagnostic self-test failed.'
+        }
+
+        [IO.File]::WriteAllText(
+            $canonicalPath,
+            $identityText,
+            (New-Object Text.UTF8Encoding($false)))
+        [IO.File]::WriteAllText(
+            (Join-Path $logDirectory 'console.log'),
+            $identityText,
+            (New-Object Text.UTF8Encoding($false)))
+        $mirroredIdentity = Get-GuardErrorCensus `
+            -GuardRoot $tempRoot `
+            -Profile force_authority `
+            -IntentionalMissionConvoyAdmissionDiagnosticsProven $false `
+            -IntentionalMissionConvoySettlementDiagnosticProven $false `
+            -IntentionalMissionConvoyCorruptionDiagnosticsProven $false `
+            -IntentionalMissionConvoyWatchdogDiagnosticProven $false
+        if (-not $mirroredIdentity.Valid -or
+            $mirroredIdentity.HardDiagnosticCount -ne 2 -or
+            $mirroredIdentity.ApprovedStockDiagnosticCount -ne 2 -or
+            $mirroredIdentity.UnapprovedHardDiagnosticCount -ne 0) {
+            throw 'Campaign Debug canonical mirrored-diagnostic multiset self-test failed.'
+        }
+        [IO.File]::WriteAllText(
+            $canonicalPath,
+            $forceLifecycleText,
+            (New-Object Text.UTF8Encoding($false)))
+
+        [IO.File]::WriteAllText(
+            (Join-Path $logDirectory 'console.log'),
+            '17:00:04.000 ENGINE (E): synthetic console engine error',
+            (New-Object Text.UTF8Encoding($false)))
+        $consoleEngine = Get-GuardErrorCensus `
+            -GuardRoot $tempRoot `
+            -Profile force_authority `
+            -IntentionalMissionConvoyAdmissionDiagnosticsProven $false `
+            -IntentionalMissionConvoySettlementDiagnosticProven $false `
+            -IntentionalMissionConvoyCorruptionDiagnosticsProven $false `
+            -IntentionalMissionConvoyWatchdogDiagnosticProven $false
+        if ($consoleEngine.Valid -or
+            $consoleEngine.EngineErrors -ne 1 -or
+            $consoleEngine.UnapprovedHardDiagnosticCount -ne 1) {
+            throw 'Campaign Debug canonical console ENGINE-diagnostic self-test failed.'
+        }
+        [IO.File]::WriteAllText(
+            (Join-Path $logDirectory 'console.log'),
+            (@(
+                '17:00:04.000 ENGINE (E): duplicate console engine error',
+                '17:00:04.000 ENGINE (E): duplicate console engine error'
+            ) -join "`n"),
+            (New-Object Text.UTF8Encoding($false)))
+        $duplicateConsoleEngine = Get-GuardErrorCensus `
+            -GuardRoot $tempRoot `
+            -Profile force_authority `
+            -IntentionalMissionConvoyAdmissionDiagnosticsProven $false `
+            -IntentionalMissionConvoySettlementDiagnosticProven $false `
+            -IntentionalMissionConvoyCorruptionDiagnosticsProven $false `
+            -IntentionalMissionConvoyWatchdogDiagnosticProven $false
+        if ($duplicateConsoleEngine.Valid -or
+            $duplicateConsoleEngine.EngineErrors -ne 2 -or
+            $duplicateConsoleEngine.UnapprovedHardDiagnosticCount -ne 2) {
+            throw 'Campaign Debug duplicate same-source ENGINE-diagnostic self-test failed.'
+        }
+        [IO.File]::WriteAllText(
+            (Join-Path $logDirectory 'console.log'),
+            'no hard diagnostics',
+            (New-Object Text.UTF8Encoding($false)))
+
+        $duplicateDirectory = Join-Path $tempRoot 'logs\second'
+        New-Item -ItemType Directory -Path $duplicateDirectory -Force | Out-Null
+        $firstConsolePath = Join-Path $logDirectory 'console.log'
+        $secondConsolePath = Join-Path $duplicateDirectory 'console.log'
+        [IO.File]::Move($firstConsolePath, $secondConsolePath)
+        $splitCanonical = Get-GuardErrorCensus `
+            -GuardRoot $tempRoot `
+            -Profile force_authority `
+            -IntentionalMissionConvoyAdmissionDiagnosticsProven $false `
+            -IntentionalMissionConvoySettlementDiagnosticProven $false `
+            -IntentionalMissionConvoyCorruptionDiagnosticsProven $false `
+            -IntentionalMissionConvoyWatchdogDiagnosticProven $false
+        if ($splitCanonical.Valid -or
+            $splitCanonical.CanonicalScriptLogCount -ne 1 -or
+            $splitCanonical.CanonicalConsoleLogCount -ne 1 -or
+            $splitCanonical.CanonicalLogPairSameDirectory) {
+            throw 'Campaign Debug split canonical log-pair self-test failed.'
+        }
+        [IO.File]::Move($secondConsolePath, $firstConsolePath)
+        [IO.File]::WriteAllText(
+            (Join-Path $duplicateDirectory 'script.log'),
+            $forceLifecycleText,
+            (New-Object Text.UTF8Encoding($false)))
+        [IO.File]::WriteAllText(
+            (Join-Path $duplicateDirectory 'console.log'),
+            'mirror',
+            (New-Object Text.UTF8Encoding($false)))
+        $duplicateCanonical = Get-GuardErrorCensus `
+            -GuardRoot $tempRoot `
+            -Profile force_authority `
+            -IntentionalMissionConvoyAdmissionDiagnosticsProven $false `
+            -IntentionalMissionConvoySettlementDiagnosticProven $false `
+            -IntentionalMissionConvoyCorruptionDiagnosticsProven $false `
+            -IntentionalMissionConvoyWatchdogDiagnosticProven $false
+        if ($duplicateCanonical.Valid -or
+            $duplicateCanonical.CanonicalScriptLogCount -ne 2 -or
+            $duplicateCanonical.CanonicalConsoleLogCount -ne 2) {
+            throw 'Campaign Debug duplicate canonical log self-test failed.'
+        }
+    }
+    finally {
+        if (Test-Path -LiteralPath $tempRoot -PathType Container) {
+            Remove-Item -LiteralPath $tempRoot -Recurse -Force -ErrorAction Stop
+        }
+    }
+
+    return 33
+}
+
+function Get-GuardErrorCensus {
+    param(
+        [Parameter(Mandatory = $true)][string]$GuardRoot,
+
+        [ValidateSet("full_certification", "force_authority")]
+        [Parameter(Mandatory = $true)]
+        [string]$Profile,
+
+        [Parameter(Mandatory = $true)]
+        [bool]$IntentionalMissionConvoyAdmissionDiagnosticsProven,
+
+        [Parameter(Mandatory = $true)]
+        [bool]$IntentionalMissionConvoySettlementDiagnosticProven,
+
+        [Parameter(Mandatory = $true)]
+        [bool]$IntentionalMissionConvoyCorruptionDiagnosticsProven,
+
+        [Parameter(Mandatory = $true)]
+        [bool]$IntentionalMissionConvoyWatchdogDiagnosticProven
+    )
+
+    $logRoot = Join-Path $GuardRoot 'logs'
+    $scriptLogs = @()
+    $consoleLogs = @()
+    if (Test-Path -LiteralPath $logRoot -PathType Container) {
+        $scriptLogs = @(Get-ChildItem `
+            -LiteralPath $logRoot `
+            -Recurse `
+            -File `
+            -Filter 'script.log' `
+            -Force `
+            -ErrorAction Stop)
+        $consoleLogs = @(Get-ChildItem `
+            -LiteralPath $logRoot `
+            -Recurse `
+            -File `
+            -Filter 'console.log' `
+            -Force `
+            -ErrorAction Stop)
+    }
+    $canonicalLogPairSameDirectory = $false
+    if ($scriptLogs.Count -eq 1 -and $consoleLogs.Count -eq 1) {
+        $scriptLogDirectory = [IO.Path]::GetFullPath($scriptLogs[0].DirectoryName)
+        $consoleLogDirectory = [IO.Path]::GetFullPath($consoleLogs[0].DirectoryName)
+        $canonicalLogPairSameDirectory = $scriptLogDirectory.Equals(
+            $consoleLogDirectory,
+            [StringComparison]::OrdinalIgnoreCase)
+    }
+    if ($scriptLogs.Count -ne 1 -or
+        $consoleLogs.Count -ne 1 -or
+        -not $canonicalLogPairSameDirectory) {
+        return [pscustomobject][ordered]@{
+            Valid = $false
+            CanonicalScriptLogCount = $scriptLogs.Count
+            CanonicalConsoleLogCount = $consoleLogs.Count
+            CanonicalLogPairSameDirectory = $canonicalLogPairSameDirectory
+            HardDiagnosticFree = $false
+            HardDiagnosticCount = 0
+            ScriptErrors = 0
+            EngineErrors = 0
+            PartisanErrors = 0
+            CrashMarkers = 0
+            PartisanSeverityLineCount = 0
+            ApprovedStockDiagnosticCount = 0
+            ApprovedIntentionalDiagnosticCount = 0
+            ChannelArithmeticValid = $false
+            CategoryArithmeticValid = $false
+            MalformedHardDiagnosticCount = 0
+            UnapprovedHardDiagnosticCount = 0
+            UnapprovedHardDiagnosticKinds = @()
+            LifecycleMarkersValid = $false
+            IdentityBaselinePairValid = $false
+            IntentionalFixtureStructureExact = $false
+            IntentionalFixtureSetValid = $false
+            IntentionalMissionConvoyAdmissionDiagnosticsProven =
+                $IntentionalMissionConvoyAdmissionDiagnosticsProven
+            IntentionalMissionConvoySettlementDiagnosticProven =
+                $IntentionalMissionConvoySettlementDiagnosticProven
+            IntentionalMissionConvoyCorruptionDiagnosticsProven =
+                $IntentionalMissionConvoyCorruptionDiagnosticsProven
+            IntentionalMissionConvoyWatchdogDiagnosticProven =
+                $IntentionalMissionConvoyWatchdogDiagnosticProven
+        }
+    }
+    if (($scriptLogs[0].Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+        throw 'The canonical Campaign Debug script log must not be a reparse point.'
+    }
+    if (($consoleLogs[0].Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+        throw 'The canonical Campaign Debug console log must not be a reparse point.'
+    }
+    $census = Get-CampaignDebugHardDiagnosticCensus `
+        -ScriptText (Read-SharedFileText -Path $scriptLogs[0].FullName) `
+        -ConsoleText (Read-SharedFileText -Path $consoleLogs[0].FullName) `
+        -Profile $Profile `
+        -IntentionalMissionConvoyAdmissionDiagnosticsProven `
+            $IntentionalMissionConvoyAdmissionDiagnosticsProven `
+        -IntentionalMissionConvoySettlementDiagnosticProven `
+            $IntentionalMissionConvoySettlementDiagnosticProven `
+        -IntentionalMissionConvoyCorruptionDiagnosticsProven `
+            $IntentionalMissionConvoyCorruptionDiagnosticsProven `
+        -IntentionalMissionConvoyWatchdogDiagnosticProven `
+            $IntentionalMissionConvoyWatchdogDiagnosticProven
+    $census | Add-Member `
+        -NotePropertyName CanonicalScriptLogCount `
+        -NotePropertyValue 1
+    $census | Add-Member `
+        -NotePropertyName CanonicalConsoleLogCount `
+        -NotePropertyValue 1
+    $census | Add-Member `
+        -NotePropertyName CanonicalLogPairSameDirectory `
+        -NotePropertyValue $true
+    return $census
 }
 
 function Test-PathOverlap {
@@ -2677,6 +3894,7 @@ function Get-EvidenceFileRows {
     return $rows.ToArray()
 }
 
+$hardDiagnosticClassifierChecks = Test-CampaignDebugHardDiagnosticCensus
 $candidateModulePath = Join-Path $PSScriptRoot 'Partisan.ReleaseCandidate.psm1'
 Import-Module -Name $candidateModulePath -Force -ErrorAction Stop
 $executablePath = Resolve-ExistingPath -Path $Executable -Kind Leaf
@@ -3037,6 +4255,7 @@ try {
             CampaignSaveCopied = $false
             KillOnWrapperClose = $true
             ArgumentTokenCount = $arguments.Count
+            HardDiagnosticClassifierChecks = $hardDiagnosticClassifierChecks
         } | ConvertTo-Json -Compress))
         throw (New-Object OperationCanceledException("guarded-preflight-complete"))
     }
@@ -3101,6 +4320,7 @@ try {
         CampaignSaveCopied = $false
         KillOnWrapperClose = $true
         ArgumentTokensVerified = $true
+        HardDiagnosticClassifierChecks = $hardDiagnosticClassifierChecks
     } | ConvertTo-Json -Compress))
 
     $nextHeartbeat = 0
@@ -3309,14 +4529,22 @@ try {
     if (-not $mountAttestation.Valid) {
         throw 'Engine logs did not attest the exact guarded packed candidate mount.'
     }
-    $errorCensus = Get-GuardErrorCensus -GuardRoot $guardRoot
+    $errorCensus = Get-GuardErrorCensus `
+        -GuardRoot $guardRoot `
+        -Profile $Profile `
+        -IntentionalMissionConvoyAdmissionDiagnosticsProven `
+            $artifactValidation.IntentionalMissionConvoyAdmissionDiagnosticsProven `
+        -IntentionalMissionConvoySettlementDiagnosticProven `
+            $artifactValidation.IntentionalMissionConvoySettlementDiagnosticProven `
+        -IntentionalMissionConvoyCorruptionDiagnosticsProven `
+            $artifactValidation.IntentionalMissionConvoyCorruptionDiagnosticsProven `
+        -IntentionalMissionConvoyWatchdogDiagnosticProven `
+            $artifactValidation.IntentionalMissionConvoyWatchdogDiagnosticProven
     if (-not $artifactValidation.Valid) {
         throw "Campaign Debug artifacts completed but failed the exact validation contract."
     }
-    if ($errorCensus.ScriptErrors -ne 0 -or
-        $errorCensus.PartisanErrors -ne 0 -or
-        $errorCensus.CrashMarkers -ne 0) {
-        throw "Campaign Debug runtime completed with forbidden error signals."
+    if (-not $errorCensus.Valid) {
+        throw "Campaign Debug runtime completed with unapproved hard diagnostics."
     }
 
     Write-Output ("RESULT " + ([pscustomobject]@{
@@ -3331,6 +4559,7 @@ try {
         ArtifactBytes = @($artifactPaths | ForEach-Object { (Get-Item -LiteralPath $_).Length })
         Validation = $safeArtifactValidation
         ErrorCensus = $errorCensus
+        HardDiagnosticClassifierChecks = $hardDiagnosticClassifierChecks
     } | ConvertTo-Json -Depth 8 -Compress))
 }
 catch {
@@ -3353,6 +4582,7 @@ catch {
             ArtifactsStable = $artifactSignaturePolls -ge 2
             Validation = $safeArtifactValidation
             ErrorCensus = $errorCensus
+            HardDiagnosticClassifierChecks = $hardDiagnosticClassifierChecks
         } | ConvertTo-Json -Depth 8 -Compress))
     }
 }
@@ -3686,6 +4916,7 @@ if ($evidenceRunRoot) {
                 mountAttestation = $mountAttestation
                 artifactsStable = $artifactSignaturePolls -ge 2
                 evidenceCaptured = $evidenceState.Captured
+                hardDiagnosticClassifierChecks = $hardDiagnosticClassifierChecks
                 runtimeSeconds = if ($stopwatch) {
                     [Math]::Floor($stopwatch.Elapsed.TotalSeconds)
                 }
