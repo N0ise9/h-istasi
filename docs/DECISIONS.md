@@ -3608,7 +3608,60 @@ Consequences:
   stable certification remains blocked.
 - Report totals and case-exclusive triage remain useful diagnostic coordinates,
   but they are not accepted release evidence.
-- Gameplay correction does not begin from this capture until the corrected
-  external harness reruns both profiles and produces an accepted classification.
+- Gameplay correction begins only after a corrected canary produces a trustworthy
+  classification. A rejected canary stops the sequence before the full profile;
+  CRI-065 records this outcome without changing the preliminary disposition.
 - Dedicated, multiplayer/JIP, restart breadth, performance, soak, canary-release,
   and stable-certification gates remain independent.
+
+Outcome update: Clean committed harness `38a094f` completed the corrected
+`force_authority` canary first and rejected it on one unapproved map-locator VM
+exception. The full profile was therefore not rerun. CRI-065 records the
+resulting staged-gate interpretation and package correction; this update does
+not rewrite CRI-064's original evidence disposition or repair decision.
+
+## CRI-065 - Stop at the Rejected Canary and Guard Map-Locator Lifecycle
+
+- Status: Accepted
+- Date: 2026-07-18
+
+Context: The corrected classifier under clean committed harness `38a094f`
+reran `force_authority` against the unchanged active candidate. The focused
+proof again recorded 35/35 assertions and 87/87 certification-counting
+conditions. The exact raw census was three hard diagnostics = two approved
+stock diagnostics + one unapproved map-locator VM exception. Cleanup and spill
+residue were zero. The runner failed closed, so the full profile was correctly
+not rerun.
+
+The exception reproduced a concrete lifecycle defect. Campaign Debug setup
+opens the `PLAIN` map before bootstrap has a controlled character. The stock
+locator's immediate no-player update removes the hint root but leaves its
+ten-second callback scheduled. When bootstrap supplies the player before that
+callback fires, the callback can dereference stale widget state.
+
+Decision: Preserve the rejected canary as immutable preliminary-unaccepted
+evidence and treat canary then full as a staged sequence: a rejected canary
+stops the sequence. Do not grandfather the VM exception or spend a full run to
+reconfirm a known gate failure.
+
+Add a narrow modded `SCR_MapLocator.CalculateClosestLocation` guard. Before
+entering stock behavior, validate the hint layout, both hint-text widgets, and
+world directions. On invalid state, remove any remaining layout, cancel the
+stale callback, clear the references, and return. On valid state, preserve the
+stock implementation unchanged. Foundation and PC Workbench compile validation
+pass at 5,847 files/11,900 classes and CRC `3a399db1`, with zero errors and
+residue.
+
+Consequences:
+
+- The validation result is source/compile proof, not runtime proof that the
+  delayed callback is safe in the packaged map lifecycle.
+- The correction changes packaged source, so it cannot extend the unchanged
+  candidate's runtime evidence chain. Seal a new immutable candidate before the
+  next canary.
+- Rerun the corrected canary against that new candidate. Run Full Campaign
+  Debug only if the canary is accepted; keep the old full capture as preliminary
+  triage rather than mixing package identities.
+- The release decision remains `NO-GO`; dedicated, multiplayer/JIP, restart
+  breadth, performance, soak, canary-release, and stable certification remain
+  independent.

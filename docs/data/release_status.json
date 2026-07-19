@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "statusAsOfUtc": "2026-07-18T23:33:55Z",
+  "statusAsOfUtc": "2026-07-19T00:14:27.8147977Z",
   "releaseStage": "development alpha",
   "releaseDecision": "NO-GO",
   "auditedRevision": "25dedb3e82ad516c28826830bc1e06a2d3940f53",
@@ -29,7 +29,7 @@
     "workbenchCrc": "f27e637b",
     "serverVersion": "1.7.0.54",
     "clientVersion": "1.7.0.54",
-    "note": "The single replacement candidate is sealed and active for runtime use. Its classifier-aware five-case packaged focused set passed its non-certifying scope. The Campaign Debug canary and full-profile raw captures are mechanically complete but preliminary and unaccepted because the original wrapper missed timestamp-prefixed hard diagnostics; the full report is also red. The first candidate remains retained superseded evidence, and no result may mix their package identities."
+    "note": "The sealed candidate passed its classifier-aware five-case packaged focused scope, but the corrected fail-closed force-authority canary independently rejected it on one unapproved MapLocator runtime diagnostic. It requires a source-fixed replacement package before more Campaign Debug progression. The older full-profile capture remains preliminary, unaccepted, and red, and no result may mix package identities."
   },
   "evidence": {
     "foundation": {
@@ -83,6 +83,61 @@
       "passedConditions": 87,
       "certificationPassed": false,
       "summary": "State-only combat-presence, ownership-transition, and town-influence fixtures passed; native world, package, network, restart breadth, performance, and soak remain outside this result."
+    },
+    "correctedForceAuthorityCanary": {
+      "status": "failed-unapproved-hard-diagnostic",
+      "summaryPath": "docs/evidence/campaign-debug/partisan-rc-b8deddc4b631-20260718T213322Z-corrected-canary-20260719T001339Z.json",
+      "summarySha256": "2f9656ecf6e8640f4203e231dfe531d0b5eda017619e4f0d83a3e823e66d6951",
+      "candidateId": "partisan-rc-b8deddc4b631-20260718T213322Z",
+      "candidateSourceHead": "b8deddc4b6314936b7ea04f36a35784622a46da6",
+      "packageSha256": "82e1fd0bf7c3404b7fe842fa84efd10f225bf82fc76c11502b9a684b63f4f329",
+      "manifestSha256": "c88d363423008bcba2366afa8d458613bf539c549969bcae73cd82e5cd9402a5",
+      "readySha256": "6518c536e7104f21af81c94c4959a66587c4efe67bf2339001489dcddad00d87",
+      "settingsSha256": "fb744c7e85b93797da55e03fb8c2c1f0864e1ae43c2c49dfddd94ba91d24981c",
+      "harnessGitHead": "38a094fe223232145801bd60e707adf0c80c13d2",
+      "campaignRunnerSha256": "56de386cbdb5677f4315c99e690eefa7158cc6e00e043ded221cec04bde74479",
+      "candidateModuleSha256": "2c827fc6cc965813d95c77a4eb063b5adc79025ce3fdc8bca8d3ea2788b57dc2",
+      "runLeafId": "20260719T001339Z-1be71fc464e04bb28e0373fa0fa0f51c",
+      "runId": "seed1985_t0_p1_u1784420040",
+      "startedUtc": "2026-07-19T00:13:39.0045562Z",
+      "completedUtc": "2026-07-19T00:14:27.8147977Z",
+      "runtimeSeconds": 45,
+      "outcomeSuccess": false,
+      "error": "Campaign Debug runtime completed with unapproved hard diagnostics.",
+      "caseCount": 11,
+      "pass": 9,
+      "warn": 1,
+      "fail": 0,
+      "blocked": 1,
+      "skipped": 0,
+      "focusedAssertionCount": 35,
+      "focusedAssertionsPassed": 35,
+      "certificationRequired": 87,
+      "certificationProven": 87,
+      "stateDiffRows": 18,
+      "nonzeroStateDiffRows": 0,
+      "finalOrphanCleanupPass": true,
+      "diagnosticClassificationValid": false,
+      "hardDiagnosticFree": false,
+      "hardDiagnosticCount": 3,
+      "scriptErrors": 3,
+      "engineErrors": 0,
+      "partisanErrors": 0,
+      "approvedStockDiagnosticCount": 2,
+      "approvedIntentionalDiagnosticCount": 0,
+      "unapprovedHardDiagnosticCount": 1,
+      "unapprovedHardDiagnosticKind": "virtual-machine-exception",
+      "classifierSelfTestCount": 33,
+      "canonicalScriptLogCount": 1,
+      "canonicalConsoleLogCount": 1,
+      "canonicalLogPairSameDirectory": true,
+      "cleanupAndSpillZero": true,
+      "envelopeFileCount": 10,
+      "envelopeFilesRehashed": true,
+      "envelopeSha256": "c8945d09d2a33d9805f74bf4d5a40125100cb630d2f0a031fe76c206e1b2a444",
+      "runSummarySha256": "c8945d09d2a33d9805f74bf4d5a40125100cb630d2f0a031fe76c206e1b2a444",
+      "acceptanceDisposition": "rejected-fail-closed",
+      "summary": "The corrected clean-harness force-authority canary preserved all 35/35 focused assertions and 87/87 certification conditions, then correctly failed closed on one unapproved virtual-machine exception from the MapLocator runtime lifecycle. All 10 envelope files were rehashed and cleanup/spill counters were zero; this candidate is not accepted and requires a source-fixed replacement."
     },
     "fullCampaignDebug": {
       "status": "preliminary-failed-diagnostic-census",
@@ -176,13 +231,13 @@
       "id": "native-engine-world",
       "label": "Native engine-world behavior",
       "status": "failed",
-      "summary": "The current package-bound Campaign Debug capture is preliminary and red: its full report contains native mission-runtime and physicalization failures, and its corrected diagnostic census contains unapproved hard errors. Scoped passing cuts remain useful, but this rung cannot be partial-green while a current subset fails."
+      "summary": "The corrected package-bound force-authority canary failed closed on one unapproved MapLocator runtime diagnostic, so the unchanged candidate requires a source-fixed replacement. The older full report remains preliminary, unaccepted, and red. Scoped passing cuts remain useful, but this rung cannot be partial-green while a current subset fails."
     },
     {
       "id": "packaged-dedicated",
       "label": "Packaged dedicated server",
       "status": "not-run",
-      "summary": "The active replacement candidate is sealed, but it has not yet been launched through the standard dedicated-server runtime gate."
+      "summary": "The sealed candidate is retained but rejected for further promotion by the corrected canary. Its source-fixed replacement has not yet been built or launched through the standard dedicated-server runtime gate."
     },
     {
       "id": "multiplayer-jip",
@@ -219,12 +274,12 @@
     {
       "id": "STATUS-001",
       "category": "AUTH",
-      "summary": "The replacement candidate is sealed and runtime-eligible with exact package and tool identities, and its packaged focused service rung passed; Campaign Debug must be rerun through the corrected fail-closed diagnostic classifier, while the current full report is red and dedicated, multiplayer/JIP, restart breadth, performance, and soak remain pending."
+      "summary": "The corrected fail-closed canary rejected the unchanged candidate on one MapLocator runtime diagnostic. Fix that source defect and seal a new candidate before rerunning Campaign Debug; dedicated, multiplayer/JIP, restart breadth, performance, and soak remain pending."
     },
     {
       "id": "STATUS-002",
       "category": "TEST",
-      "summary": "Current package-bound Campaign Debug produced a mechanically complete raw capture but not accepted evidence: the corrected audit found 1 unapproved canary and 10 unapproved full-run hard diagnostics. The full report also has 46 failed cases, 7 blocked cases, 112 failed required assertions, and 14 blocked required assertions."
+      "summary": "The clean corrected-harness force-authority canary preserved 35/35 focused assertions and 87/87 counted conditions but correctly failed closed on one unapproved MapLocator virtual-machine exception. The older full capture remains preliminary and unaccepted with 46 failed cases, 7 blocked cases, 112 failed required assertions, and 14 blocked required assertions."
     },
     {
       "id": "STATUS-003",

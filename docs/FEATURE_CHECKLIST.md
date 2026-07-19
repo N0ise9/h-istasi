@@ -95,15 +95,27 @@ passing mixed-native proof described below.
   Partisan subset. Across all 25, two are exact approved stock, 13 are exact
   proof-bound intentional, and ten are unapproved. Both captures are
   preliminary-unaccepted.
-- [ ] Correct the external runner to census one canonical script log plus one
-  same-session canonical console log, apply the exact classifier with multiset
-  de-duplication, and rerun both profiles against the unchanged package. Wrapper
-  success alone is not acceptance.
-- [ ] After an accepted classifier-aware rerun, classify and reproduce the
-  smallest concrete current gameplay root. A gameplay, fixture, or package
-  correction requires a new immutable candidate and evidence chain. Dedicated,
-  multiplayer, JIP, restart breadth, performance, and soak remain separate later
-  gates.
+- [x] Correct the external runner to census one canonical script log plus one
+  same-session canonical console log and apply exact multiset de-duplication.
+  Under clean committed harness `38a094f`, rerun the `force_authority` canary
+  against the unchanged package. Its focused proof passed 35/35 and 87/87, but
+  the exact census was three = two approved stock + one unapproved map-locator
+  VM exception. The runner failed closed with zero cleanup/spill residue, so the
+  full profile was correctly not rerun.
+- [x] Reproduce the rejected canary's smallest root. Setup opens the `PLAIN` map
+  before bootstrap creates a controlled character. The immediate no-player
+  locator update removes its hint root but leaves the ten-second callback; once
+  the player exists, that callback reaches stale widget state.
+- [x] Add a narrow `SCR_MapLocator.CalculateClosestLocation` lifecycle guard.
+  Validate the layout, both text widgets, and world directions; on invalid state
+  remove any remaining layout, cancel the stale callback, clear the references,
+  and return. Preserve the valid stock path. Foundation and PC Workbench compile
+  validation pass at 5,847 files/11,900 classes and CRC `3a399db1`, with zero
+  errors or residue.
+- [ ] Seal a new immutable candidate because the map-locator correction changes
+  packaged source, then rerun the corrected canary. Run the full profile only if
+  that canary is accepted. Dedicated, multiplayer, JIP, restart breadth,
+  performance, and soak remain separate later gates.
 
 ## Historical Focused Force-Authority Engine Checkpoint
 

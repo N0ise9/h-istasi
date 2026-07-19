@@ -61,7 +61,7 @@ required truths. The tracked portable summary SHA-256 is
 `8bb36919f0649e0f48fad50305878ec883cf98a0021323ba1442017f1aa113b8`.
 This is accepted non-certifying deterministic-service evidence.
 
-## Current Package-Bound Full Campaign Debug Preliminary Capture
+## Current Package-Bound Full Campaign Debug and Corrected Canary Boundary
 
 Clean harness HEAD `1bff1890830db08159826f63b550227aa7bb0da3` first captured the
 guarded `force_authority` profile against the unchanged active candidate. Its
@@ -92,6 +92,28 @@ PASS, and staged cleanup records 6/6. The portable two-run summary is
 The immutable raw capture is mechanically complete and stable, but wrapper
 success is not acceptance and both runs remain preliminary-unaccepted.
 
+Clean committed classifier harness `38a094f` subsequently reran only the
+`force_authority` canary against the unchanged candidate. The engine proof again
+recorded 35/35 assertions and 87/87 certification-counting conditions. The
+corrected canonical-log census was three raw hard diagnostics = two exact
+approved stock diagnostics + one unapproved map-locator VM exception. Cleanup
+and spill residue were zero, but the runner correctly failed closed. Because the
+canary was rejected, the full profile was correctly not rerun.
+
+The exception is a reproduced lifecycle root. Campaign Debug setup opens the
+`PLAIN` map before bootstrap has produced a controlled character. The stock
+locator's immediate no-player update removes the hint root while leaving its
+ten-second callback scheduled. Once a player exists, that callback can enter
+with stale widget state. The narrow modded
+`SCR_MapLocator.CalculateClosestLocation` path now checks the hint layout, both
+hint-text widgets, and world directions. Invalid state removes any remaining
+layout, cancels the stale callback, clears the references, and returns; valid
+state continues through the stock implementation. Foundation and PC Workbench
+compile validation pass at 5,847 files/11,900 classes and CRC `3a399db1`, with
+zero errors and residue. This is not runtime proof. The source change requires a
+new immutable candidate and a new package-bound canary before Full Campaign
+Debug may run again.
+
 As preliminary diagnostic triage, the first failure-family pass assigns 23
 failed cases to `mission_runtime`, four
 to `early_mechanics`, four to `phase_smoke`, three to `support`, and the
@@ -104,7 +126,8 @@ while the later exact frozen-crew seat failure remains a distinct materializatio
 signal. Preserve exact roster semantics and improve isolation/diagnostics before
 changing production behavior.
 
-Case-exclusive assertion triage reconciles every red case and occurrence. `F/B`
+Case-exclusive assertion triage from the retained full capture reconciles every
+red case and occurrence. `F/B`
 means failed/blocked assertion occurrences; `Cert F/B` counts only assertions in
 the certification denominator. Rows marked mixed contain sub-seams that still
 need independent focused proof.
@@ -134,9 +157,10 @@ need independent focused proof.
 | **Total** | **46/7** | **282/19** | **112/14** | Every case is assigned once; mixed rows do not imply one root. |
 
 The raw capture and its hashes are frozen, but the acceptance chain remains open.
-A corrected external harness may rerun both profiles against the unchanged
-package. A gameplay, in-package fixture, or package correction must be packaged
-as a new immutable candidate and cannot inherit this candidate's runtime result.
+The corrected unchanged-package canary already rejected, so its full profile was
+not rerun. The map-locator source correction must be packaged as a new immutable
+candidate and cannot inherit this candidate's runtime result; run that new
+candidate's full profile only after its corrected canary is accepted.
 
 ## Historical Focused Force-Authority Engine Checkpoint
 

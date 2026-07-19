@@ -66,8 +66,25 @@ The full report remains red at 584 PASS, 49 WARN, 46 FAIL, 7 BLOCKED, and 1
 SKIPPED, with 5,562/5,688 required assertions proven, 112 failed, and 14 blocked.
 Wrapper-reported success is not acceptance, so both captures are preliminary-
 unaccepted and do not advance integrated parity. The 46/7 case boundary remains
-useful preliminary triage. A corrected external harness may rerun the unchanged
-package; any gameplay or package correction requires a new candidate.
+useful preliminary triage.
+
+Clean committed classifier harness `38a094f` reran the `force_authority` canary
+against the unchanged package. The focused proof passed 35/35 and 87/87, but the
+corrected census was three = two exact approved stock diagnostics + one
+unapproved map-locator VM exception. Cleanup/spill residue was zero; the runner
+failed closed and the full profile was correctly not rerun. The reproduced root
+is a `PLAIN` map opened before bootstrap has a controlled character: the
+immediate no-player locator update removes the hint root while leaving a
+ten-second callback that later reaches stale widget state.
+
+The narrow `SCR_MapLocator.CalculateClosestLocation` adaptation validates the
+layout, both text widgets, and world directions. Invalid state removes any
+remaining layout, cancels the stale callback, clears references, and returns;
+valid state preserves the stock path. Foundation and PC Workbench compile
+validation pass at 5,847 files/11,900 classes and CRC `3a399db1`, with zero
+errors and residue. This establishes source/compile parity only. The package
+change requires a newly sealed candidate and accepted canary before integrated
+parity or the full-run rung can advance.
 
 ## Current Controlled-Shutdown Native Fence Parity Boundary
 

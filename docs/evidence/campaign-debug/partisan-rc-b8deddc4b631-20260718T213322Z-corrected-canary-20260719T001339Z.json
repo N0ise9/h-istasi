@@ -1,0 +1,127 @@
+{
+  "schemaVersion": 1,
+  "evidenceKind": "packaged-campaign-debug-corrected-canary",
+  "candidate": {
+    "candidateId": "partisan-rc-b8deddc4b631-20260718T213322Z",
+    "candidateSourceHead": "b8deddc4b6314936b7ea04f36a35784622a46da6",
+    "packageSha256": "82e1fd0bf7c3404b7fe842fa84efd10f225bf82fc76c11502b9a684b63f4f329",
+    "manifestSha256": "c88d363423008bcba2366afa8d458613bf539c549969bcae73cd82e5cd9402a5",
+    "readySha256": "6518c536e7104f21af81c94c4959a66587c4efe67bf2339001489dcddad00d87",
+    "workbenchCrc": "f27e637b",
+    "runtimeUseDispositionAtCapture": "active-runtime-candidate"
+  },
+  "harness": {
+    "gitHead": "38a094fe223232145801bd60e707adf0c80c13d2",
+    "dirty": false,
+    "campaignRunnerSha256": "56de386cbdb5677f4315c99e690eefa7158cc6e00e043ded221cec04bde74479",
+    "candidateModuleSha256": "2c827fc6cc965813d95c77a4eb063b5adc79025ce3fdc8bca8d3ea2788b57dc2"
+  },
+  "settings": {
+    "schemaVersion": 24,
+    "sha256": "fb744c7e85b93797da55e03fb8c2c1f0864e1ae43c2c49dfddd94ba91d24981c",
+    "guardedRuntimeCopy": true
+  },
+  "capture": {
+    "runLeafId": "20260719T001339Z-1be71fc464e04bb28e0373fa0fa0f51c",
+    "runId": "seed1985_t0_p1_u1784420040",
+    "profile": "force_authority",
+    "proofScope": "focused_force_authority",
+    "startedUtc": "2026-07-19T00:13:39.0045562Z",
+    "completedUtc": "2026-07-19T00:14:27.8147977Z",
+    "runtimeSeconds": 45
+  },
+  "result": {
+    "status": "failed-unapproved-hard-diagnostic",
+    "success": false,
+    "armed": true,
+    "started": true,
+    "completed": true,
+    "candidateBoundaryVerified": true,
+    "mountPacked": true,
+    "artifactsStable": true,
+    "evidenceCaptured": true,
+    "artifactSchemaValidationValid": true,
+    "acceptanceDisposition": "rejected-fail-closed",
+    "releaseDisposition": "replacement-required",
+    "certificationPassed": false,
+    "error": "Campaign Debug runtime completed with unapproved hard diagnostics."
+  },
+  "proof": {
+    "caseCount": 11,
+    "pass": 9,
+    "warn": 1,
+    "fail": 0,
+    "blocked": 1,
+    "skipped": 0,
+    "focusedCaseId": "early_mechanics.force_authority",
+    "focusedCaseStatus": "PASS",
+    "focusedAssertionCount": 35,
+    "focusedAssertionsPassed": 35,
+    "certificationRequired": 87,
+    "certificationProven": 87,
+    "certificationFail": 0,
+    "certificationBlocked": 0,
+    "stateDiffRows": 18,
+    "nonzeroStateDiffRows": 0,
+    "finalOrphanCleanupPass": true,
+    "finalOrphanActiveGroups": 0
+  },
+  "diagnostics": {
+    "valid": false,
+    "classificationValid": false,
+    "hardDiagnosticFree": false,
+    "hardDiagnosticCount": 3,
+    "scriptErrors": 3,
+    "engineErrors": 0,
+    "partisanErrors": 0,
+    "crashMarkers": 0,
+    "partisanSeverityLineCount": 0,
+    "approvedStockDiagnosticCount": 2,
+    "approvedIntentionalDiagnosticCount": 0,
+    "unapprovedHardDiagnosticCount": 1,
+    "unapprovedHardDiagnosticKinds": [
+      {
+        "kind": "virtual-machine-exception",
+        "count": 1
+      }
+    ],
+    "classifierSelfTestCount": 33,
+    "channelArithmeticValid": true,
+    "categoryArithmeticValid": true,
+    "malformedHardDiagnosticCount": 0,
+    "lifecycleMarkersValid": true,
+    "identityBaselinePairValid": true,
+    "intentionalFixtureStructureExact": true,
+    "intentionalFixtureSetValid": true,
+    "canonicalScriptLogCount": 1,
+    "canonicalConsoleLogCount": 1,
+    "canonicalLogPairSameDirectory": true
+  },
+  "cleanup": {
+    "guardRemaining": 0,
+    "ownedProcessesRemaining": 0,
+    "newEngineProcessesRemaining": 0,
+    "unclaimedEngineProcessesObserved": 0,
+    "newDefaultEntriesRemaining": 0,
+    "modifiedDefaultFiles": 0,
+    "deletedDefaultEntries": 0,
+    "missingDefaultRoots": 0,
+    "externalSpillEntriesRemaining": 0,
+    "modifiedSpillFiles": 0,
+    "deletedSpillEntries": 0,
+    "missingSpillRoots": 0,
+    "cleanupPhaseErrorCount": 0,
+    "monitoringRootsAreDetectionOnly": true
+  },
+  "integrity": {
+    "envelopeSha256": "c8945d09d2a33d9805f74bf4d5a40125100cb630d2f0a031fe76c206e1b2a444",
+    "runSummarySha256": "c8945d09d2a33d9805f74bf4d5a40125100cb630d2f0a031fe76c206e1b2a444",
+    "envelopeFileCount": 10,
+    "envelopeFilesRehashed": true
+  },
+  "finding": {
+    "status": "source-fix-required",
+    "defect": "MapLocator runtime lifecycle",
+    "nextStep": "Fix the single runtime defect, seal a new candidate, and rerun the corrected canary before any full profile. The unmodified candidate is not accepted."
+  }
+}

@@ -155,11 +155,27 @@ summary is
 
 The wrapper-reported success records the behavior of the original wrapper; it is
 not evidence acceptance. Both raw captures remain immutable and useful for
-diagnosis, but their evidence disposition is preliminary-unaccepted until a
-corrected external harness reruns both profiles against the unchanged package.
-That harness-only rerun may extend this candidate's evidence chain because it
-does not alter the package. Any gameplay or in-package fixture correction changes
-source and still requires a new immutable candidate.
+diagnosis. Clean committed classifier harness `38a094f` then reran the
+`force_authority` canary against the unchanged package. Its focused proof again
+recorded 35/35 assertions and 87/87 certification-counting conditions, but the
+corrected raw census was three = two exact approved stock diagnostics + one
+unapproved map-locator VM exception. Cleanup and spill residue were zero. The
+runner failed closed, so the full profile was correctly not rerun.
+
+The rejected canary exposed a map-locator lifecycle defect rather than a
+classifier defect. Setup opens the `PLAIN` map before bootstrap has a controlled
+character. The immediate no-player locator update removes its hint root but
+leaves the ten-second callback scheduled; after bootstrap supplies the player,
+that callback can dereference the stale widget state. The narrow
+`SCR_MapLocator.CalculateClosestLocation` adaptation now validates the hint
+layout, both hint-text widgets, and world directions before entering stock
+behavior. An invalid state removes any remaining layout, cancels the stale
+callback, clears the widget references, and returns; a valid state still uses
+the stock calculation unchanged. Foundation and PC Workbench compile validation
+pass at 5,847 files/11,900 classes and CRC `3a399db1`, with zero errors or
+residue. That is source/compile proof only. Because this correction changes the
+package, runtime proof requires a newly sealed candidate; the old candidate and
+its immutable captures remain preliminary-unaccepted.
 
 ## Historical Focused Force-Authority Engine Checkpoint
 

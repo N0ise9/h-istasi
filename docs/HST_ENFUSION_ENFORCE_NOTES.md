@@ -110,11 +110,30 @@ implementation/source identity is
   `SCRIPT (E)`, `ENGINE (E)`, severity, or crash signals remain visible. Count
   Partisan diagnostics as a subset of raw hard diagnostics rather than adding
   them to the raw total.
-- The active candidate's guarded `force_authority` canary is mechanically
-  complete and stable but preliminary-unaccepted. Its canonical script log has
-  three raw diagnostics: two exact approved stock diagnostics and one unapproved
-  diagnostic. Report-level focused PASS observations do not make the canary
-  evidence gate pass.
+- The active candidate's original guarded `force_authority` canary is
+  mechanically complete and stable but preliminary-unaccepted. Its canonical
+  script log has three raw diagnostics: two exact approved stock diagnostics
+  and one unapproved diagnostic. Report-level focused PASS observations do not
+  make the canary evidence gate pass.
+- Clean committed classifier harness `38a094f` reran the canary against those
+  unchanged package bytes. The focused proof again recorded 35/35 and 87/87,
+  while the corrected census reported three = two exact approved stock + one
+  unapproved map-locator VM exception. Cleanup/spill residue was zero. The
+  runner failed closed, so do not run the longer full profile after a rejected
+  canary.
+- Campaign Debug setup can open the `PLAIN` map before bootstrap has a controlled
+  character. The locator's immediate no-player update removes the hint root but
+  leaves its ten-second `CalculateClosestLocation` callback queued. If bootstrap
+  supplies a player before that callback fires, stock code can dereference the
+  stale hint widgets. Treat this as a delayed-callback lifecycle hazard, not a
+  map-data or classifier failure.
+- A narrow modded `SCR_MapLocator.CalculateClosestLocation` guard must validate
+  the hint layout, both hint-text widgets, and world directions before calling
+  the stock implementation. On invalid state, remove any remaining layout,
+  cancel the stale callback, clear the widget references, and return. Do not
+  create a second timer or alter valid stock behavior. Foundation and PC
+  Workbench compile validation pass at 5,847 files/11,900 classes and CRC
+  `3a399db1`, with zero errors and residue; packaged runtime proof remains open.
 - The current full capture retains exact candidate/packed-mount identity, stable
   and rehashed artifacts, an 18/0 state diff, final orphan cleanup, and zero
   cleanup/spill residue. Its canonical script log has 25 raw diagnostics,
@@ -125,14 +144,14 @@ implementation/source identity is
   SKIPPED, with 5,562/5,688 required assertions proven, 112 failed, and 14
   blocked. Retain the historical 583/50/46/7/1 result only as a comparison; do
   not call it current.
-- Correct the external census/classifier and rerun both profiles against the
-  unchanged package before editing production code. Then classify red evidence
-  by case and assertion before selecting a gameplay correction.
-  Current case-exclusive triage reconciles all 46/7 cases and 282/19 failed/
-  blocked assertion occurrences. Convoy materialization is the largest cascade,
-  but repeated player deaths and zone folding can contaminate several probes;
-  protect the player and trace one frozen crew seat through spawn, attachment,
-  registration, waypoint retention, and rollback first.
+- The corrected harness has completed its unchanged-package canary rerun. Stop
+  the sequence when that canary rejects; do not spend a full run to reconfirm a
+  known gate failure. The map-locator correction changes packaged source, so
+  seal a new immutable candidate, rerun the corrected canary, and run the full
+  profile only after that new canary is accepted. The retained full capture's
+  case-exclusive triage still reconciles all 46/7 cases and 282/19 failed/
+  blocked assertion occurrences. Convoy materialization is its largest cascade,
+  but it is not the next release action before the replacement canary passes.
 - A helper that receives `requiredHold - holdBefore + 1` in one call does not
   prove that the engine advanced the objective by that many seconds. For area
   objectives, use bounded per-second/frame ticks and log both mission-runtime

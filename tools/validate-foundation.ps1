@@ -3610,6 +3610,39 @@ if ($editorRoleGuardText -match "modded class SCR_EditorManagerEntity" -or $edit
 }
 Write-Host "Editor player-role reentry guard OK"
 
+$mapLocatorLifecycleGuardPath = "Scripts/Game/HST/Patches/HST_MapLocatorLifecycleGuard.c"
+if (!(Test-Path $mapLocatorLifecycleGuardPath)) {
+	throw "Missing map-locator lifecycle guard: $mapLocatorLifecycleGuardPath"
+}
+$mapLocatorLifecycleGuardText = Get-Content -Raw $mapLocatorLifecycleGuardPath
+foreach ($requiredMapLocatorLifecycleGuardEntry in @(
+		"modded class SCR_MapLocator",
+		"override protected void CalculateClosestLocation()",
+		"!m_wUIHintLayout",
+		"!m_wUIHintText",
+		"!m_wUIHintText2",
+		"!m_WorldDirections",
+		"m_wUIHintLayout.RemoveFromHierarchy()",
+		"m_wUIHintLayout = null;",
+		"m_wUIHintText = null;",
+		"m_wUIHintText2 = null;",
+		"GetGame().GetCallqueue().Remove(CalculateClosestLocation)",
+		"super.CalculateClosestLocation()"
+	)) {
+	if ($mapLocatorLifecycleGuardText -notmatch [regex]::Escape($requiredMapLocatorLifecycleGuardEntry)) {
+		throw "Map-locator lifecycle guard is missing: $requiredMapLocatorLifecycleGuardEntry"
+	}
+}
+if ($mapLocatorLifecycleGuardText -match "CallLater\s*\(\s*CalculateClosestLocation") {
+	throw "Map-locator lifecycle guard must not create a second location-hint timer"
+}
+$mapLocatorGuardReturnIndex = $mapLocatorLifecycleGuardText.IndexOf("return;")
+$mapLocatorGuardSuperIndex = $mapLocatorLifecycleGuardText.IndexOf("super.CalculateClosestLocation();")
+if ($mapLocatorGuardReturnIndex -lt 0 -or $mapLocatorGuardSuperIndex -lt 0 -or $mapLocatorGuardReturnIndex -gt $mapLocatorGuardSuperIndex) {
+	throw "Map-locator lifecycle guard must reject stale widgets before entering the stock locator"
+}
+Write-Host "Map-locator lifecycle guard OK"
+
 $gameMasterBudgetPatchText = Get-Content -Raw "Scripts/Game/HST/Services/HST_GameMasterBudgetService.c"
 $mapMarkerConfigPatchText = Get-Content -Raw "Scripts/Game/HST/Map/HST_MapMarkerManagerConfigPatch.c"
 foreach ($configBackedModdedClass in @(

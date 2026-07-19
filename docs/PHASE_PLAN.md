@@ -84,21 +84,34 @@ cleanup/spill residue, and 11 classified hard diagnostics consisting of ten
 approved stock messages, one approved intentional journal injection, and zero
 unapproved errors. The first five sidecars remain preliminary.
 
-The current guarded `force_authority` canary and Full Campaign Debug produced
+The original guarded `force_authority` canary and Full Campaign Debug produced
 mechanically complete, stable raw captures against the exact active replacement,
-but both are preliminary-unaccepted. A timestamp-aware census found three raw
-canary diagnostics = two exact approved stock + one unapproved. The full run has
-25 raw diagnostics, including a 19-line Partisan subset; two are exact approved
-stock, 13 are proof-bound intentional, and ten are unapproved. Its report remains
+but both remain preliminary-unaccepted. The original canary census is three raw
+diagnostics = two exact approved stock + one unapproved. The full run has 25 raw
+diagnostics, including a 19-line Partisan subset; two are exact approved stock,
+13 are proof-bound intentional, and ten are unapproved. Its report remains
 failed at 584 PASS, 49 WARN, 46 FAIL, 7 BLOCKED, and 1 SKIPPED, with
 5,562/5,688 required assertions proven, 112 failed, and 14 blocked.
 
-The next Gate-1 action is to correct the external census/classifier and rerun
-both profiles against the unchanged package. Wrapper success is not acceptance.
-Only after an accepted rerun does case-exclusive failure classification select
-the smallest concrete gameplay root. Any source or package correction starts a
-new immutable candidate; dedicated, multiplayer/JIP, restart breadth,
-performance, and soak remain later independent gates.
+Clean committed classifier harness `38a094f` then reran the canary against the
+unchanged package. Its focused proof passed 35/35 and 87/87, but the exact census
+again contained three = two approved stock + one unapproved map-locator VM
+exception. The runner failed closed with zero cleanup/spill residue, and the
+full profile was correctly not rerun. The reproduced root is a `PLAIN` map
+opened before bootstrap supplies a controlled character: the immediate
+no-player locator update removes the hint root but leaves a ten-second callback
+that later reaches stale widget state.
+
+The narrow lifecycle correction validates the map-locator layout, both text
+widgets, and world directions before entering stock calculation; invalid state
+removes the remaining layout, cancels the callback, clears references, and
+returns. Valid stock behavior remains unchanged. Foundation and PC Workbench
+compile validation pass at 5,847 files/11,900 classes and CRC `3a399db1`, with
+zero errors or residue. The next Gate-1 action is to seal a new immutable
+candidate, because this source correction changes packaged bytes, and rerun the
+corrected canary. Run Full Campaign Debug only after that canary is accepted;
+dedicated, multiplayer/JIP, restart breadth, performance, and soak remain later
+independent gates.
 
 ## Historical Focused Force-Authority Plan Checkpoint
 
@@ -109,12 +122,13 @@ state diff with zero errors, crashes, or artifact drift and exact-zero owned
 cleanup. Its Foundation gate passed at 874; stamped Workbench passed 5,846
 files/11,899 classes at CRC `cad640f3` with zero hard errors.
 
-The current Full Campaign Debug run provides a package-bound preliminary
+The retained Full Campaign Debug run provides a package-bound preliminary
 diagnostic capture, not accepted integrated evidence. Its red 46/7 case boundary
 shows that the focused observations did not certify the integrated owners, while
-the ten unapproved diagnostics independently block acceptance. Next work fixes
-the external runner and reruns the unchanged package before reproducing or
-correcting gameplay roots, then broadens into native-world effects, real
+the ten unapproved diagnostics independently block acceptance. The corrected
+canary already failed closed on the separate map-locator lifecycle exception;
+next work seals and canary-tests the corrected package before returning to the
+retained full-run roots, then broadens into native-world effects, real
 persistence/restart, rendered client projection, packaged server/client,
 multiplayer/network/JIP/reconnect, performance, and soak.
 
