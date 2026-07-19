@@ -10763,6 +10763,9 @@ class HST_PhysicalWarService
 		{
 			if (!IsMissionConvoyGroupForMission(activeGroup, mission) || !activeGroup.m_bSpawnedEntity || activeGroup.m_sRuntimeStatus == "spawn_failed" || activeGroup.m_sRuntimeStatus == MISSION_CONVOY_ELIMINATED)
 				continue;
+			bool contactSeatingRetry = IsMissionConvoyContactCrewSeatingRetryActive(state, mission, activeGroup);
+			if (mission.m_sRuntimePhase == MISSION_CONVOY_CONTACT && !contactSeatingRetry)
+				continue;
 
 			string previousFallbackMode = activeGroup.m_sSpawnFallbackMode;
 			string previousReason = activeGroup.m_sSpawnFailureReason;
@@ -10780,7 +10783,7 @@ class HST_PhysicalWarService
 			}
 
 			string reseatBlockReason;
-			if (ShouldSuppressMissionConvoyCrewReseat(mission, activeGroup, crewEntity, vehicleEntity, reseatBlockReason))
+			if (!contactSeatingRetry && ShouldSuppressMissionConvoyCrewReseat(mission, activeGroup, crewEntity, vehicleEntity, reseatBlockReason))
 			{
 				activeGroup.m_sSpawnFailureReason = "Convoy crew reseat blocked: " + reseatBlockReason;
 				if (mission.m_sRuntimePhase == MISSION_CONVOY_CONTACT)
@@ -10842,12 +10845,53 @@ class HST_PhysicalWarService
 			return false;
 		if (mission.m_sRuntimePhase == MISSION_CONVOY_STAGING)
 			return true;
-		if (mission.m_sRuntimePhase == MISSION_CONVOY_CONTACT)
-			return false;
 		if (!state)
 			return false;
+		if (mission.m_sRuntimePhase == MISSION_CONVOY_CONTACT)
+		{
+			if (state.m_iElapsedSeconds % CONVOY_PROGRESS_SYNC_SECONDS != 0)
+				return false;
+			foreach (HST_ActiveGroupState activeGroup : state.m_aActiveGroups)
+			{
+				if (IsMissionConvoyContactCrewSeatingRetryActive(state, mission, activeGroup))
+					return true;
+			}
+			return false;
+		}
 
 		return IsMissionConvoyTravelPhase(mission) && state.m_iElapsedSeconds % CONVOY_PROGRESS_SYNC_SECONDS == 0;
+	}
+
+	protected bool IsMissionConvoyContactCrewSeatingRetryActive(HST_CampaignState state, HST_ActiveMissionState mission, HST_ActiveGroupState activeGroup)
+	{
+		if (!state || !mission || !activeGroup
+			|| mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE
+			|| mission.m_sRuntimePrimitive != MISSION_CONVOY_PRIMITIVE
+			|| mission.m_sRuntimePhase != MISSION_CONVOY_CONTACT
+			|| IsTerminalMissionConvoyPhase(mission)
+			|| !IsMissionConvoyGroupForMission(activeGroup, mission)
+			|| !state.IsOperationalActiveGroup(activeGroup)
+			|| !activeGroup.m_bSpawnedEntity
+			|| activeGroup.m_sRuntimeStatus == "spawn_failed"
+			|| activeGroup.m_sRuntimeStatus == "eliminated"
+			|| activeGroup.m_sRuntimeStatus == MISSION_CONVOY_ELIMINATED)
+			return false;
+
+		bool eligibleFallback = activeGroup.m_sSpawnFallbackMode == "convoy_crew_population_pending"
+			|| activeGroup.m_sSpawnFallbackMode == "convoy_seating_pending"
+			|| activeGroup.m_sSpawnFallbackMode == "convoy_vehicle_control_unavailable";
+		if (!eligibleFallback && !IsRestoredMissionConvoyRuntimeRebindPending(state, activeGroup))
+			return false;
+
+		IEntity crewEntity = GetRuntimeCrewGroupEntity(activeGroup.m_sGroupId);
+		IEntity vehicleEntity = GetRuntimeVehicleEntity(activeGroup.m_sGroupId);
+		if (!crewEntity || !vehicleEntity || CountAliveRuntimeCrewAgents(activeGroup) <= 0)
+			return false;
+		if (GetConvoyVehicleControlAdapter().HasLivingDriver(crewEntity, vehicleEntity))
+			return false;
+
+		int retryWindowStartSecond = Math.Max(activeGroup.m_iSpawnedAtSecond, state.m_iLastRestoreSecond);
+		return state.m_iElapsedSeconds <= retryWindowStartSecond + CONVOY_CREW_SEATING_GRACE_SECONDS;
 	}
 
 	protected bool ShouldSuppressMissionConvoyCrewReseat(HST_ActiveMissionState mission, HST_ActiveGroupState activeGroup, IEntity crewEntity, IEntity vehicleEntity, out string reason)
@@ -21717,7 +21761,8 @@ class HST_PhysicalWarService
 		HST_ActiveMissionState mission = FindMissionForConvoyGroup(state, activeGroup);
 		if (!mission || mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE || mission.m_sRuntimePrimitive != MISSION_CONVOY_PRIMITIVE)
 			return false;
-		if (mission.m_sRuntimePhase == MISSION_CONVOY_CONTACT && activeGroup.m_bEverHadLivingCrew)
+		bool contactSeatingRetry = IsMissionConvoyContactCrewSeatingRetryActive(state, mission, activeGroup);
+		if (mission.m_sRuntimePhase == MISSION_CONVOY_CONTACT && activeGroup.m_bEverHadLivingCrew && !contactSeatingRetry)
 			return false;
 
 		IEntity crewEntity = GetRuntimeCrewGroupEntity(activeGroup.m_sGroupId);
