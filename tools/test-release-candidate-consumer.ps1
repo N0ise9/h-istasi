@@ -52,6 +52,64 @@ function Flip-FirstByte {
 
 $modulePath = Join-Path $PSScriptRoot 'Partisan.ReleaseCandidate.psm1'
 Import-Module -Name $modulePath -Force -ErrorAction Stop
+$checks = New-Object Collections.Generic.List[string]
+$allowedRuntimeDispositions = @(
+    'active-runtime-candidate',
+    'supersede-before-runtime',
+    'rejected-after-runtime'
+)
+foreach ($runtimeDisposition in $allowedRuntimeDispositions) {
+    $verifiedDisposition = Assert-PartisanRuntimeUseDisposition `
+        -Disposition $runtimeDisposition `
+        -ConsumerIntent verification
+    if ($verifiedDisposition -cne $runtimeDisposition) {
+        throw 'Candidate-consumer disposition verification changed its input.'
+    }
+}
+[void]$checks.Add('runtime-disposition-verification-paths')
+
+$activeRuntimeDisposition = Assert-PartisanRuntimeUseDisposition `
+    -Disposition 'active-runtime-candidate' `
+    -ConsumerIntent runtime
+if ($activeRuntimeDisposition -cne 'active-runtime-candidate') {
+    throw 'The active runtime disposition did not remain runtime-eligible.'
+}
+[void]$checks.Add('runtime-disposition-active-path')
+
+foreach ($runtimeDisposition in @(
+        'supersede-before-runtime',
+        'rejected-after-runtime')) {
+    $dispositionError = $null
+    try {
+        [void](Assert-PartisanRuntimeUseDisposition `
+            -Disposition $runtimeDisposition `
+            -ConsumerIntent runtime)
+    }
+    catch {
+        $dispositionError = $_.Exception.Message
+    }
+    if ($dispositionError -cne
+        'The current release candidate is not eligible for runtime use.') {
+        throw "The blocked runtime disposition was not rejected: $runtimeDisposition"
+    }
+}
+[void]$checks.Add('runtime-disposition-blocked-paths')
+
+$invalidDispositionError = $null
+try {
+    [void](Assert-PartisanRuntimeUseDisposition `
+        -Disposition 'unknown-runtime-disposition' `
+        -ConsumerIntent verification)
+}
+catch {
+    $invalidDispositionError = $_.Exception.Message
+}
+if ($invalidDispositionError -cne
+    'The current release-candidate runtime-use disposition is invalid.') {
+    throw 'The invalid runtime disposition was not rejected.'
+}
+[void]$checks.Add('runtime-disposition-invalid-path')
+
 $manifestFull = [IO.Path]::GetFullPath($ManifestPath)
 $bundleFull = [IO.Path]::GetFullPath($BundleRoot)
 $runtimeAttemptError = $null
@@ -74,10 +132,12 @@ $valid = Assert-PartisanReleaseCandidate `
     -RuntimeRole $RuntimeRole `
     -ConsumerIntent verification
 
-if ($valid.RuntimeUseDisposition -ceq 'supersede-before-runtime') {
+if ($valid.RuntimeUseDisposition -cin @(
+        'supersede-before-runtime',
+        'rejected-after-runtime')) {
     if ($runtimeAttemptError -cne
         'The current release candidate is not eligible for runtime use.') {
-        throw 'A superseded candidate was not rejected at the runtime-use boundary.'
+        throw 'A non-active candidate was not rejected at the runtime-use boundary.'
     }
 }
 elseif ($valid.RuntimeUseDisposition -ceq 'active-runtime-candidate') {
@@ -101,7 +161,6 @@ if (-not $guardRoot.StartsWith(
     throw 'Candidate-consumer self-test guard containment failed.'
 }
 
-$checks = New-Object Collections.Generic.List[string]
 [void]$checks.Add('runtime-use-disposition')
 try {
     New-Item -ItemType Directory -Path $guardRoot -Force | Out-Null

@@ -23825,6 +23825,7 @@ foreach ($schema62ProofEntry in @(
 	'CommandUIPublicationMatches',
 	'RebuildLogicalMarkerSnapshot(',
 	'ProjectionProofMarkerMatches',
+	'AddActiveMissionSource(',
 	'ProveSerializedPoliticalIntentRetry',
 	'queuedPoliticalReceipt.m_sFailureReason.Contains("durably queued")',
 	'ReconcileTownOwnershipPolicies',
@@ -23841,6 +23842,46 @@ foreach ($schema62ProofEntry in @(
 	if ($schema62ProofText.IndexOf($schema62ProofEntry) -lt 0) {
 		throw "Schema-62 canonical ownership source proof is missing production/scenario coverage: $schema62ProofEntry"
 	}
+}
+$schema62MissionSourceFactoryBlock = Get-ScriptMethodBlock $schema62ProofText 'HST_ActiveMissionState AddActiveMissionSource('
+foreach ($schema62MissionSourceFactoryEntry in @(
+	'mission.m_sInstanceId = instanceId;',
+	'mission.m_sMissionId = missionId;',
+	'mission.m_eStatus = HST_EMissionStatus.HST_MISSION_ACTIVE;',
+	'mission.m_sTargetZoneId = targetZoneId;',
+	'mission.m_iStartedAtSecond = state.m_iElapsedSeconds;',
+	'mission.m_iActiveUntilSecond = state.m_iElapsedSeconds + 600;',
+	'mission.m_iRemainingSeconds = 600;',
+	'state.m_aActiveMissions.Insert(mission);'
+)) {
+	if ([string]::IsNullOrEmpty($schema62MissionSourceFactoryBlock) -or
+		$schema62MissionSourceFactoryBlock.IndexOf($schema62MissionSourceFactoryEntry) -lt 0) {
+		throw "Schema-62 ownership proof mission-source fixture must insert an exact active mission: $schema62MissionSourceFactoryEntry"
+	}
+}
+$schema62AllCauseProofBlock = Get-ScriptMethodBlock $schema62ProofText 'protected void ProveAllCauseRouting('
+foreach ($schema62AllCauseProofEntry in @(
+	'missionSourceId = "ownership_proof_mission_instance"',
+	'"ownership_transition_source_proof"',
+	'AddActiveMissionSource(',
+	'missionReceipt.m_sCause == "mission_capture"',
+	'missionReceipt.m_sSourceType == "mission"',
+	'missionReceipt.m_sSourceId == missionSourceId',
+	'&& missionExact',
+	'unresolvedSourceId = "ownership_proof_missing_mission_source"',
+	'unresolvedSourceReceipt.m_sCause == "military_capture"',
+	'unresolvedSourceReceipt.m_sSourceType == "zone_capture"',
+	'unresolvedSourceReceipt.m_sSourceId == unresolvedSourceId',
+	'&& unresolvedSourceExact',
+	'fixture.m_State.m_aOwnershipTransitions.Count() == 5'
+)) {
+	if ([string]::IsNullOrEmpty($schema62AllCauseProofBlock) -or
+		$schema62AllCauseProofBlock.IndexOf($schema62AllCauseProofEntry) -lt 0) {
+		throw "Schema-62 all-cause proof must bind mission capture to an exact active mission source: $schema62AllCauseProofEntry"
+	}
+}
+if ($schema62AllCauseProofBlock -cnotmatch '(?s)report\.m_bAllCauseRoutingExact\s*=.*?&&\s+missionExact.*?&&\s+unresolvedSourceExact.*?fixture\.m_State\.m_aOwnershipTransitions\.Count\(\)\s*==\s*5;') {
+	throw "Schema-62 all-cause proof final predicate must require the exact mission, unresolved-source negative, and five receipts."
 }
 $schema62NestedRestoreProofBlock = Get-ScriptMethodBlock $schema62ProofText 'protected bool ProveNestedRestoreAndQuarantine('
 foreach ($schema62NestedRestoreProofEntry in @(
@@ -23899,16 +23940,45 @@ foreach ($schema62LinkedSupportQueueProofEntry in @(
 }
 $schema62SerializedProofBlock = Get-ScriptMethodBlock $schema62ProofText 'protected void ProveSerializedPoliticalIntentRetry('
 foreach ($schema62SerializedProofEntry in @(
+	'missionSourceId = "ownership_proof_serialized_mission_instance"',
+	'"ownership_transition_serialized_source_proof"',
+	'AddActiveMissionSource(',
+	'bool politicalIntentDeferred = influenceApplied',
+	'bool missionIntentDeferred = missionSource',
+	'bool deferredCountsExact = fixture.m_State.m_aOwnershipTransitions.Count() == 3',
+	'bool intentDeferred = politicalIntentDeferred',
+	'&& missionIntentDeferred',
+	'&& deferredCountsExact;',
 	'queuedPoliticalReceipt',
 	'!queuedPoliticalReceipt.m_bOwnerApplied',
 	'missionProgressApplied',
 	'queuedMissionReceipt.m_sCause == "mission_capture"',
+	'queuedMissionReceipt.m_sSourceType == "mission"',
+	'queuedMissionReceipt.m_sSourceId == missionSourceId',
 	'!queuedMissionReceipt.m_bOwnerApplied',
 	'pendingSave.Capture(fixture.m_State)',
 	'validator.Normalize(pendingSave',
 	'pendingSave.Restore()',
 	'restored.m_Service.ReconcileAfterRestore(restoredState)',
 	'restoredMissionReceipt.m_bCompleted',
+	'restoredMissionReceipt.m_sCause == "mission_capture"',
+	'restoredMissionReceipt.m_sSourceType == "mission"',
+	'restoredMissionReceipt.m_sSourceId == missionSourceId',
+	'restoredMissionSource = restoredState.FindActiveMission(',
+	'bool restoredActiveMissionExact = restoredMissionSource',
+	'restoredMissionSource.m_sInstanceId == missionSourceId',
+	'restoredMissionSource.m_sMissionId',
+	'== "ownership_transition_serialized_source_proof"',
+	'restoredMissionSource.m_eStatus == HST_EMissionStatus.HST_MISSION_ACTIVE',
+	'restoredMissionSource.m_sTargetZoneId == restoredMissionZone.m_sZoneId',
+	'bool politicalPolicyExact = !politicalChanged',
+	'bool restoredMissionSourceExact = restoredMissionReceipt',
+	'bool firstPolicyExact = politicalPolicyExact',
+	'&& restoredActiveMissionExact',
+	'&& restoredMissionSourceExact;',
+	'restoredActiveMissionExact,',
+	'politicalPolicyExact,',
+	'restoredMissionSourceExact,',
 	'repeatedPolicyInert',
 	'completedSave.Capture(restoredState)',
 	'postRestoreInert'
@@ -23917,6 +23987,11 @@ foreach ($schema62SerializedProofEntry in @(
 		$schema62SerializedProofBlock.IndexOf($schema62SerializedProofEntry) -lt 0) {
 		throw "Schema-62 serialized ownership proof must preserve a queued political receipt and exactly-once effects across both restart boundaries: $schema62SerializedProofEntry"
 	}
+}
+if ($schema62SerializedProofBlock -cnotmatch '(?s)bool\s+intentDeferred\s*=\s*politicalIntentDeferred\s*&&\s*missionIntentDeferred\s*&&\s*deferredCountsExact;' -or
+	$schema62SerializedProofBlock -cnotmatch '(?s)bool\s+firstPolicyExact\s*=\s*politicalPolicyExact\s*&&\s*restoredActiveMissionExact\s*&&\s*restoredMissionSourceExact;' -or
+	$schema62SerializedProofBlock -cnotmatch '(?s)report\.m_bSerializedIntentRetryExact\s*=.*?&&\s*intentDeferred.*?&&\s*firstPolicyExact.*?&&\s*postRestoreInert;') {
+	throw "Schema-62 serialized ownership proof final predicates must require political/mission deferral, exact counts, restored active-mission identity, restored receipt provenance, and restart stability."
 }
 $schema62MalformedQueueProofBlock = Get-ScriptMethodBlock $schema62ProofText 'protected void ProveMalformedOwnerAppliedQueueRestore('
 foreach ($schema62MalformedQueueProofEntry in @(
@@ -50634,6 +50709,8 @@ $releaseCandidateConsumerText = Get-Content -Raw $releaseCandidateConsumerPath
 foreach ($releaseCandidateConsumerEntry in @(
 		'docs\data\release_status.json',
 		'runtimeUseDisposition',
+		'Assert-PartisanRuntimeUseDisposition',
+		'''rejected-after-runtime''',
 		'The current release candidate is not eligible for runtime use.',
 		'CandidateManifest is not the active tracked release-candidate record.',
 		'The supplied candidate bundle does not match the tracked manifest and ready seal.',
@@ -50663,6 +50740,10 @@ $releaseCandidateConsumerTestText = Get-Content -Raw `
 foreach ($releaseCandidateConsumerTestEntry in @(
 		'package-byte-tamper',
 		'runtime-use-disposition',
+		'runtime-disposition-verification-paths',
+		'runtime-disposition-active-path',
+		'runtime-disposition-blocked-paths',
+		'runtime-disposition-invalid-path',
 		'external-manifest-tamper',
 		'external-ready-tamper',
 		'extra-top-level-file',
@@ -50678,6 +50759,24 @@ foreach ($releaseCandidateConsumerTestEntry in @(
 			$releaseCandidateConsumerTestEntry,
 			[StringComparison]::Ordinal) -lt 0) {
 		throw "Release-candidate consumer self-test is incomplete: $releaseCandidateConsumerTestEntry"
+	}
+}
+
+$releaseDocsGeneratorPath = Join-Path $PSScriptRoot 'update-release-docs.ps1'
+if (-not (Test-Path -LiteralPath $releaseDocsGeneratorPath -PathType Leaf)) {
+	throw 'Release-document generator is missing.'
+}
+$releaseDocsGeneratorText = Get-Content -Raw $releaseDocsGeneratorPath
+foreach ($releaseDocsRejectedRuntimeEntry in @(
+		'"rejected-after-runtime"',
+		'A rejected-after-runtime candidate requires retained rejected runtime proof.',
+		'Retained rejected runtime proof requires the rejected-after-runtime disposition.',
+		'its rejected-after-runtime disposition blocks further runtime consumption'
+	)) {
+	if ($releaseDocsGeneratorText.IndexOf(
+		$releaseDocsRejectedRuntimeEntry,
+		[StringComparison]::Ordinal) -lt 0) {
+		throw "Release-document rejected-runtime contract is incomplete: $releaseDocsRejectedRuntimeEntry"
 	}
 }
 

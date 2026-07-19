@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "statusAsOfUtc": "2026-07-19T04:45:58.8756237Z",
+  "statusAsOfUtc": "2026-07-19T05:46:41.0708197Z",
   "releaseStage": "development alpha",
   "releaseDecision": "NO-GO",
   "auditedRevision": "25dedb3e82ad516c28826830bc1e06a2d3940f53",
@@ -13,7 +13,7 @@
   },
   "artifact": {
     "releaseCandidateBuilt": true,
-    "runtimeUseDisposition": "active-runtime-candidate",
+    "runtimeUseDisposition": "rejected-after-runtime",
     "candidateId": "partisan-rc-e11e7ea88a44-20260719T040154Z",
     "candidateSourceHead": "e11e7ea88a44ea07d7a81c0b4009f029f0b297e1",
     "manifestPath": "docs/evidence/release-candidates/partisan-rc-e11e7ea88a44-20260719T040154Z/candidate.json",
@@ -29,7 +29,7 @@
     "workbenchCrc": "e4cde465",
     "serverVersion": "1.7.0.54",
     "clientVersion": "1.7.0.54",
-    "note": "This clean source-fixed replacement is the active runtime candidate. Its exact source, Foundation gate, all five Workbench targets, canonical four-file package, and five-case packaged focused set are sealed and green. The corrected force-authority canary and Full Campaign Debug have not run for this package; no prior-package result transfers. Release remains NO-GO."
+    "note": "This source-fixed package remains the retained candidate of record but is rejected after runtime proof. Its corrected force-authority canary failed at 33/35 focused assertions and 85/87 counted conditions after its five-case packaged focused set passed. The exact package, classifier, state restoration, envelope rehash, and cleanup boundaries were valid; the stale ownership proof fixtures require a new immutable candidate. Runtime consumers must reject this package, Full Campaign Debug is stopped, and release remains NO-GO."
   },
   "evidence": {
     "foundation": {
@@ -72,7 +72,62 @@
       "unapprovedHardDiagnosticCount": 0,
       "envelopeFileCount": 40,
       "cleanupAndSpillZero": true,
-      "summary": "All five canonical focused suites passed against the exact active staged packed candidate: 5 tests, zero failures, errors, or skips, all 40 envelope files rehashed, 11 approved hard diagnostics, zero unapproved hard diagnostics, and zero cleanup or spill residue. This deterministic-service result is non-certifying; the corrected canary remains next."
+      "summary": "All five canonical focused suites passed against the exact staged packed candidate: 5 tests, zero failures, errors, or skips, all 40 envelope files rehashed, 11 approved hard diagnostics, zero unapproved hard diagnostics, and zero cleanup or spill residue. This deterministic-service result remains non-certifying and does not override the later rejected corrected canary."
+    },
+    "correctedForceAuthorityCanary": {
+      "status": "failed-proof-validation",
+      "summaryPath": "docs/evidence/campaign-debug/partisan-rc-e11e7ea88a44-20260719T040154Z-corrected-canary-20260719T050302Z.json",
+      "summarySha256": "af0aca25a84d8f757dbba8010950a658ce09937aa4048c35b2e372f1183eec69",
+      "candidateId": "partisan-rc-e11e7ea88a44-20260719T040154Z",
+      "candidateSourceHead": "e11e7ea88a44ea07d7a81c0b4009f029f0b297e1",
+      "packageSha256": "75b61eb19513de00e56a43ad3778885f89a7497c0eebe4d870bf3b11e62a0dad",
+      "manifestSha256": "daed6876ce839a7fc6551257e4a4dd9bb0c92772c7e2d07be595acddde19e714",
+      "readySha256": "0ca7a5e2fbe6bf298baa542250cc7b47bf2b135a5382e032fc5febdddf579acc",
+      "settingsSha256": "fb744c7e85b93797da55e03fb8c2c1f0864e1ae43c2c49dfddd94ba91d24981c",
+      "harnessGitHead": "937c86c5d2259a9da270ea76371001ac1d4c6eed",
+      "campaignRunnerSha256": "56de386cbdb5677f4315c99e690eefa7158cc6e00e043ded221cec04bde74479",
+      "candidateModuleSha256": "2c827fc6cc965813d95c77a4eb063b5adc79025ce3fdc8bca8d3ea2788b57dc2",
+      "runLeafId": "20260719T050302Z-0bbd740b4f0149baa0f34944dbd70fc9",
+      "runId": "seed1985_t0_p1_u1784437399",
+      "startedUtc": "2026-07-19T05:03:02.0611638Z",
+      "completedUtc": "2026-07-19T05:03:41.5393020Z",
+      "runtimeSeconds": 38,
+      "outcomeSuccess": false,
+      "error": "Campaign Debug artifacts completed but failed the exact validation contract.",
+      "caseCount": 11,
+      "pass": 8,
+      "warn": 1,
+      "fail": 1,
+      "blocked": 1,
+      "skipped": 0,
+      "focusedAssertionCount": 35,
+      "focusedAssertionsPassed": 33,
+      "certificationRequired": 87,
+      "certificationProven": 85,
+      "stateDiffRows": 18,
+      "nonzeroStateDiffRows": 0,
+      "finalOrphanCleanupPass": true,
+      "diagnosticClassificationValid": true,
+      "hardDiagnosticFree": false,
+      "hardDiagnosticCount": 2,
+      "scriptErrors": 2,
+      "engineErrors": 0,
+      "partisanErrors": 0,
+      "approvedStockDiagnosticCount": 2,
+      "approvedIntentionalDiagnosticCount": 0,
+      "unapprovedHardDiagnosticCount": 0,
+      "unapprovedHardDiagnosticKind": "",
+      "classifierSelfTestCount": 33,
+      "canonicalScriptLogCount": 1,
+      "canonicalConsoleLogCount": 1,
+      "canonicalLogPairSameDirectory": true,
+      "cleanupAndSpillZero": true,
+      "envelopeFileCount": 10,
+      "envelopeFilesRehashed": true,
+      "envelopeSha256": "8deca62633394025bfa976f6d883f9b500d56519fd13e875f241679f4799cd21",
+      "runSummarySha256": "8deca62633394025bfa976f6d883f9b500d56519fd13e875f241679f4799cd21",
+      "acceptanceDisposition": "rejected-focused-proof",
+      "summary": "The exact active packed candidate reached a stable, fully rehashed corrected-canary envelope with valid candidate binding, mounts, classifier, 18-row zero-delta state restoration, final orphan cleanup, and zero cleanup or spill residue. Acceptance still failed closed at 33/35 focused assertions and 85/87 counted conditions because two ownership-transition assertions were red. Full Campaign Debug is stopped for this package; the stale mission-source proof fixtures require correction and a new immutable candidate."
     },
     "focusedForceAuthority": {
       "status": "passed-noncertifying",
@@ -260,19 +315,19 @@
       "id": "deterministic-service",
       "label": "Deterministic service contracts",
       "status": "passed-noncertifying",
-      "summary": "All five canonical packaged focused service suites passed against the exact active replacement package: 5 tests with zero failures, errors, or skips; all 40 envelope files rehashed; 11 approved and zero unapproved hard diagnostics; zero cleanup or spill residue."
+      "summary": "All five canonical packaged focused service suites passed against the exact retained package before its runtime rejection: 5 tests with zero failures, errors, or skips; all 40 envelope files rehashed; 11 approved and zero unapproved hard diagnostics; zero cleanup or spill residue."
     },
     {
       "id": "native-engine-world",
       "label": "Native engine-world behavior",
-      "status": "not-run",
-      "summary": "Neither the corrected force-authority canary nor Full Campaign Debug has run against the active replacement package; the accepted focused set is deterministic-service evidence only, and prior-package results remain historical."
+      "status": "failed",
+      "summary": "The corrected force-authority canary ran against the exact retained package and failed closed at 33/35 focused assertions and 85/87 counted conditions. Its package, classifier, state restoration, rehash, and cleanup boundaries were valid, but the ownership-transition proof fixture was stale after mission-source tightening; this rejected-after-runtime package cannot run Full Campaign Debug."
     },
     {
       "id": "packaged-dedicated",
       "label": "Packaged dedicated server",
       "status": "not-run",
-      "summary": "The active replacement candidate is sealed but has not been launched through the standard dedicated-server runtime gate."
+      "summary": "The retained rejected candidate was not launched through the standard dedicated-server runtime gate and is no longer eligible for runtime consumption."
     },
     {
       "id": "multiplayer-jip",
@@ -309,12 +364,12 @@
     {
       "id": "STATUS-001",
       "category": "AUTH",
-      "summary": "The active replacement package is sealed with green Foundation, all-target Workbench, and five-case packaged focused evidence. The deterministic-service rung is passed-noncertifying, but the corrected canary and Full Campaign Debug have not run, so native engine-world remains not-run; dedicated, multiplayer/JIP, restart breadth, performance, and soak remain pending."
+      "summary": "The retained rejected package has green Foundation, all-target Workbench, and five-case packaged focused evidence, but its corrected canary failed at 33/35 focused assertions and 85/87 counted conditions. Native engine-world is failed, further runtime consumption is blocked, and a corrected immutable replacement is required before the chain restarts."
     },
     {
       "id": "STATUS-002",
       "category": "TEST",
-      "summary": "Run the corrected force-authority canary against the exact active package next. Run Full Campaign Debug only if that canary is accepted; the prior package's red full-profile result and all prior scoped passes are historical only."
+      "summary": "Keep the rejected canary envelope immutable, seal the exact active-mission ownership proof-fixture correction in a new candidate, then restart focused, corrected-canary, and full gates without transferring evidence. Do not run Full Campaign Debug against the rejected package."
     },
     {
       "id": "STATUS-003",

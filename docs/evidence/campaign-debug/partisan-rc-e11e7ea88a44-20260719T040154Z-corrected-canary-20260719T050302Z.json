@@ -1,0 +1,132 @@
+{
+  "schemaVersion": 1,
+  "evidenceKind": "packaged-campaign-debug-corrected-canary",
+  "candidate": {
+    "candidateId": "partisan-rc-e11e7ea88a44-20260719T040154Z",
+    "candidateSourceHead": "e11e7ea88a44ea07d7a81c0b4009f029f0b297e1",
+    "packageSha256": "75b61eb19513de00e56a43ad3778885f89a7497c0eebe4d870bf3b11e62a0dad",
+    "manifestSha256": "daed6876ce839a7fc6551257e4a4dd9bb0c92772c7e2d07be595acddde19e714",
+    "readySha256": "0ca7a5e2fbe6bf298baa542250cc7b47bf2b135a5382e032fc5febdddf579acc",
+    "workbenchCrc": "e4cde465",
+    "runtimeUseDispositionAtCapture": "active-runtime-candidate"
+  },
+  "harness": {
+    "gitHead": "937c86c5d2259a9da270ea76371001ac1d4c6eed",
+    "dirty": false,
+    "campaignRunnerSha256": "56de386cbdb5677f4315c99e690eefa7158cc6e00e043ded221cec04bde74479",
+    "candidateModuleSha256": "2c827fc6cc965813d95c77a4eb063b5adc79025ce3fdc8bca8d3ea2788b57dc2"
+  },
+  "settings": {
+    "schemaVersion": 24,
+    "sha256": "fb744c7e85b93797da55e03fb8c2c1f0864e1ae43c2c49dfddd94ba91d24981c",
+    "guardedRuntimeCopy": true
+  },
+  "capture": {
+    "runLeafId": "20260719T050302Z-0bbd740b4f0149baa0f34944dbd70fc9",
+    "runId": "seed1985_t0_p1_u1784437399",
+    "profile": "force_authority",
+    "proofScope": "focused_force_authority",
+    "startedUtc": "2026-07-19T05:03:02.0611638Z",
+    "completedUtc": "2026-07-19T05:03:41.5393020Z",
+    "runtimeSeconds": 38
+  },
+  "result": {
+    "status": "failed-proof-validation",
+    "success": false,
+    "armed": true,
+    "started": true,
+    "completed": true,
+    "candidateBoundaryVerified": true,
+    "mountPacked": true,
+    "artifactsStable": true,
+    "evidenceCaptured": true,
+    "artifactSchemaValidationValid": false,
+    "acceptanceDisposition": "rejected-focused-proof",
+    "releaseDisposition": "replacement-required",
+    "certificationPassed": false,
+    "error": "Campaign Debug artifacts completed but failed the exact validation contract."
+  },
+  "proof": {
+    "caseCount": 11,
+    "pass": 8,
+    "warn": 1,
+    "fail": 1,
+    "blocked": 1,
+    "skipped": 0,
+    "focusedCaseId": "early_mechanics.force_authority",
+    "focusedCaseStatus": "FAIL",
+    "focusedAssertionCount": 35,
+    "focusedAssertionsPassed": 33,
+    "certificationRequired": 87,
+    "certificationProven": 85,
+    "certificationFail": 2,
+    "certificationBlocked": 0,
+    "stateDiffRows": 18,
+    "nonzeroStateDiffRows": 0,
+    "finalOrphanCleanupPass": true,
+    "finalOrphanActiveGroups": 0,
+    "validationProblems": [
+      "focused-force-authority-case-status",
+      "focused-ownership_transition.aggregate",
+      "focused-ownership_transition.causes"
+    ],
+    "failedAssertionIds": [
+      "ownership_transition.aggregate",
+      "ownership_transition.causes"
+    ],
+    "ownershipCauseEvidence": "military/political/mission/admin/debug/migration 1/1/0/1/1/1 | serialized intent queued 0 restore 1 political exact-once 0 repeat/restart 1/1"
+  },
+  "diagnostics": {
+    "valid": true,
+    "classificationValid": true,
+    "hardDiagnosticFree": false,
+    "hardDiagnosticCount": 2,
+    "scriptErrors": 2,
+    "engineErrors": 0,
+    "partisanErrors": 0,
+    "crashMarkers": 0,
+    "partisanSeverityLineCount": 0,
+    "approvedStockDiagnosticCount": 2,
+    "approvedIntentionalDiagnosticCount": 0,
+    "unapprovedHardDiagnosticCount": 0,
+    "unapprovedHardDiagnosticKinds": [],
+    "classifierSelfTestCount": 33,
+    "channelArithmeticValid": true,
+    "categoryArithmeticValid": true,
+    "malformedHardDiagnosticCount": 0,
+    "lifecycleMarkersValid": true,
+    "identityBaselinePairValid": true,
+    "intentionalFixtureStructureExact": true,
+    "intentionalFixtureSetValid": true,
+    "canonicalScriptLogCount": 1,
+    "canonicalConsoleLogCount": 1,
+    "canonicalLogPairSameDirectory": true
+  },
+  "cleanup": {
+    "guardRemaining": 0,
+    "ownedProcessesRemaining": 0,
+    "newEngineProcessesRemaining": 0,
+    "unclaimedEngineProcessesObserved": 0,
+    "newDefaultEntriesRemaining": 0,
+    "modifiedDefaultFiles": 0,
+    "deletedDefaultEntries": 0,
+    "missingDefaultRoots": 0,
+    "externalSpillEntriesRemaining": 0,
+    "modifiedSpillFiles": 0,
+    "deletedSpillEntries": 0,
+    "missingSpillRoots": 0,
+    "cleanupPhaseErrorCount": 0,
+    "monitoringRootsAreDetectionOnly": true
+  },
+  "integrity": {
+    "envelopeSha256": "8deca62633394025bfa976f6d883f9b500d56519fd13e875f241679f4799cd21",
+    "runSummarySha256": "8deca62633394025bfa976f6d883f9b500d56519fd13e875f241679f4799cd21",
+    "envelopeFileCount": 10,
+    "envelopeFilesRehashed": true
+  },
+  "finding": {
+    "status": "source-fix-required",
+    "defect": "Ownership transition proof fixture",
+    "nextStep": "Keep the production mission-source guard, seed exact active missions in both stale ownership proof fixtures, seal the correction in a new immutable candidate, and rerun its evidence chain. Do not run the full profile for this rejected package."
+  }
+}

@@ -95,6 +95,27 @@ function Assert-PartisanObjectProperties {
     }
 }
 
+function Assert-PartisanRuntimeUseDisposition {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)][string]$Disposition,
+        [ValidateSet('runtime', 'verification')]
+        [string]$ConsumerIntent = 'runtime'
+    )
+
+    if ($Disposition -cnotin @(
+            'active-runtime-candidate',
+            'supersede-before-runtime',
+            'rejected-after-runtime')) {
+        throw 'The current release-candidate runtime-use disposition is invalid.'
+    }
+    if ($ConsumerIntent -ceq 'runtime' -and
+        $Disposition -cne 'active-runtime-candidate') {
+        throw 'The current release candidate is not eligible for runtime use.'
+    }
+    return $Disposition
+}
+
 function Get-PartisanSha256 {
     param([Parameter(Mandatory = $true)][string]$Path)
 
@@ -291,12 +312,9 @@ function Assert-PartisanReleaseCandidate {
             'addonGuid',
             'workbenchCrc') `
         -Label 'Current release artifact status'
-    $runtimeUseDisposition = [string]$releaseStatus.artifact.runtimeUseDisposition
-    if ($runtimeUseDisposition -cnotin @(
-            'active-runtime-candidate',
-            'supersede-before-runtime')) {
-        throw 'The current release-candidate runtime-use disposition is invalid.'
-    }
+    $runtimeUseDisposition = Assert-PartisanRuntimeUseDisposition `
+        -Disposition ([string]$releaseStatus.artifact.runtimeUseDisposition) `
+        -ConsumerIntent $ConsumerIntent
     $statusManifestPath = [IO.Path]::GetFullPath(
         (Join-Path $repositoryRoot ([string]$releaseStatus.artifact.manifestPath)))
     if (-not $releaseStatus.artifact.releaseCandidateBuilt -or
@@ -305,11 +323,6 @@ function Assert-PartisanReleaseCandidate {
             [StringComparison]::OrdinalIgnoreCase)) {
         throw 'CandidateManifest is not the active tracked release-candidate record.'
     }
-    if ($ConsumerIntent -ceq 'runtime' -and
-        $runtimeUseDisposition -cne 'active-runtime-candidate') {
-        throw 'The current release candidate is not eligible for runtime use.'
-    }
-
     foreach ($path in @(
             $trackedManifestPath,
             $trackedReadyPath,
@@ -794,6 +807,7 @@ function New-PartisanReleaseCandidateStage {
 
 Export-ModuleMember `
     -Function Assert-PartisanReleaseCandidate, `
+        Assert-PartisanRuntimeUseDisposition, `
         Assert-PartisanReleaseCandidateStage, `
         Get-PartisanPublicCandidateIdentity, `
         New-PartisanReleaseCandidateStage

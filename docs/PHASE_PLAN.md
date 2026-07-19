@@ -65,7 +65,7 @@ and all five Workbench targets at common CRC `f27e637b`. Its focused and
 preliminary-unaccepted canary/full results remain historical evidence for that
 package only.
 
-The current active candidate is
+The current retained `rejected-after-runtime` candidate is
 `partisan-rc-e11e7ea88a44-20260719T040154Z`, version
 `0.1.0-rc.20260719T040154Z.e11e7ea8`, built from clean source HEAD
 `e11e7ea88a44ea07d7a81c0b4009f029f0b297e1`, with exact four-file package
@@ -84,9 +84,29 @@ This candidate's exact package-bound focused set passed under clean harness
 envelope files rehashed, cleanup/spill residue was zero, and the diagnostic
 census was 11 = ten approved stock + one approved intentional + zero unapproved.
 The deterministic-service rung is accepted as `passed-noncertifying`; the
-native-engine/world rung remains `not-run`. Run the corrected `force_authority`
-canary next, then the full profile only if the canary accepts. Stop on any
-rejection and never borrow an older package's result.
+corrected `force_authority` canary then failed the native-engine/world rung.
+Clean harness HEAD `937c86c5d2259a9da270ea76371001ac1d4c6eed` retained run
+`seed1985_t0_p1_u1784437399`, leaf
+`20260719T050302Z-0bbd740b4f0149baa0f34944dbd70fc9`, from
+`2026-07-19T05:03:02.0611638Z` through
+`2026-07-19T05:03:41.5393020Z`. Package identity, packed mount, bytes, and
+artifacts were exact and stable, but the 11 cases ended 8 PASS/1 WARN/1 FAIL/1
+BLOCKED/0 SKIPPED. Focused proof was only 33/35 and 85/87 because
+`ownership_transition.aggregate` and `ownership_transition.causes` failed.
+State restoration was 18/0, final orphan cleanup passed, all ten envelope files
+rehashed, cleanup/spill residue was zero, and the valid census was two approved
+stock diagnostics plus zero unapproved. The rejected summary SHA-256 is
+`af0aca25a84d8f757dbba8010950a658ce09937aa4048c35b2e372f1183eec69`.
+The full profile was correctly stopped. Never borrow another package's result.
+
+The root is a stale proof fixture after the intentional production
+`FindActiveMission` guard: the fixture supplied a mission source ID without
+seeding the corresponding active mission. The source correction seeds exact
+missions in both affected fixtures, pins mission cause/type/ID, retains an
+unresolved source as a military-capture negative case, and splits political and
+mission diagnostics. That source change requires a new immutable candidate and
+a fresh focused/canary/full chain; it cannot repair this package. Release
+remains `NO-GO`.
 
 The immediately preceding `partisan-rc-0e632ec4f63e-20260719T004133Z` remains
 immutable historical evidence. It was built from clean source HEAD
@@ -100,12 +120,13 @@ approved stock diagnostics, zero unapproved diagnostics, ten rehashed files,
 and zero cleanup/spill residue. The subsequent full profile is immutable
 rejected red evidence at 584/49/46/7/1 and 5,561/5,687, with 112 failed and 14
 blocked required assertions plus ten unapproved hard diagnostics. None of these
-historical results transfers to the active package.
+historical results transfers to the retained `rejected-after-runtime` package.
 Candidate-aware Campaign Debug and focused-runner preflights now validate the
 tracked and external manifest/ready seal, stage and rehash the exact four-file
 package under a disposable guard, construct the packed launch vector, and
-return every cleanup boundary to zero. A thirteen-check negative consumer suite
-rejects superseded runtime use plus the exercised tamper and layout cases. Real
+return every cleanup boundary to zero. A seventeen-check consumer suite admits
+all three dispositions for verification, admits only `active-runtime-candidate`
+for runtime use, and rejects the exercised tamper and layout cases. Real
 runs also recheck the clean harness, bind the guarded settings copy where
 applicable, and require the engine-owned exact-path packed-project mount record.
 The focused-runner audit found that three service-only suites in the first
@@ -154,9 +175,11 @@ corrected scoped canary passed as non-certifying evidence; the formerly observed
 exception was absent from that canary path. Its full profile is immutable
 rejected red history: 584/49/46/7/1, 5,561/5,687 required assertions, and ten
 unapproved hard diagnostics despite mechanically valid wrapper capture.
-Post-capture corrections are sealed in the active replacement. Its exact packed
-five-case focused rung is now accepted as non-certifying; run the corrected
-canary next and full only if the canary accepts. Dedicated,
+Post-capture corrections were sealed in the then-active replacement. Its exact
+packed five-case focused rung is accepted as non-certifying, but its corrected
+canary failed on the stale ownership-transition fixtures at 33/35 and 85/87;
+the full profile was stopped. The fixture correction now in source must be
+sealed in another candidate before any fresh evidence runs. Dedicated,
 multiplayer/JIP, restart breadth, performance, and soak remain later independent
 gates, and release remains `NO-GO`.
 
@@ -176,11 +199,13 @@ the ten unapproved diagnostics independently block acceptance. The corrected
 canary already failed closed on the separate map-locator lifecycle exception.
 The later, now-superseded package passed all five focused cases and its corrected
 scoped canary, then produced its own rejected full result rather than reusing the
-retained prior-package result. The active replacement cannot reuse either
-package's evidence; its own focused set is accepted, and next work advances to
-the corrected canary and then full only on acceptance. Later work broadens into
-native-world effects, real persistence/restart, rendered client projection, packaged
-server/client, multiplayer/network/JIP/reconnect, performance, and soak.
+retained prior-package result. The retained `rejected-after-runtime` replacement cannot reuse either
+package's evidence; its own focused set passed, but its corrected canary was
+rejected on stale source fixtures and the full profile was stopped. Next work
+seals the fixture correction in a new immutable candidate and restarts that
+candidate's evidence chain. Later work broadens into native-world effects, real
+persistence/restart, rendered client projection, packaged server/client,
+multiplayer/network/JIP/reconnect, performance, and soak.
 
 ## Current Controlled-Shutdown Native Fence Plan
 
@@ -1549,12 +1574,12 @@ publishing a build does not waive them.
 | Living War | Broad-alpha paths plus the sealed exact projections and both exact rebuild fresh-process cuts share the combat-presence/heat boundary | Delivery and physical-live-fold subgates are closed for the rebuild fixture; now prove natural route/combat casualty continuity, every earlier exact roster, all Schema-63 consumers and `HOT -> COOLING -> COLD`, multiplayer/JIP, and soak. |
 | Reliable Orders | Exact player QRF/Search-and-Destroy, defensive QRF/patrol, Schema-69 counterattack, and Schema-70 rebuild retain separate policies. Counterattack restore fences lifecycle-illegal ownership rows before runtime reconciliation; rebuild independently has exact `delivery_pending` and `physical_live_fold` restart chains | Preserve the counterattack eight-cut matrix and both rebuild results, then broaden natural route/combat, other force-family/world-scope, multiplayer/JIP, performance, and soak proof; do not infer other exact-family runtime coverage from this fixture. |
 | One Campaign View | Schema 61 implements marker-only snapshot/delta/JIP projection; Schema 62 adds ownership source revision/fencing; Schema 66 protects campaign markers. Exact QRF/counterattack/rebuild/patrol backing now delegates to the publisher's reciprocal canonical predicate | Execute the owner-client probe and rerun orphan checks, then prove host/two-client/late-join equality, revisions, nested ownership atomicity, gap/resync, map-close continuity, one canonical repaired campaign marker, player-marker editability/removal, duplicate-free rendering, and restart. |
-| Political Map | Schema 62 canonicalizes all ownership causes; Schema 63 supplies combat pressure/heat; Schema 64 supplies sole town support/population truth and contacted/territory projections. The focused deterministic engine case passes all three state-only groups. | Prove native ownership consequences and classifications, real migration/restart, rendered contact/current-first/complete-territory projection, JIP/reconnect, and no bypass. Broader encounter/facility consequences, performance, and soak remain. |
+| Political Map | Schema 62 canonicalizes all ownership causes; Schema 63 supplies combat pressure/heat; Schema 64 supplies sole town support/population truth and contacted/territory projections. The historical focused deterministic engine case passed all three state-only groups, but the active-package canary rejected stale mission-source fixture assumptions. Current source seeds and pins real mission provenance and retains an unresolved-source military negative. | Seal the fixture correction in a new candidate, then prove native ownership consequences and classifications, real migration/restart, rendered contact/current-first/complete-territory projection, JIP/reconnect, and no bypass. Broader encounter/facility consequences, performance, and soak remain. |
 | Living Towns | Settings 24 adds budgeted ambience; Schema 65 adds town consequences/pedestrian panic; sealed Schema 66 source/Workbench adds exact enemy-town local-security rosters and zero resistance automatic police/roadblocks without making actor count political truth | Package-prove town taxonomy/ambience, casualty/theft/combat/panic, exact police roster casualties/fold/rearm, ownership policy, save/restart, cleanup/recycle, and ten towns for ten minutes without churn or one-second stutter. |
 | Enemy Commander | Sealed resource, planning, and Schema-69 counterattack authority remains intact. Schema 70 makes newly admitted garrison rebuilds exact while leaving historical rebuilds on contract `0`; delivery-pending and physical-live-fold cuts now pass fresh-process recovery/replay | Preserve the validated ambient cadence isolation and explicit production-tick ownership; then prove natural route/combat behavior, other force families, multiplayer/JIP, and soak. |
 | Mission Parity | All 39 configured IDs map to MVP primitives; convoy, all assassination guards, newly started `rescue_pows`, and exact radio lifecycle use narrow contracts. R16 proves the disposable isolated radio pair end to end. Current source adds structural active demolition-witness admission and a quiet pre-action assertion | Fresh Workbench validation passes. R23 proves all six generic `primitive.destroy.no_ambient_witness_score` assertions and all seven destroy-family start/runtime/primitive cases. Next package-prove authored radio binding/restart/streaming and runtime-prove callback-plus-scan deduplication, convoy, all three assassination guards, and Schema-58 rescue. Keep refugees, historical POWs, and other mission families legacy until their own explicit cutovers. |
 | Resistance Progression | Arsenal, garage, training, undercover, HQ/Petros, and end-state foundations exist | Complete exact logistics/loadouts/static defenses and tune the full progression loop. |
-| Campaign Certification | Active candidate `partisan-rc-e11e7ea88a44-20260719T040154Z`, version `0.1.0-rc.20260719T040154Z.e11e7ea8`, is sealed from clean source HEAD `e11e7ea88a44ea07d7a81c0b4009f029f0b297e1`. Foundation passed all 874 checks; all five Workbench targets passed at 5,848/11,901 and CRC `e4cde465`; the seal binds four package files and 50 evidence files. Its exact packed five-case focused set passed under clean harness `b1940f2` at JUnit 5/0/0/0 with 40 files rehashed, zero residue, and 11 diagnostics = ten approved stock + one approved intentional + zero unapproved. | Deterministic-service is accepted as `passed-noncertifying`; native-engine/world is `not-run`. Run the corrected canary next and full only if it accepts. Superseded candidate `partisan-rc-0e632ec4f63e-20260719T004133Z` retains immutable focused and canary passes plus its rejected full result at 584/49/46/7/1 and 5,561/5,687, with 112 failed, 14 blocked, and ten unapproved diagnostics. None transfers. Release remains `NO-GO`. Fuel/damage/attachments/trunk parity, abrupt-termination recovery beyond the last completed checkpoint, broader active-world records, Workshop/live clients, network/JIP/reconnect/soak, arbitrary migration, multi-writer/off-device recovery, markers, and performance remain open. |
+| Campaign Certification | Retained `rejected-after-runtime` candidate `partisan-rc-e11e7ea88a44-20260719T040154Z`, version `0.1.0-rc.20260719T040154Z.e11e7ea8`, is sealed from clean source HEAD `e11e7ea88a44ea07d7a81c0b4009f029f0b297e1`. Foundation passed all 874 checks; all five Workbench targets passed at 5,848/11,901 and CRC `e4cde465`; the seal binds four package files and 50 evidence files. Its exact packed five-case focused set passed under clean harness `b1940f2` at JUnit 5/0/0/0 with 40 files rehashed, zero residue, and 11 diagnostics = ten approved stock + one approved intentional + zero unapproved. | The retained package is verification-only and runtime-ineligible; execution control must reject it. Deterministic-service remains accepted as `passed-noncertifying`; native-engine/world failed when the corrected canary ended at 8/1/1/1/0, 33/35, and 85/87 on stale ownership-transition fixtures. The exact package stayed stable and all residue was zero, but full was stopped. The fixture correction now in source requires a new immutable candidate and fresh evidence chain. Superseded candidate `partisan-rc-0e632ec4f63e-20260719T004133Z` retains immutable focused and canary passes plus its rejected full result at 584/49/46/7/1 and 5,561/5,687, with 112 failed, 14 blocked, and ten unapproved diagnostics. None transfers. Release remains `NO-GO`. Fuel/damage/attachments/trunk parity, abrupt-termination recovery beyond the last completed checkpoint, broader active-world records, Workshop/live clients, network/JIP/reconnect/soak, arbitrary migration, multi-writer/off-device recovery, markers, and performance remain open. |
 
 CRI-1 and the first CRI-2 vertical slices remain intentionally narrow. Troop
 training is the first production ledger consumer; exact visible garrison

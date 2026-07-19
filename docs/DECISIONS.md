@@ -3924,3 +3924,68 @@ Consequences:
 - Run the corrected `force_authority` canary next against the unchanged active
   package. Run Full Campaign Debug only if that canary is accepted.
 - The release decision remains `NO-GO`.
+
+Outcome update: The source-fixed replacement's corrected canary is a stable,
+fully retained, but rejected capture. CRI-072 records the two stale ownership-
+proof assertions, stops the package before Full Campaign Debug, and requires
+the fixture correction to begin a new immutable candidate chain.
+
+## CRI-072 - Reject the Active Replacement Canary and Require a New Candidate
+
+- Status: Accepted
+- Date: 2026-07-19
+
+Context: CRI-071 advanced the exact active candidate
+`partisan-rc-e11e7ea88a44-20260719T040154Z` from its accepted packaged focused
+set to the corrected `force_authority` canary. Clean harness HEAD
+`937c86c5d2259a9da270ea76371001ac1d4c6eed` ran
+`seed1985_t0_p1_u1784437399` from `2026-07-19T05:03:02.0611638Z` through
+`2026-07-19T05:03:41.5393020Z` against the unchanged sealed package.
+
+Decision: Preserve the complete envelope but reject the proof result. The 11
+cases ended 8 PASS, 1 WARN, 1 FAIL, 1 BLOCKED, and 0 SKIPPED. Focused authority
+proved 33/35 assertions and 85/87 counted conditions. Its two failed assertions
+were `ownership_transition.aggregate` and `ownership_transition.causes`; the
+cause evidence reported mission 0 and serialized queued/political exact-once
+0, while restore and repeat/restart remained green. Candidate/package binding,
+packed-mount verification, stable artifacts, the 33-check diagnostic
+classifier, all ten rehashed envelope files, 18/0 state restoration, final
+orphan cleanup, and zero cleanup/spill residue remained valid. The diagnostic
+census was two approved stock + zero intentional + zero unapproved. Bind this
+rejection through envelope SHA-256
+`8deca62633394025bfa976f6d883f9b500d56519fd13e875f241679f4799cd21`
+and portable summary SHA-256
+`af0aca25a84d8f757dbba8010950a658ce09937aa4048c35b2e372f1183eec69`.
+
+Root cause: Production correctly assigns `mission_capture` provenance only
+when `FindActiveMission` resolves the exact supplied source ID. Both affected
+proof paths supplied invented mission IDs without matching active missions, so
+production preserved them as military zone-capture sources while the stale
+fixture still expected mission provenance. The current source correction adds
+one exact active-mission factory used by both cause routing and serialized
+queued-intent proof, asserts mission cause/type/ID, and retains an unresolved-ID
+negative case as `military_capture` / `zone_capture` with the original source
+ID. It also separates political-policy exactness from restored mission
+provenance so either defect remains visible, while keeping restore and
+repeat/restart cardinality independently observable. Foundation pins these
+positive, negative, serialized, and reporting contracts.
+
+Consequences:
+
+- Do not roll back production mission-source attribution and do not change
+  Campaign Schema 71 or settings Schema 24. This is a stale proof-fixture
+  correction, not a gameplay or persisted-data contract change.
+- Stop Full Campaign Debug for the rejected package. Preserve its focused pass
+  and rejected canary as immutable package-bound evidence; neither can certify
+  a later package.
+- Mark the package `rejected-after-runtime`. Verification may still rehash and
+  inspect it, but every runtime consumer must reject it before process creation.
+  The seventeen-check consumer suite pins active, superseded, rejected, invalid,
+  tamper, and layout paths.
+- Seal the fixture correction in a new immutable candidate, then restart the
+  required focused -> corrected-canary -> full sequence from that identity.
+  Full may run only after the new candidate's canary is accepted.
+- Native-engine/world remains failed for this package. Dedicated server/client,
+  multiplayer/JIP, restart breadth, performance, soak, canary-release, and
+  stable certification remain independent gates.
+- The release decision remains `NO-GO`.

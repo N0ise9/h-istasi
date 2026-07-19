@@ -6,8 +6,8 @@
 > [`CURRENT_STATUS.md`](CURRENT_STATUS.md) is the sole short current decision
 > surface. Historical boundaries below do not supersede either generated file.
 
-Campaign Schema 71 and runtime-settings Schema 24 are current. The active
-source-fixed release candidate is
+Campaign Schema 71 and runtime-settings Schema 24 are current. The retained
+`rejected-after-runtime` source-fixed candidate is
 `partisan-rc-e11e7ea88a44-20260719T040154Z`, version
 `0.1.0-rc.20260719T040154Z.e11e7ea8`, from clean source HEAD
 `e11e7ea88a44ea07d7a81c0b4009f029f0b297e1`. Its package, manifest, and ready
@@ -20,8 +20,11 @@ passed at 5,848 files/11,901 classes with common CRC `e4cde465`. Its five
 package-bound focused suites now pass 5/5 with JUnit 5/0/0/0, 40/40 files
 rehashed, 11 approved diagnostics, zero unapproved diagnostics, and zero
 cleanup/spill residue under clean harness `b1940f2`. Packaged deterministic-
-service is `passed-noncertifying`; the corrected canary and full profile remain
-`not-run`, so native-engine/world remains `not-run`. Separately,
+service is `passed-noncertifying`. The corrected canary then failed closed at
+33/35 focused assertions and 85/87 counted conditions, so native-engine/world
+is `failed` and the full profile is stopped for this package. The retained
+package is verification-only and runtime-ineligible; execution control must
+reject it. Separately,
 the sealed embedded implementation identity remains
 `32727238d74b29905c68e5a80bb5897dfdc783c0`,
 UTC `2026-07-18T16:34:38Z`, label
@@ -31,17 +34,46 @@ historical evidence.
 ## Current Packaged Focused Deterministic-Service Boundary
 
 Clean harness HEAD `b1940f241e28f163202807385f7140f048921447` ran all five
-individually named suites against the exact active package. All five passed with
+individually named suites against the exact then-active package. All five passed with
 aggregate JUnit 5/0/0/0, exact packed mounts, 40/40 retained envelope files
 rehashed, and zero cleanup/spill residue. The exact hard-diagnostic census was
 11 = ten approved stock + one approved intentional journal injection + zero
-unapproved. This closes only the active package's scoped deterministic-service
+unapproved. This closes only the then-active package's scoped deterministic-service
 rung as `passed-noncertifying`.
 
-The corrected `force_authority` canary is the next gate. Full Campaign Debug may
-run only if that canary is accepted. Native-world, dedicated, multiplayer/JIP,
-restart breadth, performance, and soak parity remain open, and release remains
-`NO-GO`.
+## Current Rejected Corrected-Canary Boundary
+
+Clean harness HEAD `937c86c5d2259a9da270ea76371001ac1d4c6eed` ran the then-active-package
+canary `seed1985_t0_p1_u1784437399` from `2026-07-19T05:03:02.0611638Z`
+through `2026-07-19T05:03:41.5393020Z`. Its 11 cases were 8 PASS, 1 WARN, 1
+FAIL, 1 BLOCKED, and 0 SKIPPED. Focused proof passed 33/35 assertions and 85/87
+counted conditions; `ownership_transition.aggregate` and
+`ownership_transition.causes` were the two failures. Exact cause evidence was
+military/political/mission/admin/debug/migration 1/1/0/1/1/1, with serialized
+intent queued 0, restore 1, political exact-once 0, and repeat/restart 1/1.
+
+The candidate boundary, packed mount, and retained artifacts were valid. The
+diagnostic census was two approved stock + zero unapproved, all ten envelope
+files rehashed, state restoration was 18/0, final orphan cleanup passed, and
+cleanup/spill residue was zero. Envelope SHA-256 is
+`8deca62633394025bfa976f6d883f9b500d56519fd13e875f241679f4799cd21` and
+portable summary SHA-256 is
+`af0aca25a84d8f757dbba8010950a658ce09937aa4048c35b2e372f1183eec69`.
+Mechanical capture integrity does not outweigh the failed proof: the canary is
+rejected, native-engine/world is `failed`, and Full Campaign Debug is stopped
+for this package.
+
+The root is stale proof only. Production correctly requires
+`FindActiveMission` before a supplied correlation ID can claim mission
+provenance. Current source retains that guard, seeds the exact active mission in
+both affected proof paths, asserts the resulting cause/source type/source ID,
+adds a negative unknown-source control that must remain military zone-capture
+provenance, and separates political exact-once from mission-provenance
+diagnostics. Foundation guards pin those boundaries. This correction belongs to
+source after the immutable package; it transfers no evidence. A new candidate
+must restart focused, corrected-canary, and full gates. Native-world, dedicated,
+multiplayer/JIP, restart breadth, performance, and soak parity remain open, and
+release remains `NO-GO`.
 
 ## Historical Focused Force-Authority Parity Boundary
 
@@ -145,10 +177,10 @@ profile failed at 584/49/46/7/1 and 5,561/5,687 required assertions, with 112
 failed, 14 blocked, and ten unapproved hard diagnostics. Its wrapper capture
 integrity is valid but does not advance parity; native-engine/world was
 `failed` for that candidate. The package and its results are historical. The
-active replacement has since passed its own package-bound focused set, advancing
-deterministic-service only to `passed-noncertifying`; its corrected canary and
-full profile remain `not-run`, native-engine/world remains `not-run`, and
-release remains `NO-GO`.
+retained `rejected-after-runtime` replacement has since passed its own package-bound focused set, advancing
+deterministic-service only to `passed-noncertifying`; its corrected canary is now
+the rejected current boundary above, its full profile is stopped, native-
+engine/world is `failed`, and release remains `NO-GO`.
 
 ## Current Controlled-Shutdown Native Fence Parity Boundary
 
@@ -2213,22 +2245,29 @@ Debug and packaged-runtime gates remain open.
 
 ## Current Delivery Priorities
 
-- [x] Run all five focused cases against only active candidate
+- [x] Run all five focused cases against only the then-active candidate
   `partisan-rc-e11e7ea88a44-20260719T040154Z`. All five are accepted with JUnit
   5/0/0/0, 40/40 rehashed files, 11 approved diagnostics, zero unapproved
   diagnostics, and zero cleanup/spill residue; deterministic-service is
   `passed-noncertifying`.
-- [ ] Run and accept the scoped `force_authority` canary next; native-engine/
-  world remains `not-run` meanwhile.
-- [ ] Only after the canary is accepted, run the full profile against the same
-  immutable candidate. Release remains `NO-GO` until its later independent
-  gates are also satisfied.
+- [x] Run the scoped `force_authority` canary under clean harness `937c86c`.
+  Reject it at 33/35 focused assertions and 85/87 counted conditions despite
+  valid package/mount/artifact, diagnostics, 18/0 restore, ten-file rehash, and
+  cleanup boundaries. Native-engine/world is `failed` for this package.
+- [x] Stop the full profile for the rejected package and retain its envelope as
+  immutable failure evidence.
+- [x] Correct the stale proof fixture in source while preserving the production
+  `FindActiveMission` guard, exact mission provenance, and negative military
+  fallback; Foundation guards pin both affected proof paths.
+- [ ] Seal a new immutable candidate and restart focused, corrected-canary, and
+  full gates without evidence transfer. Release remains `NO-GO` until its later
+  independent gates are also satisfied.
 - Retain the historical `partisan-rc-0e632ec4f63e-20260719T004133Z` candidate's
   accepted five-case focused set and scoped canary as package-bound
   `passed-noncertifying` evidence only. Its full profile is that package's
   immutable red boundary: 584/49/46/7/1, 5,561/5,687 required assertions, and
   ten unapproved diagnostics despite a mechanically valid capture. No result
-  transfers to the active candidate.
+  transfers to a replacement candidate.
 - Treat R16's disposable exact radio fixture as the closed in-process proof:
   fixture-only selection, transmitter engine destruction before the normal
   callback, exact destruction/rebuild receipts, generated-equipment explosive

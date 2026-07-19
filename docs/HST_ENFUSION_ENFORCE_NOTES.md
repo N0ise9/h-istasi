@@ -6,10 +6,10 @@
 > generated behavioral specification. Mechanics below remain implementation
 > guidance and scoped evidence, not an upward certification claim.
 
-Campaign Schema 71 and runtime-settings Schema 24 are current. The active clean
-source HEAD is `e11e7ea88a44ea07d7a81c0b4009f029f0b297e1`. Foundation passes
-all 874 references, and the active all-target Workbench boundary is
-5,848 files/11,901 classes at common CRC `e4cde465`.
+Campaign Schema 71 and runtime-settings Schema 24 are current. The active
+candidate's clean source HEAD is `e11e7ea88a44ea07d7a81c0b4009f029f0b297e1`.
+Foundation passes all 874 references, and that candidate's all-target Workbench
+boundary is 5,848 files/11,901 classes at common CRC `e4cde465`.
 The embedded implementation stamp remains
 `32727238d74b29905c68e5a80bb5897dfdc783c0`, UTC
 `2026-07-18T16:34:38Z`, label
@@ -99,7 +99,8 @@ The embedded implementation stamp remains
   Foundation and all five Workbench targets pass at 5,847 files, 11,900
   classes, common CRC `3a399db1`, zero hard errors, and exact-zero cleanup. The
   sealed inventories contain four package files and 50 evidence files.
-- The complete post-full correction batch is sealed as current active candidate
+- The complete post-full correction batch is sealed as the retained
+  `rejected-after-runtime` candidate
   `partisan-rc-e11e7ea88a44-20260719T040154Z`, version
   `0.1.0-rc.20260719T040154Z.e11e7ea8`, from clean source HEAD
   `e11e7ea88a44ea07d7a81c0b4009f029f0b297e1`. Its exact four-file package
@@ -112,11 +113,12 @@ The embedded implementation stamp remains
   each pass at 5,848 files/11,901 classes and common CRC `e4cde465`, with zero
   hard errors and exact-zero cleanup. The seal binds four package files and 50
   evidence files. Its five-case packaged focused set now passes as a scoped
-  `passed-noncertifying` deterministic-service rung. The corrected canary and
-  full profile remain `not-run`, and native-engine/world remains `not-run`.
-  Continue the unchanged package through canary -> full, stopping at the first
-  rejected gate.
-- The active candidate's focused set ran serially in canonical order under
+  `passed-noncertifying` deterministic-service rung. Its corrected canary then
+  failed closed at 33/35 focused assertions and 85/87 counted conditions, so
+  native-engine/world is `failed` for this package and the full profile was not
+  run. Preserve the rejected envelope and seal the proof-fixture correction in
+  a new immutable candidate before restarting the evidence chain.
+- The then-active candidate's focused set ran serially in canonical order under
   clean harness HEAD `b1940f241e28f163202807385f7140f048921447` from
   `2026-07-19T04:44:01.2295133Z` through
   `2026-07-19T04:45:58.8756237Z`. All 5/5 cases passed with aggregate JUnit
@@ -126,6 +128,24 @@ The embedded implementation stamp remains
   unapproved, so record `HardDiagnosticFree:false` even though diagnostic
   classification is valid. The portable summary SHA-256 is
   `9ddade1cb86a209acf4aae02ded6f1a7713fe1e25ba577ae00ef1980e3de149a`.
+- The then-active candidate's corrected canary ran under clean harness HEAD
+  `937c86c5d2259a9da270ea76371001ac1d4c6eed`. Run
+  `seed1985_t0_p1_u1784437399` completed from
+  `2026-07-19T05:03:02.0611638Z` through
+  `2026-07-19T05:03:41.5393020Z`. Its 11 cases ended 8 PASS/1 WARN/1 FAIL/1
+  BLOCKED/0 SKIPPED. The two failed assertions were
+  `ownership_transition.aggregate` and `ownership_transition.causes`; cause
+  evidence reported mission 0 and serialized queued/political exact-once 0,
+  while restore and repeat/restart remained green. Candidate/package binding,
+  packed-mount verification, the 33-check classifier, ten-file rehash, 18/0
+  state restoration, final orphan cleanup, and cleanup/spill isolation all
+  remained valid. The exact diagnostic census was two approved stock + zero
+  intentional + zero unapproved. Bind this rejected result through envelope
+  SHA-256
+  `8deca62633394025bfa976f6d883f9b500d56519fd13e875f241679f4799cd21`
+  and portable summary SHA-256
+  `af0aca25a84d8f757dbba8010950a658ce09937aa4048c35b2e372f1183eec69`.
+  Do not run the full profile against this package.
 - The now-historical `0e632ec4f63e` candidate's five classifier-aware packaged
   cases passed under
   clean harness HEAD `d4d8f29cda9896ce2c6a5b073dac2cbd03757700` from
@@ -155,7 +175,7 @@ The embedded implementation stamp remains
   The prior map-locator exception is absent on this scoped path. Treat the
   native-engine/world canary rung as `passed-noncertifying` for that package
   only. Its subsequent full profile was rejected, and none of these results
-  transfer to the active replacement.
+  transfer to the retained rejected replacement.
 - The prior candidate's accepted packaged focused set uses clean classifier-
   aware harness HEAD
   `b3fc1e6f56d9cf8805bac1702a54e0b5284e0043` without changing candidate bytes.
@@ -255,10 +275,11 @@ The embedded implementation stamp remains
   references and guarded PC Workbench validation at 5,848 files/11,901 classes,
   CRC `e4cde465`, with successful script validation, zero hard errors, and
   exact-zero owned cleanup and monitored spill changes. This supersedes the
-  narrower local compile checkpoints for current source shape. The batch is
-  sealed in the active `e11e7ea88a44` candidate. Its fresh packaged focused set
-  passes as scoped non-certifying evidence; canary and full runtime evidence
-  remain open for that exact package.
+  narrower local compile checkpoints for that sealed candidate source shape.
+  The batch is sealed in the active `e11e7ea88a44` candidate. Its fresh
+  packaged focused set passes as scoped non-certifying evidence; its canary
+  rejected the stale ownership-source fixture and full runtime evidence is
+  stopped for that exact package.
 - The Search-and-Destroy Campaign Debug fixture correction, based on clean
   source identity `02dfd84`, must exercise the same two-step production
   contract as gameplay: issue a real map-target quote with one run-prefixed
@@ -336,7 +357,27 @@ The embedded implementation stamp remains
   text must include source type/ID plus capture progress before/after/delta;
   delta-only output hides precisely the provenance/cardinality drift Phase 17
   needs to diagnose. These corrections pass the combined Foundation/PC compile
-  gate and are sealed in the active package; runtime results remain open.
+  gate and were sealed in the then-active package; its later rejected runtime
+  boundary is recorded below.
+- Ownership source attribution must follow production resolution, not a fixture
+  label. A nonempty zone-capture source becomes `mission_capture` with source
+  type `mission` only when `FindActiveMission` resolves that exact instance ID.
+  If it does not resolve, preserve the supplied source ID while keeping cause
+  `military_capture` and source type `zone_capture`; never manufacture mission
+  provenance from an invented ID.
+- Deterministic ownership proofs that expect mission provenance must insert an
+  exact active mission through one fixture factory, including instance ID,
+  mission ID, target zone, active status, and bounded timing. Apply that same
+  setup to direct cause routing and serialized queued-intent/restore coverage,
+  then assert cause, source type, and source ID. Retain an unresolved-ID
+  negative case to pin the military/zone-capture fallback and preserved source.
+- Keep restored mission provenance separate from political-policy exact-once
+  proof. A serialized test must report the queued political and mission intents,
+  political policy cardinality, restored mission cause/type/ID, and inert
+  repeat/restart passes independently so one green branch cannot hide a stale
+  provenance fixture. This is a proof-fixture correction only: production
+  attribution and persisted schemas remain unchanged, and Foundation must pin
+  both the positive and negative contracts.
 - `SelectOrderType` intentionally uses stochastic retaliation gates. A
   deterministic relation fixture must not call it with zero aggression and no
   threat and then expect counterattack, QRF, roadblock, or rival support. Keep
@@ -399,8 +440,8 @@ The embedded implementation stamp remains
   expired mission outcome: release captive custody, cancel the held guard,
   settle the operation as cancelled, clear grace fields, and prove the second
   outcome reconcile is a no-op. This correction passes the combined
-  Foundation/PC compile gate and is sealed in the active package; runtime
-  validation remains open.
+  Foundation/PC compile gate and was sealed in the then-active package; its
+  later rejected runtime boundary is recorded below.
 - The retained prior-package full capture has exact candidate/packed-mount
   identity, stable and rehashed artifacts, an 18/0 state diff, final orphan cleanup, and zero
   cleanup/spill residue. Its canonical script log has 25 raw diagnostics,
@@ -412,10 +453,9 @@ The embedded implementation stamp remains
   blocked. Retain the historical 583/50/46/7/1 result only as a comparison; do
   not call it current.
 - The corrected harness completed the prior package's unchanged-package canary
-  rerun. Stop
-  the sequence when that canary rejects; do not spend a full run to reconfirm a
-  known gate failure. The map-locator correction was sealed in the now-
-  historical `0e632ec4f63e` candidate, and all five packaged focused cases
+  rerun. Stop the sequence when that canary rejects; do not spend a full run to
+  reconfirm a known gate failure. The map-locator correction was sealed in the
+  now-historical `0e632ec4f63e` candidate, and all five packaged focused cases
   passed against it. Its corrected canary also passed as scoped non-certifying
   evidence. Its full profile then failed certification and diagnostic
   acceptance. The
@@ -424,9 +464,10 @@ The embedded implementation stamp remains
   blocked assertion occurrences. Convoy materialization is its largest cascade.
   The `0e632ec4f63e` package's exact 46/7 case, 112/14 required-assertion, and
   ten-unapproved-diagnostic boundary remains immutable. Its post-capture source
-  corrections are sealed in active candidate `e11e7ea88a44`; that package's
-  fresh focused set passes as scoped non-certifying evidence and its unchanged
-  chain must continue through canary -> full.
+  corrections are sealed in retained rejected candidate `e11e7ea88a44`; that
+  package's fresh focused set passes as scoped non-certifying evidence, but its
+  corrected canary rejected the stale ownership proof fixture. Full was stopped;
+  the fixture correction must begin another immutable candidate chain.
 - A helper that receives `requiredHold - holdBefore + 1` in one call does not
   prove that the engine advanced the objective by that many seconds. For area
   objectives, use bounded per-second/frame ticks and log both mission-runtime
@@ -7816,10 +7857,11 @@ This file is for practical engine/script behavior, not project planning. Keep en
   identities: standard server, diagnostic server, standard client, and
   diagnostic client. Exact-match the selected diagnostic and adjacent standard
   file name, length, version metadata, and SHA-256 before and after the run.
-- Treat the status disposition as an execution control, not prose. A candidate
-  marked `supersede-before-runtime` may be inspected by preflight and tamper
-  self-tests, but a real engine launch must fail before process creation. Only
-  `active-runtime-candidate` is runtime-eligible.
+- Treat the status disposition as an execution control, not prose. Candidates
+  marked `supersede-before-runtime` or `rejected-after-runtime` may be inspected
+  by verification preflight and tamper self-tests, but a real engine launch must
+  fail before process creation. Only `active-runtime-candidate` is runtime-
+  eligible.
 - Do not add runtime artifacts to the sealed candidate directory. Copy raw
   logs, JUnit, Campaign Debug JSON/summary/diff, and explicit config to a fresh
   external sidecar before deleting the guard. A portable envelope should bind
@@ -7866,7 +7908,8 @@ This file is for practical engine/script behavior, not project planning. Keep en
   found ten unapproved hard diagnostics. Never reuse the
   preceding package's results, and never attach post-capture source fixes to
   this package.
-- Those post-capture corrections are sealed in current active candidate
+- Those post-capture corrections are sealed in retained
+  `rejected-after-runtime` candidate
   `partisan-rc-e11e7ea88a44-20260719T040154Z`, version
   `0.1.0-rc.20260719T040154Z.e11e7ea8`, with package SHA-256
   `75b61eb19513de00e56a43ad3778885f89a7497c0eebe4d870bf3b11e62a0dad`.
@@ -7877,9 +7920,13 @@ This file is for practical engine/script behavior, not project planning. Keep en
   5,848 files/11,901 classes and CRC `e4cde465`; and the seal binds four package
   files plus 50 evidence files. Its five canonical packaged focused cases pass
   5/5 as a `passed-noncertifying` deterministic-service rung under clean harness
-  HEAD `b1940f241e28f163202807385f7140f048921447`. Corrected-canary, Full
-  Campaign Debug, and native-engine/world results remain `not-run`. Keep release
-  `NO-GO`; run the corrected canary next and run full only if it is accepted.
+  HEAD `b1940f241e28f163202807385f7140f048921447`. Its corrected canary is rejected
+  at 33/35 focused assertions and 85/87 counted conditions under clean harness
+  `937c86c5d2259a9da270ea76371001ac1d4c6eed`; native-engine/world is failed and
+  Full Campaign Debug is stopped for this package. It is verification-only and
+  runtime-ineligible. Keep release `NO-GO`, retain the immutable rejected
+  envelope, and seal the proof-fixture correction in a new candidate before
+  restarting focused -> canary -> full.
 - Exact package binding is part of focused acceptance, not merely launch
   configuration. Every retained envelope must bind and reverify the same
   candidate, source HEAD, package digest, manifest, ready seal, runner, and
@@ -7896,8 +7943,10 @@ This file is for practical engine/script behavior, not project planning. Keep en
   diagnostics remain explicit parts of the census.
 - The accepted focused set proves only the scoped deterministic-service gate.
   It is non-certifying and does not advance native-engine/world, canary-release,
-  or stable certification. Preserve the serial gate order: corrected canary
-  next, then Full Campaign Debug only after an accepted canary.
+  or stable certification. This package's next canary rejected, so its chain is
+  closed and Full Campaign Debug must not run. Preserve the serial gate order
+  when a new immutable candidate restarts the ladder: focused first, corrected
+  canary second, then full only after an accepted canary.
 - A passing focused JUnit result does not classify the surrounding engine error
   channel. Bind a separate hard-diagnostic census into the runner's success
   predicate. For the current diagnostic client, exactly two stock filter-

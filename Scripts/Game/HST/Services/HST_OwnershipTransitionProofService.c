@@ -556,6 +556,28 @@ class HST_OwnershipTransitionProofFixtureFactory
 			m_CurrentTownInfluence.EnsureRecords(state);
 		return civilianZone;
 	}
+
+	HST_ActiveMissionState AddActiveMissionSource(
+		HST_CampaignState state,
+		string instanceId,
+		string missionId,
+		string targetZoneId)
+	{
+		if (!state || instanceId.IsEmpty() || missionId.IsEmpty() || targetZoneId.IsEmpty())
+			return null;
+
+		HST_ActiveMissionState mission = new HST_ActiveMissionState();
+		mission.m_sInstanceId = instanceId;
+		mission.m_sMissionId = missionId;
+		mission.m_sDisplayName = "Ownership Transition Source Proof Mission";
+		mission.m_eStatus = HST_EMissionStatus.HST_MISSION_ACTIVE;
+		mission.m_sTargetZoneId = targetZoneId;
+		mission.m_iStartedAtSecond = state.m_iElapsedSeconds;
+		mission.m_iActiveUntilSecond = state.m_iElapsedSeconds + 600;
+		mission.m_iRemainingSeconds = 600;
+		state.m_aActiveMissions.Insert(mission);
+		return mission;
+	}
 }
 
 // Deterministic in-memory proof. Native marker entities, rendered UI,
@@ -915,6 +937,18 @@ class HST_OwnershipTransitionProofService
 			fixture.m_Preset.m_sOccupierFactionKey,
 			HST_EZoneType.HST_ZONE_RESOURCE,
 			"11000 20 10100");
+		HST_ZoneState unresolvedSourceZone = m_Factory.AddZone(
+			fixture.m_State,
+			"ownership_proof_cause_unresolved_source",
+			fixture.m_Preset.m_sOccupierFactionKey,
+			HST_EZoneType.HST_ZONE_OUTPOST,
+			"11300 20 10100");
+		string missionSourceId = "ownership_proof_mission_instance";
+		HST_ActiveMissionState missionSource = m_Factory.AddActiveMissionSource(
+			fixture.m_State,
+			missionSourceId,
+			"ownership_transition_source_proof",
+			missionZone.m_sZoneId);
 
 		bool missionCaptured = fixture.m_ZoneCapture.CaptureForResistance(
 			fixture.m_State,
@@ -928,7 +962,7 @@ class HST_OwnershipTransitionProofService
 			null,
 			null,
 			null,
-			"ownership_proof_mission_instance");
+			missionSourceId);
 		HST_OwnershipTransitionState missionReceipt = fixture.m_State.FindOwnershipTransition(
 			missionZone.m_sLastOwnershipTransitionRequestId);
 		HST_OwnershipTransitionState adminReceipt = ApplyCanonicalCause(
@@ -946,28 +980,55 @@ class HST_OwnershipTransitionProofService
 			migrationZone,
 			"migration_repair",
 			"ownership_proof_migration_source");
+		string unresolvedSourceId = "ownership_proof_missing_mission_source";
+		bool unresolvedSourceCaptured = fixture.m_ZoneCapture.CaptureForResistance(
+			fixture.m_State,
+			fixture.m_Preset,
+			fixture.m_Strategic,
+			fixture.m_Economy,
+			fixture.m_Balance,
+			unresolvedSourceZone.m_sZoneId,
+			0,
+			null,
+			null,
+			null,
+			null,
+			unresolvedSourceId);
+		HST_OwnershipTransitionState unresolvedSourceReceipt = fixture.m_State.FindOwnershipTransition(
+			unresolvedSourceZone.m_sLastOwnershipTransitionRequestId);
 
-		bool missionExact = missionCaptured
+		bool missionExact = missionSource
+			&& missionCaptured
 			&& missionReceipt
 			&& missionReceipt.m_bCompleted
 			&& missionReceipt.m_sCause == "mission_capture"
+			&& missionReceipt.m_sSourceType == "mission"
+			&& missionReceipt.m_sSourceId == missionSourceId
 			&& missionReceipt.m_iAppliedRevision == 2;
 		bool directCausesExact = ReceiptMatchesCause(adminReceipt, "admin")
 			&& ReceiptMatchesCause(debugReceipt, "debug_seed")
 			&& ReceiptMatchesCause(migrationReceipt, "migration_repair");
+		bool unresolvedSourceExact = unresolvedSourceCaptured
+			&& unresolvedSourceReceipt
+			&& unresolvedSourceReceipt.m_bCompleted
+			&& unresolvedSourceReceipt.m_sCause == "military_capture"
+			&& unresolvedSourceReceipt.m_sSourceType == "zone_capture"
+			&& unresolvedSourceReceipt.m_sSourceId == unresolvedSourceId;
 		report.m_bAllCauseRoutingExact = report.m_bMilitaryCaptureExact
 			&& report.m_bPoliticalFlipExact
 			&& missionExact
 			&& directCausesExact
-			&& fixture.m_State.m_aOwnershipTransitions.Count() == 4;
+			&& unresolvedSourceExact
+			&& fixture.m_State.m_aOwnershipTransitions.Count() == 5;
 		report.m_sCauseEvidence = string.Format(
-			"military/political/mission/admin/debug/migration %1/%2/%3/%4/%5/%6",
+			"military/political/mission/admin/debug/migration %1/%2/%3/%4/%5/%6 | unresolved source remains military %7",
 			report.m_bMilitaryCaptureExact,
 			report.m_bPoliticalFlipExact,
 			missionExact,
 			ReceiptMatchesCause(adminReceipt, "admin"),
 			ReceiptMatchesCause(debugReceipt, "debug_seed"),
-			ReceiptMatchesCause(migrationReceipt, "migration_repair"));
+			ReceiptMatchesCause(migrationReceipt, "migration_repair"),
+			unresolvedSourceExact);
 	}
 
 	protected HST_OwnershipTransitionState ApplyCanonicalCause(
@@ -2861,6 +2922,12 @@ class HST_OwnershipTransitionProofService
 			fixture.m_Preset.m_sOccupierFactionKey,
 			HST_EZoneType.HST_ZONE_OUTPOST,
 			"15700 20 14200");
+		string missionSourceId = "ownership_proof_serialized_mission_instance";
+		HST_ActiveMissionState missionSource = m_Factory.AddActiveMissionSource(
+			fixture.m_State,
+			missionSourceId,
+			"ownership_transition_serialized_source_proof",
+			missionZone.m_sZoneId);
 		m_Factory.AddCivilianZone(fixture.m_State, politicalZone.m_sZoneId, 60, 40);
 
 		fixture.m_MapMarkers.SetProjectionBlocked(true);
@@ -2915,24 +2982,30 @@ class HST_OwnershipTransitionProofService
 			null,
 			null,
 			null,
-			"ownership_proof_serialized_mission_instance");
+			missionSourceId);
 		HST_OwnershipTransitionState queuedMissionReceipt = fixture.m_State.FindOwnershipTransition(
 			missionZone.m_sActiveOwnershipTransitionRequestId);
-		bool intentDeferred = influenceApplied
+		bool politicalIntentDeferred = influenceApplied
 			&& politicalZone.m_sOwnerFactionKey == fixture.m_Preset.m_sOccupierFactionKey
 			&& politicalZone.m_sLastOwnershipTransitionRequestId.IsEmpty()
 			&& queuedPoliticalReceipt
 			&& !queuedPoliticalReceipt.m_bOwnerApplied
 			&& !queuedPoliticalReceipt.m_bCompleted
-			&& queuedPoliticalReceipt.m_sFailureReason.Contains("durably queued")
+			&& queuedPoliticalReceipt.m_sFailureReason.Contains("durably queued");
+		bool missionIntentDeferred = missionSource
 			&& missionProgressApplied
 			&& queuedMissionReceipt
 			&& queuedMissionReceipt.m_sCause == "mission_capture"
+			&& queuedMissionReceipt.m_sSourceType == "mission"
+			&& queuedMissionReceipt.m_sSourceId == missionSourceId
 			&& !queuedMissionReceipt.m_bOwnerApplied
 			&& !queuedMissionReceipt.m_bCompleted
-			&& queuedMissionReceipt.m_sFailureReason.Contains("durably queued")
-			&& fixture.m_State.m_aOwnershipTransitions.Count() == 3
+			&& queuedMissionReceipt.m_sFailureReason.Contains("durably queued");
+		bool deferredCountsExact = fixture.m_State.m_aOwnershipTransitions.Count() == 3
 			&& fixture.m_State.m_aTownInfluenceEvents.Count() == 1;
+		bool intentDeferred = politicalIntentDeferred
+			&& missionIntentDeferred
+			&& deferredCountsExact;
 
 		HST_CampaignSaveData pendingSave = new HST_CampaignSaveData();
 		pendingSave.Capture(fixture.m_State);
@@ -2956,6 +3029,8 @@ class HST_OwnershipTransitionProofService
 		if (restoredMissionZone)
 			restoredMissionReceipt = restoredState.FindOwnershipTransition(
 				restoredMissionZone.m_sLastOwnershipTransitionRequestId);
+		HST_ActiveMissionState restoredMissionSource = restoredState.FindActiveMission(
+			missionSourceId);
 		int influenceCountBeforePolicy = restoredState.m_aTownInfluenceEvents.Count();
 		int transitionCountBeforePolicy = restoredState.m_aOwnershipTransitions.Count();
 		int strategicCountBeforePolicy = restoredState.m_aStrategicEvents.Count();
@@ -2963,19 +3038,33 @@ class HST_OwnershipTransitionProofService
 		bool politicalChanged = restored.m_Civilians.ReconcileTownOwnershipPolicies(
 			restoredState,
 			restored.m_Preset);
-		bool firstPolicyExact = !politicalChanged
+		bool politicalPolicyExact = !politicalChanged
 			&& restoredPoliticalReceipt
 			&& restoredPoliticalReceipt.m_bCompleted
 			&& restoredPoliticalReceipt.m_sCause == "political_support"
-			&& restoredMissionReceipt
-			&& restoredMissionReceipt.m_bCompleted
-			&& restoredMissionReceipt.m_sCause == "mission_capture"
-			&& restoredMissionZone.m_sOwnerFactionKey
+			&& restoredPoliticalZone.m_sOwnerFactionKey
 				== fixture.m_Preset.m_sResistanceFactionKey
 			&& restoredState.m_aTownInfluenceEvents.Count() == influenceCountBeforePolicy
 			&& restoredState.m_aOwnershipTransitions.Count() == transitionCountBeforePolicy
 			&& restoredState.m_aStrategicEvents.Count() == strategicCountBeforePolicy
 			&& restoredState.m_aCampaignEvents.Count() == campaignEventCountBeforePolicy;
+		bool restoredActiveMissionExact = restoredMissionSource
+			&& restoredMissionSource.m_sInstanceId == missionSourceId
+			&& restoredMissionSource.m_sMissionId
+				== "ownership_transition_serialized_source_proof"
+			&& restoredMissionSource.m_eStatus == HST_EMissionStatus.HST_MISSION_ACTIVE
+			&& restoredMissionZone
+			&& restoredMissionSource.m_sTargetZoneId == restoredMissionZone.m_sZoneId;
+		bool restoredMissionSourceExact = restoredMissionReceipt
+			&& restoredMissionReceipt.m_bCompleted
+			&& restoredMissionReceipt.m_sCause == "mission_capture"
+			&& restoredMissionReceipt.m_sSourceType == "mission"
+			&& restoredMissionReceipt.m_sSourceId == missionSourceId
+			&& restoredMissionZone.m_sOwnerFactionKey
+				== fixture.m_Preset.m_sResistanceFactionKey;
+		bool firstPolicyExact = politicalPolicyExact
+			&& restoredActiveMissionExact
+			&& restoredMissionSourceExact;
 
 		int transitionCountAfterPolicy = restoredState.m_aOwnershipTransitions.Count();
 		int strategicCountAfterPolicy = restoredState.m_aStrategicEvents.Count();
@@ -3023,10 +3112,14 @@ class HST_OwnershipTransitionProofService
 			&& repeatedPolicyInert
 			&& postRestoreInert;
 		report.m_sCauseEvidence = report.m_sCauseEvidence + string.Format(
-			" | serialized intent queued %1 restore %2 political exact-once %3 repeat/restart %4/%5",
-			intentDeferred,
+			" | serialized political/mission queued %1/%2 counts %3 restore %4 political exact-once %5 active mission %6 mission provenance %7 repeat/restart %8/%9",
+			politicalIntentDeferred,
+			missionIntentDeferred,
+			deferredCountsExact,
 			blockerResumeChanged && restoredBlockingReceipt && restoredBlockingReceipt.m_bCompleted,
-			firstPolicyExact,
+			politicalPolicyExact,
+			restoredActiveMissionExact,
+			restoredMissionSourceExact,
 			repeatedPolicyInert,
 			postRestoreInert);
 	}

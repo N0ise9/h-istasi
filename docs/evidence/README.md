@@ -13,8 +13,9 @@ records are not rewritten.
 Repository attributes keep both JSON records on canonical LF endings so their
 byte hashes remain stable across checkouts.
 
-Current status selects `partisan-rc-e11e7ea88a44-20260719T040154Z` as the active
-runtime candidate. Version `0.1.0-rc.20260719T040154Z.e11e7ea8` was built from
+Current status retains `partisan-rc-e11e7ea88a44-20260719T040154Z` as a
+`rejected-after-runtime`, verification-only candidate. Version
+`0.1.0-rc.20260719T040154Z.e11e7ea8` was built from
 clean source HEAD `e11e7ea88a44ea07d7a81c0b4009f029f0b297e1`; its exact
 four-file package SHA-256 is
 `75b61eb19513de00e56a43ad3778885f89a7497c0eebe4d870bf3b11e62a0dad`,
@@ -26,7 +27,7 @@ Foundation passed all 874 checks. All five Workbench targets passed at 5,848
 files/11,901 classes, common CRC `e4cde465`, zero hard errors, and exact-zero
 cleanup. The manifest binds four package files and 50 evidence files.
 
-The active candidate's package-bound focused set is accepted as
+The then-active candidate's package-bound focused set is accepted as
 `passed-noncertifying`. Clean harness `b1940f2` ran all five cases against the
 exact staged packed candidate from `2026-07-19T04:44:01.2295133Z` through
 `2026-07-19T04:45:58.8756237Z`: JUnit 5/0/0/0, all 40 envelope files rehashed,
@@ -35,15 +36,42 @@ unapproved, and zero cleanup/spill residue. The portable summary is
 `focused-autotest/partisan-rc-e11e7ea88a44-20260719T040154Z.json`, SHA-256
 `9ddade1cb86a209acf4aae02ded6f1a7713fe1e25ba577ae00ef1980e3de149a`.
 This closes only the deterministic-service rung. The native-engine/world rung
-remains `not-run`: run the corrected `force_authority` canary next and the full
-profile only if that canary accepts. Release remains `NO-GO`.
+failed for this package at the corrected `force_authority` canary. Clean harness
+HEAD `937c86c5d2259a9da270ea76371001ac1d4c6eed` retained run
+`seed1985_t0_p1_u1784437399` under leaf
+`20260719T050302Z-0bbd740b4f0149baa0f34944dbd70fc9` from
+`2026-07-19T05:03:02.0611638Z` through
+`2026-07-19T05:03:41.5393020Z`. Candidate identity, packed mount, package
+bytes, and artifacts remained exact and stable. The 11 cases ended at 8 PASS,
+1 WARN, 1 FAIL, 1 BLOCKED, and 0 SKIPPED; focused proof was 33/35 and 85/87,
+with `ownership_transition.aggregate` and `ownership_transition.causes` failed.
+State restoration was 18/0, final orphan cleanup passed, all ten envelope files
+rehashed, and cleanup/spill residue was zero. The classifier was valid with two
+approved stock diagnostics and zero unapproved diagnostics. Envelope SHA-256 is
+`8deca62633394025bfa976f6d883f9b500d56519fd13e875f241679f4799cd21`.
+The rejected portable summary is
+`campaign-debug/partisan-rc-e11e7ea88a44-20260719T040154Z-corrected-canary-20260719T050302Z.json`,
+SHA-256 `af0aca25a84d8f757dbba8010950a658ce09937aa4048c35b2e372f1183eec69`.
+The full profile was correctly stopped and remains `not-run`; release remains
+`NO-GO`.
+
+The canary isolated a stale proof-fixture contract rather than package drift.
+Production now requires `FindActiveMission` to resolve the supplied source
+before classifying a capture as mission-caused, but the ownership proof fixtures
+still supplied unbacked mission IDs. The source correction seeds the exact
+active missions in both fixtures, pins mission cause/type/ID provenance, retains
+an unresolved-source negative case as military capture, and separates political
+from mission diagnostics. Because that correction changes source, it requires a
+new immutable candidate and a fresh focused/canary/full evidence chain. It does
+not repair or transfer evidence from this rejected package.
 
 `partisan-rc-c2b16c4a2d85-20260718T201442Z`,
 `partisan-rc-b8deddc4b631-20260718T213322Z`, and
 `partisan-rc-0e632ec4f63e-20260719T004133Z` remain sealed as superseded artifact
 evidence. The last of those retains its accepted focused and corrected-canary
 results plus its rejected full result as immutable historical evidence. None of
-their package-bound results can be attached to the active replacement.
+their package-bound results can be attached to this rejected package or any
+replacement.
 
 Runtime results are not appended to these sealed candidate directories. Each
 candidate-aware runner writes a fresh external sidecar run whose portable
@@ -129,8 +157,9 @@ failed and 14 blocked. The classifier found 25 hard diagnostics = two approved
 stock + 13 approved intentional + ten unapproved. Envelope SHA-256 is
 `f61bd05fcc5c95c5d0ddbbeb46a9220771d116b86bad1ad4f26340f4853ec825`.
 This is a rejected red historical full-profile boundary. That candidate's
-native-engine/world rung is `failed`; post-capture source fixes are sealed only
-in the active replacement and may not be attached to this immutable package.
+native-engine/world rung is `failed`; its map-locator source fix is sealed only
+in the retained rejected replacement and may not be attached to this immutable
+package.
 
 Canonical LF is required for the tracked summaries, and the release generator
 rehashes and cross-checks them against current status without transferring the

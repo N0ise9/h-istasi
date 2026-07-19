@@ -791,7 +791,7 @@ function Assert-CorrectedCanaryEvidence {
 		[object] $Evidence,
 		[object] $CandidateIdentity,
 		[string] $ExpectedStatus,
-		[ValidateSet("accepted", "rejected")]
+		[ValidateSet("accepted", "rejected", "rejected-proof")]
 		[string] $ExpectedOutcome,
 		[string] $Label,
 		[DateTimeOffset] $StatusAsOfUtc,
@@ -980,6 +980,13 @@ function Assert-CorrectedCanaryEvidence {
 	$expectedUnapprovedKind = ""
 	$expectedFindingStatus = "accepted-noncertifying"
 	$expectedFindingDefect = "none"
+	$expectedArtifactValidationValid = $true
+	$expectedPass = 9
+	$expectedFail = 0
+	$expectedFocusedCaseStatus = "PASS"
+	$expectedFocusedAssertionsPassed = 35
+	$expectedCertificationProven = 87
+	$expectedCertificationFail = 0
 	if ($ExpectedOutcome -ceq "rejected") {
 		$expectedSummaryStatus = "failed-unapproved-hard-diagnostic"
 		$expectedSuccess = $false
@@ -993,6 +1000,22 @@ function Assert-CorrectedCanaryEvidence {
 		$expectedUnapprovedKind = "virtual-machine-exception"
 		$expectedFindingStatus = "source-fix-required"
 		$expectedFindingDefect = "MapLocator runtime lifecycle"
+	}
+	elseif ($ExpectedOutcome -ceq "rejected-proof") {
+		$expectedSummaryStatus = "failed-proof-validation"
+		$expectedSuccess = $false
+		$expectedError = "Campaign Debug artifacts completed but failed the exact validation contract."
+		$expectedAcceptanceDisposition = "rejected-focused-proof"
+		$expectedReleaseDisposition = "replacement-required"
+		$expectedFindingStatus = "source-fix-required"
+		$expectedFindingDefect = "Ownership transition proof fixture"
+		$expectedArtifactValidationValid = $false
+		$expectedPass = 8
+		$expectedFail = 1
+		$expectedFocusedCaseStatus = "FAIL"
+		$expectedFocusedAssertionsPassed = 33
+		$expectedCertificationProven = 85
+		$expectedCertificationFail = 2
 	}
 	if ([string] (Get-ObjectPropertyValue $summaryResult "status") -cne $expectedSummaryStatus -or
 		(Get-ObjectPropertyValue $Evidence "outcomeSuccess") -isnot [bool] -or
@@ -1011,11 +1034,16 @@ function Assert-CorrectedCanaryEvidence {
 	}
 	foreach ($requiredTrueResultField in @(
 		"armed", "started", "completed", "candidateBoundaryVerified", "mountPacked",
-		"artifactsStable", "evidenceCaptured", "artifactSchemaValidationValid")) {
+		"artifactsStable", "evidenceCaptured")) {
 		if ((Get-ObjectPropertyValue $summaryResult $requiredTrueResultField) -isnot [bool] -or
 			-not [bool] (Get-ObjectPropertyValue $summaryResult $requiredTrueResultField)) {
 			throw "$Label result.$requiredTrueResultField must be true."
 		}
+	}
+	if ((Get-ObjectPropertyValue $summaryResult "artifactSchemaValidationValid") -isnot [bool] -or
+		[bool] (Get-ObjectPropertyValue $summaryResult "artifactSchemaValidationValid") -ne
+			$expectedArtifactValidationValid) {
+		throw "$Label result.artifactSchemaValidationValid has the wrong acceptance value."
 	}
 	if ((Get-ObjectPropertyValue $summaryResult "certificationPassed") -isnot [bool] -or
 		[bool] (Get-ObjectPropertyValue $summaryResult "certificationPassed")) {
@@ -1028,17 +1056,22 @@ function Assert-CorrectedCanaryEvidence {
 	$fail = [int] (Get-ObjectPropertyValue $summaryProof "fail")
 	$blocked = [int] (Get-ObjectPropertyValue $summaryProof "blocked")
 	$skipped = [int] (Get-ObjectPropertyValue $summaryProof "skipped")
-	if ($caseCount -ne 11 -or $pass -ne 9 -or $warn -ne 1 -or $fail -ne 0 -or
+	if ($caseCount -ne 11 -or $pass -ne $expectedPass -or $warn -ne 1 -or
+		$fail -ne $expectedFail -or
 		$blocked -ne 1 -or $skipped -ne 0 -or
 		$caseCount -ne ($pass + $warn + $fail + $blocked + $skipped) -or
 		[string] (Get-ObjectPropertyValue $summaryProof "focusedCaseId") -cne
 			"early_mechanics.force_authority" -or
-		[string] (Get-ObjectPropertyValue $summaryProof "focusedCaseStatus") -cne "PASS" -or
+		[string] (Get-ObjectPropertyValue $summaryProof "focusedCaseStatus") -cne
+			$expectedFocusedCaseStatus -or
 		[int] (Get-ObjectPropertyValue $summaryProof "focusedAssertionCount") -ne 35 -or
-		[int] (Get-ObjectPropertyValue $summaryProof "focusedAssertionsPassed") -ne 35 -or
+		[int] (Get-ObjectPropertyValue $summaryProof "focusedAssertionsPassed") -ne
+			$expectedFocusedAssertionsPassed -or
 		[int] (Get-ObjectPropertyValue $summaryProof "certificationRequired") -ne 87 -or
-		[int] (Get-ObjectPropertyValue $summaryProof "certificationProven") -ne 87 -or
-		[int] (Get-ObjectPropertyValue $summaryProof "certificationFail") -ne 0 -or
+		[int] (Get-ObjectPropertyValue $summaryProof "certificationProven") -ne
+			$expectedCertificationProven -or
+		[int] (Get-ObjectPropertyValue $summaryProof "certificationFail") -ne
+			$expectedCertificationFail -or
 		[int] (Get-ObjectPropertyValue $summaryProof "certificationBlocked") -ne 0 -or
 		[int] (Get-ObjectPropertyValue $summaryProof "stateDiffRows") -ne 18 -or
 		[int] (Get-ObjectPropertyValue $summaryProof "nonzeroStateDiffRows") -ne 0 -or
@@ -1059,6 +1092,40 @@ function Assert-CorrectedCanaryEvidence {
 	if ((Get-ObjectPropertyValue $Evidence "finalOrphanCleanupPass") -isnot [bool] -or
 		-not [bool] (Get-ObjectPropertyValue $Evidence "finalOrphanCleanupPass")) {
 		throw "$Label final orphan cleanup proof is not retained."
+	}
+	if ($ExpectedOutcome -ceq "rejected-proof") {
+		$expectedValidationProblems = @(
+			"focused-force-authority-case-status",
+			"focused-ownership_transition.aggregate",
+			"focused-ownership_transition.causes"
+		)
+		$expectedFailedAssertionIds = @(
+			"ownership_transition.aggregate",
+			"ownership_transition.causes"
+		)
+		$actualValidationProblems = @(Get-ObjectPropertyValue $summaryProof "validationProblems")
+		$actualFailedAssertionIds = @(Get-ObjectPropertyValue $summaryProof "failedAssertionIds")
+		if ($actualValidationProblems.Count -ne $expectedValidationProblems.Count -or
+			$actualFailedAssertionIds.Count -ne $expectedFailedAssertionIds.Count) {
+			throw "$Label rejected proof must retain the exact validation-problem and failed-assertion inventories."
+		}
+		for ($problemIndex = 0; $problemIndex -lt $expectedValidationProblems.Count; $problemIndex++) {
+			if ([string] $actualValidationProblems[$problemIndex] -cne
+				$expectedValidationProblems[$problemIndex]) {
+				throw "$Label summary.proof.validationProblems differs at index $problemIndex."
+			}
+		}
+		for ($assertionIndex = 0; $assertionIndex -lt $expectedFailedAssertionIds.Count; $assertionIndex++) {
+			if ([string] $actualFailedAssertionIds[$assertionIndex] -cne
+				$expectedFailedAssertionIds[$assertionIndex]) {
+				throw "$Label summary.proof.failedAssertionIds differs at index $assertionIndex."
+			}
+		}
+		$expectedOwnershipCauseEvidence = "military/political/mission/admin/debug/migration 1/1/0/1/1/1 | serialized intent queued 0 restore 1 political exact-once 0 repeat/restart 1/1"
+		if ([string] (Get-ObjectPropertyValue $summaryProof "ownershipCauseEvidence") -cne
+			$expectedOwnershipCauseEvidence) {
+			throw "$Label summary.proof.ownershipCauseEvidence differs from the rejected runtime proof."
+		}
 	}
 
 	$hardCount = [int] (Get-ObjectPropertyValue $summaryDiagnostics "hardDiagnosticCount")
@@ -1092,7 +1159,8 @@ function Assert-CorrectedCanaryEvidence {
 		[int] (Get-ObjectPropertyValue $summaryDiagnostics "malformedHardDiagnosticCount") -ne 0) {
 		throw "$Label diagnostic census is inconsistent."
 	}
-	if (($ExpectedOutcome -ceq "accepted" -and $unapprovedKinds.Count -ne 0) -or
+	if ((($ExpectedOutcome -ceq "accepted" -or $ExpectedOutcome -ceq "rejected-proof") -and
+			$unapprovedKinds.Count -ne 0) -or
 		($ExpectedOutcome -ceq "rejected" -and
 			($unapprovedKinds.Count -ne 1 -or
 			[string] (Get-ObjectPropertyValue $unapprovedKinds[0] "kind") -cne
@@ -1731,6 +1799,7 @@ $activeCorrectedCanaryValidation = $null
 $activeCorrectedCanarySummaryPath = ""
 $activeCorrectedCanarySummarySha = ""
 $activeCorrectedCanaryHarnessHead = ""
+$activeCorrectedCanaryStatus = ""
 $activeFullCampaignDebugValidation = $null
 $activeFullCampaignDebugSummaryPath = ""
 $activeFullCampaignDebugSummarySha = ""
@@ -1762,8 +1831,11 @@ $fullCampaignSummarySha = ""
 $fullCampaignHarnessHead = ""
 if ($releaseCandidateBuilt) {
 	$runtimeUseDisposition = Require-Text $status.artifact.runtimeUseDisposition "release_status.artifact.runtimeUseDisposition"
-	if ($runtimeUseDisposition -cnotin @("active-runtime-candidate", "supersede-before-runtime")) {
-		throw "release_status.artifact.runtimeUseDisposition must be active-runtime-candidate or supersede-before-runtime."
+	if ($runtimeUseDisposition -cnotin @(
+			"active-runtime-candidate",
+			"supersede-before-runtime",
+			"rejected-after-runtime")) {
+		throw "release_status.artifact.runtimeUseDisposition is unsupported."
 	}
 
 	$candidateId = Require-Text $status.artifact.candidateId "release_status.artifact.candidateId"
@@ -2056,11 +2128,35 @@ if ($releaseCandidateBuilt) {
 		$nativeEngineWorldRungStatus -cne "not-run") {
 		throw "Missing active Campaign Debug evidence requires a not-run native-engine-world rung."
 	}
-	if ($null -ne $activeCorrectedCanary -and $null -eq $activeFullCampaignDebug -and
-		($nativeEngineWorldRungStatus -cne "passed-noncertifying" -or
-			[string] (Get-ObjectPropertyValue $activeCorrectedCanary "status") -cne
-				"passed-noncertifying")) {
-		throw "An accepted scoped canary requires passed-noncertifying active evidence and native-engine-world rung."
+	if ($null -ne $activeCorrectedCanary) {
+		$activeCorrectedCanaryStatus = Require-Text `
+			(Get-ObjectPropertyValue $activeCorrectedCanary "status") `
+			"release_status.evidence.correctedForceAuthorityCanary.status"
+	}
+	$hasRejectedRuntimeProof = $activeCorrectedCanaryStatus -ceq
+		"failed-proof-validation" -or $null -ne $activeFullCampaignDebug
+	if ($runtimeUseDisposition -ceq "rejected-after-runtime") {
+		if (-not $hasRejectedRuntimeProof) {
+			throw "A rejected-after-runtime candidate requires retained rejected runtime proof."
+		}
+	}
+	elseif ($hasRejectedRuntimeProof) {
+		throw "Retained rejected runtime proof requires the rejected-after-runtime disposition."
+	}
+	if ($null -ne $activeCorrectedCanary -and $null -eq $activeFullCampaignDebug) {
+		if ($activeCorrectedCanaryStatus -ceq "passed-noncertifying") {
+			if ($nativeEngineWorldRungStatus -cne "passed-noncertifying") {
+				throw "An accepted scoped canary requires a passed-noncertifying native-engine-world rung."
+			}
+		}
+		elseif ($activeCorrectedCanaryStatus -ceq "failed-proof-validation") {
+			if ($nativeEngineWorldRungStatus -cne "failed") {
+				throw "A rejected scoped canary requires a failed native-engine-world rung."
+			}
+		}
+		else {
+			throw "Active corrected force-authority canary status is unsupported."
+		}
 	}
 	if ($null -ne $activePackagedFocused) {
 		$activePackagedFocusedValidation = Assert-PackagedFocusedEvidence `
@@ -2097,11 +2193,15 @@ if ($releaseCandidateBuilt) {
 	}
 	$statusAsOfUtc = Require-UtcTimestamp $status.statusAsOfUtc "release_status.statusAsOfUtc"
 	if ($null -ne $activeCorrectedCanary) {
+		$activeCorrectedCanaryExpectedOutcome = "accepted"
+		if ($activeCorrectedCanaryStatus -ceq "failed-proof-validation") {
+			$activeCorrectedCanaryExpectedOutcome = "rejected-proof"
+		}
 		$activeCorrectedCanaryValidation = Assert-CorrectedCanaryEvidence `
 			$activeCorrectedCanary `
 			$activeCandidateIdentity `
-			"passed-noncertifying" `
-			"accepted" `
+			$activeCorrectedCanaryStatus `
+			$activeCorrectedCanaryExpectedOutcome `
 			"release_status.evidence.correctedForceAuthorityCanary" `
 			$statusAsOfUtc `
 			$sourceSettingsSchema
@@ -2115,6 +2215,9 @@ if ($releaseCandidateBuilt) {
 		}
 	}
 	if ($null -ne $activeFullCampaignDebug) {
+		if ($activeCorrectedCanaryStatus -cne "passed-noncertifying") {
+			throw "Active full-profile evidence requires an accepted corrected canary."
+		}
 		$activeFullCampaignDebugValidation = Assert-ActiveFullCampaignDebugEvidence `
 			$activeFullCampaignDebug `
 			$activeCandidateIdentity `
@@ -3007,6 +3110,16 @@ foreach ($contextAction in $parity.contextualActionClasses) {
 }
 
 $mdTick = [char] 96
+$currentEvidencePrefix = "Active"
+$currentAttachmentLabel = "active replacement"
+if ($runtimeUseDisposition -ceq "rejected-after-runtime") {
+	$currentEvidencePrefix = "Retained rejected"
+	$currentAttachmentLabel = "retained rejected candidate"
+}
+elseif ($runtimeUseDisposition -ceq "supersede-before-runtime") {
+	$currentEvidencePrefix = "Retained superseded"
+	$currentAttachmentLabel = "retained superseded candidate"
+}
 $statusBuilder = New-Object System.Text.StringBuilder
 Add-Line $statusBuilder "# Partisan Current Status"
 Add-Line $statusBuilder
@@ -3063,10 +3176,10 @@ Add-Line $statusBuilder
 Add-Line $statusBuilder "- Foundation: **$($status.evidence.foundation.status)** at $($status.evidence.foundation.referenceCount) references for $mdTick$($status.evidence.foundation.sourceSha)$mdTick."
 Add-Line $statusBuilder "- Workbench: **$($status.evidence.workbench.status)** at $($status.evidence.workbench.fileCount) files / $($status.evidence.workbench.classCount) classes / CRC $mdTick$($status.evidence.workbench.crc)$mdTick for $mdTick$($status.evidence.workbench.sourceSha)$mdTick."
 if ($null -eq $activePackagedFocused) {
-	Add-Line $statusBuilder "- Active packaged focused autotests: **not run** for replacement candidate $mdTick$candidateId${mdTick}; no prior-package result transfers to this package."
+	Add-Line $statusBuilder "- $currentEvidencePrefix packaged focused autotests: **not run** for replacement candidate $mdTick$candidateId${mdTick}; no prior-package result transfers to this package."
 }
 else {
-	Add-Line $statusBuilder "- Active packaged focused autotests: **$($activePackagedFocused.passedCases)/$($activePackagedFocused.caseCount)** cases and JUnit **$($activePackagedFocused.junitTests)/$($activePackagedFocused.junitFailures)/$($activePackagedFocused.junitErrors)/$($activePackagedFocused.junitSkipped)** tests/failures/errors/skips against exact candidate $mdTick$candidateId${mdTick}. Hard diagnostics are explicitly not free: $($activePackagedFocused.hardDiagnosticCount) total = $($activePackagedFocused.approvedStockFilterDiagnosticCount) approved stock + $($activePackagedFocused.approvedIntentionalFaultDiagnosticCount) approved intentional + $($activePackagedFocused.unapprovedHardDiagnosticCount) unapproved, with $($activePackagedFocused.envelopeFileCount) envelope files rehashed and zero cleanup/spill residue. Summary: $mdTick$(Escape-MarkdownCell $activePackagedFocusedSummaryPath)$mdTick / SHA-256 $mdTick$activePackagedFocusedSummarySha$mdTick; clean harness $mdTick$activePackagedFocusedHarnessHead${mdTick}. This exact-package deterministic-service result is non-certifying and does not color the native-engine-world rung."
+	Add-Line $statusBuilder "- $currentEvidencePrefix packaged focused autotests: **$($activePackagedFocused.passedCases)/$($activePackagedFocused.caseCount)** cases and JUnit **$($activePackagedFocused.junitTests)/$($activePackagedFocused.junitFailures)/$($activePackagedFocused.junitErrors)/$($activePackagedFocused.junitSkipped)** tests/failures/errors/skips against exact candidate $mdTick$candidateId${mdTick}. Hard diagnostics are explicitly not free: $($activePackagedFocused.hardDiagnosticCount) total = $($activePackagedFocused.approvedStockFilterDiagnosticCount) approved stock + $($activePackagedFocused.approvedIntentionalFaultDiagnosticCount) approved intentional + $($activePackagedFocused.unapprovedHardDiagnosticCount) unapproved, with $($activePackagedFocused.envelopeFileCount) envelope files rehashed and zero cleanup/spill residue. Summary: $mdTick$(Escape-MarkdownCell $activePackagedFocusedSummaryPath)$mdTick / SHA-256 $mdTick$activePackagedFocusedSummarySha$mdTick; clean harness $mdTick$activePackagedFocusedHarnessHead${mdTick}. This exact-package deterministic-service result is non-certifying and does not color the native-engine-world rung."
 }
 if ($null -eq $activeCorrectedCanary -and $null -eq $activeFullCampaignDebug) {
 	if ($null -eq $activePackagedFocused) {
@@ -3077,28 +3190,33 @@ if ($null -eq $activeCorrectedCanary -and $null -eq $activeFullCampaignDebug) {
 	}
 }
 elseif ($null -ne $activeCorrectedCanary) {
-	Add-Line $statusBuilder "- Active corrected force-authority canary: **accepted, passed-noncertifying** on exact candidate $mdTick$candidateId${mdTick}. The focused proof passed $($activeCorrectedCanary.focusedAssertionsPassed)/$($activeCorrectedCanary.focusedAssertionCount) assertions and $($activeCorrectedCanary.certificationProven)/$($activeCorrectedCanary.certificationRequired) counted conditions; the 33-check classifier accepted $($activeCorrectedCanary.hardDiagnosticCount) hard diagnostics = $($activeCorrectedCanary.approvedStockDiagnosticCount) approved stock + $($activeCorrectedCanary.approvedIntentionalDiagnosticCount) approved intentional + $($activeCorrectedCanary.unapprovedHardDiagnosticCount) unapproved. All $($activeCorrectedCanary.envelopeFileCount) envelope files were rehashed with an exact $($activeCorrectedCanary.stateDiffRows)-row zero-delta state diff, final orphan cleanup, and zero cleanup/spill residue. Summary: $mdTick$(Escape-MarkdownCell $activeCorrectedCanarySummaryPath)$mdTick / SHA-256 $mdTick$activeCorrectedCanarySummarySha$mdTick; clean harness $mdTick$activeCorrectedCanaryHarnessHead${mdTick}. This scoped canary does not certify Full Campaign Debug."
+	if ($activeCorrectedCanaryStatus -ceq "passed-noncertifying") {
+		Add-Line $statusBuilder "- $currentEvidencePrefix corrected force-authority canary: **accepted, passed-noncertifying** on exact candidate $mdTick$candidateId${mdTick}. The focused proof passed $($activeCorrectedCanary.focusedAssertionsPassed)/$($activeCorrectedCanary.focusedAssertionCount) assertions and $($activeCorrectedCanary.certificationProven)/$($activeCorrectedCanary.certificationRequired) counted conditions; the 33-check classifier accepted $($activeCorrectedCanary.hardDiagnosticCount) hard diagnostics = $($activeCorrectedCanary.approvedStockDiagnosticCount) approved stock + $($activeCorrectedCanary.approvedIntentionalDiagnosticCount) approved intentional + $($activeCorrectedCanary.unapprovedHardDiagnosticCount) unapproved. All $($activeCorrectedCanary.envelopeFileCount) envelope files were rehashed with an exact $($activeCorrectedCanary.stateDiffRows)-row zero-delta state diff, final orphan cleanup, and zero cleanup/spill residue. Summary: $mdTick$(Escape-MarkdownCell $activeCorrectedCanarySummaryPath)$mdTick / SHA-256 $mdTick$activeCorrectedCanarySummarySha$mdTick; clean harness $mdTick$activeCorrectedCanaryHarnessHead${mdTick}. This scoped canary does not certify Full Campaign Debug."
+	}
+	else {
+		Add-Line $statusBuilder "- $currentEvidencePrefix corrected force-authority canary: **rejected, focused proof failed** on exact candidate $mdTick$candidateId${mdTick}. The focused proof passed $($activeCorrectedCanary.focusedAssertionsPassed)/$($activeCorrectedCanary.focusedAssertionCount) assertions and $($activeCorrectedCanary.certificationProven)/$($activeCorrectedCanary.certificationRequired) counted conditions, with $($activeCorrectedCanary.fail) failed case and $($activeCorrectedCanary.certificationRequired - $activeCorrectedCanary.certificationProven) failed counted conditions. The 33-check classifier remained valid at $($activeCorrectedCanary.hardDiagnosticCount) approved and $($activeCorrectedCanary.unapprovedHardDiagnosticCount) unapproved hard diagnostics. All $($activeCorrectedCanary.envelopeFileCount) envelope files rehashed with an exact $($activeCorrectedCanary.stateDiffRows)-row zero-delta state diff, final orphan cleanup, and zero cleanup/spill residue. Summary: $mdTick$(Escape-MarkdownCell $activeCorrectedCanarySummaryPath)$mdTick / SHA-256 $mdTick$activeCorrectedCanarySummarySha$mdTick; clean harness $mdTick$activeCorrectedCanaryHarnessHead${mdTick}. Full Campaign Debug is stopped for this package; the proof-fixture correction requires a new immutable candidate."
+	}
 }
 if ($null -ne $activeFullCampaignDebug) {
-	Add-Line $statusBuilder "- Active Full Campaign Debug: **rejected, red full profile** on exact candidate $mdTick$candidateId${mdTick}. The wrapper capture completed mechanically with stable artifacts, $($activeFullCampaignDebug.envelopeFileCount) rehashed envelope files, and zero cleanup/spill residue, while runtime acceptance remained false. Certification stayed red at $($activeFullCampaignDebug.pass) PASS, $($activeFullCampaignDebug.warn) WARN, $($activeFullCampaignDebug.fail) FAIL, $($activeFullCampaignDebug.blocked) BLOCKED, and $($activeFullCampaignDebug.skipped) SKIPPED with $($activeFullCampaignDebug.provenAssertions)/$($activeFullCampaignDebug.requiredAssertions) required assertions proven, $($activeFullCampaignDebug.failedAssertions) failed, and $($activeFullCampaignDebug.blockedAssertions) blocked. The fail-closed classifier found $($activeFullCampaignDebug.hardDiagnosticCount) hard diagnostics = $($activeFullCampaignDebug.approvedStockDiagnosticCount) approved stock + $($activeFullCampaignDebug.approvedIntentionalDiagnosticCount) approved intentional + $($activeFullCampaignDebug.unapprovedHardDiagnosticCount) unapproved. Summary: $mdTick$(Escape-MarkdownCell $activeFullCampaignDebugSummaryPath)$mdTick / SHA-256 $mdTick$activeFullCampaignDebugSummarySha$mdTick; clean harness $mdTick$activeFullCampaignDebugHarnessHead${mdTick}. Mechanical capture success is not certification or diagnostic acceptance."
+	Add-Line $statusBuilder "- $currentEvidencePrefix Full Campaign Debug: **rejected, red full profile** on exact candidate $mdTick$candidateId${mdTick}. The wrapper capture completed mechanically with stable artifacts, $($activeFullCampaignDebug.envelopeFileCount) rehashed envelope files, and zero cleanup/spill residue, while runtime acceptance remained false. Certification stayed red at $($activeFullCampaignDebug.pass) PASS, $($activeFullCampaignDebug.warn) WARN, $($activeFullCampaignDebug.fail) FAIL, $($activeFullCampaignDebug.blocked) BLOCKED, and $($activeFullCampaignDebug.skipped) SKIPPED with $($activeFullCampaignDebug.provenAssertions)/$($activeFullCampaignDebug.requiredAssertions) required assertions proven, $($activeFullCampaignDebug.failedAssertions) failed, and $($activeFullCampaignDebug.blockedAssertions) blocked. The fail-closed classifier found $($activeFullCampaignDebug.hardDiagnosticCount) hard diagnostics = $($activeFullCampaignDebug.approvedStockDiagnosticCount) approved stock + $($activeFullCampaignDebug.approvedIntentionalDiagnosticCount) approved intentional + $($activeFullCampaignDebug.unapprovedHardDiagnosticCount) unapproved. Summary: $mdTick$(Escape-MarkdownCell $activeFullCampaignDebugSummaryPath)$mdTick / SHA-256 $mdTick$activeFullCampaignDebugSummarySha$mdTick; clean harness $mdTick$activeFullCampaignDebugHarnessHead${mdTick}. Mechanical capture success is not certification or diagnostic acceptance."
 }
 if ($null -ne $packagedFocused) {
-	Add-Line $statusBuilder "- Historical packaged focused autotests: **$($packagedFocused.passedCases)/$($packagedFocused.caseCount)** cases and JUnit **$($packagedFocused.junitTests)/$($packagedFocused.junitFailures)/$($packagedFocused.junitErrors)/$($packagedFocused.junitSkipped)** tests/failures/errors/skips against prior exact candidate $mdTick$historicalCandidateId$mdTick. Hard diagnostics are explicitly not free: $($packagedFocused.hardDiagnosticCount) total = $($packagedFocused.approvedStockFilterDiagnosticCount) approved stock + $($packagedFocused.approvedIntentionalFaultDiagnosticCount) approved intentional + $($packagedFocused.unapprovedHardDiagnosticCount) unapproved, with $($packagedFocused.envelopeFileCount) envelope files rehashed and zero cleanup/spill residue. Summary: $mdTick$(Escape-MarkdownCell $packagedFocusedSummaryPath)$mdTick / SHA-256 $mdTick$packagedFocusedSummarySha$mdTick; harness $mdTick$packagedFocusedHarnessHead$mdTick. This immutable non-certifying result does not attach to the active replacement."
+	Add-Line $statusBuilder "- Historical packaged focused autotests: **$($packagedFocused.passedCases)/$($packagedFocused.caseCount)** cases and JUnit **$($packagedFocused.junitTests)/$($packagedFocused.junitFailures)/$($packagedFocused.junitErrors)/$($packagedFocused.junitSkipped)** tests/failures/errors/skips against prior exact candidate $mdTick$historicalCandidateId$mdTick. Hard diagnostics are explicitly not free: $($packagedFocused.hardDiagnosticCount) total = $($packagedFocused.approvedStockFilterDiagnosticCount) approved stock + $($packagedFocused.approvedIntentionalFaultDiagnosticCount) approved intentional + $($packagedFocused.unapprovedHardDiagnosticCount) unapproved, with $($packagedFocused.envelopeFileCount) envelope files rehashed and zero cleanup/spill residue. Summary: $mdTick$(Escape-MarkdownCell $packagedFocusedSummaryPath)$mdTick / SHA-256 $mdTick$packagedFocusedSummarySha$mdTick; harness $mdTick$packagedFocusedHarnessHead$mdTick. This immutable non-certifying result does not attach to the $currentAttachmentLabel."
 }
 Add-Line $statusBuilder "- Focused force-authority profile: **$($status.evidence.focusedForceAuthority.passedCases)/$($status.evidence.focusedForceAuthority.caseCount)** cases and **$($status.evidence.focusedForceAuthority.passedConditions)/$($status.evidence.focusedForceAuthority.countedConditions)** counted conditions for $mdTick$($status.evidence.focusedForceAuthority.sourceSha)$mdTick, with ${mdTick}CertificationPassed:$($status.evidence.focusedForceAuthority.certificationPassed.ToString().ToLowerInvariant())${mdTick}. This is historical state-only, non-package, non-certifying evidence."
 if ($null -ne $correctedCanary) {
 	if ($correctedCanaryStatus -ceq "historical-passed-noncertifying") {
-		Add-Line $statusBuilder "- Historical corrected force-authority canary: **accepted non-certifying** on prior exact candidate $mdTick$historicalCandidateId${mdTick}. The focused proof passed $($correctedCanary.focusedAssertionsPassed)/$($correctedCanary.focusedAssertionCount) assertions and $($correctedCanary.certificationProven)/$($correctedCanary.certificationRequired) counted certification conditions. The 33-check classifier found $($correctedCanary.hardDiagnosticCount) hard diagnostics = $($correctedCanary.approvedStockDiagnosticCount) approved stock + $($correctedCanary.approvedIntentionalDiagnosticCount) approved intentional + $($correctedCanary.unapprovedHardDiagnosticCount) unapproved. All $($correctedCanary.envelopeFileCount) envelope files rehashed with zero cleanup/spill residue. Summary: $mdTick$(Escape-MarkdownCell $correctedCanarySummaryPath)$mdTick / SHA-256 $mdTick$correctedCanarySummarySha$mdTick; harness $mdTick$correctedCanaryHarnessHead$mdTick. This immutable scoped acceptance does not transfer to the active replacement."
+		Add-Line $statusBuilder "- Historical corrected force-authority canary: **accepted non-certifying** on prior exact candidate $mdTick$historicalCandidateId${mdTick}. The focused proof passed $($correctedCanary.focusedAssertionsPassed)/$($correctedCanary.focusedAssertionCount) assertions and $($correctedCanary.certificationProven)/$($correctedCanary.certificationRequired) counted certification conditions. The 33-check classifier found $($correctedCanary.hardDiagnosticCount) hard diagnostics = $($correctedCanary.approvedStockDiagnosticCount) approved stock + $($correctedCanary.approvedIntentionalDiagnosticCount) approved intentional + $($correctedCanary.unapprovedHardDiagnosticCount) unapproved. All $($correctedCanary.envelopeFileCount) envelope files rehashed with zero cleanup/spill residue. Summary: $mdTick$(Escape-MarkdownCell $correctedCanarySummaryPath)$mdTick / SHA-256 $mdTick$correctedCanarySummarySha$mdTick; harness $mdTick$correctedCanaryHarnessHead$mdTick. This immutable scoped acceptance does not transfer to the $currentAttachmentLabel."
 	}
 	else {
-		Add-Line $statusBuilder "- Historical corrected force-authority canary: **rejected fail-closed** on prior exact candidate $mdTick$historicalCandidateId${mdTick}. The focused proof remained $($correctedCanary.focusedAssertionsPassed)/$($correctedCanary.focusedAssertionCount) assertions and $($correctedCanary.certificationProven)/$($correctedCanary.certificationRequired) counted certification conditions, but the 33-check classifier found $($correctedCanary.hardDiagnosticCount) hard diagnostics = $($correctedCanary.approvedStockDiagnosticCount) approved stock + $($correctedCanary.approvedIntentionalDiagnosticCount) approved intentional + $($correctedCanary.unapprovedHardDiagnosticCount) unapproved $mdTick$($correctedCanary.unapprovedHardDiagnosticKind)${mdTick}. All $($correctedCanary.envelopeFileCount) envelope files rehashed with zero cleanup/spill residue. Summary: $mdTick$(Escape-MarkdownCell $correctedCanarySummaryPath)$mdTick / SHA-256 $mdTick$correctedCanarySummarySha$mdTick; harness $mdTick$correctedCanaryHarnessHead$mdTick. This immutable rejection does not transfer to the active replacement."
+		Add-Line $statusBuilder "- Historical corrected force-authority canary: **rejected fail-closed** on prior exact candidate $mdTick$historicalCandidateId${mdTick}. The focused proof remained $($correctedCanary.focusedAssertionsPassed)/$($correctedCanary.focusedAssertionCount) assertions and $($correctedCanary.certificationProven)/$($correctedCanary.certificationRequired) counted certification conditions, but the 33-check classifier found $($correctedCanary.hardDiagnosticCount) hard diagnostics = $($correctedCanary.approvedStockDiagnosticCount) approved stock + $($correctedCanary.approvedIntentionalDiagnosticCount) approved intentional + $($correctedCanary.unapprovedHardDiagnosticCount) unapproved $mdTick$($correctedCanary.unapprovedHardDiagnosticKind)${mdTick}. All $($correctedCanary.envelopeFileCount) envelope files rehashed with zero cleanup/spill residue. Summary: $mdTick$(Escape-MarkdownCell $correctedCanarySummaryPath)$mdTick / SHA-256 $mdTick$correctedCanarySummarySha$mdTick; harness $mdTick$correctedCanaryHarnessHead$mdTick. This immutable rejection does not transfer to the $currentAttachmentLabel."
 	}
 }
 if ($fullCampaignDebugStatus -ceq "historical-preliminary-failed-diagnostic-census") {
-	Add-Line $statusBuilder "- Historical Full Campaign Debug capture: **preliminary and unaccepted** on prior exact candidate $mdTick$historicalCandidateId${mdTick}: $($fullCampaignDebug.pass) PASS, $($fullCampaignDebug.warn) WARN, $($fullCampaignDebug.fail) FAIL, $($fullCampaignDebug.blocked) BLOCKED, and $($fullCampaignDebug.skipped) SKIPPED; $($fullCampaignDebug.provenAssertions)/$($fullCampaignDebug.requiredAssertions) required assertions proven, with $($fullCampaignDebug.failedAssertions) failed and $($fullCampaignDebug.blockedAssertions) blocked. Candidate identity, packed mount, artifact stability, cleanup, and envelope rehash were mechanically verified, but the original wrapper missed timestamp-prefixed errors. Its corrected overlay found 3 canary diagnostics with 1 unapproved and 25 full-run diagnostics with 10 unapproved; wrapper-reported success is not acceptance. Summary: $mdTick$(Escape-MarkdownCell $fullCampaignSummaryPath)$mdTick / SHA-256 $mdTick$fullCampaignSummarySha$mdTick; capture harness $mdTick$fullCampaignHarnessHead$mdTick. This result does not attach to the active replacement."
+	Add-Line $statusBuilder "- Historical Full Campaign Debug capture: **preliminary and unaccepted** on prior exact candidate $mdTick$historicalCandidateId${mdTick}: $($fullCampaignDebug.pass) PASS, $($fullCampaignDebug.warn) WARN, $($fullCampaignDebug.fail) FAIL, $($fullCampaignDebug.blocked) BLOCKED, and $($fullCampaignDebug.skipped) SKIPPED; $($fullCampaignDebug.provenAssertions)/$($fullCampaignDebug.requiredAssertions) required assertions proven, with $($fullCampaignDebug.failedAssertions) failed and $($fullCampaignDebug.blockedAssertions) blocked. Candidate identity, packed mount, artifact stability, cleanup, and envelope rehash were mechanically verified, but the original wrapper missed timestamp-prefixed errors. Its corrected overlay found 3 canary diagnostics with 1 unapproved and 25 full-run diagnostics with 10 unapproved; wrapper-reported success is not acceptance. Summary: $mdTick$(Escape-MarkdownCell $fullCampaignSummaryPath)$mdTick / SHA-256 $mdTick$fullCampaignSummarySha$mdTick; capture harness $mdTick$fullCampaignHarnessHead$mdTick. This result does not attach to the $currentAttachmentLabel."
 }
 elseif ($fullCampaignDebugStatus -ceq "failed-certification-and-unapproved-diagnostics") {
-	Add-Line $statusBuilder "- Historical Full Campaign Debug: **rejected, red full profile** on prior exact candidate $mdTick$historicalCandidateId${mdTick}. The wrapper capture completed mechanically with stable artifacts, $($fullCampaignDebug.envelopeFileCount) rehashed envelope files, and zero cleanup/spill residue, while runtime acceptance remained false. Certification stayed red at $($fullCampaignDebug.pass) PASS, $($fullCampaignDebug.warn) WARN, $($fullCampaignDebug.fail) FAIL, $($fullCampaignDebug.blocked) BLOCKED, and $($fullCampaignDebug.skipped) SKIPPED with $($fullCampaignDebug.provenAssertions)/$($fullCampaignDebug.requiredAssertions) required assertions proven, $($fullCampaignDebug.failedAssertions) failed, and $($fullCampaignDebug.blockedAssertions) blocked. The fail-closed classifier found $($fullCampaignDebug.hardDiagnosticCount) hard diagnostics = $($fullCampaignDebug.approvedStockDiagnosticCount) approved stock + $($fullCampaignDebug.approvedIntentionalDiagnosticCount) approved intentional + $($fullCampaignDebug.unapprovedHardDiagnosticCount) unapproved. Summary: $mdTick$(Escape-MarkdownCell $fullCampaignSummaryPath)$mdTick / SHA-256 $mdTick$fullCampaignSummarySha$mdTick; clean harness $mdTick$fullCampaignHarnessHead${mdTick}. Mechanical capture success is not certification or diagnostic acceptance, and this immutable rejection does not attach to the active replacement."
+	Add-Line $statusBuilder "- Historical Full Campaign Debug: **rejected, red full profile** on prior exact candidate $mdTick$historicalCandidateId${mdTick}. The wrapper capture completed mechanically with stable artifacts, $($fullCampaignDebug.envelopeFileCount) rehashed envelope files, and zero cleanup/spill residue, while runtime acceptance remained false. Certification stayed red at $($fullCampaignDebug.pass) PASS, $($fullCampaignDebug.warn) WARN, $($fullCampaignDebug.fail) FAIL, $($fullCampaignDebug.blocked) BLOCKED, and $($fullCampaignDebug.skipped) SKIPPED with $($fullCampaignDebug.provenAssertions)/$($fullCampaignDebug.requiredAssertions) required assertions proven, $($fullCampaignDebug.failedAssertions) failed, and $($fullCampaignDebug.blockedAssertions) blocked. The fail-closed classifier found $($fullCampaignDebug.hardDiagnosticCount) hard diagnostics = $($fullCampaignDebug.approvedStockDiagnosticCount) approved stock + $($fullCampaignDebug.approvedIntentionalDiagnosticCount) approved intentional + $($fullCampaignDebug.unapprovedHardDiagnosticCount) unapproved. Summary: $mdTick$(Escape-MarkdownCell $fullCampaignSummaryPath)$mdTick / SHA-256 $mdTick$fullCampaignSummarySha$mdTick; clean harness $mdTick$fullCampaignHarnessHead${mdTick}. Mechanical capture success is not certification or diagnostic acceptance, and this immutable rejection does not attach to the $currentAttachmentLabel."
 }
 else {
 	Add-Line $statusBuilder "- Full Campaign Debug: **historical and failed** on $mdTick$($fullCampaignDebug.sourceSha)${mdTick}: $($fullCampaignDebug.pass) PASS, $($fullCampaignDebug.warn) WARN, $($fullCampaignDebug.fail) FAIL, $($fullCampaignDebug.blocked) BLOCKED, and $($fullCampaignDebug.skipped) SKIPPED; $($fullCampaignDebug.provenAssertions)/$($fullCampaignDebug.requiredAssertions) required assertions proven. It predates the audited revision and must be rerun before its individual failures are treated as current."
@@ -3129,6 +3247,9 @@ Add-Line $statusBuilder
 if ($releaseCandidateBuilt) {
 	if ($runtimeUseDisposition -ceq "supersede-before-runtime") {
 		Add-Line $statusBuilder "Gate 1 retained candidate $mdTick$(Escape-MarkdownCell $candidateId)$mdTick remains sealed but is superseded before runtime use. Build exactly one replacement candidate for the focused-suite registration repair; retain both package identities, and do not combine evidence across their aggregate SHA-256 digests."
+	}
+	elseif ($runtimeUseDisposition -ceq "rejected-after-runtime") {
+		Add-Line $statusBuilder "The retained candidate's corrected canary is rejected at 33/35 focused assertions and 85/87 counted conditions, and its rejected-after-runtime disposition blocks further runtime consumption. Keep its valid envelope immutable, seal the active-mission proof-fixture correction in a new candidate, and restart focused -> corrected canary -> full from that new package."
 	}
 	elseif ($null -eq $activePackagedFocused) {
 		Add-Line $statusBuilder "Run the individually named packaged focused service suites next against active replacement $mdTick$(Escape-MarkdownCell $candidateId)$mdTick, manifest $mdTick$(Escape-MarkdownCell $candidateManifestPath)$mdTick, and aggregate package SHA-256 $mdTick$packageSha${mdTick}. If that exact-package set is accepted, run the corrected force-authority canary next; do not transfer the historical candidate's pass or rejection into either gate."
