@@ -14345,6 +14345,18 @@ foreach ($requiredActiveGroupLifecycleEntry in @(
 		throw "Mixed active-group personnel lifecycle authority is missing entry: $requiredActiveGroupLifecycleEntry"
 	}
 }
+$activeGroupMixedClassificationBlock = Get-ScriptMethodBlock `
+	$physicalWarServiceText `
+	'protected bool IsMixedPersonnelVehicleActiveGroup(HST_ActiveGroupState activeGroup)'
+if ([string]::IsNullOrWhiteSpace($activeGroupMixedClassificationBlock) -or
+	$activeGroupMixedClassificationBlock.IndexOf(
+		'activeGroup.m_sConvoyElementId.IsEmpty()',
+		[StringComparison]::Ordinal) -lt 0 -or
+	$activeGroupLifecycleProofText.IndexOf(
+		'eligibilityConvoy.m_sConvoyElementId = "eligibility_convoy_element"',
+		[StringComparison]::Ordinal) -lt 0) {
+	throw 'Generic mixed-group personnel elimination must reject a durable convoy claimant even before its exact mission backlink is restored.'
+}
 
 $terminalSaveNormalization = [regex]::Match($activeGroupLifecycleSaveText, '(?s)bool terminalGroup = .*?;')
 if (!$terminalSaveNormalization.Success) {
@@ -25100,6 +25112,7 @@ $schema65CivilianText = Get-Content -Raw "Scripts/Game/HST/Services/HST_Civilian
 $schema65TownText = Get-Content -Raw "Scripts/Game/HST/Services/HST_TownInfluenceService.c"
 $schema65TownSaveText = Get-Content -Raw "Scripts/Game/HST/Services/HST_TownInfluenceSaveValidationService.c"
 $schema65StrategicText = Get-Content -Raw "Scripts/Game/HST/Services/HST_StrategicService.c"
+$schema65StableIdText = Get-Content -Raw "Scripts/Game/HST/Services/HST_StableIdService.c"
 $schema65AmbientRuntimeText = Get-Content -Raw "Scripts/Game/HST/Services/HST_AmbientActorRuntimeService.c"
 $schema65AmbientRuntimeProofText = Get-Content -Raw "Scripts/Game/HST/Services/HST_AmbientActorRuntimeProofService.c"
 $schema65PersistenceText = Get-Content -Raw "Scripts/Game/HST/Services/HST_PersistenceService.c"
@@ -25979,6 +25992,32 @@ foreach ($schema65StrategicBuildEntry in @(
 	if ([string]::IsNullOrEmpty($schema65StrategicBuildBlock) -or
 		$schema65StrategicBuildBlock.IndexOf($schema65StrategicBuildEntry) -lt 0) {
 		throw "Schema-65 strategic ID allocation must fail closed on exhaustion or collision: $schema65StrategicBuildEntry"
+	}
+}
+$schema65StrategicAdmissionBlock = Get-ScriptMethodBlock `
+	$schema65StrategicText `
+	'bool CanBuildStrategicEventId('
+$schema65StableIdBlock = Get-ScriptMethodBlock `
+	$schema65StableIdText `
+	'static string NextId(HST_CampaignState state, string prefix)'
+foreach ($schema65SequenceBlock in @(
+	$schema65StrategicAdmissionBlock,
+	$schema65StableIdBlock
+)) {
+	if ([string]::IsNullOrWhiteSpace($schema65SequenceBlock) -or
+		$schema65SequenceBlock.IndexOf(
+			'int sequence = state.m_iNextAuthoritySequence;',
+			[StringComparison]::Ordinal) -lt 0 -or
+		$schema65SequenceBlock.IndexOf(
+			'if (sequence < 1)',
+			[StringComparison]::Ordinal) -lt 0 -or
+		$schema65SequenceBlock.IndexOf(
+			'if (sequence >= int.MAX)',
+			[StringComparison]::Ordinal) -lt 0 -or
+		$schema65SequenceBlock.IndexOf(
+			'Math.Max(1, state.m_iNextAuthoritySequence)',
+			[StringComparison]::Ordinal) -ge 0) {
+		throw 'Authority ID exhaustion must use exact integer bounds and fail closed without Math.Max coercion at int.MAX.'
 	}
 }
 $schema65StrategicIdAssignmentPattern = 'eventState\.m_sEventId\s*=\s*BuildStrategicEventId\([^;]+;'
@@ -50645,6 +50684,131 @@ Write-Host "Guarded Workbench disposable profile, dead-owner recovery, and zero-
 Write-Host "Guarded exact enemy defensive-QRF external prepare/recover/replay process-restart contract OK"
 
 Write-Host "Campaign Debug disposable exact radio lifecycle fixture isolation, engine destruction, production callbacks, one-attempt admission, and explicit cleanup OK"
+
+$persistenceSmokeAuthorityPath =
+	'Scripts/Game/HST/Services/HST_PersistenceSmokeTestService.c'
+$persistenceSmokeAuthorityText = Get-Content -Raw `
+	$persistenceSmokeAuthorityPath
+$persistenceSmokeSummaryBlock = Get-ScriptMethodBlock `
+	$persistenceSmokeAuthorityText `
+	'string BuildSummary(HST_CampaignState state)'
+$persistenceSmokeHashBlock = Get-ScriptMethodBlock `
+	$persistenceSmokeAuthorityText `
+	'protected int BuildSummaryHash(HST_CampaignState state, int activeMissions)'
+$persistenceSmokeEligibilityBlock = Get-ScriptMethodBlock `
+	$persistenceSmokeAuthorityText `
+	'protected bool IsPersistenceEligibleRuntimeVehicle(HST_RuntimeVehicleState vehicle)'
+$persistenceSmokeFieldSeedBlock = Get-ScriptMethodBlock `
+	$persistenceSmokeAuthorityText `
+	'protected void EnsureSmokeFieldVehicle(HST_CampaignState state, HST_ZoneState targetZone)'
+$persistenceSmokeFieldPositionBlock = Get-ScriptMethodBlock `
+	$persistenceSmokeAuthorityText `
+	'protected bool TryResolveSmokeFieldVehiclePosition(HST_CampaignState state, HST_ZoneState targetZone, out vector position)'
+foreach ($persistenceSmokeMethod in @(
+	$persistenceSmokeSummaryBlock,
+	$persistenceSmokeHashBlock,
+	$persistenceSmokeEligibilityBlock,
+	$persistenceSmokeFieldSeedBlock,
+	$persistenceSmokeFieldPositionBlock
+)) {
+	if ([string]::IsNullOrWhiteSpace($persistenceSmokeMethod)) {
+		throw 'Persistence smoke durable-vehicle authority methods are incomplete.'
+	}
+}
+foreach ($persistenceSmokeSummaryBlockToCheck in @(
+	$persistenceSmokeSummaryBlock,
+	$persistenceSmokeHashBlock
+)) {
+	if ($persistenceSmokeSummaryBlockToCheck.IndexOf(
+		'CountPersistenceEligibleRuntimeVehicles(state)',
+		[StringComparison]::Ordinal) -lt 0 -or
+		$persistenceSmokeSummaryBlockToCheck.IndexOf(
+		'state.m_aRuntimeVehicles.Count()',
+		[StringComparison]::Ordinal) -ge 0) {
+		throw 'Persistence smoke summary/hash must mirror the durable save census instead of raw session runtime vehicles.'
+	}
+}
+foreach ($persistenceSmokeEligibilityEntry in @(
+	'!IsSessionOnlyDetachedActiveVehicle(vehicle)',
+	'!IsSessionOnlyAmbientVehicle(vehicle)',
+	'vehicle.m_bDetached',
+	'vehicle.m_sRuntimeKind == "detached_active_vehicle"',
+	'IsAmbientRuntimeVehicleKind(vehicle.m_sRuntimeKind)',
+	'!IsLegacyDetachedAmbientClaim(vehicle)',
+	'runtimeKind == "CIV_TRAFFIC_VEHICLE"',
+	'runtimeKind == "CIV_VEHICLE"',
+	'runtimeKind == "MILITARY_VEHICLE"',
+	'&& !vehicle.m_bDeleted'
+)) {
+	if ($persistenceSmokeAuthorityText.IndexOf(
+		$persistenceSmokeEligibilityEntry,
+		[StringComparison]::Ordinal) -lt 0) {
+		throw "Persistence smoke save-eligibility parity is incomplete: $persistenceSmokeEligibilityEntry"
+	}
+}
+foreach ($persistenceSmokeEligibleConsumer in @(
+	'protected int CountRuntimeSourceVehicles(HST_CampaignState state)',
+	'protected int CountSmokeFieldVehicles(HST_CampaignState state)',
+	'protected int CountDuplicateRuntimeVehicles(HST_CampaignState state)'
+)) {
+	$persistenceSmokeEligibleConsumerBlock = Get-ScriptMethodBlock `
+		$persistenceSmokeAuthorityText `
+		$persistenceSmokeEligibleConsumer
+	if ($persistenceSmokeEligibleConsumerBlock.IndexOf(
+		'IsPersistenceEligibleRuntimeVehicle(',
+		[StringComparison]::Ordinal) -lt 0) {
+		throw "Persistence smoke durable vehicle census bypasses save eligibility: $persistenceSmokeEligibleConsumer"
+	}
+}
+foreach ($persistenceSmokeFieldEntry in @(
+	'vehicle.m_sRuntimeKind = "field_vehicle"',
+	'vehicle.m_sFactionKey = ""',
+	'vehicle.m_sZoneId = ""',
+	'vehicle.m_sSourceVehicleKind = "transport"',
+	'vehicle.m_bDetached = false',
+	'vehicle.m_bDeleted = false',
+	'HST_VehicleCapabilityPolicy.ApplyToRuntimeVehicle(vehicle)',
+	'HST_VehicleCapabilityPolicy.ApplyUndercoverToRuntimeVehicle(vehicle)'
+)) {
+	if ($persistenceSmokeFieldSeedBlock.IndexOf(
+		$persistenceSmokeFieldEntry,
+		[StringComparison]::Ordinal) -lt 0) {
+		throw "Persistence smoke field-vehicle sentinel normalization is incomplete: $persistenceSmokeFieldEntry"
+	}
+}
+if ($persistenceSmokeAuthorityText.IndexOf(
+	'BoolMask(CountSmokeFieldVehicles(state) == 1)',
+	[StringComparison]::Ordinal) -lt 0 -or
+	$persistenceSmokeAuthorityText.IndexOf(
+	'"field_vehicle", CountSmokeFieldVehicles(state) != 1',
+	[StringComparison]::Ordinal) -lt 0) {
+	throw 'Persistence smoke must fail closed unless exactly one live durable field-vehicle sentinel survives.'
+}
+foreach ($persistenceSmokeFieldPositionEntry in @(
+	'SMOKE_FIELD_VEHICLE_MIN_ISOLATION_METERS',
+	'targetZone.m_iCaptureRadiusMeters',
+	'targetZone.m_iActivationRadiusMeters',
+	'SMOKE_FIELD_VEHICLE_ZONE_MARGIN_METERS',
+	'SMOKE_FIELD_VEHICLE_LATERAL_OFFSET_METERS'
+)) {
+	if ($persistenceSmokeFieldPositionBlock.IndexOf(
+		$persistenceSmokeFieldPositionEntry,
+		[StringComparison]::Ordinal) -lt 0) {
+		throw "Persistence smoke field-vehicle isolation contract is incomplete: $persistenceSmokeFieldPositionEntry"
+	}
+}
+if (([regex]::Matches(
+	$persistenceSmokeFieldPositionBlock,
+	[regex]::Escape('HST_WorldPositionService.TryResolveVehicleSpawnPosition('))).Count -ne 4 -or
+	$persistenceSmokeFieldSeedBlock.IndexOf(
+	'if (!TryResolveSmokeFieldVehiclePosition(state, targetZone, position))',
+	[StringComparison]::Ordinal) -lt 0 -or
+	$persistenceSmokeFieldSeedBlock.IndexOf(
+	'position = targetZone.m_vPosition',
+	[StringComparison]::Ordinal) -ge 0) {
+	throw 'Persistence smoke field-vehicle placement must use four bounded, dry, vehicle-safe candidates and fail closed without raw hostile-zone fallback.'
+}
+Write-Host 'Persistence smoke durable runtime-vehicle census and isolated exact field-vehicle sentinel contract OK'
 
 Write-Host "Exact enemy defensive-QRF shared-report focused engine-autotest wiring OK"
 
