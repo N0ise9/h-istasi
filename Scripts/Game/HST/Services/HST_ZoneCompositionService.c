@@ -160,6 +160,25 @@ class HST_ZoneCompositionService
 		return changed;
 	}
 
+	// Campaign Debug uses this read-only count to prove that an inactive town
+	// begins and ends without a process-local military composition. The normal
+	// composition lifecycle remains owned by Ensure/CleanupZoneComposition.
+	int CountRuntimeCompositionEntitiesForZone(string zoneId)
+	{
+		if (zoneId.IsEmpty())
+			return 0;
+
+		int count;
+		for (int i; i < m_aRuntimeZoneIds.Count(); i++)
+		{
+			if (m_aRuntimeZoneIds[i] != zoneId)
+				continue;
+			if (i < m_aRuntimeEntities.Count() && m_aRuntimeEntities[i])
+				count++;
+		}
+		return count;
+	}
+
 	HST_ZoneSpawnSlotState SelectSlot(array<ref HST_ZoneSpawnSlotState> slots, string kind, int preferredIndex)
 	{
 		if (!slots || kind.IsEmpty())

@@ -643,6 +643,9 @@ class HST_CampaignDebugCivilianPopulationContext
 	string m_sZoneId;
 	string m_sLastReadinessEvidence;
 	string m_sFailureReason;
+	string m_sZoneHoldStartEvidence;
+	string m_sZoneHoldObservationEvidence;
+	string m_sZoneHoldCleanupEvidence;
 	vector m_vTownPosition;
 	float m_fPlayerDistance;
 	float m_fPopulationRadius;
@@ -656,13 +659,24 @@ class HST_CampaignDebugCivilianPopulationContext
 	int m_iAdmittedTraffic;
 	int m_iReadyTraffic;
 	int m_iRecoveringTraffic;
+	int m_iZoneHoldSampleCount;
+	int m_iZoneHoldDemandSampleCount;
+	int m_iCleanupAttemptCount;
 	bool m_bTerminal;
 	bool m_bRuntimeOwned;
+	bool m_bZoneHoldOwned;
+	bool m_bZoneHoldObservationExact;
+	bool m_bAmbientCleanupExact;
+	bool m_bZoneHoldCleanupExact;
 	bool m_bInitialRuntimeChanged;
 	bool m_bTeleported;
 	bool m_bReady;
 	bool m_bTimedOut;
 	bool m_bTerminalCleanupRecorded;
+	bool m_bFinalAssertionsRecorded;
+	bool m_bCleanupAssertionsRecorded;
+	bool m_bCaseRecorded;
+	bool m_bCleanupHalted;
 }
 
 class HST_CampaignDebugFailedActionProbeContext

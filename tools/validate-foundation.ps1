@@ -26180,6 +26180,9 @@ $ambientVehicleSaveProofText = Get-Content -Raw "Scripts/Game/HST/Services/HST_A
 $ambientPersistentFieldText = Get-Content -Raw "Scripts/Game/HST/Services/HST_PersistentFieldVehicleRuntimeService.c"
 $ambientCivilianText = Get-Content -Raw "Scripts/Game/HST/Services/HST_CivilianService.c"
 $ambientCoordinatorText = Get-Content -Raw "Scripts/Game/HST/Components/HST_CampaignCoordinatorComponent.c"
+$ambientPhysicalText = Get-Content -Raw "Scripts/Game/HST/Services/HST_PhysicalWarService.c"
+$ambientCompositionText = Get-Content -Raw "Scripts/Game/HST/Services/HST_ZoneCompositionService.c"
+$ambientDebugResultText = Get-Content -Raw "Scripts/Game/HST/Data/HST_CampaignDebugResult.c"
 $ambientSettingsText = Get-Content -Raw "Scripts/Game/HST/Config/HST_RuntimeSettings.c"
 $ambientSettingsServiceText = Get-Content -Raw "Scripts/Game/HST/Services/HST_RuntimeSettingsService.c"
 $ambientBalanceText = Get-Content -Raw "Scripts/Game/HST/Config/HST_ConfigModels.c"
@@ -26706,9 +26709,18 @@ $ambientPhase20RunnerBlock = Get-ScriptMethodBlock $ambientCoordinatorText 'prot
 $ambientPhase20AdvanceBlock = Get-ScriptMethodBlock $ambientCoordinatorText 'protected bool AdvanceCampaignDebugPhase20CivilianPopulationProbe('
 $ambientPhase20StageBeginBlock = Get-ScriptMethodBlock $ambientCoordinatorText 'protected void BeginCampaignDebugPhase20CivilianPopulationProbe('
 $ambientPhase20ReadinessBlock = Get-ScriptMethodBlock $ambientCoordinatorText 'protected void RefreshCampaignDebugPhase20CivilianPopulationReadiness('
-$ambientPhase20ProbeBlock = Get-ScriptMethodBlock $ambientCoordinatorText 'protected void RunCampaignDebugCivilianPopulationProbe('
+$ambientPhase20ProbeBlock = Get-ScriptMethodBlock $ambientCoordinatorText 'protected bool RunCampaignDebugCivilianPopulationProbe('
 $ambientPhase20ContextCleanupBlock = Get-ScriptMethodBlock $ambientCoordinatorText 'protected bool CleanupCampaignDebugPhase20CivilianPopulationContext('
-$ambientPhase20AbortBlock = Get-ScriptMethodBlock $ambientCoordinatorText 'protected void AbortCampaignDebugPhase20CivilianPopulationProbe('
+$ambientPhase20CleanupAssertionsBlock = Get-ScriptMethodBlock $ambientCoordinatorText 'protected void AddCampaignDebugPhase20CivilianCleanupAssertions('
+$ambientPhase20AbortBlock = Get-ScriptMethodBlock $ambientCoordinatorText 'protected bool AbortCampaignDebugPhase20CivilianPopulationProbe('
+$ambientPhase20CleanupFailureBlock = Get-ScriptMethodBlock $ambientCoordinatorText 'protected void HandleCampaignDebugPhase20CivilianCleanupFailure('
+$ambientPhase20FatalStopBlock = Get-ScriptMethodBlock $ambientCoordinatorText 'protected void StopCampaignDebugRunAfterFatalCivilianCleanupRetention('
+$ambientPhase20HoldCanBeginBlock = Get-ScriptMethodBlock $ambientPhysicalText 'bool CanBeginCampaignDebugCivilianZoneActivationHold('
+$ambientPhase20HoldBeginBlock = Get-ScriptMethodBlock $ambientPhysicalText 'bool BeginCampaignDebugCivilianZoneActivationHold('
+$ambientPhase20HoldReadBlock = Get-ScriptMethodBlock $ambientPhysicalText 'bool ReadCampaignDebugCivilianZoneActivationHold('
+$ambientPhase20HoldFinishBlock = Get-ScriptMethodBlock $ambientPhysicalText 'bool FinishCampaignDebugCivilianZoneActivationHold('
+$ambientPhase20HoldObserveBlock = Get-ScriptMethodBlock $ambientPhysicalText 'protected bool ObserveCampaignDebugCivilianZoneActivationHold('
+$ambientPhysicalUpdateBlock = Get-ScriptMethodBlock $ambientPhysicalText 'bool UpdateZoneActivation('
 foreach ($ambientPhase20RunnerEntry in @(
 	'm_iCampaignDebugPhaseStepIndex == 27',
 	'AdvanceCampaignDebugPhase20CivilianPopulationProbe()',
@@ -26729,16 +26741,31 @@ foreach ($ambientPhase20AdvanceEntry in @(
 	'BeginCampaignDebugPhase20CivilianPopulationProbe(context)',
 	'SampleCampaignDebugCivilianProbeRuntime(',
 	'RefreshCampaignDebugPhase20CivilianPopulationReadiness(context)',
-	'if (context.m_bTerminal && context.m_bRuntimeOwned)',
+	'HasCampaignDebugPhase20CivilianPopulationOwnership(context)',
 	'CleanupCampaignDebugPhase20CivilianPopulationContext(',
 	'if (!cleanupExact)',
+	'HandleCampaignDebugPhase20CivilianCleanupFailure(',
 	'return false;',
-	'RunCampaignDebugCivilianPopulationProbe(',
+	'!RunCampaignDebugCivilianPopulationProbe(',
+	'AddCampaignDebugPhase20CivilianCleanupAssertions(',
+	'context.m_bCaseRecorded = true;',
 	'm_CampaignDebugPhase20CivilianPopulationContext = null;'
 )) {
 	if ($ambientPhase20AdvanceBlock.IndexOf($ambientPhase20AdvanceEntry) -lt 0) {
 		throw "Phase-8 Phase-20 staged ownership/fail-closed path is incomplete: $ambientPhase20AdvanceEntry"
 	}
+}
+$ambientPhase20FinalIndex = $ambientPhase20AdvanceBlock.IndexOf('!RunCampaignDebugCivilianPopulationProbe(')
+$ambientPhase20FinalCleanupIndex = $ambientPhase20AdvanceBlock.LastIndexOf('CleanupCampaignDebugPhase20CivilianPopulationContext(context)')
+$ambientPhase20FinalCleanupAssertionIndex = $ambientPhase20AdvanceBlock.LastIndexOf('AddCampaignDebugPhase20CivilianCleanupAssertions(context, false)')
+$ambientPhase20FinalRecordIndex = $ambientPhase20AdvanceBlock.LastIndexOf('RecordCampaignDebugCase(context.m_Case)')
+$ambientPhase20FinalClearIndex = $ambientPhase20AdvanceBlock.LastIndexOf('m_CampaignDebugPhase20CivilianPopulationContext = null;')
+if ($ambientPhase20FinalIndex -lt 0 -or
+	$ambientPhase20FinalCleanupIndex -le $ambientPhase20FinalIndex -or
+	$ambientPhase20FinalCleanupAssertionIndex -le $ambientPhase20FinalCleanupIndex -or
+	$ambientPhase20FinalRecordIndex -le $ambientPhase20FinalCleanupAssertionIndex -or
+	$ambientPhase20FinalClearIndex -le $ambientPhase20FinalRecordIndex) {
+	throw "Phase-8 Phase-20 must snapshot first, release both ownership domains exactly, then assert/record/clear in order"
 }
 $ambientPhase20InitialUpdateMatches = [regex]::Matches(
 	$ambientPhase20StageBeginBlock,
@@ -26747,6 +26774,9 @@ if ($ambientPhase20InitialUpdateMatches.Count -ne 1) {
 	throw "Phase-8 Phase-20 setup must perform exactly one focused initial admission update"
 }
 foreach ($ambientPhase20StageBeginEntry in @(
+	'IsCampaignDebugCivilianPlayerOnFootGrounded(',
+	'BeginCampaignDebugCivilianZoneActivationHold(',
+	'context.m_bZoneHoldOwned',
 	'BeginCampaignDebugCivilianProbeRuntime(',
 	'm_iLastObservedRootCount',
 	'm_iMovementSampleTargetCount = Math.Max(',
@@ -26759,11 +26789,90 @@ foreach ($ambientPhase20StageBeginEntry in @(
 		throw "Phase-8 Phase-20 bounded real-frame setup is incomplete: $ambientPhase20StageBeginEntry"
 	}
 }
+foreach ($ambientPhase20HoldCanBeginEntry in @(
+	'state.FindGarrison(zoneId, zone.m_sOwnerFactionKey)',
+	'garrison && garrisonRows == 1',
+	'garrison.m_sFactionKey == zone.m_sOwnerFactionKey',
+	'CountCampaignDebugCivilianZoneGroups(state, zoneId)',
+	'CountCampaignDebugCivilianZoneRuntimeHandles(state, zoneId)',
+	'CountRuntimeCompositionEntitiesForZone(zoneId)',
+	'IsZoneInsideHQActivationExclusion(state, zone)'
+)) {
+	if ([string]::IsNullOrEmpty($ambientPhase20HoldCanBeginBlock) -or
+		$ambientPhase20HoldCanBeginBlock.IndexOf($ambientPhase20HoldCanBeginEntry) -lt 0) {
+		throw "Phase-8 Phase-20 controlled activation-hold preflight is incomplete: $ambientPhase20HoldCanBeginEntry"
+	}
+}
+foreach ($ambientPhase20HoldBeginEntry in @(
+	'm_sCampaignDebugCivilianZoneHoldFactionKey',
+	'm_iCampaignDebugCivilianZoneHoldOwnershipRevision',
+	'm_CampaignDebugCivilianZoneHoldOriginalGarrison = garrison',
+	'm_iCampaignDebugCivilianZoneHoldOriginalGarrisonInfantry',
+	'm_iCampaignDebugCivilianZoneHoldOriginalGarrisonVehicles',
+	'm_bCampaignDebugCivilianZoneHoldObservationExact = true'
+)) {
+	if ([string]::IsNullOrEmpty($ambientPhase20HoldBeginBlock) -or
+		$ambientPhase20HoldBeginBlock.IndexOf($ambientPhase20HoldBeginEntry) -lt 0) {
+		throw "Phase-8 Phase-20 hold must freeze canonical owner/garrison identity and counts: $ambientPhase20HoldBeginEntry"
+	}
+}
+foreach ($ambientPhase20HoldObserveEntry in @(
+	'm_iCampaignDebugCivilianZoneHoldSamples++',
+	'm_iCampaignDebugCivilianZoneHoldDemandSamples++',
+	'zone.m_sOwnerFactionKey',
+	'm_iCampaignDebugCivilianZoneHoldOwnershipRevision',
+	'garrison == m_CampaignDebugCivilianZoneHoldOriginalGarrison',
+	'm_iCampaignDebugCivilianZoneHoldOriginalGarrisonInfantry',
+	'm_iCampaignDebugCivilianZoneHoldOriginalGarrisonVehicles',
+	'm_bCampaignDebugCivilianZoneHoldObservationExact'
+)) {
+	if ([string]::IsNullOrEmpty($ambientPhase20HoldObserveBlock) -or
+		$ambientPhase20HoldObserveBlock.IndexOf($ambientPhase20HoldObserveEntry) -lt 0) {
+		throw "Phase-8 Phase-20 ordinary activation observation is incomplete: $ambientPhase20HoldObserveEntry"
+	}
+}
+$ambientPhase20ObserveIndex = $ambientPhysicalUpdateBlock.IndexOf('ObserveCampaignDebugCivilianZoneActivationHold(')
+$ambientPhase20SuppressIndex = $ambientPhysicalUpdateBlock.IndexOf('shouldBeActive = false;', $ambientPhase20ObserveIndex)
+if ($ambientPhase20ObserveIndex -lt 0 -or $ambientPhase20SuppressIndex -le $ambientPhase20ObserveIndex) {
+	throw "Phase-8 Phase-20 ordinary Physical War loop must observe natural activation demand before suppressing projection"
+}
+$ambientPhase20FinishOwnershipIndex = $ambientPhase20HoldFinishBlock.IndexOf('if (!ownershipExact || !garrisonAuthorityExact)')
+$ambientPhase20FinishDeactivateIndex = $ambientPhase20HoldFinishBlock.IndexOf('DeactivateZone(state, zone, compositions)')
+$ambientPhase20FinishTeardownIndex = $ambientPhase20HoldFinishBlock.IndexOf('bool productionTeardownExact')
+$ambientPhase20FinishRestoreIndex = $ambientPhase20HoldFinishBlock.IndexOf('candidate.m_iInfantryCount')
+$ambientPhase20FinishExactIndex = $ambientPhase20HoldFinishBlock.IndexOf('bool cleanupExact')
+$ambientPhase20FinishClearIndex = $ambientPhase20HoldFinishBlock.IndexOf('m_CampaignDebugCivilianZoneHoldState = null')
+if ($ambientPhase20FinishOwnershipIndex -lt 0 -or
+	$ambientPhase20FinishDeactivateIndex -le $ambientPhase20FinishOwnershipIndex -or
+	$ambientPhase20FinishTeardownIndex -le $ambientPhase20FinishDeactivateIndex -or
+	$ambientPhase20FinishRestoreIndex -le $ambientPhase20FinishTeardownIndex -or
+	$ambientPhase20FinishExactIndex -le $ambientPhase20FinishRestoreIndex -or
+	$ambientPhase20FinishClearIndex -le $ambientPhase20FinishExactIndex -or
+	$ambientPhase20HoldFinishBlock.IndexOf('bool garrisonAuthorityExact') -lt 0 -or
+	$ambientPhase20HoldFinishBlock.IndexOf('m_CampaignDebugCivilianZoneHoldOriginalGarrison') -lt 0 -or
+	$ambientPhase20HoldFinishBlock.IndexOf('m_iCampaignDebugCivilianZoneHoldOriginalGarrisonInfantry') -lt 0 -or
+	$ambientPhase20HoldFinishBlock.IndexOf('m_iCampaignDebugCivilianZoneHoldOriginalGarrisonVehicles') -lt 0 -or
+	$ambientPhase20HoldFinishBlock.IndexOf('zone.m_iActiveInfantryCount = 0') -ge 0 -or
+	$ambientPhase20HoldFinishBlock.IndexOf('zone.m_iActiveVehicleCount = 0') -ge 0) {
+	throw "Phase-8 Phase-20 hold cleanup must guard owner/revision, use production deactivation, verify residue, restore the frozen garrison, and clear only after exact cleanup"
+}
+if ($ambientCompositionText.IndexOf('int CountRuntimeCompositionEntitiesForZone(string zoneId)') -lt 0 -or
+	$ambientPhase20HoldReadBlock.IndexOf('m_iCampaignDebugCivilianZoneHoldDemandSamples') -lt 0) {
+	throw "Phase-8 Phase-20 hold must expose composition residue and latched ordinary-demand observation"
+}
 foreach ($ambientPhase20ReadinessEntry in @(
+	'ReadCampaignDebugCivilianZoneActivationHold(',
+	'm_iZoneHoldSampleCount',
+	'm_iZoneHoldDemandSampleCount > 0',
+	'm_bZoneHoldObservationExact',
 	'BuildProjectionProofSummary(',
 	'CountAmbientAdmittedActorsForZone(',
 	'CountAmbientBehaviorReadyActorsForZone(',
 	'CountAmbientRecoveringActorsForZone(',
+	'm_iBestMovedCharacters > 0',
+	'm_iBestMovedTraffic > 0',
+	'm_fMaxCharacterMovement',
+	'm_fMaxTrafficMovement',
 	'm_iMovementActualSampleCount',
 	'>= context.m_Probe.m_iMovementSampleTargetCount',
 	'm_iElapsedSeconds',
@@ -26773,14 +26882,26 @@ foreach ($ambientPhase20ReadinessEntry in @(
 		throw "Phase-8 Phase-20 native readiness/timeout observation is incomplete: $ambientPhase20ReadinessEntry"
 	}
 }
+if ($ambientPhase20ReadinessBlock.IndexOf('m_iRecoveringTraffic == context.m_iCurrentTrafficVehicles') -ge 0 -or
+	$ambientPhase20ReadinessBlock.IndexOf('m_iRecoveringPedestrians == context.m_iCurrentCivilianCharacters') -ge 0) {
+	throw "Phase-8 Phase-20 recovery/admission state must not substitute for native movement"
+}
 if ($ambientPhase20ProbeBlock.IndexOf('Re-snapshot every count after the staged window') -lt 0 -or
 	$ambientPhase20ProbeBlock.IndexOf('civilianTrafficVehicles = m_Civilians.CountRuntimeEntitiesForZone(') -lt 0 -or
 	$ambientPhase20ProbeBlock.IndexOf('projectionProof = m_Civilians.BuildProjectionProofSummary(') -lt 0 -or
-	$ambientPhase20ProbeBlock.IndexOf('CleanupCampaignDebugPhase20CivilianPopulationContext(context)') -lt 0 -or
+	$ambientPhase20ProbeBlock.IndexOf('CleanupCampaignDebugPhase20CivilianPopulationContext(context)') -ge 0 -or
 	$ambientPhase20ProbeBlock.IndexOf('m_iMovementActualSampleCount >= probe.m_iMovementSampleTargetCount') -lt 0 -or
+	$ambientPhase20ProbeBlock.IndexOf('context.m_iZoneHoldDemandSampleCount > 0') -lt 0 -or
+	$ambientPhase20ProbeBlock.IndexOf('context.m_bZoneHoldObservationExact') -lt 0 -or
+	$ambientPhase20ProbeBlock.IndexOf('CampaignDebugStatus(pedestrianMovementExact)') -lt 0 -or
+	$ambientPhase20ProbeBlock.IndexOf('CampaignDebugStatus(trafficMovementExact)') -lt 0 -or
+	$ambientPhase20ProbeBlock.IndexOf('CampaignDebugStatus(pedestrianMovementExact, "WARN")') -ge 0 -or
+	$ambientPhase20ProbeBlock.IndexOf('CampaignDebugStatus(trafficMovementExact, "WARN")') -ge 0 -or
+	$ambientPhase20ProbeBlock.IndexOf('string.Format("zone active %1') -ge 0 -or
 	$ambientPhase20ProbeBlock.IndexOf('BeginCampaignDebugCivilianProbeRuntime(') -ge 0 -or
-	$ambientPhase20ProbeBlock.IndexOf('SampleCampaignDebugCivilianProbeRuntime(') -ge 0) {
-	throw "Phase-8 Phase-20 final assertions must resnapshot after staged admission and clean up before evaluating retained evidence"
+	$ambientPhase20ProbeBlock.IndexOf('SampleCampaignDebugCivilianProbeRuntime(') -ge 0 -or
+	$ambientPhase20ProbeBlock.IndexOf('return true;') -lt 0) {
+	throw "Phase-8 Phase-20 final assertions must resnapshot before cleanup and hard-certify latched military independence plus native pedestrian/traffic movement"
 }
 $ambientPhase20BeginBlock = Get-ScriptMethodBlock $ambientCoordinatorText 'protected HST_CampaignDebugCivilianProbeRuntimeResult BeginCampaignDebugCivilianProbeRuntime('
 $ambientBeginCleanupIndex = $ambientPhase20BeginBlock.IndexOf('CleanupAmbientProjectionForDebug(m_State)')
@@ -26788,8 +26909,36 @@ $ambientBeginGlobalIndex = $ambientPhase20BeginBlock.IndexOf('m_iBaselineGlobalR
 $ambientBeginRowsIndex = $ambientPhase20BeginBlock.IndexOf('m_iBaselineRuntimeVehicleRows')
 if ($ambientBeginCleanupIndex -lt 0 -or $ambientBeginGlobalIndex -lt $ambientBeginCleanupIndex -or
 	$ambientBeginRowsIndex -lt $ambientBeginGlobalIndex -or
-	$ambientPhase20BeginBlock.IndexOf('m_vOriginalPlayerPosition = playerEntity.GetOrigin()') -lt 0) {
-	throw "Phase-8 Phase-20 baseline must capture the player and clean every ambient root before counting global roots and transient rows"
+	$ambientPhase20BeginBlock.IndexOf('m_vOriginalPlayerPosition = playerEntity.GetOrigin()') -lt 0 -or
+	$ambientPhase20BeginBlock.IndexOf('playerEntity.GetTransform(probe.m_aOriginalPlayerTransform)') -lt 0 -or
+	$ambientPhase20BeginBlock.IndexOf('m_bOriginalPlayerOnFootGrounded') -lt 0) {
+	throw "Phase-8 Phase-20 baseline must capture a safe player's full transform and clean every ambient root before counting global roots and transient rows"
+}
+$ambientPhase20PlayerPreflightBlock = Get-ScriptMethodBlock $ambientCoordinatorText 'protected bool IsCampaignDebugCivilianPlayerOnFootGrounded('
+$ambientPhase20PlayerTransformBlock = Get-ScriptMethodBlock $ambientCoordinatorText 'protected bool IsCampaignDebugCivilianPlayerTransformExact('
+foreach ($ambientPhase20PlayerPreflightEntry in @(
+	'SCR_CompartmentAccessComponent',
+	'!access.IsInCompartment()',
+	'playerEntity.GetParent() == null',
+	'TryResolveGroundPosition(',
+	'CAMPAIGN_DEBUG_CIVILIAN_GROUNDED_TOLERANCE_METERS'
+)) {
+	if ([string]::IsNullOrEmpty($ambientPhase20PlayerPreflightBlock) -or
+		$ambientPhase20PlayerPreflightBlock.IndexOf($ambientPhase20PlayerPreflightEntry) -lt 0) {
+		throw "Phase-8 Phase-20 player preflight must require safe parentless grounded on-foot authority: $ambientPhase20PlayerPreflightEntry"
+	}
+}
+foreach ($ambientPhase20PlayerTransformEntry in @(
+	'vector currentTransform[4]',
+	'playerEntity.GetTransform(currentTransform)',
+	'for (int index; index < 4; index++)',
+	'vector.Distance(',
+	'CAMPAIGN_DEBUG_CIVILIAN_RESTORE_TOLERANCE_METERS'
+)) {
+	if ([string]::IsNullOrEmpty($ambientPhase20PlayerTransformBlock) -or
+		$ambientPhase20PlayerTransformBlock.IndexOf($ambientPhase20PlayerTransformEntry) -lt 0) {
+		throw "Phase-8 Phase-20 player restoration must compare the full 3D transform: $ambientPhase20PlayerTransformEntry"
+	}
 }
 $ambientPhase20SampleBlock = Get-ScriptMethodBlock $ambientCoordinatorText 'protected void SampleCampaignDebugCivilianProbeRuntime('
 foreach ($ambientPhase20SampleEntry in @(
@@ -26797,6 +26946,12 @@ foreach ($ambientPhase20SampleEntry in @(
 	'nowSecond == probe.m_iLastSampleSecond',
 	'm_iLastObservedRootCount',
 	'CountRuntimeEntitiesForZoneMovedFromSpawn(',
+	'"CIV_CHARACTER"',
+	'"CIV_TRAFFIC_VEHICLE"',
+	'm_iBestMovedCharacters',
+	'm_iBestMovedTraffic',
+	'm_fMaxCharacterMovement',
+	'm_fMaxTrafficMovement',
 	'm_iMovementActualSampleCount++'
 )) {
 	if ($ambientPhase20SampleBlock.IndexOf($ambientPhase20SampleEntry) -lt 0) {
@@ -26816,7 +26971,7 @@ foreach ($ambientPhase20ForbiddenSampleEntry in @(
 if ($ambientDirectUpdateBlock.IndexOf('TickAmbientActorRuntime(state, balance)') -lt 0) {
 	throw "Phase-8 per-zone debug projection must retain focused ambient actor runtime through UpdatePhysicalTownPopulationForZone"
 }
-$ambientPhase20EndBlock = Get-ScriptMethodBlock $ambientCoordinatorText 'protected void EndCampaignDebugCivilianProbeRuntime('
+$ambientPhase20EndBlock = Get-ScriptMethodBlock $ambientCoordinatorText 'protected bool EndCampaignDebugCivilianProbeRuntime('
 foreach ($ambientPhase20EndEntry in @(
 	'CleanupAmbientProjectionForDebug(m_State)',
 	'm_iCleanupSelectedRuntime',
@@ -26825,31 +26980,112 @@ foreach ($ambientPhase20EndEntry in @(
 	'm_iFinalRuntimeVehicleRows',
 	'm_bRestored',
 	'm_vOriginalPlayerPosition',
+	'restoredPlayer.SetTransform(probe.m_aOriginalPlayerTransform)',
+	'IsCampaignDebugCivilianPlayerTransformExact(',
+	'IsCampaignDebugCivilianPlayerOnFootGrounded(',
 	'm_bPlayerRestored',
-	'm_bCleanupExact'
+	'm_bCleanupExact',
+	'return probe.m_bCleanupExact'
 )) {
 	if ($ambientPhase20EndBlock.IndexOf($ambientPhase20EndEntry) -lt 0) {
 		throw "Phase-8 Phase-20 all-ambient cleanup/restoration helper is incomplete: $ambientPhase20EndEntry"
 	}
 }
 if ($ambientPhase20EndBlock.IndexOf('TeleportCampaignDebugPlayerToHQ(') -ge 0 -or
+	$ambientPhase20EndBlock.IndexOf('DistanceSq2D(') -ge 0 -or
+	$ambientPhase20EndBlock.IndexOf('populationZone.m_bActive =') -ge 0 -or
+	$ambientPhase20EndBlock.IndexOf('populationZone.m_iActiveInfantryCount =') -ge 0 -or
+	$ambientPhase20EndBlock.IndexOf('populationZone.m_iActiveVehicleCount =') -ge 0 -or
 	$ambientPhase20ContextCleanupBlock.IndexOf('EndCampaignDebugCivilianProbeRuntime(') -lt 0 -or
 	$ambientPhase20ContextCleanupBlock.IndexOf('context.m_bRuntimeOwned = false;') -lt 0 -or
+	$ambientPhase20ContextCleanupBlock.IndexOf('FinishCampaignDebugCivilianZoneActivationHold(') -lt 0 -or
+	$ambientPhase20ContextCleanupBlock.IndexOf('context.m_bZoneHoldOwned = false;') -lt 0 -or
 	$ambientPhase20AbortBlock.IndexOf('CleanupCampaignDebugPhase20CivilianPopulationContext(context)') -lt 0 -or
 	$ambientPhase20AbortBlock.IndexOf('if (!cleanupExact)') -lt 0) {
-	throw "Phase-8 Phase-20 cleanup must restore the captured player position and retain ownership when exact teardown fails"
+	throw "Phase-8 Phase-20 cleanup must restore the full player transform and retain both ownership domains when exact teardown fails"
+}
+$ambientPhase20AmbientEndIndex = $ambientPhase20ContextCleanupBlock.IndexOf('EndCampaignDebugCivilianProbeRuntime(')
+$ambientPhase20AmbientExactIndex = $ambientPhase20ContextCleanupBlock.IndexOf('if (!context.m_bAmbientCleanupExact)', $ambientPhase20AmbientEndIndex)
+$ambientPhase20AmbientClearIndex = $ambientPhase20ContextCleanupBlock.IndexOf('context.m_bRuntimeOwned = false;', $ambientPhase20AmbientExactIndex)
+$ambientPhase20HoldFinishIndex = $ambientPhase20ContextCleanupBlock.IndexOf('FinishCampaignDebugCivilianZoneActivationHold(', $ambientPhase20AmbientClearIndex)
+$ambientPhase20HoldExactIndex = $ambientPhase20ContextCleanupBlock.IndexOf('if (!context.m_bZoneHoldCleanupExact)', $ambientPhase20HoldFinishIndex)
+$ambientPhase20HoldClearIndex = $ambientPhase20ContextCleanupBlock.IndexOf('context.m_bZoneHoldOwned = false;', $ambientPhase20HoldExactIndex)
+if ($ambientPhase20AmbientEndIndex -lt 0 -or
+	$ambientPhase20AmbientExactIndex -le $ambientPhase20AmbientEndIndex -or
+	$ambientPhase20AmbientClearIndex -le $ambientPhase20AmbientExactIndex -or
+	$ambientPhase20HoldFinishIndex -le $ambientPhase20AmbientClearIndex -or
+	$ambientPhase20HoldExactIndex -le $ambientPhase20HoldFinishIndex -or
+	$ambientPhase20HoldClearIndex -le $ambientPhase20HoldExactIndex) {
+	throw "Phase-8 Phase-20 cleanup may clear ambient/hold ownership only after each exact teardown result"
+}
+if ($ambientPhase20CleanupAssertionsBlock.IndexOf('context.m_bAmbientCleanupExact') -lt 0 -or
+	$ambientPhase20CleanupAssertionsBlock.IndexOf('context.m_bZoneHoldCleanupExact') -lt 0 -or
+	$ambientPhase20CleanupAssertionsBlock.IndexOf('HasCampaignDebugPhase20CivilianPopulationOwnership(') -lt 0 -or
+	$ambientPhase20CleanupAssertionsBlock.IndexOf('"PASS"') -ge 0) {
+	throw "Phase-8 Phase-20 cleanup assertions must derive PASS from retained exact cleanup state, never a literal status"
 }
 $ambientPhase20CancelBlock = Get-ScriptMethodBlock $ambientCoordinatorText 'string RequestAdminCancelCampaignDebug('
 $ambientPhase20AdminCleanupBlock = Get-ScriptMethodBlock $ambientCoordinatorText 'string RequestAdminCleanupCampaignDebug('
 $ambientPhase20RestoreBlock = Get-ScriptMethodBlock $ambientCoordinatorText 'protected HST_CampaignDebugCaseResult RestoreCampaignDebugStateSnapshot('
 $ambientPhase20CompleteBlock = Get-ScriptMethodBlock $ambientCoordinatorText 'protected void CompleteCampaignDebugRun('
 $ambientPhase20StartBlock = Get-ScriptMethodBlock $ambientCoordinatorText 'protected bool StartCampaignDebugRun('
-if ($ambientPhase20CancelBlock.IndexOf('AbortCampaignDebugPhase20CivilianPopulationProbe("run cancellation")') -lt 0 -or
-	$ambientPhase20AdminCleanupBlock.IndexOf('AbortCampaignDebugPhase20CivilianPopulationProbe(') -lt 0 -or
-	$ambientPhase20RestoreBlock.IndexOf('AbortCampaignDebugPhase20CivilianPopulationProbe(') -lt 0 -or
-	$ambientPhase20CompleteBlock.IndexOf('AbortCampaignDebugPhase20CivilianPopulationProbe("run completion")') -lt 0 -or
-	$ambientPhase20StartBlock.IndexOf('m_CampaignDebugPhase20CivilianPopulationContext = null;') -lt 0) {
-	throw "Phase-8 Phase-20 staged ownership must reset at start and abort on cancellation, admin cleanup, snapshot restore, and completion"
+$ambientPhase20LifecycleChecks = @(
+	@('start', $ambientPhase20StartBlock, 'AbortCampaignDebugPhase20CivilianPopulationProbe(', 'BeginCampaignDebugStateIsolation(profile)'),
+	@('cancel', $ambientPhase20CancelBlock, 'AbortCampaignDebugPhase20CivilianPopulationProbe(', 'ClearCampaignDebugPlayerSupportRequests('),
+	@('admin cleanup', $ambientPhase20AdminCleanupBlock, 'AbortCampaignDebugPhase20CivilianPopulationProbe(', 'CompleteCampaignDebugMissionInstance('),
+	@('state restore', $ambientPhase20RestoreBlock, 'AbortCampaignDebugPhase20CivilianPopulationProbe(', 'CleanupCampaignDebugRadioLifecycleFixtureWorld('),
+	@('completion', $ambientPhase20CompleteBlock, 'AbortCampaignDebugPhase20CivilianPopulationProbe(', 'CompleteCampaignDebugMissionInstance(')
+)
+foreach ($ambientPhase20LifecycleCheck in $ambientPhase20LifecycleChecks) {
+	$ambientPhase20AbortIndex = $ambientPhase20LifecycleCheck[1].IndexOf($ambientPhase20LifecycleCheck[2])
+	$ambientPhase20ContinuationIndex = $ambientPhase20LifecycleCheck[1].IndexOf($ambientPhase20LifecycleCheck[3])
+	if ([string]::IsNullOrEmpty($ambientPhase20LifecycleCheck[1]) -or
+		$ambientPhase20AbortIndex -lt 0 -or
+		$ambientPhase20ContinuationIndex -le $ambientPhase20AbortIndex -or
+		$ambientPhase20LifecycleCheck[1].IndexOf('if (!AbortCampaignDebugPhase20CivilianPopulationProbe(') -lt 0) {
+		throw "Phase-8 Phase-20 $($ambientPhase20LifecycleCheck[0]) must stop before broader cleanup/isolation/state swap when exact ownership release fails"
+	}
+}
+if ($ambientPhase20StartBlock.IndexOf('m_CampaignDebugPhase20CivilianPopulationContext = null;') -ge 0 -or
+	$ambientPhase20AbortBlock.IndexOf('CAMPAIGN_DEBUG_CIVILIAN_CLEANUP_MAX_ATTEMPTS') -lt 0 -or
+	$ambientPhase20AbortBlock.IndexOf('HasCampaignDebugPhase20CivilianPopulationOwnership(context)') -lt 0 -or
+	$ambientPhase20AbortBlock.IndexOf('return false;') -lt 0 -or
+	$ambientPhase20AbortBlock.IndexOf('return true;') -lt 0) {
+	throw "Phase-8 Phase-20 abort/start lifecycle must preserve retained ownership and expose an exact bool result"
+}
+foreach ($ambientPhase20FailureEntry in @(
+	'CAMPAIGN_DEBUG_CIVILIAN_CLEANUP_MAX_ATTEMPTS',
+	'phase20.civilian_population.irrecoverable_cleanup',
+	'context.m_bCleanupHalted = true',
+	'context.m_bCaseRecorded = true',
+	'StopCampaignDebugRunAfterFatalCivilianCleanupRetention(context)'
+)) {
+	if ([string]::IsNullOrEmpty($ambientPhase20CleanupFailureBlock) -or
+		$ambientPhase20CleanupFailureBlock.IndexOf($ambientPhase20FailureEntry) -lt 0) {
+		throw "Phase-8 Phase-20 bounded irrecoverable-cleanup outcome is incomplete: $ambientPhase20FailureEntry"
+	}
+}
+if ($ambientPhase20FatalStopBlock.IndexOf('m_bCampaignDebugRunning = false;') -lt 0 -or
+	$ambientPhase20FatalStopBlock.IndexOf('m_bCampaignDebugCompleted = true;') -lt 0 -or
+	$ambientPhase20FatalStopBlock.IndexOf('RestoreCampaignDebugStateSnapshot(') -ge 0 -or
+	$ambientPhase20FatalStopBlock.IndexOf('m_State =') -ge 0) {
+	throw "Phase-8 Phase-20 fatal retained-owner stop must terminate deterministically without swapping the owned isolated state"
+}
+foreach ($ambientPhase20ContextField in @(
+	'm_bZoneHoldOwned',
+	'm_bAmbientCleanupExact',
+	'm_bZoneHoldCleanupExact',
+	'm_iZoneHoldSampleCount',
+	'm_iZoneHoldDemandSampleCount',
+	'm_iCleanupAttemptCount',
+	'm_bFinalAssertionsRecorded',
+	'm_bCleanupAssertionsRecorded',
+	'm_bCaseRecorded',
+	'm_bCleanupHalted'
+)) {
+	if ($ambientDebugResultText.IndexOf($ambientPhase20ContextField) -lt 0) {
+		throw "Phase-8 Phase-20 retained-owner context is missing: $ambientPhase20ContextField"
+	}
 }
 $ambientDebugVehicleCleanupBlock = Get-ScriptMethodBlock $ambientCoordinatorText 'protected int RemoveCampaignDebugCivilianRuntimeVehicleRecords('
 if ($ambientDebugVehicleCleanupBlock.IndexOf('vehicle.m_sZoneId') -ge 0) {
@@ -34618,16 +34854,34 @@ $schema70Phase20AdvanceBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'p
 $schema70Phase20BeginBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'protected void BeginCampaignDebugPhase20CivilianPopulationProbe('
 $schema70Phase20ReadinessBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'protected void RefreshCampaignDebugPhase20CivilianPopulationReadiness('
 $schema70Phase20SampleBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'protected void SampleCampaignDebugCivilianProbeRuntime('
-$schema70Phase20FinalBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'protected void RunCampaignDebugCivilianPopulationProbe('
+$schema70Phase20FinalBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'protected bool RunCampaignDebugCivilianPopulationProbe('
+$schema70Phase20CleanupBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'protected bool CleanupCampaignDebugPhase20CivilianPopulationContext('
+$schema70Phase20AbortBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'protected bool AbortCampaignDebugPhase20CivilianPopulationProbe('
+$schema70Phase20HoldCanBeginBlock = Get-ScriptMethodBlock $schema70PhysicalText 'bool CanBeginCampaignDebugCivilianZoneActivationHold('
+$schema70Phase20HoldBeginBlock = Get-ScriptMethodBlock $schema70PhysicalText 'bool BeginCampaignDebugCivilianZoneActivationHold('
+$schema70Phase20HoldObserveBlock = Get-ScriptMethodBlock $schema70PhysicalText 'protected bool ObserveCampaignDebugCivilianZoneActivationHold('
+$schema70Phase20HoldFinishBlock = Get-ScriptMethodBlock $schema70PhysicalText 'bool FinishCampaignDebugCivilianZoneActivationHold('
 $schema70Phase20RealFrameCorpus = $schema70Phase20AdvanceBlock + "`n" +
 	$schema70Phase20BeginBlock + "`n" +
 	$schema70Phase20ReadinessBlock + "`n" +
 	$schema70Phase20SampleBlock + "`n" +
-	$schema70Phase20FinalBlock
+	$schema70Phase20FinalBlock + "`n" +
+	$schema70Phase20CleanupBlock + "`n" +
+	$schema70Phase20AbortBlock + "`n" +
+	$schema70Phase20HoldCanBeginBlock + "`n" +
+	$schema70Phase20HoldBeginBlock + "`n" +
+	$schema70Phase20HoldObserveBlock + "`n" +
+	$schema70Phase20HoldFinishBlock
 if ([string]::IsNullOrEmpty($schema70Phase20CivilianPopulationBlock) -or
 	$schema70Phase20CivilianPopulationBlock.IndexOf('phase20.civilian_population.staged_runner') -lt 0 -or
 	$schema70Phase20RealFrameCorpus.IndexOf('phase20.civilian_population.real_frame_sampling') -lt 0 -or
-	$schema70Phase20RealFrameCorpus.IndexOf('m_iMovementActualSampleCount >= probe.m_iMovementSampleTargetCount') -lt 0) {
+	$schema70Phase20RealFrameCorpus.IndexOf('m_iMovementActualSampleCount >= probe.m_iMovementSampleTargetCount') -lt 0 -or
+	$schema70Phase20RealFrameCorpus.IndexOf('ReadCampaignDebugCivilianZoneActivationHold(') -lt 0 -or
+	$schema70Phase20RealFrameCorpus.IndexOf('m_iZoneHoldDemandSampleCount > 0') -lt 0 -or
+	$schema70Phase20RealFrameCorpus.IndexOf('CampaignDebugStatus(pedestrianMovementExact)') -lt 0 -or
+	$schema70Phase20RealFrameCorpus.IndexOf('CampaignDebugStatus(trafficMovementExact)') -lt 0 -or
+	$schema70Phase20RealFrameCorpus.IndexOf('FinishCampaignDebugCivilianZoneActivationHold(') -lt 0 -or
+	$schema70Phase20RealFrameCorpus.IndexOf('CAMPAIGN_DEBUG_CIVILIAN_CLEANUP_MAX_ATTEMPTS') -lt 0) {
 	throw "Full Campaign Debug Phase 20 must use the staged real-frame population proof with at-least-target sampling"
 }
 foreach ($schema70Phase20RejectedSyntheticEntry in @(
@@ -34635,6 +34889,10 @@ foreach ($schema70Phase20RejectedSyntheticEntry in @(
 	'RestoreCampaignDebugClockIsolation(',
 	'AppendCampaignDebugClockIsolationEvidence(',
 	'phase20.civilian_population.synthetic_clock',
+	'CampaignDebugStatus(pedestrianMovementExact, "WARN")',
+	'CampaignDebugStatus(trafficMovementExact, "WARN")',
+	'string.Format("zone active %1',
+	'recoveringTraffic == trafficCount',
 	'm_State.m_iElapsedSeconds =',
 	'm_State.m_iElapsedSeconds +='
 )) {
@@ -34645,6 +34903,17 @@ foreach ($schema70Phase20RejectedSyntheticEntry in @(
 }
 if ([regex]::IsMatch($schema70Phase20RealFrameCorpus, '%1[0-9]')) {
 	throw "Full Campaign Debug Phase 20 evidence must stay within Enforce string.Format's nine-parameter limit"
+}
+$schema70Phase20FinalIndex = $schema70Phase20AdvanceBlock.IndexOf('!RunCampaignDebugCivilianPopulationProbe(')
+$schema70Phase20CleanupIndex = $schema70Phase20AdvanceBlock.LastIndexOf('CleanupCampaignDebugPhase20CivilianPopulationContext(context)')
+$schema70Phase20RecordIndex = $schema70Phase20AdvanceBlock.LastIndexOf('RecordCampaignDebugCase(context.m_Case)')
+$schema70Phase20ClearIndex = $schema70Phase20AdvanceBlock.LastIndexOf('m_CampaignDebugPhase20CivilianPopulationContext = null;')
+if ($schema70Phase20FinalIndex -lt 0 -or
+	$schema70Phase20CleanupIndex -le $schema70Phase20FinalIndex -or
+	$schema70Phase20RecordIndex -le $schema70Phase20CleanupIndex -or
+	$schema70Phase20ClearIndex -le $schema70Phase20RecordIndex -or
+	$schema70Phase20FinalBlock.IndexOf('CleanupCampaignDebugPhase20CivilianPopulationContext(') -ge 0) {
+	throw "Full Campaign Debug Phase 20 must snapshot, exact-clean, record once, and clear in fail-closed order"
 }
 
 $schema70Phase22StartDefenseBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'string RequestAdminPhase22StartDefense('

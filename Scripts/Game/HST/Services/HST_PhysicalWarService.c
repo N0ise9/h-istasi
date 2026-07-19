@@ -397,6 +397,22 @@ class HST_PhysicalWarService
 	protected string m_sCampaignDebugCombatProbeFriendlyPopulationEvidence;
 	protected string m_sCampaignDebugCombatProbeEnemyPopulationEvidence;
 	protected ref array<IEntity> m_aCampaignDebugCombatProbeWaypointEntities = {};
+	// Phase 20 deliberately proves civilian projection while the military zone
+	// remains inactive. This process-local hold is evaluated inside the ordinary
+	// activation loop; it never rewrites the campaign clock or manufactures an
+	// observation in the runner.
+	protected ref HST_CampaignState m_CampaignDebugCivilianZoneHoldState;
+	protected string m_sCampaignDebugCivilianZoneHoldId;
+	protected string m_sCampaignDebugCivilianZoneHoldFactionKey;
+	protected int m_iCampaignDebugCivilianZoneHoldOwnershipRevision;
+	protected string m_sCampaignDebugCivilianZoneHoldLastEvidence;
+	protected int m_iCampaignDebugCivilianZoneHoldSamples;
+	protected int m_iCampaignDebugCivilianZoneHoldDemandSamples;
+	protected int m_iCampaignDebugCivilianZoneHoldOriginalGarrisonInfantry;
+	protected int m_iCampaignDebugCivilianZoneHoldOriginalGarrisonVehicles;
+	protected bool m_bCampaignDebugCivilianZoneHoldOriginalGarrison;
+	protected ref HST_GarrisonState m_CampaignDebugCivilianZoneHoldOriginalGarrison;
+	protected bool m_bCampaignDebugCivilianZoneHoldObservationExact;
 
 	void SetDebugLoggingEnabled(bool enabled)
 	{
@@ -4295,6 +4311,435 @@ class HST_PhysicalWarService
 		return count;
 	}
 
+	bool CanBeginCampaignDebugCivilianZoneActivationHold(
+		HST_CampaignState state,
+		string zoneId,
+		HST_ZoneCompositionService compositions,
+		out string evidence)
+	{
+		evidence = "civilian inactive-zone hold preflight rejected";
+		if (!state || zoneId.IsEmpty() || !compositions)
+			return false;
+		if (m_CampaignDebugCivilianZoneHoldState
+			|| !m_sCampaignDebugCivilianZoneHoldId.IsEmpty())
+		{
+			evidence = "another civilian inactive-zone hold already owns Physical War";
+			return false;
+		}
+
+		HST_ZoneState zone = state.FindZone(zoneId);
+		if (!zone || state.m_ePhase != HST_ECampaignPhase.HST_CAMPAIGN_ACTIVE)
+		{
+			evidence = "campaign or selected town zone is not active-phase ready";
+			return false;
+		}
+		if (IsZoneInsideHQActivationExclusion(state, zone))
+		{
+			evidence = "selected town is inside the HQ military-activation exclusion";
+			return false;
+		}
+
+		HST_GarrisonState garrison
+			= state.FindGarrison(zoneId, zone.m_sOwnerFactionKey);
+		int garrisonInfantry;
+		int garrisonVehicles;
+		if (garrison)
+		{
+			garrisonInfantry = garrison.m_iInfantryCount;
+			garrisonVehicles = garrison.m_iVehicleCount;
+		}
+		int garrisonRows;
+		int garrisonTotalInfantry;
+		int garrisonTotalVehicles;
+		foreach (HST_GarrisonState zoneGarrison : state.m_aGarrisons)
+		{
+			if (!zoneGarrison || zoneGarrison.m_sZoneId != zoneId)
+				continue;
+			garrisonRows++;
+			garrisonTotalInfantry += zoneGarrison.m_iInfantryCount;
+			garrisonTotalVehicles += zoneGarrison.m_iVehicleCount;
+		}
+		int groupCount = CountCampaignDebugCivilianZoneGroups(state, zoneId);
+		int runtimeHandleCount
+			= CountCampaignDebugCivilianZoneRuntimeHandles(state, zoneId);
+		int compositionCount
+			= compositions.CountRuntimeCompositionEntitiesForZone(zoneId);
+		bool garrisonTopologyExact = garrison && garrisonRows == 1
+			&& garrison.m_sZoneId == zoneId
+			&& garrison.m_sFactionKey == zone.m_sOwnerFactionKey;
+		bool exact = !zone.m_bActive
+			&& zone.m_iActiveInfantryCount == 0
+			&& zone.m_iActiveVehicleCount == 0
+			&& garrisonInfantry >= 0 && garrisonVehicles >= 0
+			&& garrisonTotalInfantry == garrisonInfantry
+			&& garrisonTotalVehicles == garrisonVehicles
+			&& garrisonTopologyExact
+			&& groupCount == 0 && runtimeHandleCount == 0
+			&& compositionCount == 0;
+		evidence = string.Format(
+			"zone %1 owner %2 revision %3 | active %4 forces %5/%6 | owner garrison %7/%8 | rows %9",
+			zoneId,
+			zone.m_sOwnerFactionKey,
+			zone.m_iOwnershipRevision,
+			zone.m_bActive,
+			zone.m_iActiveInfantryCount,
+			zone.m_iActiveVehicleCount,
+			garrisonInfantry,
+			garrisonVehicles,
+			garrisonRows);
+		evidence = evidence + string.Format(
+			" totals %1/%2 | groups/handles %3/%4 | composition %5 | exact %6",
+			garrisonTotalInfantry,
+			garrisonTotalVehicles,
+			groupCount,
+			runtimeHandleCount,
+			compositionCount,
+			exact);
+		return exact;
+	}
+
+	bool BeginCampaignDebugCivilianZoneActivationHold(
+		HST_CampaignState state,
+		string zoneId,
+		HST_ZoneCompositionService compositions,
+		out string evidence)
+	{
+		if (!CanBeginCampaignDebugCivilianZoneActivationHold(
+			state,
+			zoneId,
+			compositions,
+			evidence))
+			return false;
+
+		HST_ZoneState zone = state.FindZone(zoneId);
+		HST_GarrisonState garrison
+			= state.FindGarrison(zoneId, zone.m_sOwnerFactionKey);
+		m_CampaignDebugCivilianZoneHoldState = state;
+		m_sCampaignDebugCivilianZoneHoldId = zoneId;
+		m_sCampaignDebugCivilianZoneHoldFactionKey
+			= zone.m_sOwnerFactionKey;
+		m_iCampaignDebugCivilianZoneHoldOwnershipRevision
+			= zone.m_iOwnershipRevision;
+		m_bCampaignDebugCivilianZoneHoldOriginalGarrison = garrison != null;
+		m_CampaignDebugCivilianZoneHoldOriginalGarrison = garrison;
+		m_iCampaignDebugCivilianZoneHoldOriginalGarrisonInfantry = 0;
+		m_iCampaignDebugCivilianZoneHoldOriginalGarrisonVehicles = 0;
+		if (garrison)
+		{
+			m_iCampaignDebugCivilianZoneHoldOriginalGarrisonInfantry
+				= garrison.m_iInfantryCount;
+			m_iCampaignDebugCivilianZoneHoldOriginalGarrisonVehicles
+				= garrison.m_iVehicleCount;
+		}
+		m_iCampaignDebugCivilianZoneHoldSamples = 0;
+		m_iCampaignDebugCivilianZoneHoldDemandSamples = 0;
+		m_bCampaignDebugCivilianZoneHoldObservationExact = true;
+		m_sCampaignDebugCivilianZoneHoldLastEvidence
+			= "hold acquired | " + evidence;
+		evidence = m_sCampaignDebugCivilianZoneHoldLastEvidence;
+		return true;
+	}
+
+	bool ReadCampaignDebugCivilianZoneActivationHold(
+		HST_CampaignState state,
+		string zoneId,
+		out int sampleCount,
+		out int demandSampleCount,
+		out bool observationExact,
+		out string evidence)
+	{
+		sampleCount = m_iCampaignDebugCivilianZoneHoldSamples;
+		demandSampleCount = m_iCampaignDebugCivilianZoneHoldDemandSamples;
+		observationExact = m_bCampaignDebugCivilianZoneHoldObservationExact;
+		evidence = m_sCampaignDebugCivilianZoneHoldLastEvidence;
+		return state && state == m_CampaignDebugCivilianZoneHoldState
+			&& !zoneId.IsEmpty()
+			&& zoneId == m_sCampaignDebugCivilianZoneHoldId;
+	}
+
+	bool FinishCampaignDebugCivilianZoneActivationHold(
+		HST_CampaignState state,
+		string zoneId,
+		HST_ZoneCompositionService compositions,
+		out string evidence)
+	{
+		evidence = "civilian inactive-zone hold cleanup rejected";
+		if (!state || state != m_CampaignDebugCivilianZoneHoldState
+			|| zoneId.IsEmpty()
+			|| zoneId != m_sCampaignDebugCivilianZoneHoldId
+			|| !compositions)
+			return false;
+
+		HST_ZoneState zone = state.FindZone(zoneId);
+		if (!zone)
+			return false;
+
+		// Use the production fold/deactivation owner before restoring the frozen
+		// canonical garrison. This also cleans any composition that appeared
+		// despite the hold; direct counter writes alone are not accepted cleanup.
+		bool ownershipExact
+			= zone.m_sOwnerFactionKey
+				== m_sCampaignDebugCivilianZoneHoldFactionKey
+			&& zone.m_iOwnershipRevision
+				== m_iCampaignDebugCivilianZoneHoldOwnershipRevision;
+		HST_GarrisonState currentGarrison = state.FindGarrison(
+			zoneId,
+			m_sCampaignDebugCivilianZoneHoldFactionKey);
+		int currentGarrisonRows;
+		foreach (HST_GarrisonState authorityGarrison : state.m_aGarrisons)
+		{
+			if (authorityGarrison
+				&& authorityGarrison.m_sZoneId == zoneId)
+				currentGarrisonRows++;
+		}
+		bool garrisonAuthorityExact
+			= currentGarrison
+				== m_CampaignDebugCivilianZoneHoldOriginalGarrison
+			&& currentGarrisonRows
+				== (m_bCampaignDebugCivilianZoneHoldOriginalGarrison ? 1 : 0);
+		if (currentGarrison)
+		{
+			garrisonAuthorityExact = garrisonAuthorityExact
+				&& currentGarrison.m_iInfantryCount
+					== m_iCampaignDebugCivilianZoneHoldOriginalGarrisonInfantry
+				&& currentGarrison.m_iVehicleCount
+					== m_iCampaignDebugCivilianZoneHoldOriginalGarrisonVehicles;
+		}
+		if (!ownershipExact || !garrisonAuthorityExact)
+		{
+			m_bCampaignDebugCivilianZoneHoldObservationExact = false;
+			evidence = string.Format(
+				"cleanup retained hold: owner/revision expected %1/%2 actual %3/%4 | canonical garrison exact %5 rows %6",
+				m_sCampaignDebugCivilianZoneHoldFactionKey,
+				m_iCampaignDebugCivilianZoneHoldOwnershipRevision,
+				zone.m_sOwnerFactionKey,
+				zone.m_iOwnershipRevision,
+				garrisonAuthorityExact,
+				currentGarrisonRows);
+			m_sCampaignDebugCivilianZoneHoldLastEvidence = evidence;
+			return false;
+		}
+		bool deactivated = DeactivateZone(state, zone, compositions);
+		int groupCount = CountCampaignDebugCivilianZoneGroups(state, zoneId);
+		int runtimeHandleCount
+			= CountCampaignDebugCivilianZoneRuntimeHandles(state, zoneId);
+		int compositionCount
+			= compositions.CountRuntimeCompositionEntitiesForZone(zoneId);
+		bool productionTeardownExact
+			= zone.m_iActiveInfantryCount == 0
+			&& zone.m_iActiveVehicleCount == 0
+			&& groupCount == 0 && runtimeHandleCount == 0
+			&& compositionCount == 0;
+		if (productionTeardownExact)
+			zone.m_bActive = false;
+
+		bool originalGarrisonFound;
+		for (int garrisonIndex = state.m_aGarrisons.Count() - 1;
+			garrisonIndex >= 0;
+			garrisonIndex--)
+		{
+			HST_GarrisonState candidate = state.m_aGarrisons[garrisonIndex];
+			if (!candidate || candidate.m_sZoneId != zoneId)
+				continue;
+			if (m_bCampaignDebugCivilianZoneHoldOriginalGarrison
+				&& candidate
+					== m_CampaignDebugCivilianZoneHoldOriginalGarrison)
+			{
+				candidate.m_iInfantryCount
+					= m_iCampaignDebugCivilianZoneHoldOriginalGarrisonInfantry;
+				candidate.m_iVehicleCount
+					= m_iCampaignDebugCivilianZoneHoldOriginalGarrisonVehicles;
+				originalGarrisonFound = true;
+				continue;
+			}
+			state.m_aGarrisons.Remove(garrisonIndex);
+		}
+		if (m_bCampaignDebugCivilianZoneHoldOriginalGarrison
+			&& !originalGarrisonFound
+			&& m_CampaignDebugCivilianZoneHoldOriginalGarrison)
+		{
+			m_CampaignDebugCivilianZoneHoldOriginalGarrison.m_iInfantryCount
+				= m_iCampaignDebugCivilianZoneHoldOriginalGarrisonInfantry;
+			m_CampaignDebugCivilianZoneHoldOriginalGarrison.m_iVehicleCount
+				= m_iCampaignDebugCivilianZoneHoldOriginalGarrisonVehicles;
+			state.m_aGarrisons.Insert(
+				m_CampaignDebugCivilianZoneHoldOriginalGarrison);
+			originalGarrisonFound = true;
+		}
+		bool garrisonRestored
+			= originalGarrisonFound
+				== m_bCampaignDebugCivilianZoneHoldOriginalGarrison;
+		HST_GarrisonState restoredGarrison = state.FindGarrison(
+			zoneId,
+			m_sCampaignDebugCivilianZoneHoldFactionKey);
+		if (m_bCampaignDebugCivilianZoneHoldOriginalGarrison)
+		{
+			garrisonRestored = garrisonRestored
+				&& restoredGarrison
+					== m_CampaignDebugCivilianZoneHoldOriginalGarrison
+				&& restoredGarrison.m_iInfantryCount
+					== m_iCampaignDebugCivilianZoneHoldOriginalGarrisonInfantry
+				&& restoredGarrison.m_iVehicleCount
+					== m_iCampaignDebugCivilianZoneHoldOriginalGarrisonVehicles;
+		}
+		else
+			garrisonRestored = garrisonRestored && !restoredGarrison;
+
+		bool cleanupExact = !zone.m_bActive
+			&& zone.m_iActiveInfantryCount == 0
+			&& zone.m_iActiveVehicleCount == 0
+			&& ownershipExact
+			&& productionTeardownExact
+			&& garrisonRestored
+			&& groupCount == 0 && runtimeHandleCount == 0
+			&& compositionCount == 0;
+		evidence = string.Format(
+			"production deactivation %1 teardown exact %2 | owner/revision exact %3 | groups/handles %4/%5 | composition %6 | garrison restored %7",
+			deactivated,
+			productionTeardownExact,
+			ownershipExact,
+			groupCount,
+			runtimeHandleCount,
+			compositionCount,
+			garrisonRestored);
+		evidence = evidence + string.Format(
+			" | observation samples/demand %1/%2 exact %3 | cleanup exact %4",
+			m_iCampaignDebugCivilianZoneHoldSamples,
+			m_iCampaignDebugCivilianZoneHoldDemandSamples,
+			m_bCampaignDebugCivilianZoneHoldObservationExact,
+			cleanupExact);
+		if (!cleanupExact)
+		{
+			m_sCampaignDebugCivilianZoneHoldLastEvidence = evidence;
+			return false;
+		}
+
+		m_CampaignDebugCivilianZoneHoldState = null;
+		m_sCampaignDebugCivilianZoneHoldId = "";
+		m_sCampaignDebugCivilianZoneHoldFactionKey = "";
+		m_iCampaignDebugCivilianZoneHoldOwnershipRevision = 0;
+		m_CampaignDebugCivilianZoneHoldOriginalGarrison = null;
+		m_sCampaignDebugCivilianZoneHoldLastEvidence = evidence;
+		return true;
+	}
+
+	protected bool ObserveCampaignDebugCivilianZoneActivationHold(
+		HST_CampaignState state,
+		HST_ZoneState zone,
+		bool naturalActivationDemand,
+		HST_ZoneCompositionService compositions)
+	{
+		if (!state || state != m_CampaignDebugCivilianZoneHoldState
+			|| !zone || zone.m_sZoneId != m_sCampaignDebugCivilianZoneHoldId)
+			return true;
+
+		m_iCampaignDebugCivilianZoneHoldSamples++;
+		if (naturalActivationDemand)
+			m_iCampaignDebugCivilianZoneHoldDemandSamples++;
+		HST_GarrisonState garrison = state.FindGarrison(
+			zone.m_sZoneId,
+			m_sCampaignDebugCivilianZoneHoldFactionKey);
+		int garrisonInfantry;
+		int garrisonVehicles;
+		if (garrison)
+		{
+			garrisonInfantry = garrison.m_iInfantryCount;
+			garrisonVehicles = garrison.m_iVehicleCount;
+		}
+		int garrisonRows;
+		foreach (HST_GarrisonState zoneGarrison : state.m_aGarrisons)
+		{
+			if (zoneGarrison && zoneGarrison.m_sZoneId == zone.m_sZoneId)
+				garrisonRows++;
+		}
+		int groupCount
+			= CountCampaignDebugCivilianZoneGroups(state, zone.m_sZoneId);
+		int runtimeHandleCount
+			= CountCampaignDebugCivilianZoneRuntimeHandles(
+				state,
+				zone.m_sZoneId);
+		int compositionCount = -1;
+		if (compositions)
+			compositionCount
+				= compositions.CountRuntimeCompositionEntitiesForZone(
+					zone.m_sZoneId);
+		bool ownershipExact
+			= zone.m_sOwnerFactionKey
+				== m_sCampaignDebugCivilianZoneHoldFactionKey
+			&& zone.m_iOwnershipRevision
+				== m_iCampaignDebugCivilianZoneHoldOwnershipRevision;
+		bool garrisonTopologyExact
+			= garrison == m_CampaignDebugCivilianZoneHoldOriginalGarrison
+			&& garrisonRows
+				== (m_bCampaignDebugCivilianZoneHoldOriginalGarrison ? 1 : 0);
+		bool sampleExact = ownershipExact && garrisonTopologyExact
+			&& !zone.m_bActive
+			&& zone.m_iActiveInfantryCount == 0
+			&& zone.m_iActiveVehicleCount == 0
+			&& garrisonInfantry
+				== m_iCampaignDebugCivilianZoneHoldOriginalGarrisonInfantry
+			&& garrisonVehicles
+				== m_iCampaignDebugCivilianZoneHoldOriginalGarrisonVehicles
+			&& groupCount == 0 && runtimeHandleCount == 0
+			&& compositionCount == 0;
+		m_bCampaignDebugCivilianZoneHoldObservationExact
+			= m_bCampaignDebugCivilianZoneHoldObservationExact && sampleExact;
+		m_sCampaignDebugCivilianZoneHoldLastEvidence = string.Format(
+			"sample %1 | demand %2/%3 | owner/revision exact %4 | active %5 forces %6/%7 | garrison %8/%9",
+			m_iCampaignDebugCivilianZoneHoldSamples,
+			naturalActivationDemand,
+			m_iCampaignDebugCivilianZoneHoldDemandSamples,
+			ownershipExact,
+			zone.m_bActive,
+			zone.m_iActiveInfantryCount,
+			zone.m_iActiveVehicleCount,
+			garrisonInfantry,
+			garrisonVehicles);
+		m_sCampaignDebugCivilianZoneHoldLastEvidence
+			= m_sCampaignDebugCivilianZoneHoldLastEvidence + string.Format(
+			" | garrison rows/topology %1/%2 | groups/handles %3/%4 | composition %5 | exact %6",
+			garrisonRows,
+			garrisonTopologyExact,
+			groupCount,
+			runtimeHandleCount,
+			compositionCount,
+			sampleExact);
+		return sampleExact;
+	}
+
+	protected int CountCampaignDebugCivilianZoneGroups(
+		HST_CampaignState state,
+		string zoneId)
+	{
+		if (!state || zoneId.IsEmpty())
+			return 0;
+		int count;
+		foreach (HST_ActiveGroupState activeGroup : state.m_aActiveGroups)
+		{
+			if (activeGroup && activeGroup.m_sZoneId == zoneId)
+				count++;
+		}
+		return count;
+	}
+
+	protected int CountCampaignDebugCivilianZoneRuntimeHandles(
+		HST_CampaignState state,
+		string zoneId)
+	{
+		if (!state || zoneId.IsEmpty())
+			return 0;
+		int count;
+		foreach (HST_ActiveGroupState activeGroup : state.m_aActiveGroups)
+		{
+			if (!activeGroup || activeGroup.m_sZoneId != zoneId)
+				continue;
+			if (GetRuntimeGroupEntity(activeGroup.m_sGroupId)
+				|| GetRuntimeVehicleEntity(activeGroup.m_sGroupId))
+				count++;
+		}
+		return count;
+	}
+
 	bool UpdateZoneActivation(HST_CampaignState state, HST_BalanceConfig balance, HST_CampaignPreset preset = null, HST_EnemyDirectorService enemyDirector = null, HST_ZoneCompositionService compositions = null)
 	{
 		if (!state || !balance)
@@ -4327,6 +4772,24 @@ class HST_PhysicalWarService
 			}
 			bool forceMissionZone = ShouldForceMissionZoneActive(state, zone);
 			bool shouldBeActive = !IsZoneInsideHQActivationExclusion(state, zone) && (IsAnyLivingPlayerNearZone(playerManager, playerIds, zone, balance) || forceMissionZone);
+			if (state == m_CampaignDebugCivilianZoneHoldState
+				&& zone.m_sZoneId == m_sCampaignDebugCivilianZoneHoldId)
+			{
+				bool holdSampleExact
+					= ObserveCampaignDebugCivilianZoneActivationHold(
+						state,
+						zone,
+						shouldBeActive,
+						compositions);
+				// An unexpected activation is folded through the production owner in
+				// the same ordinary tick. The latched observation remains failed.
+				if (!holdSampleExact)
+				{
+					changed = DeactivateZone(state, zone, compositions) || changed;
+					zone.m_bActive = false;
+				}
+				shouldBeActive = false;
+			}
 			if (zone.m_bActive == shouldBeActive)
 			{
 				if (shouldBeActive)
