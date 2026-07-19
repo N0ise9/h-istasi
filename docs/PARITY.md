@@ -31,6 +31,34 @@ UTC `2026-07-18T16:34:38Z`, label
 `schema71-settings24-focused-force-authority`; its non-package proof remains
 historical evidence.
 
+## Release-Ledger Schema 3 Evidence Parity
+
+Release-ledger Schema 3 is a release-evidence contract, not a Campaign Schema
+change. `historicalCandidateEvidence` is a true one-or-more array in asserted
+oldest-to-newest order; every entry has exactly `retirementDisposition`,
+`candidate`, and `evidence`. A `rejected-after-full-profile` entry is complete
+only with its own focused result, accepted corrected canary, and rejected full
+profile. A `rejected-after-corrected-canary` entry is complete only with its own
+focused result and rejected corrected canary, and `fullCampaignDebug` is
+forbidden. A stopped full run is not an empty or fabricated parity row.
+
+Parity across the ledger means exact isolation: candidate ID/source, manifest
+path/hash, ready-seal hash, package hash, and candidate-bound summary/envelope/
+run identities may not conflict with another historical entry or the current
+artifact. Every referenced file must rehash and correlate to its entry. Gate
+timestamps and source/harness Git ancestry must prove the same order recorded by
+the array; sorting during presentation cannot repair an invalid ledger.
+
+The initial migration records only
+`partisan-rc-0e632ec4f63e-20260719T004133Z` as
+`rejected-after-full-profile`. The current retained
+`partisan-rc-e11e7ea88a44-20260719T040154Z` package remains the current
+`rejected-after-runtime` artifact and is not historical yet. A future candidate
+activation must append it once as `rejected-after-corrected-canary`, preserve
+the absence of full evidence, and replace the current candidate surface in one
+checked transition. These ledger mechanics change none of the retained counts,
+hashes, failed rungs, or the `NO-GO` decision.
+
 ## Current Packaged Focused Deterministic-Service Boundary
 
 Clean harness HEAD `b1940f241e28f163202807385f7140f048921447` ran all five

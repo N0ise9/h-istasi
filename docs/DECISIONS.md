@@ -3989,3 +3989,70 @@ Consequences:
   multiplayer/JIP, restart breadth, performance, soak, canary-release, and
   stable certification remain independent gates.
 - The release decision remains `NO-GO`.
+
+## CRI-073 - Adopt an Ordered Historical-Candidate Release Ledger
+
+- Status: Accepted
+- Date: 2026-07-19
+
+Context: The singular Schema-2 historical-candidate object can preserve one
+retired package boundary but cannot accumulate later rejected candidates without
+overwriting history or inventing a common gate topology. The current retained
+artifact, `partisan-rc-e11e7ea88a44-20260719T040154Z`, was rejected at its
+corrected canary and therefore has no full-profile evidence. This decision is
+about release-ledger Schema 3 only. Campaign Schema 71 and runtime-settings
+Schema 24 remain unchanged.
+
+Decision: Make `historicalCandidateEvidence` a true one-or-more JSON array in
+oldest-to-newest retirement order. Every entry has exactly
+`retirementDisposition`, `candidate`, and `evidence`. Admit only these closed
+topologies:
+
+- `rejected-after-full-profile`: package-bound focused evidence, an accepted
+  corrected canary, and rejected full-profile evidence are all required.
+- `rejected-after-corrected-canary`: package-bound focused evidence and a
+  rejected corrected canary are required; `fullCampaignDebug` is forbidden.
+  A stopped full run must remain absent rather than `null`, `not-run`, borrowed,
+  or fabricated.
+
+The migration records only
+`partisan-rc-0e632ec4f63e-20260719T004133Z` as
+`rejected-after-full-profile`. Its package, manifest, and ready-seal SHA-256
+values remain
+`e5d29458c33aeef9cd2b37476359acc6021fe78cf0fc74513d9a2f69ef0614dc`,
+`ea06318a8f5161f000685fe37ecab4f5c8a77d6b0e8205f502a6418e3365e76b`, and
+`cd91e569b8a4a453dad6b0f884f22afbb36b9b5f0de629fd70b2188875e47c53`.
+Its focused, corrected-canary, and full portable-summary SHA-256 values remain
+`961ef6b0a84c26446468b31dd7ac5120448b21a442e9a823de4ff5dc804da7f9`,
+`f47fa5f0539c0c8c6024e096f3e034699bc6bfaf656734a0a2b32c9fee7b4aa8`, and
+`ed225ba2acb6932437af55219ff0b6ba69f4a2111880acd11c2555c875819ca7`.
+
+Keep `partisan-rc-e11e7ea88a44-20260719T040154Z` solely as the current retained
+`rejected-after-runtime` artifact until a replacement is actually activated.
+Its package, manifest, and ready-seal SHA-256 values remain
+`75b61eb19513de00e56a43ad3778885f89a7497c0eebe4d870bf3b11e62a0dad`,
+`daed6876ce839a7fc6551257e4a4dd9bb0c92772c7e2d07be595acddde19e714`, and
+`0ca7a5e2fbe6bf298baa542250cc7b47bf2b135a5382e032fc5febdddf579acc`.
+Its accepted focused and rejected corrected-canary summary SHA-256 values remain
+`9ddade1cb86a209acf4aae02ded6f1a7713fe1e25ba577ae00ef1980e3de149a` and
+`af0aca25a84d8f757dbba8010950a658ce09937aa4048c35b2e372f1183eec69`;
+there is no full-profile summary.
+
+Consequences:
+
+- Candidate IDs, source HEADs, manifest paths and hashes, ready-seal hashes,
+  package hashes, and candidate-bound evidence identities must be exact and
+  non-conflicting across every historical entry and the current artifact.
+  Every referenced file is rehashed and cross-correlated to its own candidate.
+- Candidate creation and gate timestamps must prove the declared order.
+  Candidate source and focused/canary/permitted-full harness commits must prove
+  the disposition-specific Git ancestry chain through the current checkout.
+  Rendering preserves array order and keeps each candidate's evidence together.
+- The next candidate activation is one fail-closed ledger transition. It must
+  validate the new current identity, append `e11e7ea88a44` exactly once after
+  `0e632ec4f63e` as `rejected-after-corrected-canary`, keep
+  `fullCampaignDebug` absent, and replace every current artifact, evidence, and
+  proof-rung field together. An intermediate duplicate or mixed identity is
+  invalid and must not be published.
+- No evidence count, hash, proof outcome, failed rung, or package eligibility is
+  improved by this structural migration. Release remains `NO-GO`.

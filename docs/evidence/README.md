@@ -13,6 +13,37 @@ records are not rewritten.
 Repository attributes keep both JSON records on canonical LF endings so their
 byte hashes remain stable across checkouts.
 
+## Release-Ledger Schema 3 Historical Evidence
+
+Release-ledger Schema 3 is distinct from Campaign Schema 71. Its
+`historicalCandidateEvidence` value is a true JSON array with one or more
+entries ordered oldest to newest. Each entry contains exactly
+`retirementDisposition`, `candidate`, and `evidence`.
+
+- `rejected-after-full-profile` requires that candidate's focused summary,
+  accepted corrected-canary summary, and rejected full-profile summary.
+- `rejected-after-corrected-canary` requires that candidate's focused summary
+  and rejected corrected-canary summary. `fullCampaignDebug` is forbidden: a
+  canary-stopped full run has no file, hash, placeholder, null, or borrowed
+  substitute.
+
+Candidate ID/source, manifest path/hash, ready-seal hash, package hash, and
+candidate-bound summary/envelope/run identities must exact-match their retained
+files and remain non-conflicting across the historical array and current
+artifact. Evidence times and Git ancestry must agree with both the per-entry
+gate topology and the declared oldest-to-newest array order.
+
+The initial migration includes only
+`partisan-rc-0e632ec4f63e-20260719T004133Z` as
+`rejected-after-full-profile`. The retained
+`partisan-rc-e11e7ea88a44-20260719T040154Z` artifact remains current and
+`rejected-after-runtime`; it is not duplicated into the array. When a new
+candidate is activated, the same checked ledger change must append
+`e11e7ea88a44` exactly once as `rejected-after-corrected-canary`, keep full
+evidence absent, and replace all current-candidate fields. Existing records,
+hashes, and the `NO-GO` decision do not change merely because the ledger shape
+changes.
+
 Current status retains `partisan-rc-e11e7ea88a44-20260719T040154Z` as a
 `rejected-after-runtime`, verification-only candidate. Version
 `0.1.0-rc.20260719T040154Z.e11e7ea8` was built from

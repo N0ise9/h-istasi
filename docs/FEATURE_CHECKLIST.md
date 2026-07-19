@@ -34,6 +34,32 @@ implementation identity remains `32727238d74b29905c68e5a80bb5897dfdc783c0`, UTC
 `schema71-settings24-focused-force-authority`; its non-package proof remains
 historical evidence.
 
+## Release-Ledger Schema 3 Checklist
+
+- [x] Keep release-ledger Schema 3 separate from Campaign Schema 71 and
+  runtime-settings Schema 24. Require `historicalCandidateEvidence` to be a
+  true one-or-more JSON array ordered oldest to newest, with exactly
+  `retirementDisposition`, `candidate`, and `evidence` in every entry.
+- [x] Admit only `rejected-after-full-profile`, which requires focused,
+  accepted corrected-canary, and rejected full-profile evidence, or
+  `rejected-after-corrected-canary`, which requires focused and rejected
+  corrected-canary evidence and forbids `fullCampaignDebug`. Never synthesize
+  a `not-run` full result or borrow one from another package.
+- [x] Fail the ledger on duplicate current/historical candidate IDs, source
+  HEADs, manifest paths or hashes, ready-seal hashes, package hashes, or
+  candidate-bound evidence identities. Require exact file rehash, candidate
+  correlation, increasing evidence times, and the disposition-specific Git
+  ancestry chain in declared array order.
+- [x] Migrate only `partisan-rc-0e632ec4f63e-20260719T004133Z` into the array
+  as `rejected-after-full-profile`. Keep
+  `partisan-rc-e11e7ea88a44-20260719T040154Z` solely as the current retained
+  `rejected-after-runtime` artifact until a replacement is actually activated.
+- [ ] On that future activation, append `e11e7ea88a44` exactly once as
+  `rejected-after-corrected-canary`, leave full evidence absent, and replace
+  the complete current-candidate identity/evidence/rung surface in the same
+  checked transition. Do not publish a mixed or duplicate current/history
+  state. Release remains `NO-GO` until the proof ladder says otherwise.
+
 ## Current Release-Closure Gate 0
 
 - [x] Freeze Campaign Schema 71 and runtime-settings Schema 24 for

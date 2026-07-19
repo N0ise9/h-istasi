@@ -32,6 +32,36 @@ dependency order, with at most two runtime families in flight:
 `CURRENT_STATUS.md` declares the active release decision; this file retains the
 detailed implementation order and historical rationale.
 
+## Release-Ledger Migration and Activation Plan
+
+Release-ledger Schema 3 does not alter Campaign Schema 71 or runtime-settings
+Schema 24. `historicalCandidateEvidence` is now a one-or-more JSON array whose
+declared order is oldest to newest. Each entry has exactly
+`retirementDisposition`, `candidate`, and `evidence`. The first migration step
+retains only `partisan-rc-0e632ec4f63e-20260719T004133Z` in that array with
+`rejected-after-full-profile`; the current
+`partisan-rc-e11e7ea88a44-20260719T040154Z` rejected artifact remains outside
+the historical array until a replacement is activated.
+
+The ledger admits two retirement paths. `rejected-after-full-profile` requires
+focused, accepted corrected-canary, and rejected full-profile evidence.
+`rejected-after-corrected-canary` requires focused plus rejected corrected-
+canary evidence and forbids `fullCampaignDebug`; a stopped full run must stay
+absent rather than becoming null, placeholder, fabricated, or transferred
+evidence. Each path must exact-rehash and correlate its own candidate,
+manifest, ready seal, package, summaries, envelopes, and run identities.
+Candidate identity keys and identity-defining hashes must be unique across the
+ordered history and current artifact, while timestamps and Git ancestry must
+prove the same oldest-to-newest gate sequence.
+
+The next activation is one fail-closed ledger operation: validate the new
+immutable current candidate, append `e11e7ea88a44` exactly once as
+`rejected-after-corrected-canary`, keep its full property absent, replace all
+current artifact/evidence/rung fields, and regenerate the checked status without
+an observable mixed state. Until that activation and its fresh package-bound
+chain succeed, the existing counts and hashes remain authoritative and release
+stays `NO-GO`.
+
 ## Gate 1 Build-Once Plan
 
 The guarded release-candidate entry point now defines the Gate-1 artifact

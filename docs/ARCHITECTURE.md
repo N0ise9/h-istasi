@@ -13,6 +13,41 @@ runtime-settings Schema 24 are current.
 That identity adds the focused force-authority checkpoint and retains the
 passing mixed-native proof described below.
 
+## Release-Ledger Schema 3
+
+Release-ledger Schema 3 is checked release metadata; it does not change
+Campaign Schema 71 or runtime-settings Schema 24. Its
+`historicalCandidateEvidence` property is a true JSON array with one or more
+entries in oldest-to-newest retirement order. Every entry has exactly
+`retirementDisposition`, `candidate`, and `evidence`. The supported retirement
+topologies are deliberately closed:
+
+- `rejected-after-full-profile` requires the package-bound focused result, an
+  accepted corrected canary, and the rejected full-profile result.
+- `rejected-after-corrected-canary` requires the package-bound focused result
+  and rejected corrected canary, and forbids a `fullCampaignDebug` property.
+  Absence is evidence truth: a stopped full run may not be represented by
+  `null`, a placeholder, borrowed evidence, or a fabricated summary.
+
+Every historical candidate ID, source HEAD, manifest path and digest, ready-seal
+digest, and package digest must be distinct from every other historical entry
+and the current artifact. Each referenced summary, envelope, run identity, and
+hash must still bind to that same candidate. Candidate creation, focused,
+canary, and permitted full-profile times must follow their gate order; the
+corresponding source and harness commits must form the required Git ancestry
+chain through the current checkout. Array position is therefore asserted
+history, not presentation sorting.
+
+The current migration contains only
+`partisan-rc-0e632ec4f63e-20260719T004133Z`, retired as
+`rejected-after-full-profile`. The retained
+`partisan-rc-e11e7ea88a44-20260719T040154Z` package remains the current
+`rejected-after-runtime` artifact of record and must not also appear in history.
+When a new candidate is activated, one checked ledger transition must append
+that package exactly once as `rejected-after-corrected-canary`, keep its full
+evidence absent, and replace all current-candidate fields together. No
+intermediate mixed identity may be published. Release remains `NO-GO`.
+
 ## Release-Candidate Build Boundary
 
 `tools/new-guarded-release-candidate.ps1` is the single Gate-1 build-once

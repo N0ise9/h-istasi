@@ -18,6 +18,41 @@ The embedded implementation stamp remains
 `2026-07-18T16:34:38Z`, label
 `schema71-settings24-focused-force-authority`.
 
+## Release-Ledger Schema 3 Audit Boundary
+
+Release-ledger Schema 3 is independent of Campaign Schema 71 and runtime-
+settings Schema 24. It replaces the singular historical-candidate object with
+a true one-or-more `historicalCandidateEvidence` array whose order is asserted
+oldest to newest. Every entry has exactly `retirementDisposition`, `candidate`,
+and `evidence`.
+
+The audit recognizes only two closed gate topologies. A
+`rejected-after-full-profile` entry must retain its package-bound focused
+result, accepted corrected canary, and rejected full-profile result. A
+`rejected-after-corrected-canary` entry must retain its focused result and
+rejected corrected canary, while `fullCampaignDebug` is forbidden. A full run
+stopped by a red canary remains absent; `null`, `not-run`, borrowed, or
+fabricated full evidence fails the ledger.
+
+Each entry must exact-match and rehash its candidate, manifest, ready seal,
+package, summaries, envelopes, and run identities. Candidate ID, source HEAD,
+manifest identity, ready identity, package identity, and candidate-bound
+evidence identity may not collide across the ordered history or current
+artifact. Candidate creation and gate timestamps must increase in the required
+topology, and source plus harness commits must prove the corresponding Git
+ancestry through the checkout.
+
+The current migration audits only
+`partisan-rc-0e632ec4f63e-20260719T004133Z` in the array, with
+`rejected-after-full-profile`. The retained
+`partisan-rc-e11e7ea88a44-20260719T040154Z` package remains the current
+`rejected-after-runtime` artifact and must not be duplicated into history before
+replacement activation. That future activation must append it exactly once as
+`rejected-after-corrected-canary`, preserve the absence of full evidence, and
+replace the entire current-candidate surface in one checked transition. The
+existing evidence totals and hashes remain unchanged, and release remains
+`NO-GO`.
+
 ## Current Immutable Candidate Baseline
 
 The active build-once artifact is

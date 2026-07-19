@@ -50767,6 +50767,27 @@ if (-not (Test-Path -LiteralPath $releaseDocsGeneratorPath -PathType Leaf)) {
 	throw 'Release-document generator is missing.'
 }
 $releaseDocsGeneratorText = Get-Content -Raw $releaseDocsGeneratorPath
+$releaseStatusDataPath = Join-Path $root 'docs/data/release_status.json'
+if (-not (Test-Path -LiteralPath $releaseStatusDataPath -PathType Leaf)) {
+	throw 'Release-status data is missing.'
+}
+$releaseStatusDataText = Get-Content -Raw $releaseStatusDataPath
+$releaseStatusData = $releaseStatusDataText | ConvertFrom-Json
+$releaseStatusHistory = $releaseStatusData.historicalCandidateEvidence
+if ([int] $releaseStatusData.schemaVersion -ne 3 -or
+	$releaseStatusHistory -isnot [Array] -or
+	@($releaseStatusHistory).Count -lt 1) {
+	throw 'Release status must retain schema-3 ordered historical candidate evidence.'
+}
+if (@($releaseStatusHistory).Count -ne 1 -or
+	[string] $releaseStatusHistory[0].retirementDisposition -cne
+		'rejected-after-full-profile' -or
+	[string] $releaseStatusHistory[0].candidate.candidateId -cne
+		'partisan-rc-0e632ec4f63e-20260719T004133Z' -or
+	[string] $releaseStatusData.artifact.candidateId -cne
+		'partisan-rc-e11e7ea88a44-20260719T040154Z') {
+	throw 'Schema-3 migration must retain only the 0e full-profile retirement while e11 remains active.'
+}
 foreach ($releaseDocsRejectedRuntimeEntry in @(
 		'"rejected-after-runtime"',
 		'A rejected-after-runtime candidate requires retained rejected runtime proof.',
@@ -50777,6 +50798,33 @@ foreach ($releaseDocsRejectedRuntimeEntry in @(
 		$releaseDocsRejectedRuntimeEntry,
 		[StringComparison]::Ordinal) -lt 0) {
 		throw "Release-document rejected-runtime contract is incomplete: $releaseDocsRejectedRuntimeEntry"
+	}
+}
+
+foreach ($releaseDocsHistoryEntry in @(
+		'schemaVersion 3 with ordered historical candidate evidence.',
+		'release_status.historicalCandidateEvidence must be a JSON array property.',
+		'release_status.historicalCandidateEvidence must parse as a JSON array.',
+		'release_status.historicalCandidateEvidence must contain one or more ordered entries.',
+		'function Assert-HistoricalCandidateEvidenceEntry',
+		'"retirementDisposition", "candidate", "evidence"',
+		'"rejected-after-full-profile"',
+		'"rejected-after-corrected-canary"',
+		'"historical-failed-proof-validation"',
+		'full-profile retirement requires an accepted corrected canary.',
+		'corrected-canary retirement requires rejected corrected-canary evidence.',
+		'$identity.RuntimeSettingsSchema',
+		'AcceptedStartedUtc = $acceptedStarted',
+		'Active and historical candidate $identityField values',
+		'Historical candidate entries must be ordered oldest to newest before the active candidate.',
+		'Historical terminal harness is not an ancestor of the next candidate source',
+		'foreach ($historicalCandidateResult in $historicalCandidateResults)',
+		'Historical Full Campaign Debug: **stopped and not run**'
+	)) {
+	if ($releaseDocsGeneratorText.IndexOf(
+		$releaseDocsHistoryEntry,
+		[StringComparison]::Ordinal) -lt 0) {
+		throw "Release-document schema-3 history contract is incomplete: $releaseDocsHistoryEntry"
 	}
 }
 

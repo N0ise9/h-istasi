@@ -17,6 +17,33 @@ The embedded implementation stamp remains
 
 ## Current Release-Closure Mechanics
 
+- Release-ledger Schema 3 is unrelated to the persisted Campaign Schema 71 and
+  runtime-settings Schema 24. Parse `historicalCandidateEvidence` as a true
+  one-or-more JSON array in oldest-to-newest order. Every element must have
+  exactly `retirementDisposition`, `candidate`, and `evidence`; a scalar object,
+  empty array, null entry, unknown property, or duplicate identity fails
+  closed.
+- `rejected-after-full-profile` requires package-bound focused evidence, an
+  accepted corrected canary, and rejected full-profile evidence.
+  `rejected-after-corrected-canary` requires focused evidence and a rejected
+  corrected canary, and forbids the `fullCampaignDebug` property entirely.
+  PowerShell absence and JSON `null` are not interchangeable here: never invent
+  a not-run full summary or attach another candidate's full capture.
+- Treat the declared array order as evidence. Candidate creation and gate times
+  must increase, each entry's source/harness commits must satisfy its gate-
+  specific Git ancestry, and each candidate ID, source HEAD, manifest path and
+  digest, ready-seal digest, package digest, summary identity, and envelope/run
+  binding must remain exact and non-conflicting across history and the current
+  artifact.
+- The initial Schema-3 migration contains only
+  `partisan-rc-0e632ec4f63e-20260719T004133Z` with
+  `rejected-after-full-profile`. Keep
+  `partisan-rc-e11e7ea88a44-20260719T040154Z` solely in the current retained
+  `rejected-after-runtime` artifact/evidence fields until a replacement is
+  activated. That future activation must atomically append `e11e7ea88a44` once
+  as `rejected-after-corrected-canary`, omit full evidence, and replace the
+  complete current-candidate surface in the same checked change. Never expose a
+  duplicated or mixed current/history identity. Release remains `NO-GO`.
 - Keep the persisted model at Campaign Schema 71/settings 24 while closing
   runtime and certification gates. Proof-only, documentation, UI, packaging,
   or source-shape work is not a schema reason.
