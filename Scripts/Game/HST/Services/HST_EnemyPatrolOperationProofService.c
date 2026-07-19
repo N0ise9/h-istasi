@@ -1135,7 +1135,15 @@ class HST_EnemyPatrolOperationProofService
 		}
 		bool quarantined = IsQuarantined(order);
 		bool backlinkPreserved = group && group.m_sOperationId == forgedBacklink;
-		backlinkPreserved = backlinkPreserved && group.m_sRuntimeStatus == "exact_patrol_quarantined";
+		// The reciprocal-link conflict is first quarantined through the owning
+		// order, then the orphan-claimant pass independently holds the forged
+		// group.  Both statuses are fail-closed; require the final orphan hold as
+		// well as the untouched foreign backlink instead of depending on the
+		// earlier intermediate status string.
+		backlinkPreserved = backlinkPreserved
+			&& group.m_sRuntimeStatus == "exact_patrol_orphan_quarantined"
+			&& group.m_sSpawnFallbackMode
+				== HST_EnemyPatrolOperationService.EXACT_GROUP_MODE + "_quarantined";
 		bool evidencePreserved = restored && restored.FindOperation(fixture.m_Operation.m_sOperationId);
 		evidencePreserved = evidencePreserved && restored.FindForceManifest(fixture.m_Manifest.m_sManifestId);
 		evidencePreserved = evidencePreserved && restored.FindForceSpawnResult(fixture.m_Batch.m_sResultId) && group;
@@ -1246,6 +1254,15 @@ class HST_EnemyPatrolOperationProofService
 		HST_EnemyPatrolCommanderProofHarness commander = new HST_EnemyPatrolCommanderProofHarness();
 		commander.SetExactEnemyQRFAuthorityServices(fixture.m_Planning, new HST_EnemyQRFOperationService());
 		commander.SetExactEnemyPatrolAuthorityService(fixture.m_Service);
+		HST_EnemyCounterattackOperationService counterattack
+			= new HST_EnemyCounterattackOperationService();
+		counterattack.SetRuntimeServices(
+			fixture.m_Queue,
+			fixture.m_Adapter,
+			fixture.m_PhysicalWar,
+			new HST_CombatPresenceService(),
+			new HST_OwnershipTransitionService());
+		commander.SetExactEnemyCounterattackAuthorityService(counterattack);
 		HST_ZoneState target = fixture.m_State.FindZone(fixture.m_Order.m_sTargetZoneId);
 		HST_FactionPoolState pool = fixture.m_State.FindFactionPool(HST_EnemyPatrolProofFixtureFactory.PROOF_FACTION_KEY);
 		int ordersBefore = fixture.m_State.m_aEnemyOrders.Count();
@@ -1261,6 +1278,14 @@ class HST_EnemyPatrolOperationProofService
 			HST_EEnemyOrderType.HST_ENEMY_ORDER_PATROL);
 		bool duplicateSuppressed = !duplicateQueued && fixture.m_State.m_aEnemyOrders.Count() == ordersBefore;
 		duplicateSuppressed = duplicateSuppressed && pool.m_iAttackResources == attackBefore;
+		// Immediate counterattacks are raised after the target changes hands.  The
+		// admitted patrol deliberately remains on that target so this fixture can
+		// prove that target-level duplicate suppression ignores only its exact
+		// patrol authority while the counterattack uses its own typed admission.
+		string resistanceFactionKey = fixture.m_Preset.m_sResistanceFactionKey;
+		if (resistanceFactionKey.IsEmpty())
+			resistanceFactionKey = "FIA";
+		target.m_sOwnerFactionKey = resistanceFactionKey;
 		bool counterattackQueued = commander.TryQueueImmediateCounterattack(
 			fixture.m_State,
 			fixture.m_Preset,

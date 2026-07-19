@@ -396,7 +396,7 @@ class HST_GarrisonPatrolOperationProofService
 				&& rollback.m_State.m_aActiveGroups.Count() == 0
 				&& rollback.m_State.m_aGeneratedRoutes.Count() == 0
 				&& rollback.m_State.m_aGarrisons.Count() == 0
-				&& AllTransactionsTerminalWithoutRefund(rollback.m_State);
+				&& AllReservationsCancelledWithFullRelease(rollback.m_State);
 		}
 
 		report.m_bReplayRollbackExact = replayExact && collisionExact && rollbackExact;
@@ -410,6 +410,10 @@ class HST_GarrisonPatrolOperationProofService
 			ResolveBatchCount(rollback),
 			ResolveGroupCount(rollback),
 			ResolveRouteCount(rollback));
+		report.m_sReplayRollbackEvidence = report.m_sReplayRollbackEvidence + string.Format(
+			" | rollback transactions/cancelled-release %1/%2",
+			ResolveTransactionCount(rollback),
+			rollback && AllReservationsCancelledWithFullRelease(rollback.m_State));
 	}
 
 	protected void ProveRosterFoldAndReprojection(HST_GarrisonPatrolOperationProofReport report)
@@ -1135,13 +1139,19 @@ class HST_GarrisonPatrolOperationProofService
 		markers.RebuildAllMarkers(fixture.m_State, fixture.m_Preset);
 		string markerId = "hst_exact_garrison_patrol_" + fixture.m_Operation.m_sOperationId;
 		HST_MapMarkerState marker = fixture.m_State.FindMapMarker(markerId);
+		bool markerExists = marker != null;
+		bool positionExact = marker && IsExpectedMarkerPresentationPosition(
+			marker.m_vPosition,
+			fixture.m_Operation.m_vStrategicPosition,
+			markerId);
+		bool uniqueExact = CountMarkerId(fixture.m_State, markerId) == 1;
 		bool openExact = marker && marker.m_bVisible
 			&& marker.m_sCategory == "strategic"
 			&& marker.m_sOwnerFactionKey == fixture.m_Operation.m_sOwnerFactionKey
 			&& marker.m_sLabel.Contains("garrison patrol")
 			&& marker.m_sLabel.Contains(string.Format("%1 survivors", living))
-			&& Distance2D(marker.m_vPosition, fixture.m_Operation.m_vStrategicPosition) < 0.1
-			&& CountMarkerId(fixture.m_State, markerId) == 1;
+			&& positionExact
+			&& uniqueExact;
 		HST_ZoneState zone = fixture.m_State.FindZone(fixture.m_Quote.m_sTargetZoneId);
 		zone.m_sOwnerFactionKey = "US";
 		fixture.m_State.m_iElapsedSeconds++;
@@ -1154,9 +1164,9 @@ class HST_GarrisonPatrolOperationProofService
 			"casualty/living/open/position/unique/terminal-cleanup %1/%2/%3/%4/%5/%6",
 			casualty,
 			living,
-			marker != null,
-			marker && Distance2D(marker.m_vPosition, fixture.m_Operation.m_vStrategicPosition) < 0.1,
-			CountMarkerId(fixture.m_State, markerId),
+			markerExists,
+			positionExact,
+			uniqueExact,
 			terminalCleanup);
 	}
 
@@ -1356,15 +1366,16 @@ class HST_GarrisonPatrolOperationProofService
 		return true;
 	}
 
-	protected bool AllTransactionsTerminalWithoutRefund(HST_CampaignState state)
+	protected bool AllReservationsCancelledWithFullRelease(HST_CampaignState state)
 	{
 		if (!state || state.m_aResourceTransactions.Count() != 2)
 			return false;
 		foreach (HST_ResourceTransactionState transaction : state.m_aResourceTransactions)
 		{
-			if (!transaction || transaction.m_iRefundedAmount != 0
-				|| transaction.m_eStatus == HST_EResourceTransactionStatus.HST_TRANSACTION_RESERVED
-				|| transaction.m_eStatus == HST_EResourceTransactionStatus.HST_TRANSACTION_COMMITTED)
+			if (!transaction || transaction.m_iAmount <= 0
+				|| transaction.m_iRefundedAmount != transaction.m_iAmount
+				|| transaction.m_eStatus != HST_EResourceTransactionStatus.HST_TRANSACTION_CANCELLED
+				|| transaction.m_sLastSettlementId.IsEmpty())
 				return false;
 		}
 		return true;
@@ -1376,9 +1387,16 @@ class HST_GarrisonPatrolOperationProofService
 	{
 		if (!restored || !fixture || !ResolveQuarantined(restored, fixture))
 			return false;
+		HST_ForceSpawnResultState batch
+			= restored.FindForceSpawnResult(fixture.m_Batch.m_sResultId);
+		HST_ActiveGroupState group
+			= restored.FindActiveGroup(fixture.m_Group.m_sGroupId);
 		return restored.FindForceManifest(fixture.m_Manifest.m_sManifestId)
-			&& restored.FindForceSpawnResult(fixture.m_Batch.m_sResultId)
-			&& restored.FindActiveGroup(fixture.m_Group.m_sGroupId)
+			&& batch && batch.m_bStrategicProjectionHeld && batch.m_bCancelRequested
+			&& group && !group.m_bSpawnedEntity && group.m_sRuntimeEntityId.IsEmpty()
+			&& group.m_sSpawnFallbackMode
+				== HST_GarrisonPatrolOperationService.EXACT_GROUP_MODE + "_quarantined"
+			&& group.m_sRuntimeStatus == "exact_garrison_patrol_quarantined"
 			&& restored.FindGeneratedRoute(fixture.m_Route.m_sRouteId);
 	}
 
@@ -1391,7 +1409,75 @@ class HST_GarrisonPatrolOperationProofService
 		HST_OperationRecordState operation = restored.FindOperation(fixture.m_Operation.m_sOperationId);
 		return operation
 			&& operation.m_iContractVersion == HST_GarrisonPatrolOperationService.QUARANTINED_CONTRACT_VERSION
-			&& operation.m_sLastProjectionReason.Contains("quarantined");
+			&& operation.m_eSettlementState == HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_OPEN
+			&& operation.m_eMaterializationState == HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_VIRTUAL
+			&& operation.m_ePositionAuthority == HST_EOperationPositionAuthority.HST_OPERATION_POSITION_STRATEGIC
+			&& !operation.m_sLastProjectionReason.IsEmpty();
+	}
+
+	protected bool IsExpectedMarkerPresentationPosition(
+		vector actual,
+		vector authorityPosition,
+		string markerId)
+	{
+		if (markerId.IsEmpty())
+			return false;
+		if (Distance2D(actual, authorityPosition) < 0.1)
+			return true;
+
+		// Strategic markers intentionally deconflict from the zone marker at the
+		// same authority position.  Accept only one of the deterministic offsets
+		// produced by HST_MapMarkerService; this still fails if the marker follows
+		// a stale or unrelated position.
+		for (int attempt = 0; attempt < HST_MapMarkerService.MARKER_DECONFLICT_ATTEMPTS; attempt++)
+		{
+			int baseSlot = markerId.Length() + attempt;
+			int ring = baseSlot / 8;
+			int slot = baseSlot - ring * 8;
+			float x = 1.0;
+			float z = 0.0;
+			if (slot == 1)
+			{
+				x = 0.707;
+				z = 0.707;
+			}
+			else if (slot == 2)
+			{
+				x = 0.0;
+				z = 1.0;
+			}
+			else if (slot == 3)
+			{
+				x = -0.707;
+				z = 0.707;
+			}
+			else if (slot == 4)
+				x = -1.0;
+			else if (slot == 5)
+			{
+				x = -0.707;
+				z = -0.707;
+			}
+			else if (slot == 6)
+			{
+				x = 0.0;
+				z = -1.0;
+			}
+			else if (slot == 7)
+			{
+				x = 0.707;
+				z = -0.707;
+			}
+
+			float distance = HST_MapMarkerService.MARKER_DECONFLICT_STEP_METERS
+				+ ring * 10.0;
+			vector expected = authorityPosition;
+			expected[0] = expected[0] + x * distance;
+			expected[2] = expected[2] + z * distance;
+			if (Distance2D(actual, expected) < 0.25)
+				return true;
+		}
+		return false;
 	}
 
 	protected int CountRuntimeGraphRows(HST_CampaignState state)
@@ -1428,6 +1514,13 @@ class HST_GarrisonPatrolOperationProofService
 		if (!fixture || !fixture.m_State)
 			return -1;
 		return fixture.m_State.m_aGeneratedRoutes.Count();
+	}
+
+	protected int ResolveTransactionCount(HST_GarrisonPatrolOperationProofFixture fixture)
+	{
+		if (!fixture || !fixture.m_State)
+			return -1;
+		return fixture.m_State.m_aResourceTransactions.Count();
 	}
 
 	protected int CountString(array<string> values, string expected)
