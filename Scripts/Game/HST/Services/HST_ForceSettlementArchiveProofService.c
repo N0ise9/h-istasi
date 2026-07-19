@@ -141,10 +141,10 @@ class HST_ForceSettlementArchiveProofService
 		HST_ForcePlanningService planning = new HST_ForcePlanningService();
 		HST_ForceConfirmationResult confirmReplay = planning.ConfirmPlayerSupportQuote(
 			state,
-			HST_DefaultCatalog.CreateVanillaEveronPreset(),
-			new HST_EconomyService(),
-			new HST_SupportRequestService(),
-			new HST_ResourceLedgerService(),
+			null,
+			null,
+			null,
+			null,
 			quote.m_sActorIdentityId,
 			quote.m_sQuoteId,
 			"archive_support_confirm_replay");

@@ -1292,7 +1292,7 @@ class HST_ForcePlanningService
 		string confirmationRequestId)
 	{
 		HST_ForceConfirmationResult result = new HST_ForceConfirmationResult();
-		if (!state || !preset || !economy || !supportRequests || !ledger)
+		if (!state)
 		{
 			result.m_sFailureReason = "authority services not ready";
 			return result;
@@ -1315,6 +1315,15 @@ class HST_ForcePlanningService
 					result.m_sFailureReason = "archived support confirmation replay integrity conflict";
 				return result;
 			}
+		}
+		// A compacted confirmation is a replay of sealed authority. It does not
+		// need the live planning, economy, support, or ledger services that a new
+		// confirmation needs, so recognize the exact tombstone before gating the
+		// live path on those dependencies.
+		if (!preset || !economy || !supportRequests || !ledger)
+		{
+			result.m_sFailureReason = "authority services not ready";
+			return result;
 		}
 		if (!quote || !PlayerSupportTypeMatchesQuoteKind(quote.m_eSupportType, quote.m_sQuoteKind))
 		{

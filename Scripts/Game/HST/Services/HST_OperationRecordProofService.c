@@ -758,10 +758,10 @@ class HST_OperationRecordProofService
 			HST_ForcePlanningService planning = new HST_ForcePlanningService();
 			confirmationReplay = planning.ConfirmPlayerSupportQuote(
 				restored,
-				HST_DefaultCatalog.CreateVanillaEveronPreset(),
-				new HST_EconomyService(),
-				new HST_SupportRequestService(),
-				new HST_ResourceLedgerService(),
+				null,
+				null,
+				null,
+				null,
 				restoredTombstone.m_sActorIdentityId,
 				restoredTombstone.m_sQuoteId,
 				"operation_record_archive_replay");
