@@ -33841,6 +33841,7 @@ $campaignDebugRenderBubbleBeginBlock = Get-ScriptMethodBlock $schema70Coordinato
 $campaignDebugRenderBubbleSampleBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'protected void SampleCampaignDebugRenderBubbleMissionTargetProbe('
 $campaignDebugRenderBubbleMissionTargetBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'protected HST_CampaignDebugCaseResult BuildCampaignDebugRenderBubbleMissionTargetCase('
 $campaignDebugRenderBubbleCleanupBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'protected bool CleanupCampaignDebugRenderBubbleMissionTargetContext('
+$campaignDebugRenderBubblePhysicalDeactivateBlock = Get-ScriptMethodBlock $schema70PhysicalText 'bool CampaignDebugDeactivateZoneForRuntimeCleanup('
 $campaignDebugEarlyPhaseRunnerBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'protected void RunCampaignDebugEarlyPhaseStep()'
 foreach ($campaignDebugRenderBubbleStagedEntry in @(
 	'AdvanceCampaignDebugRenderBubbleMissionTargetProbe(renderBubbleResult)',
@@ -33861,6 +33862,56 @@ foreach ($campaignDebugRenderBubbleStagedEntry in @(
 		throw "Render-bubble mission-target proof must yield across bounded ordinary campaign seconds: $campaignDebugRenderBubbleStagedEntry"
 	}
 }
+foreach ($campaignDebugRenderBubbleOwnershipEntry in @(
+	'm_aPreStartMissionInstanceIds.Insert(',
+	'm_iPreStartMissionInstanceCount',
+	'context.m_bStartAccepted = StartMission_S(',
+	'if (context.m_bStartAccepted)',
+	'foreach (HST_ActiveMissionState postStartMission : m_State.m_aActiveMissions)',
+	'context.m_aPreStartMissionInstanceIds.Contains(',
+	'context.m_iPostStartNewMissionInstanceCount++',
+	'context.m_iPostStartNewMissionInstanceCount == 1',
+	'context.m_bNewMissionInstanceOwned',
+	'context.m_sMissionInstanceId = candidateInstanceId;'
+)) {
+	if ($campaignDebugRenderBubbleBeginBlock.IndexOf($campaignDebugRenderBubbleOwnershipEntry) -lt 0) {
+		throw "Render-bubble mission-target proof is missing exact new-instance ownership: $campaignDebugRenderBubbleOwnershipEntry"
+	}
+}
+$campaignDebugRenderBubbleStartIndex = $campaignDebugRenderBubbleBeginBlock.IndexOf('context.m_bStartAccepted = StartMission_S(')
+$campaignDebugRenderBubblePreCaptureIndex = $campaignDebugRenderBubbleBeginBlock.IndexOf('m_aPreStartMissionInstanceIds.Insert(')
+$campaignDebugRenderBubbleAcceptedGuardIndex = $campaignDebugRenderBubbleBeginBlock.IndexOf('if (context.m_bStartAccepted)', $campaignDebugRenderBubbleStartIndex)
+$campaignDebugRenderBubbleLookupIndex = $campaignDebugRenderBubbleBeginBlock.IndexOf('foreach (HST_ActiveMissionState postStartMission : m_State.m_aActiveMissions)', $campaignDebugRenderBubbleStartIndex)
+$campaignDebugRenderBubbleOwnedAssignmentIndex = $campaignDebugRenderBubbleBeginBlock.IndexOf('context.m_sMissionInstanceId = candidateInstanceId;', $campaignDebugRenderBubbleLookupIndex)
+if ($campaignDebugRenderBubblePreCaptureIndex -lt 0 -or
+	$campaignDebugRenderBubbleStartIndex -le $campaignDebugRenderBubblePreCaptureIndex -or
+	$campaignDebugRenderBubbleAcceptedGuardIndex -le $campaignDebugRenderBubbleStartIndex -or
+	$campaignDebugRenderBubbleLookupIndex -le $campaignDebugRenderBubbleAcceptedGuardIndex -or
+	$campaignDebugRenderBubbleOwnedAssignmentIndex -le $campaignDebugRenderBubbleLookupIndex -or
+	$campaignDebugRenderBubbleBeginBlock.IndexOf('FindLatestCampaignDebugMissionInstance(') -ge 0 -or
+	-not [regex]::IsMatch(
+		$campaignDebugRenderBubbleBeginBlock,
+		'(?s)if\s*\(context\.m_bStartAccepted\)\s*\{.*?foreach\s*\(HST_ActiveMissionState postStartMission\s*:\s*m_State\.m_aActiveMissions\).*?context\.m_iPostStartNewMissionInstanceCount\s*==\s*1.*?context\.m_sMissionInstanceId\s*=\s*candidateInstanceId;')) {
+	throw "Render-bubble mission-target lookup must occur only after an accepted start and assign only a newly owned instance"
+}
+foreach ($campaignDebugRenderBubbleOutcomeEntry in @(
+	'bool settleOutcomeExact = context.m_bReady',
+	'!context.m_bTerminal',
+	'!context.m_bTimedOut',
+	'!context.m_bPlayerLost',
+	'mission.m_sInstanceId == context.m_sMissionInstanceId',
+	'mission.m_sMissionId == context.m_sMissionDefinitionId',
+	'mission.m_sTargetZoneId == context.m_sZoneId',
+	'mission.m_eStatus',
+	'HST_EMissionStatus.HST_MISSION_ACTIVE',
+	'mission.m_sRuntimePrimitive == "rescue_extract"',
+	'"render_bubble.mission_target.settle_outcome"',
+	'CampaignDebugStatus(settleOutcomeExact)'
+)) {
+	if ($campaignDebugRenderBubbleMissionTargetBlock.IndexOf($campaignDebugRenderBubbleOutcomeEntry) -lt 0) {
+		throw "Render-bubble mission-target result lacks simultaneous exact terminal readiness: $campaignDebugRenderBubbleOutcomeEntry"
+	}
+}
 foreach ($campaignDebugRenderBubbleContainmentEntry in @(
 	'CompleteCampaignDebugMissionInstance(',
 	'ContainCampaignDebugMissionInstance(',
@@ -33871,6 +33922,13 @@ foreach ($campaignDebugRenderBubbleContainmentEntry in @(
 	'TeleportCampaignDebugPlayer(',
 	'context.m_iOriginalGarrisonInfantry',
 	'context.m_iOriginalActiveInfantry',
+	'CampaignDebugDeactivateZoneForRuntimeCleanup(',
+	'HasActiveGroupRuntimeHandle(',
+	'context.m_iUnexpectedZoneGroupCount',
+	'context.m_iUnexpectedZoneRuntimeHandleCount',
+	'context.m_bZoneRuntimeReleased',
+	'"render_bubble.mission_target.zone_runtime_release"',
+	'CampaignDebugStatus(context.m_bZoneRuntimeReleased)',
 	'context.m_bPlayerRestored'
 )) {
 	if ([string]::IsNullOrEmpty($campaignDebugRenderBubbleCleanupBlock) -or
@@ -33878,15 +33936,33 @@ foreach ($campaignDebugRenderBubbleContainmentEntry in @(
 		throw "Render-bubble mission-target proof must use exact typed containment and snapshot restoration: $campaignDebugRenderBubbleContainmentEntry"
 	}
 }
+$campaignDebugRenderBubbleDeactivateIndex = $campaignDebugRenderBubbleCleanupBlock.IndexOf('CampaignDebugDeactivateZoneForRuntimeCleanup(')
+$campaignDebugRenderBubbleGarrisonRestoreIndex = $campaignDebugRenderBubbleCleanupBlock.IndexOf('cleanupGarrison.m_iInfantryCount')
+if ($campaignDebugRenderBubbleDeactivateIndex -lt 0 -or
+	$campaignDebugRenderBubbleGarrisonRestoreIndex -le $campaignDebugRenderBubbleDeactivateIndex -or
+	$campaignDebugRenderBubblePhysicalDeactivateBlock.IndexOf('DeactivateZone(state, zone, compositions)') -lt 0 -or
+	$campaignDebugRenderBubbleCleanupBlock.IndexOf('bool missionOwnershipClosed = !context.m_bStartAccepted') -lt 0 -or
+	$campaignDebugRenderBubbleCleanupBlock.IndexOf('context.m_bCleanupExact = missionOwnershipClosed') -lt 0 -or
+	$campaignDebugRenderBubbleCleanupBlock.IndexOf('FindLatestCampaignDebugMissionInstance(') -ge 0 -or
+	-not [regex]::IsMatch(
+		$campaignDebugRenderBubbleCleanupBlock,
+		'(?s)context\.m_bZoneRuntimeReleased\s*=\s*context\.m_iUnexpectedZoneGroupCount\s*==\s*0\s*&&\s*context\.m_iUnexpectedZoneRuntimeHandleCount\s*==\s*0') -or
+	$campaignDebugRenderBubbleCleanupBlock.IndexOf('&& context.m_bZoneRuntimeReleased') -lt 0) {
+	throw "Render-bubble mission-target cleanup must production-fold zone runtime before snapshot restoration and predicate PASS on zero unexpected rows and handles"
+}
 $campaignDebugRenderBubbleRealFrameCorpus = $campaignDebugRenderBubbleAdvanceBlock + "`n" +
 	$campaignDebugRenderBubbleBeginBlock + "`n" +
 	$campaignDebugRenderBubbleSampleBlock + "`n" +
-	$campaignDebugRenderBubbleMissionTargetBlock
+	$campaignDebugRenderBubbleMissionTargetBlock + "`n" +
+	$campaignDebugRenderBubbleCleanupBlock
 if ($campaignDebugRenderBubbleRealFrameCorpus.IndexOf('m_State.m_iElapsedSeconds =') -ge 0 -or
 	$campaignDebugRenderBubbleRealFrameCorpus.IndexOf('m_State.m_iElapsedSeconds +=') -ge 0 -or
 	$campaignDebugRenderBubbleSampleBlock.IndexOf('UpdateRoutedActiveGroupsNow(') -ge 0 -or
 	$campaignDebugRenderBubbleSampleBlock.IndexOf('UpdateZoneActivation(') -ge 0) {
 	throw "Render-bubble mission-target proof must observe ordinary native frames without synthetic clock or same-sample physical-war driving"
+}
+if ([regex]::IsMatch($campaignDebugRenderBubbleRealFrameCorpus, '%1[0-9]')) {
+	throw "Render-bubble staged evidence must stay within Enforce string.Format's nine-parameter limit"
 }
 foreach ($campaignDebugRenderBubbleAbortEntry in @(
 	'AbortCampaignDebugRenderBubbleMissionTargetProbe("run cancellation")',
@@ -34566,6 +34642,9 @@ foreach ($schema70Phase20RejectedSyntheticEntry in @(
 		$schema70Phase20RealFrameCorpus.IndexOf($schema70Phase20RejectedSyntheticEntry) -ge 0) {
 		throw "Full Campaign Debug Phase 20 must not retain synthetic clock sampling: $schema70Phase20RejectedSyntheticEntry"
 	}
+}
+if ([regex]::IsMatch($schema70Phase20RealFrameCorpus, '%1[0-9]')) {
+	throw "Full Campaign Debug Phase 20 evidence must stay within Enforce string.Format's nine-parameter limit"
 }
 
 $schema70Phase22StartDefenseBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'string RequestAdminPhase22StartDefense('

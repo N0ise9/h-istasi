@@ -40609,24 +40609,76 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				CountCampaignDebugZoneSpawnedActiveGroups(zone.m_sZoneId),
 				CountCampaignDebugZonePendingActiveGroups(zone.m_sZoneId))));
 
-		context.m_bStarted = StartMission_S(
+		foreach (HST_ActiveMissionState preStartMission : m_State.m_aActiveMissions)
+		{
+			if (!preStartMission
+				|| preStartMission.m_sMissionId != definition.m_sMissionId)
+				continue;
+			context.m_aPreStartMissionInstanceIds.Insert(
+				preStartMission.m_sInstanceId);
+			if (context.m_sPreStartMissionInstanceIds.IsEmpty())
+				context.m_sPreStartMissionInstanceIds
+					= preStartMission.m_sInstanceId;
+			else
+				context.m_sPreStartMissionInstanceIds
+					= context.m_sPreStartMissionInstanceIds
+						+ "," + preStartMission.m_sInstanceId;
+		}
+		context.m_iPreStartMissionInstanceCount
+			= context.m_aPreStartMissionInstanceIds.Count();
+		context.m_bStartAccepted = StartMission_S(
 			definition.m_sMissionId,
 			zone.m_sZoneId,
 			true);
-		context.m_sMissionInstanceId
-			= FindLatestCampaignDebugMissionInstance(definition.m_sMissionId);
+		if (context.m_bStartAccepted)
+		{
+			string candidateInstanceId;
+			foreach (HST_ActiveMissionState postStartMission : m_State.m_aActiveMissions)
+			{
+				if (!postStartMission
+					|| postStartMission.m_sMissionId
+						!= definition.m_sMissionId
+					|| context.m_aPreStartMissionInstanceIds.Contains(
+						postStartMission.m_sInstanceId))
+					continue;
+				context.m_iPostStartNewMissionInstanceCount++;
+				candidateInstanceId = postStartMission.m_sInstanceId;
+				if (context.m_sPostStartNewMissionInstanceIds.IsEmpty())
+					context.m_sPostStartNewMissionInstanceIds
+						= postStartMission.m_sInstanceId;
+				else
+					context.m_sPostStartNewMissionInstanceIds
+						= context.m_sPostStartNewMissionInstanceIds
+							+ "," + postStartMission.m_sInstanceId;
+			}
+			context.m_bNewMissionInstanceOwned
+				= context.m_iPostStartNewMissionInstanceCount == 1
+					&& !candidateInstanceId.IsEmpty();
+			if (context.m_bNewMissionInstanceOwned)
+				context.m_sMissionInstanceId = candidateInstanceId;
+		}
 		HST_ActiveMissionState mission
 			= m_State.FindActiveMission(context.m_sMissionInstanceId);
-		context.m_bStarted = context.m_bStarted && mission != null
+		context.m_bStarted = context.m_bStartAccepted
+			&& context.m_bNewMissionInstanceOwned
+			&& mission != null
+			&& mission.m_sInstanceId == context.m_sMissionInstanceId
+			&& mission.m_sMissionId == definition.m_sMissionId
 			&& mission.m_sTargetZoneId == zone.m_sZoneId
 			&& mission.m_eStatus == HST_EMissionStatus.HST_MISSION_ACTIVE;
 		context.m_iStartSecond = m_State.m_iElapsedSeconds;
 		context.m_iDeadlineSecond = context.m_iStartSecond
 			+ CAMPAIGN_DEBUG_MISSION_TARGET_SETTLE_SECONDS;
 		context.m_Case.m_aEvidence.Insert(string.Format(
-			"mission start | accepted %1 | instance %2 | start %3 | deadline %4",
-			context.m_bStarted,
+			"mission start | accepted %1 | new owned %2 | instance %3 | pre %4 [%5] | post-new %6 [%7] | start %8 | deadline %9",
+			context.m_bStartAccepted,
+			context.m_bNewMissionInstanceOwned,
 			EmptyCampaignDebugField(context.m_sMissionInstanceId),
+			context.m_iPreStartMissionInstanceCount,
+			EmptyCampaignDebugField(context.m_sPreStartMissionInstanceIds),
+			context.m_iPostStartNewMissionInstanceCount,
+			EmptyCampaignDebugField(
+				context.m_sPostStartNewMissionInstanceIds),
 			context.m_iStartSecond,
 			context.m_iDeadlineSecond));
 		if (!context.m_bStarted)
@@ -40662,11 +40714,15 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		HST_ActiveMissionState mission
 			= m_State.FindActiveMission(context.m_sMissionInstanceId);
 		if (!zone || !mission
-			|| mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE)
+			|| mission.m_sInstanceId != context.m_sMissionInstanceId
+			|| mission.m_sMissionId != context.m_sMissionDefinitionId
+			|| mission.m_sTargetZoneId != context.m_sZoneId
+			|| mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE
+			|| mission.m_sRuntimePrimitive != "rescue_extract")
 		{
 			context.m_bTerminal = true;
 			context.m_sFailureReason
-				= "mission or target zone disappeared during native settle window";
+				= "exact owned rescue mission or target zone changed during native settle window";
 			return;
 		}
 
@@ -40730,7 +40786,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		context.m_iSampleCount++;
 		context.m_iLastSampleSecond = nowSecond;
 		string sample = string.Format(
-			"#%1 t+%2s active %3 distance %4m | assets %5/%6 handles %7 | mission groups %8/%9 | zone %10/%11 pending %12",
+			"#%1 t+%2s active %3 distance %4m | assets %5/%6 handles %7 | mission groups %8/%9",
 			context.m_iSampleCount,
 			nowSecond - context.m_iStartSecond,
 			zone.m_bActive,
@@ -40739,7 +40795,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			context.m_iMissionSpawnedAssetCount,
 			context.m_iMissionRuntimeHandleCount,
 			context.m_iMissionGroupCount,
-			context.m_iMissionGroupHandleCount,
+			context.m_iMissionGroupHandleCount);
+		sample = sample + string.Format(
+			" | zone %1/%2 pending %3",
 			context.m_iZoneGroupCount,
 			context.m_iZoneSpawnedGroupCount,
 			context.m_iZonePendingGroupCount);
@@ -40799,6 +40857,18 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 					context.m_sMissionInstanceId);
 				zone = m_State.FindZone(context.m_sZoneId);
 			}
+			bool settleOutcomeExact = context.m_bReady
+				&& !context.m_bTerminal
+				&& !context.m_bTimedOut
+				&& !context.m_bPlayerLost
+				&& context.m_sFailureReason.IsEmpty()
+				&& mission
+				&& mission.m_sInstanceId == context.m_sMissionInstanceId
+				&& mission.m_sMissionId == context.m_sMissionDefinitionId
+				&& mission.m_sTargetZoneId == context.m_sZoneId
+				&& mission.m_eStatus
+					== HST_EMissionStatus.HST_MISSION_ACTIVE
+				&& mission.m_sRuntimePrimitive == "rescue_extract";
 			missionCase.m_aEvidence.Insert(
 				"real-frame samples | "
 					+ ShortCampaignDebugLine(context.m_sSampleHistory, 420));
@@ -40868,10 +40938,35 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			AddCampaignDebugAssertion(
 				missionCase,
 				"render_bubble.mission_target.start",
-				"debug mission starts against the selected far zone",
-				BuildCampaignDebugPrimitiveMissionActual(mission),
-				CampaignDebugStatus(context.m_bStarted),
-				"mission target probe did not create an active mission at the selected zone",
+				"accepted start creates a new exact rescue instance that was absent from the pre-start ownership set",
+				BuildCampaignDebugPrimitiveMissionActual(mission)
+					+ string.Format(
+						" | accepted %1 | newly owned %2 | pre-existing %3 [%4]",
+						context.m_bStartAccepted,
+						context.m_bNewMissionInstanceOwned,
+						context.m_iPreStartMissionInstanceCount,
+						EmptyCampaignDebugField(
+							context.m_sPreStartMissionInstanceIds)),
+				CampaignDebugStatus(context.m_bStarted
+					&& context.m_bNewMissionInstanceOwned),
+				"mission target probe did not exclusively own a newly created exact rescue instance",
+				"",
+				context.m_sMissionInstanceId,
+				context.m_sZoneId);
+			AddCampaignDebugAssertion(
+				missionCase,
+				"render_bubble.mission_target.settle_outcome",
+				"one terminal sample simultaneously proves readiness and the exact owned active rescue primitive at its target zone",
+				string.Format(
+					"ready %1 | terminal %2 | timed out %3 | player lost %4 | failure %5 | mission %6",
+					context.m_bReady,
+					context.m_bTerminal,
+					context.m_bTimedOut,
+					context.m_bPlayerLost,
+					EmptyCampaignDebugField(context.m_sFailureReason),
+					BuildCampaignDebugPrimitiveMissionActual(mission)),
+				CampaignDebugStatus(settleOutcomeExact),
+				"mission-target proof ended without simultaneous exact owned-mission readiness",
 				"",
 				context.m_sMissionInstanceId,
 				context.m_sZoneId);
@@ -40979,6 +41074,58 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				RecordCampaignDebugCase(containmentCase, false);
 		}
 
+		// Mission-target activation can also materialize the zone's ordinary
+		// garrison. Run the production zone deactivation/fold before restoring
+		// the abstract snapshot, then prove both its state rows and captured
+		// runtime handles are gone.
+		context.m_bZoneRuntimeReleased = context.m_sZoneId.IsEmpty();
+		ref array<ref HST_ActiveGroupState> cleanupZoneGroups = {};
+		if (m_State && m_PhysicalWar && !context.m_sZoneId.IsEmpty())
+		{
+			foreach (HST_ActiveGroupState cleanupZoneGroup : m_State.m_aActiveGroups)
+			{
+				if (!cleanupZoneGroup
+					|| cleanupZoneGroup.m_sZoneId != context.m_sZoneId)
+					continue;
+				cleanupZoneGroups.Insert(cleanupZoneGroup);
+				context.m_iCleanupZoneGroupCountBefore++;
+				if (m_PhysicalWar.HasActiveGroupRuntimeHandle(
+					cleanupZoneGroup))
+					context.m_iCleanupZoneRuntimeHandleCountBefore++;
+			}
+
+			string zoneDeactivationEvidence;
+			m_PhysicalWar.CampaignDebugDeactivateZoneForRuntimeCleanup(
+				m_State,
+				context.m_sZoneId,
+				m_ZoneCompositions,
+				zoneDeactivationEvidence);
+			context.m_sZoneDeactivationEvidence
+				= zoneDeactivationEvidence;
+			context.m_iUnexpectedZoneGroupCount
+				= CountCampaignDebugZoneActiveGroups(context.m_sZoneId);
+			foreach (HST_ActiveGroupState capturedZoneGroup : cleanupZoneGroups)
+			{
+				if (capturedZoneGroup
+					&& m_PhysicalWar.HasActiveGroupRuntimeHandle(
+						capturedZoneGroup))
+					context.m_iUnexpectedZoneRuntimeHandleCount++;
+			}
+			foreach (HST_ActiveGroupState remainingZoneGroup : m_State.m_aActiveGroups)
+			{
+				if (!remainingZoneGroup
+					|| remainingZoneGroup.m_sZoneId != context.m_sZoneId
+					|| cleanupZoneGroups.Find(remainingZoneGroup) >= 0)
+					continue;
+				if (m_PhysicalWar.HasActiveGroupRuntimeHandle(
+					remainingZoneGroup))
+					context.m_iUnexpectedZoneRuntimeHandleCount++;
+			}
+			context.m_bZoneRuntimeReleased
+				= context.m_iUnexpectedZoneGroupCount == 0
+					&& context.m_iUnexpectedZoneRuntimeHandleCount == 0;
+		}
+
 		HST_ZoneState zone;
 		HST_GarrisonState cleanupGarrison;
 		bool zoneRestored = context.m_sZoneId.IsEmpty();
@@ -41064,9 +41211,13 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				|| missionAfterContainment.m_eStatus
 					!= HST_EMissionStatus.HST_MISSION_ACTIVE;
 		}
-		context.m_bCleanupExact = missionNotActive
+		bool missionOwnershipClosed = !context.m_bStartAccepted
+			|| context.m_bNewMissionInstanceOwned;
+		context.m_bCleanupExact = missionOwnershipClosed
+			&& missionNotActive
 			&& unsafeAuthorityRows == 0
 			&& remainingTransientRecords == 0
+			&& context.m_bZoneRuntimeReleased
 			&& zoneRestored
 			&& garrisonRestored
 			&& context.m_bPlayerRestored;
@@ -41085,12 +41236,39 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				remainingTransientRecords,
 				EmptyCampaignDebugField(
 					authorityExample + " " + remainingExample)));
+			context.m_Case.m_aEvidence.Insert(string.Format(
+				"zone production deactivation | groups %1 -> %2 | runtime handles %3 -> %4 | released %5 | %6",
+				context.m_iCleanupZoneGroupCountBefore,
+				context.m_iUnexpectedZoneGroupCount,
+				context.m_iCleanupZoneRuntimeHandleCountBefore,
+				context.m_iUnexpectedZoneRuntimeHandleCount,
+				context.m_bZoneRuntimeReleased,
+				EmptyCampaignDebugField(
+					context.m_sZoneDeactivationEvidence)));
+			AddCampaignDebugAssertion(
+				context.m_Case,
+				"render_bubble.mission_target.zone_runtime_release",
+				"production zone deactivation leaves no unexpected target-zone active-group rows or captured runtime handles before snapshot restoration",
+				string.Format(
+					"groups %1 -> %2 | runtime handles %3 -> %4 | %5",
+					context.m_iCleanupZoneGroupCountBefore,
+					context.m_iUnexpectedZoneGroupCount,
+					context.m_iCleanupZoneRuntimeHandleCountBefore,
+					context.m_iUnexpectedZoneRuntimeHandleCount,
+					EmptyCampaignDebugField(
+						context.m_sZoneDeactivationEvidence)),
+				CampaignDebugStatus(context.m_bZoneRuntimeReleased),
+				"forced mission-target activation left zone-owned state or runtime groups",
+				"",
+				context.m_sMissionInstanceId,
+				context.m_sZoneId);
 			AddCampaignDebugAssertion(
 				context.m_Case,
 				"render_bubble.mission_target.cleanup",
 				"normal completion or typed-aware exact-instance containment leaves no active/open authority or unowned transient projections and restores the zone, garrison, and player snapshots",
 				string.Format(
-					"mission inactive %1 | retained/unsafe %2/%3 | transient %4 | groups %5 | runtime entities %6 | assets %7 | zone restored %8 | garrison restored %9 | player restored %10",
+					"ownership closed %1 | mission inactive %2 | retained/unsafe %3/%4 | transient %5 | groups %6 | runtime entities %7 | assets %8 | zone-owned rows/handles %9",
+					missionOwnershipClosed,
 					missionNotActive,
 					retainedAuthorityRows,
 					unsafeAuthorityRows,
@@ -41098,9 +41276,13 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 					remainingMissionGroups,
 					remainingRuntimeEntities,
 					remainingMissionAssets,
-					zoneRestored,
-					garrisonRestored,
-					context.m_bPlayerRestored),
+					context.m_iUnexpectedZoneGroupCount)
+					+ string.Format(
+						"/%1 | zone restored %2 | garrison restored %3 | player restored %4",
+						context.m_iUnexpectedZoneRuntimeHandleCount,
+						zoneRestored,
+						garrisonRestored,
+						context.m_bPlayerRestored),
 				CampaignDebugStatus(context.m_bCleanupExact),
 				"mission target render-bubble probe left active/open typed authority, unowned residue, or a changed runtime snapshot",
 				"",

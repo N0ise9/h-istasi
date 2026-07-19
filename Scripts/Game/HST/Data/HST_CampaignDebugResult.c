@@ -563,8 +563,11 @@ class HST_CampaignDebugClockIsolationContext
 class HST_CampaignDebugRenderBubbleMissionTargetContext
 {
 	ref HST_CampaignDebugCaseResult m_Case;
+	ref array<string> m_aPreStartMissionInstanceIds = {};
 	string m_sMissionDefinitionId;
 	string m_sMissionInstanceId;
+	string m_sPreStartMissionInstanceIds;
+	string m_sPostStartNewMissionInstanceIds;
 	string m_sZoneId;
 	string m_sZoneOwnerFactionKey;
 	string m_sZoneCaseStatus;
@@ -572,6 +575,7 @@ class HST_CampaignDebugRenderBubbleMissionTargetContext
 	string m_sSampleHistory;
 	string m_sLastSample;
 	string m_sFailureReason;
+	string m_sZoneDeactivationEvidence;
 	vector m_vOriginalPlayerPosition;
 	vector m_vFarPosition;
 	int m_iOriginalActiveInfantry;
@@ -597,10 +601,18 @@ class HST_CampaignDebugRenderBubbleMissionTargetContext
 	int m_iPeakMissionRuntimeHandleCount;
 	int m_iPeakMissionGroupCount;
 	int m_iPeakMissionGroupHandleCount;
+	int m_iPreStartMissionInstanceCount;
+	int m_iPostStartNewMissionInstanceCount;
+	int m_iCleanupZoneGroupCountBefore;
+	int m_iCleanupZoneRuntimeHandleCountBefore;
+	int m_iUnexpectedZoneGroupCount;
+	int m_iUnexpectedZoneRuntimeHandleCount;
 	float m_fActivationRadius;
 	float m_fFarDistance;
 	bool m_bTerminal;
+	bool m_bStartAccepted;
 	bool m_bStarted;
+	bool m_bNewMissionInstanceOwned;
 	bool m_bOriginalPlayerPositionCaptured;
 	bool m_bOriginalActive;
 	bool m_bHadOriginalGarrison;
@@ -615,6 +627,7 @@ class HST_CampaignDebugRenderBubbleMissionTargetContext
 	bool m_bPlayerLost;
 	bool m_bCleanupAttempted;
 	bool m_bCleanupExact;
+	bool m_bZoneRuntimeReleased;
 	bool m_bPlayerRestored;
 }
 
