@@ -17,6 +17,11 @@ $moduleSha = (Get-FileHash `
     -LiteralPath (Join-Path $PSScriptRoot 'Partisan.ReleaseCandidate.psm1') `
     -Algorithm SHA256).Hash.ToLowerInvariant()
 $checkoutRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
+$fixtureCleanupRegistry = New-Object Collections.Generic.List[object]
+$fixtureOwnerMarkerName = '.partisan-release-index-selftest-owner'
+$fixtureOwnerProcessId = [int]$PID
+$fixtureOwnerProcessStartUtc = (Get-Process -Id $PID -ErrorAction Stop).
+    StartTime.ToUniversalTime().ToString('o')
 
 function Get-CampaignDebugSelfTestTextSha256 {
     param([Parameter(Mandatory = $true)][string]$Text)
@@ -533,6 +538,247 @@ function ConvertTo-RecordedValidationSummary {
     }
 }
 
+function Get-RegisteredFixtureRootContract {
+    param(
+        [Parameter(Mandatory = $true)]
+        [ValidateSet('fixture', 'transition', 'portable')]
+        [string]$Kind
+    )
+
+    $parent = if ($Kind -ceq 'portable') {
+        [IO.Path]::GetFullPath([IO.Path]::GetTempPath())
+    }
+    else {
+        [IO.Path]::GetFullPath($PSScriptRoot)
+    }
+    $parent = $parent.TrimEnd(
+        [IO.Path]::DirectorySeparatorChar,
+        [IO.Path]::AltDirectorySeparatorChar)
+
+    switch ($Kind) {
+        'fixture' {
+            $prefix = '.ri-'
+            $leafPattern = '^\.ri-[0-9a-f]{12}$'
+        }
+        'transition' {
+            $prefix = '.ri-transition-'
+            $leafPattern = '^\.ri-transition-[0-9a-f]{12}$'
+        }
+        'portable' {
+            $prefix = 'partisan-ri-'
+            $leafPattern = '^partisan-ri-[0-9a-f]{12}$'
+        }
+    }
+
+    return [PSCustomObject]@{
+        Kind = $Kind
+        Parent = $parent
+        Prefix = $prefix
+        LeafPattern = $leafPattern
+    }
+}
+
+function Assert-RegisteredFixtureRootTopology {
+    param(
+        [Parameter(Mandatory = $true)]
+        $Record
+    )
+
+    $contract = Get-RegisteredFixtureRootContract -Kind ([string]$Record.Kind)
+    $rootPath = [IO.Path]::GetFullPath([string]$Record.Path)
+    $rootLeaf = [IO.Path]::GetFileName($rootPath)
+    $rootParent = [IO.Path]::GetDirectoryName($rootPath)
+    if (-not $rootParent.Equals(
+            [string]$contract.Parent,
+            [StringComparison]::OrdinalIgnoreCase) -or
+        $rootLeaf -cnotmatch [string]$contract.LeafPattern -or
+        $rootLeaf -cne [string]$Record.Leaf) {
+        throw 'A registered release-index self-test root escaped its exact contract.'
+    }
+
+    $parentItem = Get-Item -LiteralPath $contract.Parent -Force -ErrorAction Stop
+    if (-not $parentItem.PSIsContainer -or
+        ($parentItem.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+        throw 'A release-index self-test root parent is not a plain directory.'
+    }
+
+    $pending = New-Object Collections.Generic.Stack[string]
+    $pending.Push($rootPath)
+    while ($pending.Count -gt 0) {
+        $currentPath = $pending.Pop()
+        $currentItem = Get-Item -LiteralPath $currentPath -Force -ErrorAction Stop
+        if (($currentItem.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+            throw 'A registered release-index self-test root contains a reparse point.'
+        }
+        if (-not $currentItem.PSIsContainer) {
+            continue
+        }
+        foreach ($childItem in @(Get-ChildItem -LiteralPath $currentPath `
+                -Force -ErrorAction Stop)) {
+            if (($childItem.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+                throw 'A registered release-index self-test root contains a reparse point.'
+            }
+            if ($childItem.PSIsContainer) {
+                $pending.Push([string]$childItem.FullName)
+            }
+        }
+    }
+}
+
+function Remove-RegisteredFixtureRoot {
+    param(
+        [Parameter(Mandatory = $true)]
+        $Record,
+        [switch]$BestEffort
+    )
+
+    try {
+        if (-not [bool]$Record.Created -or [bool]$Record.Removed) {
+            return $null
+        }
+        if (-not (Test-Path -LiteralPath $Record.Path -PathType Any)) {
+            $Record.Removed = $true
+            return $null
+        }
+
+        Assert-RegisteredFixtureRootTopology -Record $Record
+        $children = @(Get-ChildItem -LiteralPath $Record.Path -Force -ErrorAction Stop)
+        if (-not [bool]$Record.MarkerCreated) {
+            if ($children.Count -ne 0) {
+                throw 'An unmarked release-index self-test root is not empty.'
+            }
+        }
+        else {
+            $markerRows = @($children | Where-Object {
+                $_.Name -ceq $fixtureOwnerMarkerName
+            })
+            if ($markerRows.Count -ne 1 -or $markerRows[0].PSIsContainer -or
+                ($markerRows[0].Attributes -band
+                    [IO.FileAttributes]::ReparsePoint) -ne 0 -or
+                [IO.Path]::GetFullPath([string]$markerRows[0].FullName) -cne
+                    [IO.Path]::GetFullPath([string]$Record.MarkerPath) -or
+                [IO.File]::ReadAllText([string]$Record.MarkerPath) -cne
+                    [string]$Record.MarkerText) {
+                throw 'A release-index self-test root owner marker is invalid.'
+            }
+        }
+
+        Remove-Item -LiteralPath $Record.Path -Recurse -Force -ErrorAction Stop
+        if (Test-Path -LiteralPath $Record.Path -PathType Any) {
+            throw 'A registered release-index self-test root cleanup did not converge.'
+        }
+        $Record.Removed = $true
+        return $null
+    }
+    catch {
+        if ($BestEffort) {
+            return ('{0} cleanup failed: {1}' -f
+                [string]$Record.Kind, $_.Exception.Message)
+        }
+        throw
+    }
+}
+
+function New-RegisteredFixtureRoot {
+    param(
+        [Parameter(Mandatory = $true)]
+        [ValidateSet('fixture', 'transition', 'portable')]
+        [string]$Kind
+    )
+
+    $contract = Get-RegisteredFixtureRootContract -Kind $Kind
+    for ($attempt = 0; $attempt -lt 32; $attempt++) {
+        $token = [Guid]::NewGuid().ToString('N').Substring(0, 12)
+        $leaf = [string]$contract.Prefix + $token
+        $rootPath = [IO.Path]::GetFullPath((Join-Path $contract.Parent $leaf))
+        if (-not [IO.Path]::GetDirectoryName($rootPath).Equals(
+                [string]$contract.Parent,
+                [StringComparison]::OrdinalIgnoreCase) -or
+            [IO.Path]::GetFileName($rootPath) -cne $leaf -or
+            $leaf -cnotmatch [string]$contract.LeafPattern) {
+            throw 'A release-index self-test root candidate escaped its exact contract.'
+        }
+        if (Test-Path -LiteralPath $rootPath -PathType Any) {
+            continue
+        }
+
+        $markerPath = Join-Path $rootPath $fixtureOwnerMarkerName
+        $markerText = (@(
+                'partisan-release-index-selftest-owner-v1',
+                "processId=$fixtureOwnerProcessId",
+                "processStartUtc=$fixtureOwnerProcessStartUtc",
+                "kind=$Kind",
+                "token=$token") -join "`n") + "`n"
+        $record = [PSCustomObject]@{
+            Kind = $Kind
+            Path = $rootPath
+            Parent = [string]$contract.Parent
+            Leaf = $leaf
+            Token = $token
+            MarkerPath = $markerPath
+            MarkerText = $markerText
+            Created = $false
+            MarkerCreated = $false
+            Removed = $false
+        }
+        [void]$fixtureCleanupRegistry.Add($record)
+
+        try {
+            $rootItem = New-Item -ItemType Directory -Path $rootPath `
+                -ErrorAction Stop
+            $record.Created = $true
+            if (-not $rootItem.PSIsContainer -or
+                ($rootItem.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+                throw 'A release-index self-test root was not created as a plain directory.'
+            }
+
+            $markerBytes = (New-Object Text.UTF8Encoding($false)).GetBytes($markerText)
+            $markerStream = [IO.File]::Open(
+                $markerPath,
+                [IO.FileMode]::CreateNew,
+                [IO.FileAccess]::Write,
+                [IO.FileShare]::None)
+            try {
+                $markerStream.Write($markerBytes, 0, $markerBytes.Length)
+                $markerStream.Flush()
+            }
+            finally {
+                $markerStream.Dispose()
+            }
+            $record.MarkerCreated = $true
+            Assert-RegisteredFixtureRootTopology -Record $record
+            return $record
+        }
+        catch {
+            $primaryFailure = $_
+            $cleanupFailure = Remove-RegisteredFixtureRoot `
+                -Record $record -BestEffort
+            if ($cleanupFailure) {
+                $primaryFailure.Exception.Data['FixtureCleanupFailure'] =
+                    [string]$cleanupFailure
+            }
+            throw $primaryFailure
+        }
+    }
+
+    throw 'The release-index self-test could not allocate a unique fixture root.'
+}
+
+function Get-FixtureRootResidueSnapshot {
+    $rows = New-Object Collections.Generic.List[string]
+    foreach ($kind in @('fixture', 'transition', 'portable')) {
+        $contract = Get-RegisteredFixtureRootContract -Kind $kind
+        foreach ($item in @(Get-ChildItem -LiteralPath $contract.Parent `
+                -Force -ErrorAction Stop)) {
+            if ($item.PSIsContainer -and
+                $item.Name -cmatch [string]$contract.LeafPattern) {
+                [void]$rows.Add([IO.Path]::GetFullPath([string]$item.FullName))
+            }
+        }
+    }
+    return @($rows.ToArray() | Sort-Object -Unique)
+}
+
 function New-Fixture {
     param(
         [string]$Name,
@@ -545,12 +791,12 @@ function New-Fixture {
         [string]$DiagnosticAxis = ''
     )
 
-    $fixtureToken = [Guid]::NewGuid().ToString('N').Substring(0, 12)
-    $fixtureParent = Join-Path $PSScriptRoot ".ri-$fixtureToken"
+    $fixtureRootRecord = New-RegisteredFixtureRoot -Kind 'fixture'
+    $fixtureParent = [string]$fixtureRootRecord.Path
     $leaf = '20260719T120000Z-' + [Guid]::NewGuid().ToString('N')
     $bundle = Join-Path $fixtureParent $leaf
     try {
-        New-Item -ItemType Directory -Path $bundle -Force | Out-Null
+        New-Item -ItemType Directory -Path $bundle -ErrorAction Stop | Out-Null
 
     $runId = 'seed1985_t0_p1_u1784500000'
     $artifactName = "HST_CampaignDebug_$runId.json"
@@ -1113,11 +1359,14 @@ function New-Fixture {
         }
     }
     catch {
-        if (Test-Path -LiteralPath $fixtureParent -PathType Container) {
-            Remove-Item -LiteralPath $fixtureParent -Recurse -Force `
-                -ErrorAction SilentlyContinue
+        $primaryFailure = $_
+        $cleanupFailure = Remove-RegisteredFixtureRoot `
+            -Record $fixtureRootRecord -BestEffort
+        if ($cleanupFailure) {
+            $primaryFailure.Exception.Data['FixtureCleanupFailure'] =
+                [string]$cleanupFailure
         }
-        throw
+        throw $primaryFailure
     }
 }
 
@@ -1460,6 +1709,9 @@ function Remove-SyntheticFixtureReleaseIndexForIndependentProducerCase {
 }
 
 $fixtures = New-Object Collections.Generic.List[object]
+$initialFixtureRootSnapshot = @(Get-FixtureRootResidueSnapshot)
+$primaryFailure = $null
+$cleanupFailures = New-Object Collections.Generic.List[string]
 try {
     $transitionHead = (& git -C $root rev-parse HEAD).Trim()
     $transitionParent = (& git -C $root rev-parse HEAD^).Trim()
@@ -1595,14 +1847,13 @@ try {
                 -CheckoutHead $transitionHead
         }
 
-    $transitionFixtureLeaf = '.ri-transition-' +
-        [Guid]::NewGuid().ToString('N').Substring(0, 12)
-    $transitionFixtureRoot = Join-Path $PSScriptRoot $transitionFixtureLeaf
+    $transitionFixtureRecord = New-RegisteredFixtureRoot -Kind 'transition'
+    $transitionFixtureLeaf = [string]$transitionFixtureRecord.Leaf
+    $transitionFixtureRoot = [string]$transitionFixtureRecord.Path
     [void]$fixtures.Add([PSCustomObject]@{
         Name = 'historical-retained-manifest-ancestry-tamper'
         CleanupRoots = @($transitionFixtureRoot)
     })
-    New-Item -ItemType Directory -Path $transitionFixtureRoot -Force | Out-Null
     $transitionManifestRelativePath =
         "tools/$transitionFixtureLeaf/candidate.json"
     $transitionManifestPath = Join-Path $transitionFixtureRoot 'candidate.json'
@@ -1727,8 +1978,8 @@ try {
     $portableSplit = New-Fixture 'portable-split' 'full'
     [void]$fixtures.Add($portableSplit)
     $portableLeaf = Split-Path -Leaf $portableSplit.Bundle
-    $portableExternalParent = Join-Path ([IO.Path]::GetTempPath()) `
-        ('partisan-ri-' + [Guid]::NewGuid().ToString('N').Substring(0, 12))
+    $portableExternalRecord = New-RegisteredFixtureRoot -Kind 'portable'
+    $portableExternalParent = [string]$portableExternalRecord.Path
     $portableExternalRoot = Join-Path $portableExternalParent 'e'
     $portableExternalBundle = Join-Path $portableExternalRoot `
         "$candidateId/campaign-debug/$portableLeaf"
@@ -2223,20 +2474,44 @@ try {
         'and candidate-manifest binding, unique proof IDs, raw/index/candidate tampering, ' +
         'advisory derivation, and cleanup.')
 }
+catch {
+    $primaryFailure = $_
+}
 finally {
-    foreach ($fixture in $fixtures) {
-        foreach ($cleanupRoot in @($fixture.CleanupRoots | Sort-Object -Unique)) {
-            if ($cleanupRoot -and (Test-Path -LiteralPath $cleanupRoot -PathType Container)) {
-                Remove-Item -LiteralPath $cleanupRoot -Recurse -Force `
-                    -ErrorAction SilentlyContinue
-            }
+    for ($cleanupIndex = $fixtureCleanupRegistry.Count - 1;
+        $cleanupIndex -ge 0;
+        $cleanupIndex--) {
+        $cleanupFailure = Remove-RegisteredFixtureRoot `
+            -Record $fixtureCleanupRegistry[$cleanupIndex] -BestEffort
+        if ($cleanupFailure) {
+            [void]$cleanupFailures.Add([string]$cleanupFailure)
         }
     }
-    $remainingFixtureRoots = @($fixtures | ForEach-Object { $_.CleanupRoots } |
-        Where-Object { $_ -and (Test-Path -LiteralPath $_ -PathType Container) } |
-        Sort-Object -Unique)
-    if ($remainingFixtureRoots.Count -ne 0) {
-        Write-Error ('Portable release-index self-test cleanup left fixture roots: ' +
-            ($remainingFixtureRoots -join ', '))
+    try {
+        $finalFixtureRootSnapshot = @(Get-FixtureRootResidueSnapshot)
+        if (($finalFixtureRootSnapshot -join "`n") -cne
+            ($initialFixtureRootSnapshot -join "`n")) {
+            [void]$cleanupFailures.Add(
+                'The release-index self-test changed the fixture-root residue snapshot.')
+        }
     }
+    catch {
+        [void]$cleanupFailures.Add(
+            'The release-index self-test could not audit its final fixture-root residue.')
+    }
+}
+
+if ($primaryFailure) {
+    if ($cleanupFailures.Count -ne 0) {
+        throw [InvalidOperationException]::new(
+            ($primaryFailure.Exception.Message +
+                ' Fixture cleanup also failed: ' +
+                ($cleanupFailures.ToArray() -join '; ')),
+            $primaryFailure.Exception)
+    }
+    throw $primaryFailure
+}
+if ($cleanupFailures.Count -ne 0) {
+    throw ('Portable release-index self-test cleanup failed: ' +
+        ($cleanupFailures.ToArray() -join '; '))
 }
