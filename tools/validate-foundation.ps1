@@ -55608,6 +55608,7 @@ foreach ($campaignDebugIndependentProducerFixtureEntry in @(
 		'$fixtureParentPath = [IO.Path]::GetFullPath([string]$Fixture.Parent)',
 		'$toolsPrefix = $toolsPath + [IO.Path]::DirectorySeparatorChar',
 		'$fixtureParentPrefix = $fixtureParentPath + [IO.Path]::DirectorySeparatorChar',
+		'[IO.Path]::GetDirectoryName($fixtureParentPath).Equals(',
 		'''^\.ri-[0-9a-f]{12}$''',
 		'$bundlePath.StartsWith(',
 		'[IO.Path]::GetDirectoryName($bundlePath).Equals(',
@@ -55615,9 +55616,9 @@ foreach ($campaignDebugIndependentProducerFixtureEntry in @(
 		'(Join-Path $bundlePath ''release-index.json''))',
 		'[StringComparison]::OrdinalIgnoreCase',
 		'[IO.FileAttributes]::ReparsePoint',
-		'''synthetic publication path must not traverse a reparse point.''',
+		'synthetic publication path must not traverse a reparse point.',
 		'Remove-Item -LiteralPath $indexPath -Force',
-		'''could not clear its independent producer publication path.'''
+		'could not clear its independent producer publication path.'
 	)) {
 	if ($campaignDebugIndependentProducerFixtureText.IndexOf(
 			$campaignDebugIndependentProducerFixtureEntry,
@@ -55755,7 +55756,9 @@ foreach ($campaignDebugReleaseIndexSelfTestEntry in @(
 		'''synthetic state-diff-red rejection''',
 		'''diagnostic classifier count rejection''',
 		'''diagnostic classifier count contradicts run.json or the retained immutable runner''',
-		'''synthetic diagnostic classifier rejection'''
+		'''synthetic diagnostic classifier rejection''',
+		'''semantic-incomplete consumer tamper''',
+		'''run validation Phase17 metrics properties differs from the source inventory'''
 	)) {
 	if ($campaignDebugReleaseIndexSelfTestText.IndexOf(
 			$campaignDebugReleaseIndexSelfTestEntry,

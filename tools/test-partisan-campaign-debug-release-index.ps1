@@ -1360,6 +1360,9 @@ function Remove-SyntheticFixtureReleaseIndexForIndependentProducerCase {
     if (-not $fixtureParentPath.StartsWith(
             $toolsPrefix,
             [StringComparison]::OrdinalIgnoreCase) -or
+        -not [IO.Path]::GetDirectoryName($fixtureParentPath).Equals(
+            $toolsPath,
+            [StringComparison]::OrdinalIgnoreCase) -or
         [IO.Path]::GetFileName($fixtureParentPath) -cnotmatch '^\.ri-[0-9a-f]{12}$' -or
         -not $bundlePath.StartsWith(
             $fixtureParentPrefix,
@@ -1950,7 +1953,7 @@ try {
         & $producerPath -RunEnvelopePath $semanticIncompleteTamper.RunPath | Out-Null
     }
     Assert-ThrowsLike 'semantic-incomplete consumer tamper' `
-        'recorded artifact-validation disposition differs from semantic re-derivation' {
+        'run validation Phase17 metrics properties differs from the source inventory' {
         Invoke-Consumer $semanticIncompleteTamper $semanticIncompleteEvidence | Out-Null
     }
 
