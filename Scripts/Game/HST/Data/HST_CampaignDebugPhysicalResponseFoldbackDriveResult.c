@@ -3,9 +3,24 @@
 // the coordinator translation unit's practical complexity ceiling.
 class HST_CampaignDebugPhysicalResponseFoldbackDriveResult
 {
+	static const int PLAYER_RESTORE_OWNER_ACK_TIMEOUT_MS = 5000;
+	static const float PLAYER_RESTORE_TRANSFORM_TOLERANCE_METERS = 0.001;
+
 	ref HST_ActiveGroupState m_GroupAfterDrive;
+	ref HST_CampaignDebugCaseResult m_Case;
+	IEntity m_PlayerEntityBeforeFoldback;
+	RplId m_PlayerReplicationIdBeforeFoldback = RplId.Invalid();
+	vector m_aPlayerTransformBeforeFoldback[4];
 	vector m_vPlayerPositionBeforeFoldback;
+	int m_iPlayerId = -1;
 	bool m_bPlayerPositionCaptured;
+	bool m_bPlayerSessionCaptured;
+	bool m_bPlayerRestoreOwned;
+	bool m_bPlayerRestoreApplied;
+	bool m_bPlayerRestoreOwnerAckPending;
+	bool m_bPlayerRestoreOwnerAckExact;
+	bool m_bPlayerRestoreDisconnectObserved;
+	bool m_bPlayerRestoreSessionLost;
 	bool m_bNearTeleport;
 	bool m_bInsideBubbleBeforeLeave;
 	bool m_bFarTeleport;
@@ -17,9 +32,22 @@ class HST_CampaignDebugPhysicalResponseFoldbackDriveResult
 	bool m_bRuntimeVehicleAfterFold;
 	bool m_bFoldTickChanged;
 	bool m_bOrderSyncChanged;
+	bool m_bPlayerRestored;
+	int m_iPlayerRestoreAppliedObservationToken = -1;
+	int m_iPlayerRestoreStableSampleObservationToken = -1;
+	int m_iPlayerRestoreLastAttemptObservationToken = -1;
+	int m_iPlayerRestoreApplySequence = -1;
+	int m_iPlayerRestoreOwnerAckSequence = -1;
+	int m_iPlayerRestoreOwnerAckObservedToken = -1;
+	int m_iPlayerRestoreOwnerDispatchTick = -1;
+	float m_fPlayerRestoreMaximumTransformDelta = -1.0;
+	float m_fPlayerRestoreOwnerMaximumTransformDelta = -1.0;
 	string m_sGroupStatusBeforeFold;
 	bool m_bVehicleRuntimeBeforeFold;
 	string m_sVehicleRuntimeEvidenceBeforeFold = "missing";
+	string m_sPlayerRestoreRequestId;
+	string m_sPlayerRestoreOwnerEvidence = "not received";
+	string m_sPlayerRestoreEvidence = "not attempted";
 	string m_sEvidence = "not attempted";
 
 	void CaptureBeforeDrive(
@@ -59,6 +87,7 @@ class HST_CampaignDebugPhysicalResponseFoldbackDriveResult
 
 	void Drive(
 		HST_CampaignCoordinatorComponent coordinator,
+		int playerId,
 		IEntity foldbackPlayer,
 		HST_CampaignState state,
 		HST_BalanceConfig balance,
@@ -70,17 +99,41 @@ class HST_CampaignDebugPhysicalResponseFoldbackDriveResult
 		HST_ActiveGroupState group)
 	{
 		m_GroupAfterDrive = group;
-		if (IsLivingEntity(foldbackPlayer))
+		m_iPlayerId = playerId;
+		if (IsLivingEntity(foldbackPlayer) && playerId > 0)
 		{
-			m_vPlayerPositionBeforeFoldback = foldbackPlayer.GetOrigin();
-			m_bPlayerPositionCaptured
-				= !IsZeroPosition(m_vPlayerPositionBeforeFoldback);
+			BaseRplComponent replication = BaseRplComponent.Cast(
+				foldbackPlayer.FindComponent(BaseRplComponent));
+			if (replication && replication.Id() != RplId.Invalid())
+			{
+				m_PlayerEntityBeforeFoldback = foldbackPlayer;
+				m_PlayerReplicationIdBeforeFoldback = replication.Id();
+				m_vPlayerPositionBeforeFoldback = foldbackPlayer.GetOrigin();
+				foldbackPlayer.GetTransform(m_aPlayerTransformBeforeFoldback);
+				m_bPlayerPositionCaptured = true;
+				m_bPlayerSessionCaptured
+					= coordinator
+						.CampaignDebugValidatePhysicalResponseFoldbackPlayer(
+							m_iPlayerId,
+							m_PlayerEntityBeforeFoldback,
+							m_PlayerReplicationIdBeforeFoldback,
+							m_sPlayerRestoreEvidence);
+			}
+		}
+		if (!m_bPlayerSessionCaptured)
+		{
+			m_sEvidence = "exact on-foot player session/full transform capture rejected | "
+				+ m_sPlayerRestoreEvidence;
+			return;
 		}
 
 		string foldGroupId = group.m_sGroupId;
 		vector nearPosition = group.m_vPosition + "12 0 12";
 		if (IsZeroPosition(group.m_vPosition))
 			nearPosition = targetZone.m_vPosition + "12 0 12";
+		// Own restoration before the first teleport request. The owner RPC can be
+		// queued even when immediate server-side confirmation returns false.
+		m_bPlayerRestoreOwned = true;
 		m_bNearTeleport
 			= coordinator.CampaignDebugTeleportPhysicalResponseFoldbackPlayer(
 				nearPosition,
@@ -140,14 +193,241 @@ class HST_CampaignDebugPhysicalResponseFoldbackDriveResult
 			m_bRuntimeVehicleAfterFold);
 	}
 
-	void RestorePlayer(HST_CampaignCoordinatorComponent coordinator)
+	bool RestorePlayer(
+		HST_CampaignCoordinatorComponent coordinator,
+		int observationToken)
 	{
-		if (!m_bPlayerPositionCaptured)
-			return;
+		if (m_bPlayerRestored || m_bPlayerRestoreSessionLost)
+			return true;
+		string sessionLossEvidence
+			= "authoritative player-disconnected event observed";
+		bool sessionIrrecoverable = m_bPlayerRestoreDisconnectObserved;
+		if (!sessionIrrecoverable)
+		{
+			sessionIrrecoverable = coordinator
+				.CampaignDebugIsPhysicalResponseFoldbackPlayerSessionIrrecoverable(
+					m_iPlayerId,
+					m_PlayerEntityBeforeFoldback,
+					m_PlayerReplicationIdBeforeFoldback,
+					sessionLossEvidence);
+		}
+		if (m_bPlayerSessionCaptured && m_bPlayerRestoreOwned
+			&& sessionIrrecoverable)
+		{
+			m_bPlayerRestoreSessionLost = true;
+			m_bPlayerRestoreOwned = false;
+			m_bPlayerRestoreApplied = false;
+			m_bPlayerRestoreOwnerAckPending = false;
+			m_iPlayerRestoreOwnerDispatchTick = -1;
+			m_sPlayerRestoreEvidence
+				= "terminal exact player session loss; nonexistent/replaced session ownership relinquished | "
+					+ sessionLossEvidence;
+			return true;
+		}
+		if (observationToken < 0)
+		{
+			m_sPlayerRestoreEvidence
+				= "player restore observation token is unavailable";
+			return false;
+		}
+		if (m_iPlayerRestoreLastAttemptObservationToken == observationToken)
+			return false;
+		m_iPlayerRestoreLastAttemptObservationToken = observationToken;
+		if (!m_bPlayerSessionCaptured || !m_bPlayerPositionCaptured
+			|| !m_bPlayerRestoreOwned)
+		{
+			m_sPlayerRestoreEvidence
+				= "exact player session/full transform restore ownership was not captured";
+			return false;
+		}
 
-		coordinator.CampaignDebugTeleportPhysicalResponseFoldbackPlayer(
-			m_vPlayerPositionBeforeFoldback,
-			"enemy physical response foldback restore");
+		if (!m_bPlayerRestoreApplied)
+		{
+			m_iPlayerRestoreApplySequence
+				= coordinator
+					.CampaignDebugClaimPhysicalResponseFoldbackPlayerRestoreRequest(
+						m_sPlayerRestoreRequestId);
+			if (m_iPlayerRestoreApplySequence <= 0
+				|| m_sPlayerRestoreRequestId.IsEmpty())
+			{
+				m_sPlayerRestoreEvidence
+					= "player restore request identity is unavailable";
+				return false;
+			}
+			m_iPlayerRestoreOwnerAckSequence = -1;
+			m_iPlayerRestoreOwnerAckObservedToken = -1;
+			m_bPlayerRestoreOwnerAckPending = true;
+			m_bPlayerRestoreOwnerAckExact = false;
+			m_iPlayerRestoreOwnerDispatchTick = System.GetTickCount();
+			m_fPlayerRestoreOwnerMaximumTransformDelta = -1.0;
+			m_sPlayerRestoreOwnerEvidence = "awaiting owner acknowledgement";
+			m_bPlayerRestoreApplied
+				= coordinator.CampaignDebugApplyPhysicalResponseFoldbackPlayerRestore(
+					m_iPlayerId,
+					m_PlayerEntityBeforeFoldback,
+					m_PlayerReplicationIdBeforeFoldback,
+					m_sPlayerRestoreRequestId,
+					m_iPlayerRestoreApplySequence,
+					m_aPlayerTransformBeforeFoldback,
+					m_sPlayerRestoreEvidence);
+			if (!m_bPlayerRestoreApplied)
+			{
+				string applyFailureEvidence = m_sPlayerRestoreEvidence;
+				ArmPlayerRestoreReapply(
+					"server restore apply/owner dispatch failed; reapply armed | "
+						+ applyFailureEvidence);
+				return false;
+			}
+			m_iPlayerRestoreAppliedObservationToken = observationToken;
+		}
+
+		if (m_bPlayerRestoreOwnerAckPending)
+		{
+			int ownerAcknowledgementWaitMs
+				= System.GetTickCount(m_iPlayerRestoreOwnerDispatchTick);
+			if (ownerAcknowledgementWaitMs
+				>= PLAYER_RESTORE_OWNER_ACK_TIMEOUT_MS)
+			{
+				string timedOutRequestId = m_sPlayerRestoreRequestId;
+				int timedOutApplySequence = m_iPlayerRestoreApplySequence;
+				ArmPlayerRestoreReapply(string.Format(
+					"owner acknowledgement timed out after %1ms for request %2 sequence %3; fresh request/sequence reapply armed",
+					ownerAcknowledgementWaitMs,
+					timedOutRequestId,
+					timedOutApplySequence));
+				return false;
+			}
+			m_sPlayerRestoreEvidence = string.Format(
+				"request %1 sequence %2 dispatched at token %3 | awaiting exact owner acknowledgement for %4/%5ms",
+				m_sPlayerRestoreRequestId,
+				m_iPlayerRestoreApplySequence,
+				m_iPlayerRestoreAppliedObservationToken,
+				ownerAcknowledgementWaitMs,
+				PLAYER_RESTORE_OWNER_ACK_TIMEOUT_MS);
+			return false;
+		}
+		if (m_iPlayerRestoreOwnerAckSequence
+			!= m_iPlayerRestoreApplySequence)
+		{
+			ArmPlayerRestoreReapply(
+				"owner acknowledgement sequence mismatch; fresh request/sequence reapply armed");
+			return false;
+		}
+		if (!m_bPlayerRestoreOwnerAckExact)
+		{
+			string ownerFailureEvidence = m_sPlayerRestoreOwnerEvidence;
+			ArmPlayerRestoreReapply(
+				"owner acknowledgement rejected transform; reapply armed | "
+					+ ownerFailureEvidence);
+			return false;
+		}
+		if (m_iPlayerRestoreOwnerAckObservedToken < 0)
+		{
+			m_iPlayerRestoreOwnerAckObservedToken = observationToken;
+			m_sPlayerRestoreEvidence = string.Format(
+				"request %1 sequence %2 owner acknowledgement exact at token %3 | owner maximum delta %4m | awaiting a distinct later server sample | %5",
+				m_sPlayerRestoreRequestId,
+				m_iPlayerRestoreApplySequence,
+				m_iPlayerRestoreOwnerAckObservedToken,
+				Math.Round(m_fPlayerRestoreOwnerMaximumTransformDelta),
+				m_sPlayerRestoreOwnerEvidence);
+			return false;
+		}
+
+		if (observationToken <= m_iPlayerRestoreOwnerAckObservedToken
+			|| observationToken
+				== m_iPlayerRestoreStableSampleObservationToken)
+			return false;
+		m_iPlayerRestoreStableSampleObservationToken = observationToken;
+		m_bPlayerRestored
+			= coordinator.CampaignDebugSamplePhysicalResponseFoldbackPlayerRestore(
+				m_iPlayerId,
+				m_PlayerEntityBeforeFoldback,
+				m_PlayerReplicationIdBeforeFoldback,
+				m_aPlayerTransformBeforeFoldback,
+				m_fPlayerRestoreMaximumTransformDelta,
+				m_sPlayerRestoreEvidence);
+		if (m_bPlayerRestored)
+			return true;
+
+		string sampleFailureEvidence = m_sPlayerRestoreEvidence;
+		ArmPlayerRestoreReapply(
+			"later player sample failed; corrective full-transform reapply armed | "
+				+ sampleFailureEvidence);
+		return false;
+	}
+
+	void ObservePlayerDisconnected(int playerId)
+	{
+		if (playerId == m_iPlayerId && m_bPlayerSessionCaptured
+			&& m_bPlayerRestoreOwned && !m_bPlayerRestored)
+			m_bPlayerRestoreDisconnectObserved = true;
+	}
+
+	bool AcceptPlayerRestoreOwnerAcknowledgement(
+		int playerId,
+		string restoreRequestId,
+		int applySequence,
+		RplId actualPlayerReplicationId,
+		bool ownerTransformExact,
+		float ownerMaximumTransformDelta,
+		string evidence)
+	{
+		if (m_bPlayerRestored || m_bPlayerRestoreSessionLost
+			|| !m_bPlayerRestoreOwned || !m_bPlayerRestoreOwnerAckPending
+			|| playerId != m_iPlayerId
+			|| restoreRequestId != m_sPlayerRestoreRequestId
+			|| applySequence != m_iPlayerRestoreApplySequence)
+			return false;
+
+		bool replicationExact = actualPlayerReplicationId
+			== m_PlayerReplicationIdBeforeFoldback;
+		bool ownerTransformMetricExact = ownerMaximumTransformDelta >= 0.0
+			&& ownerMaximumTransformDelta
+				<= PLAYER_RESTORE_TRANSFORM_TOLERANCE_METERS;
+		m_iPlayerRestoreOwnerAckSequence = applySequence;
+		m_bPlayerRestoreOwnerAckPending = false;
+		m_iPlayerRestoreOwnerDispatchTick = -1;
+		m_bPlayerRestoreOwnerAckExact
+			= ownerTransformExact && ownerTransformMetricExact
+				&& replicationExact;
+		m_fPlayerRestoreOwnerMaximumTransformDelta
+			= ownerMaximumTransformDelta;
+		m_sPlayerRestoreOwnerEvidence = string.Format(
+			"reported replication %1/%2 exact %3 | owner transform exact/metric exact/delta %4/%5/%6 | %7",
+			actualPlayerReplicationId,
+			m_PlayerReplicationIdBeforeFoldback,
+			replicationExact,
+			ownerTransformExact,
+			ownerTransformMetricExact,
+			ownerMaximumTransformDelta,
+			evidence);
+		return true;
+	}
+
+	bool NeedsRetainedPlayerRestore()
+	{
+		return m_bPlayerSessionCaptured
+			&& m_bPlayerRestoreOwned
+			&& !m_bPlayerRestoreSessionLost
+			&& !m_bPlayerRestored;
+	}
+
+	protected void ArmPlayerRestoreReapply(string evidence)
+	{
+		m_bPlayerRestoreApplied = false;
+		m_bPlayerRestoreOwnerAckPending = false;
+		m_bPlayerRestoreOwnerAckExact = false;
+		m_iPlayerRestoreApplySequence = -1;
+		m_iPlayerRestoreOwnerAckSequence = -1;
+		m_iPlayerRestoreOwnerAckObservedToken = -1;
+		m_iPlayerRestoreAppliedObservationToken = -1;
+		m_iPlayerRestoreStableSampleObservationToken = -1;
+		m_iPlayerRestoreOwnerDispatchTick = -1;
+		m_fPlayerRestoreOwnerMaximumTransformDelta = -1.0;
+		m_sPlayerRestoreRequestId = "";
+		m_sPlayerRestoreOwnerEvidence = "not received";
+		m_sPlayerRestoreEvidence = evidence;
 	}
 
 	protected vector ResolveFarPosition(

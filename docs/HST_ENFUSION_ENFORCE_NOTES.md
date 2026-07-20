@@ -127,6 +127,91 @@ The embedded implementation stamp remains
   passes all five guarded Workbench targets. Treat this as source/compile
   evidence only until a native render-bubble cleanup run passes.
 
+## Physical-Response Player Restore Cancellation
+
+- Own the exact controlled-player pointer, replication ID, and full transform
+  before the first foldback teleport. Apply restoration through both the server
+  teleport and one unique run-scoped full-transform owner RPC. Only the
+  authenticated owning controller may return its reliable acknowledgement,
+  and its transform-exact boolean is admissible only when the reported maximum
+  transform delta is nonnegative and at most `0.001` meters. That exact
+  acknowledgement must arrive before a distinct later ordinary server sample
+  can release the owner. The stable sample is read-only, remains
+  session-, parent-, and transform-exact, and has an observation token greater
+  than the acknowledgement token. Use one coordinator-owned, saturating
+  observation sequence that advances once per server `EOnFrame` only while a
+  running or retained-recovery lifecycle exists; idle server uptime must not
+  consume it. Do not switch from campaign elapsed time to a reset recovery
+  counter. Reset only after the new-run preflight proves every prior cleanup
+  owner absent and before the next isolated lifecycle begins. A failed or
+  mismatched acknowledgement, or later drift, retains ownership and rearms a
+  corrective apply; the proof cannot pass by acknowledging or resampling the
+  apply frame. Both the owner-side preflight and its post-teleport revalidation
+  must prove the controlled entity is live, undeleted, parentless, and outside
+  every compartment transition before the full transform is applied.
+- Bound a pending owner acknowledgement with a 5,000 ms real-time deadline
+  measured by `System.GetTickCount(dispatchTick)`, not campaign elapsed time.
+  On the first new observation token after the deadline, retain restore
+  ownership, clear the timed-out request/sequence and dispatch tick, and arm a
+  full-transform reapply. The next observation token claims and dispatches a
+  fresh request/sequence, so a late acknowledgement for the retired attempt is
+  rejected by the pending/request/sequence gates. Do not let timeout recovery
+  bypass the once-per-observation-token mutation boundary or the later read-only
+  server sample.
+- Disconnect, death, entity deletion, or respawn replacement can make exact
+  player restoration impossible. Classify that terminal session loss as a
+  recorded physical-response `FAIL`, relinquish the impossible player owner,
+  and allow the remaining mission, state, and persistence cleanup transaction
+  to continue. A temporarily unresolved controlled entity or replication
+  component is not positive session-loss evidence: retain ownership and retry
+  until the captured entity is absent/deleted/dead or a live replacement
+  pointer or replication identity is observed. Do not retain an owner after
+  that terminal evidence proves it can never acknowledge or be sampled.
+- An administrative cancellation received while that later sample is pending is
+  a latched terminal intent. The runner must service the retained restore before
+  wait or baseline dispatch and then continue cancellation cleanup/state
+  restoration. Centralize physical-response case recording in the release
+  boundary so baseline, cancellation, and non-running ordinary-frame recovery
+  record the case exactly once and select the correct continuation. Cancellation
+  must never resume the baseline tail after release.
+- These are source/static-contract rules, not runtime proof. Native tests must
+  exercise authenticated acknowledgement, failed-ack reapply, timed-out-ack
+  reapply with a rejected late stale acknowledgement, distinct later sampling,
+  cancellation, and each terminal session-loss disposition.
+
+## Mission-Sweep Per-Owner Cleanup Receipts
+
+- Before `Start`, freeze aligned instance-ID, exact-pointer, and definition-ID
+  arrays plus their final integer cardinality for every pre-existing mission.
+  After `Start`, require all three arrays to retain that frozen count and
+  revalidate the complete triple set, including paired pre-start ID/pointer
+  membership, unique claims, canonical pointer equality, and unchanged
+  instance/definition identity, before accepting the post-minus-pre result.
+- Freeze aligned instance-ID, exact-pointer, definition-ID, and cleanup-
+  mutation arrays for the complete owned post-minus-pre mission set. Validate
+  all four counts and every frozen owner before the first completion or
+  containment mutation, then revalidate the selected owner immediately before
+  its exact indexed write-ahead receipt. Both the normal terminal substep and
+  cleanup must publish that per-owner receipt before their first mutation.
+- Publish the cleanup-mutation bit only for the owner whose mutation is about
+  to begin. A later retry may accept that exact owner as absent, with zero ID
+  and pointer claims, only when the retained strong-reference object still
+  matches the frozen instance-ID and definition-ID receipt, plus requested-
+  definition equality when required. Every owner whose bit is false remains
+  mandatory. Never use one global mutation latch for a multi-mission sweep.
+- Retain all aligned receipts and indexed ownership diagnostics after any
+  mismatch. At cleanup entry and again before receipt release, validate the
+  entire current mission partition: unique nonempty ID/pointer rows, every
+  current row belonging to exactly one frozen pre-start or owned triple, every
+  pre-start triple still present and exact, and every owned triple exact or
+  absent only behind its own mutation receipt. Clear the receipts together only
+  after that partition and every owner-specific completion, containment,
+  unsafe-authority, and transient-residue check pass.
+- Static proof does not close the engine boundary. Exercise at least one native
+  pre-start pointer/definition replacement-negative, one multi-owner sweep, and
+  one interrupted-cleanup retry before treating this receipt design as runtime-
+  certified.
+
 ## Current Workbench Compiler Boundary
 
 - The sealed `ee0e8add2a298e83fd304b7660c4fc480dc6383f` tree remains the last
@@ -195,6 +280,28 @@ The embedded implementation stamp remains
   identities. The current stamp intentionally identifies the implementation
   parent of its documentation/stamp commit; a release manifest must record
   both and the exact relationship instead of requiring equality.
+- Treat the live source stamp and a retained candidate's embedded stamp as
+  separate transition authorities too. The live `BUILD_SHA` must remain a Git
+  ancestor of checkout HEAD, and every candidate's embedded SHA must remain an
+  ancestor of that candidate's source HEAD. Every candidate's embedded build
+  UTC must be no later than its manifest `createdUtc`; a manifest cannot
+  predate the build identity it records. Only an
+  `active-runtime-candidate` must exact-match the current live SHA/UTC/label.
+  A `rejected-after-runtime` or `supersede-before-runtime` manifest remains
+  immutable with its own older stamp while source advances to build a
+  replacement; never rewrite the retained manifest to make the identities
+  equal. After those identities diverge, require the retained candidate source
+  HEAD to be an ancestor of the new live implementation SHA and require the
+  live UTC to advance strictly. Apply the embedded-SHA-to-candidate-source
+  ancestry rule to active and every historical manifest, and print both live
+  and retained identities in generated current status.
+- A newly activated sealed candidate may legitimately have no focused,
+  corrected-canary, or full-profile row yet. Its Foundation and all-target
+  Workbench evidence are current while deterministic-service and native-engine
+  rungs remain explicit `not-run`; the runtime rows appear only as those gates
+  execute. Static Foundation checks must allow that fresh topology, while the
+  release-document generator remains the semantic authority for which rows are
+  legal under each runtime-use disposition.
 - `tools/update-release-docs.ps1` derives the embedded stamp and both schemas
   from source, checks the audited revision is an ancestor of the checkout,
   compares the 39 config/runtime mission IDs, and exact-compares explicit

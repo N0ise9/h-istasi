@@ -21,6 +21,8 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 	static const int CAMPAIGN_DEBUG_MARKER_REGISTRY_STABLE = 32;
 	static const int CAMPAIGN_DEBUG_MARKER_SINGLE_INSTANCE = 64;
 	static const int CAMPAIGN_DEBUG_PLAYER_MARKER_EDITABLE_ISOLATION = 128;
+	static const float CAMPAIGN_DEBUG_PHYSICAL_RESPONSE_RESTORE_TOLERANCE_METERS
+		= 0.001;
 
 	protected static HST_CommandMenuRequestComponent s_LocalOwner;
 	protected static HST_CommandMenuRequestComponent s_ServerBroadcaster;
@@ -724,6 +726,46 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 		return true;
 	}
 
+	static bool SendCampaignDebugPhysicalResponseRestoreOwner(
+		int playerId,
+		string restoreRequestId,
+		int applySequence,
+		RplId expectedPlayerReplicationId,
+		vector expectedTransform[4],
+		string reason)
+	{
+		if (!Replication.IsServer() || playerId <= 0
+			|| restoreRequestId.IsEmpty() || applySequence <= 0
+			|| expectedPlayerReplicationId == RplId.Invalid())
+			return false;
+
+		PlayerManager playerManager = GetGame().GetPlayerManager();
+		if (!playerManager)
+			return false;
+
+		HST_CommandMenuRequestComponent request
+			= ResolvePlayerRequestBridge(playerManager, playerId);
+		if (!request)
+		{
+			Print(string.Format(
+				"Partisan campaign debug physical-response restore | owner RPC unavailable: request bridge missing player=%1 request=%2 sequence=%3 reason=%4",
+				playerId,
+				restoreRequestId,
+				applySequence,
+				reason), LogLevel.WARNING);
+			return false;
+		}
+
+		request.DeliverCampaignDebugPhysicalResponseRestoreOwner(
+			playerId,
+			restoreRequestId,
+			applySequence,
+			expectedPlayerReplicationId,
+			expectedTransform,
+			reason);
+		return true;
+	}
+
 	static bool SendCampaignDebugCommandMenuProofOwner(int playerId, string requestId, string selectedTabId)
 	{
 		if (!Replication.IsServer() || playerId <= 0 || requestId.IsEmpty())
@@ -1062,6 +1104,36 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 		Rpc(RpcAsk_ReportCampaignDebugMapProof, requestId, report, integrityFlags, clientPlayerId);
 	}
 
+	protected void ReportCampaignDebugPhysicalResponseRestore(
+		string restoreRequestId,
+		int applySequence,
+		RplId actualPlayerReplicationId,
+		bool ownerTransformExact,
+		float ownerMaximumTransformDelta,
+		string evidence)
+	{
+		if (Replication.IsServer())
+		{
+			ReceiveCampaignDebugPhysicalResponseRestoreReport(
+				restoreRequestId,
+				applySequence,
+				actualPlayerReplicationId,
+				ownerTransformExact,
+				ownerMaximumTransformDelta,
+				evidence);
+			return;
+		}
+
+		Rpc(
+			RpcAsk_ReportCampaignDebugPhysicalResponseRestore,
+			restoreRequestId,
+			applySequence,
+			actualPlayerReplicationId,
+			ownerTransformExact,
+			ownerMaximumTransformDelta,
+			evidence);
+	}
+
 	[RplRpc(RplChannel.Reliable, RplRcver.Server)]
 	protected void RpcAsk_MarkerProjectionReady(int protocolVersion, int knownEpoch, int knownSequence, string knownRegistryHash, int clientPlayerId, string reason)
 	{
@@ -1144,6 +1216,24 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 	protected void RpcAsk_ReportCampaignDebugMapProof(string requestId, string report, int integrityFlags, int clientPlayerId)
 	{
 		ReceiveCampaignDebugMapProofReport(requestId, report, integrityFlags, clientPlayerId);
+	}
+
+	[RplRpc(RplChannel.Reliable, RplRcver.Server)]
+	protected void RpcAsk_ReportCampaignDebugPhysicalResponseRestore(
+		string restoreRequestId,
+		int applySequence,
+		RplId actualPlayerReplicationId,
+		bool ownerTransformExact,
+		float ownerMaximumTransformDelta,
+		string evidence)
+	{
+		ReceiveCampaignDebugPhysicalResponseRestoreReport(
+			restoreRequestId,
+			applySequence,
+			actualPlayerReplicationId,
+			ownerTransformExact,
+			ownerMaximumTransformDelta,
+			evidence);
 	}
 
 	[RplRpc(RplChannel.Reliable, RplRcver.Owner)]
@@ -1315,6 +1405,110 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 			actual = string.Format("pos %1", playerEntity.GetOrigin());
 
 		Print(string.Format("Partisan campaign debug teleport owner | reason %1 | player %2 | target %3 | native %4 | forced %5 | confirmed %6 | actual %7", reason, localPlayerId, position, nativeTeleported, forcedEntityOrigin, confirmed, actual));
+	}
+
+	[RplRpc(RplChannel.Reliable, RplRcver.Owner)]
+	protected void RpcDo_CampaignDebugPhysicalResponseRestore(
+		int expectedPlayerId,
+		string restoreRequestId,
+		int applySequence,
+		RplId expectedPlayerReplicationId,
+		vector expectedTransform[4],
+		string reason)
+	{
+		if (restoreRequestId.IsEmpty() || applySequence <= 0)
+			return;
+		if (!m_bIsLocalOwner)
+			RefreshLocalOwner(m_OwnerEntity);
+
+		int localPlayerId = ResolveLocalPlayerId();
+		IEntity playerEntity = ResolveLocalControlledEntity(localPlayerId);
+		bool playerAvailableBefore = playerEntity && !playerEntity.IsDeleted();
+		BaseRplComponent replication;
+		if (playerAvailableBefore)
+		{
+			replication = BaseRplComponent.Cast(
+				playerEntity.FindComponent(BaseRplComponent));
+		}
+		RplId actualPlayerReplicationId = RplId.Invalid();
+		if (replication)
+			actualPlayerReplicationId = replication.Id();
+		bool requestSessionSafe
+			= IsCampaignDebugPhysicalResponseRestorePlayerSafeOnFoot(
+				playerEntity);
+		bool requestIdentityExact = m_bIsLocalOwner
+			&& localPlayerId > 0 && localPlayerId == expectedPlayerId
+			&& expectedPlayerReplicationId != RplId.Invalid()
+			&& requestSessionSafe
+			&& actualPlayerReplicationId == expectedPlayerReplicationId;
+		bool nativeTeleported;
+		if (requestIdentityExact)
+		{
+			nativeTeleported = SCR_Global.TeleportPlayer(
+				localPlayerId,
+				expectedTransform[3],
+				SCR_EPlayerTeleportedReason.DEFAULT);
+		}
+
+		playerEntity = ResolveLocalControlledEntity(localPlayerId);
+		bool playerAvailableAfter = playerEntity && !playerEntity.IsDeleted();
+		replication = null;
+		if (playerAvailableAfter)
+		{
+			replication = BaseRplComponent.Cast(
+				playerEntity.FindComponent(BaseRplComponent));
+		}
+		actualPlayerReplicationId = RplId.Invalid();
+		if (replication)
+			actualPlayerReplicationId = replication.Id();
+		bool restoredSessionSafe
+			= IsCampaignDebugPhysicalResponseRestorePlayerSafeOnFoot(
+				playerEntity);
+		bool sessionExact = requestIdentityExact
+			&& restoredSessionSafe
+			&& actualPlayerReplicationId == expectedPlayerReplicationId;
+		bool transformApplied;
+		if (sessionExact)
+			transformApplied = playerEntity.SetTransform(expectedTransform);
+		float maximumTransformDelta = -1.0;
+		bool transformExact;
+		bool parentless;
+		if (sessionExact)
+		{
+			transformExact
+				= IsCampaignDebugPhysicalResponseRestoreTransformExact(
+					playerEntity,
+					expectedTransform,
+					maximumTransformDelta);
+			parentless = playerEntity.GetParent() == null;
+		}
+		bool ownerExact = sessionExact && parentless && transformExact;
+		string evidence = string.Format(
+			"owner request %1 sequence %2 | expected/local player %3/%4 | expected/actual replication %5/%6 | pre/post safe on foot %7/%8 | identity %9",
+			restoreRequestId,
+			applySequence,
+			expectedPlayerId,
+			localPlayerId,
+			expectedPlayerReplicationId,
+			actualPlayerReplicationId,
+			requestSessionSafe,
+			restoredSessionSafe,
+			sessionExact);
+		evidence = evidence + string.Format(
+			" | native teleport %1 | SetTransform changed %2 | parentless %3 | transform exact %4 | maximum delta %5m | reason %6",
+			nativeTeleported,
+			transformApplied,
+			parentless,
+			transformExact,
+			Math.Round(maximumTransformDelta),
+			reason);
+		ReportCampaignDebugPhysicalResponseRestore(
+			restoreRequestId,
+			applySequence,
+			actualPlayerReplicationId,
+			ownerExact,
+			maximumTransformDelta,
+			evidence);
 	}
 
 	[RplRpc(RplChannel.Reliable, RplRcver.Owner)]
@@ -1756,6 +1950,36 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 		Rpc(RpcDo_CampaignDebugTeleport, position, reason);
 	}
 
+	protected void DeliverCampaignDebugPhysicalResponseRestoreOwner(
+		int expectedPlayerId,
+		string restoreRequestId,
+		int applySequence,
+		RplId expectedPlayerReplicationId,
+		vector expectedTransform[4],
+		string reason)
+	{
+		if (Replication.IsServer() && IsLocalOwner(m_OwnerEntity))
+		{
+			RpcDo_CampaignDebugPhysicalResponseRestore(
+				expectedPlayerId,
+				restoreRequestId,
+				applySequence,
+				expectedPlayerReplicationId,
+				expectedTransform,
+				reason);
+			return;
+		}
+
+		Rpc(
+			RpcDo_CampaignDebugPhysicalResponseRestore,
+			expectedPlayerId,
+			restoreRequestId,
+			applySequence,
+			expectedPlayerReplicationId,
+			expectedTransform,
+			reason);
+	}
+
 	protected void DeliverCampaignDebugCommandMenuProof(string requestId, string selectedTabId)
 	{
 		if (Replication.IsServer() && IsLocalOwner(m_OwnerEntity))
@@ -1817,6 +2041,40 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 
 		int playerId = coordinator.ResolveAuthoritativePlayerId(m_OwnerEntity, clientPlayerId, "map marker rendered proof");
 		coordinator.ReceiveCampaignDebugMapProofReport(playerId, requestId, report, integrityFlags);
+	}
+
+	protected void ReceiveCampaignDebugPhysicalResponseRestoreReport(
+		string restoreRequestId,
+		int applySequence,
+		RplId actualPlayerReplicationId,
+		bool ownerTransformExact,
+		float ownerMaximumTransformDelta,
+		string evidence)
+	{
+		if (!Replication.IsServer() || !m_OwnerEntity)
+			return;
+
+		PlayerController controller = PlayerController.Cast(m_OwnerEntity);
+		PlayerManager playerManager = GetGame().GetPlayerManager();
+		if (!controller || !playerManager)
+			return;
+		int playerId = controller.GetPlayerId();
+		if (playerId <= 0
+			|| playerManager.GetPlayerController(playerId) != controller)
+			return;
+
+		HST_CampaignCoordinatorComponent coordinator
+			= HST_CampaignCoordinatorComponent.GetInstance();
+		if (!coordinator)
+			return;
+		coordinator.ReceiveCampaignDebugPhysicalResponseRestoreOwnerAck(
+			playerId,
+			restoreRequestId,
+			applySequence,
+			actualPlayerReplicationId,
+			ownerTransformExact,
+			ownerMaximumTransformDelta,
+			evidence);
 	}
 
 	protected void RunCampaignDebugMapProof(string requestId)
@@ -2226,6 +2484,57 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 			return null;
 
 		return playerManager.GetPlayerControlledEntity(localPlayerId);
+	}
+
+	protected bool IsCampaignDebugPhysicalResponseRestoreTransformExact(
+		IEntity playerEntity,
+		vector expectedTransform[4],
+		out float maximumDelta)
+	{
+		maximumDelta = -1.0;
+		if (!playerEntity || playerEntity.IsDeleted())
+			return false;
+
+		vector currentTransform[4];
+		playerEntity.GetTransform(currentTransform);
+		maximumDelta = 0.0;
+		for (int index; index < 4; index++)
+		{
+			float delta = vector.Distance(
+				currentTransform[index],
+				expectedTransform[index]);
+			if (delta > maximumDelta)
+				maximumDelta = delta;
+		}
+		return maximumDelta
+			<= CAMPAIGN_DEBUG_PHYSICAL_RESPONSE_RESTORE_TOLERANCE_METERS;
+	}
+
+	protected bool IsCampaignDebugPhysicalResponseRestorePlayerLiving(
+		IEntity playerEntity)
+	{
+		if (!playerEntity || playerEntity.IsDeleted())
+			return false;
+		CharacterControllerComponent controller
+			= CharacterControllerComponent.Cast(
+				playerEntity.FindComponent(CharacterControllerComponent));
+		return controller && !controller.IsDead();
+	}
+
+	protected bool IsCampaignDebugPhysicalResponseRestorePlayerSafeOnFoot(
+		IEntity playerEntity)
+	{
+		if (!IsCampaignDebugPhysicalResponseRestorePlayerLiving(playerEntity))
+			return false;
+		if (playerEntity.GetParent() != null)
+			return false;
+
+		SCR_CompartmentAccessComponent access
+			= SCR_CompartmentAccessComponent.Cast(
+				playerEntity.FindComponent(SCR_CompartmentAccessComponent));
+		return access && !access.IsInCompartment()
+			&& !access.IsGettingIn() && !access.IsGettingOut()
+			&& !access.IsSwitchingSeatsAnim();
 	}
 
 	protected float DistanceSq2D(vector a, vector b)

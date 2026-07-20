@@ -1093,6 +1093,241 @@ function Assert-ThrowsLike {
 
 $fixtures = New-Object Collections.Generic.List[object]
 try {
+    $transitionHead = (& git -C $root rev-parse HEAD).Trim()
+    $transitionParent = (& git -C $root rev-parse HEAD^).Trim()
+    if ($transitionHead -cnotmatch '^[0-9a-f]{40}$' -or
+        $transitionParent -cnotmatch '^[0-9a-f]{40}$') {
+        throw 'Release build transition self-test could not resolve its Git fixture.'
+    }
+    $transitionOldEmbedded = [PSCustomObject]@{
+        sha = $transitionParent
+        utc = '2026-07-19T10:00:00Z'
+        label = 'schema71-settings24-transition-old'
+    }
+    $transitionCurrentEmbedded = [PSCustomObject]@{
+        sha = $transitionHead
+        utc = '2026-07-19T11:00:00Z'
+        label = 'schema71-settings24-transition-current'
+    }
+    foreach ($retainedDisposition in @(
+        'rejected-after-runtime',
+        'supersede-before-runtime')) {
+        Assert-ReleaseBuildTransition `
+            -RuntimeUseDisposition $retainedDisposition `
+            -ManifestEmbedded $transitionOldEmbedded `
+            -CandidateSourceHead $transitionHead `
+            -SourceBuildSha $transitionHead `
+            -SourceBuildUtc $transitionCurrentEmbedded.utc `
+            -SourceBuildLabel $transitionCurrentEmbedded.label `
+            -CheckoutHead $transitionHead
+        Assert-ReleaseBuildTransition `
+            -RuntimeUseDisposition $retainedDisposition `
+            -ManifestEmbedded $transitionOldEmbedded `
+            -CandidateSourceHead $transitionParent `
+            -SourceBuildSha $transitionHead `
+            -SourceBuildUtc $transitionCurrentEmbedded.utc `
+            -SourceBuildLabel $transitionCurrentEmbedded.label `
+            -CheckoutHead $transitionHead
+    }
+    Assert-ReleaseBuildTransition `
+        -RuntimeUseDisposition 'active-runtime-candidate' `
+        -ManifestEmbedded $transitionCurrentEmbedded `
+        -CandidateSourceHead $transitionHead `
+        -SourceBuildSha $transitionHead `
+        -SourceBuildUtc $transitionCurrentEmbedded.utc `
+        -SourceBuildLabel $transitionCurrentEmbedded.label `
+        -CheckoutHead $transitionHead
+    foreach ($activeMismatch in @(
+        ([PSCustomObject]@{
+            sha = $transitionParent
+            utc = $transitionCurrentEmbedded.utc
+            label = $transitionCurrentEmbedded.label
+        }),
+        ([PSCustomObject]@{
+            sha = $transitionHead
+            utc = '2026-07-19T10:30:00Z'
+            label = $transitionCurrentEmbedded.label
+        }),
+        ([PSCustomObject]@{
+            sha = $transitionHead
+            utc = $transitionCurrentEmbedded.utc
+            label = 'schema71-settings24-transition-mismatch'
+        }))) {
+        Assert-ThrowsLike `
+            'active runtime candidate embedded identity mismatch' `
+            'must match the live embedded implementation identity' {
+                Assert-ReleaseBuildTransition `
+                    -RuntimeUseDisposition 'active-runtime-candidate' `
+                    -ManifestEmbedded $activeMismatch `
+                    -CandidateSourceHead $transitionHead `
+                    -SourceBuildSha $transitionHead `
+                    -SourceBuildUtc $transitionCurrentEmbedded.utc `
+                    -SourceBuildLabel $transitionCurrentEmbedded.label `
+                    -CheckoutHead $transitionHead
+            }
+    }
+    Assert-ThrowsLike `
+        'live embedded build ancestry inversion' `
+        'live embedded implementation build is not an ancestor' {
+            Assert-ReleaseBuildTransition `
+                -RuntimeUseDisposition 'rejected-after-runtime' `
+                -ManifestEmbedded $transitionOldEmbedded `
+                -CandidateSourceHead $transitionHead `
+                -SourceBuildSha $transitionHead `
+                -SourceBuildUtc $transitionCurrentEmbedded.utc `
+                -SourceBuildLabel $transitionCurrentEmbedded.label `
+                -CheckoutHead $transitionParent
+        }
+    Assert-ThrowsLike `
+        'candidate embedded build ancestry inversion' `
+        'candidate embedded implementation build is not an ancestor' {
+            Assert-ReleaseBuildTransition `
+                -RuntimeUseDisposition 'rejected-after-runtime' `
+                -ManifestEmbedded $transitionCurrentEmbedded `
+                -CandidateSourceHead $transitionParent `
+                -SourceBuildSha $transitionParent `
+                -SourceBuildUtc $transitionCurrentEmbedded.utc `
+                -SourceBuildLabel $transitionCurrentEmbedded.label `
+                -CheckoutHead $transitionHead
+        }
+    Assert-ThrowsLike `
+        'retained candidate live build lineage regression' `
+        'did not advance from the retained candidate source HEAD' {
+            Assert-ReleaseBuildTransition `
+                -RuntimeUseDisposition 'rejected-after-runtime' `
+                -ManifestEmbedded $transitionOldEmbedded `
+                -CandidateSourceHead $transitionHead `
+                -SourceBuildSha $transitionParent `
+                -SourceBuildUtc $transitionCurrentEmbedded.utc `
+                -SourceBuildLabel $transitionCurrentEmbedded.label `
+                -CheckoutHead $transitionHead
+        }
+    Assert-ThrowsLike `
+        'retained candidate live build UTC regression' `
+        'live embedded build UTC must advance' {
+            Assert-ReleaseBuildTransition `
+                -RuntimeUseDisposition 'supersede-before-runtime' `
+                -ManifestEmbedded $transitionOldEmbedded `
+                -CandidateSourceHead $transitionParent `
+                -SourceBuildSha $transitionHead `
+                -SourceBuildUtc '2026-07-19T09:59:59Z' `
+                -SourceBuildLabel $transitionCurrentEmbedded.label `
+                -CheckoutHead $transitionHead
+        }
+    Assert-ThrowsLike `
+        'retained candidate live build UTC equality' `
+        'live embedded build UTC must advance' {
+            Assert-ReleaseBuildTransition `
+                -RuntimeUseDisposition 'rejected-after-runtime' `
+                -ManifestEmbedded $transitionOldEmbedded `
+                -CandidateSourceHead $transitionParent `
+                -SourceBuildSha $transitionHead `
+                -SourceBuildUtc $transitionOldEmbedded.utc `
+                -SourceBuildLabel $transitionCurrentEmbedded.label `
+                -CheckoutHead $transitionHead
+        }
+
+    $transitionFixtureLeaf = '.ri-transition-' +
+        [Guid]::NewGuid().ToString('N').Substring(0, 12)
+    $transitionFixtureRoot = Join-Path $PSScriptRoot $transitionFixtureLeaf
+    [void]$fixtures.Add([PSCustomObject]@{
+        Name = 'historical-retained-manifest-ancestry-tamper'
+        CleanupRoots = @($transitionFixtureRoot)
+    })
+    New-Item -ItemType Directory -Path $transitionFixtureRoot -Force | Out-Null
+    $transitionManifestRelativePath =
+        "tools/$transitionFixtureLeaf/candidate.json"
+    $transitionManifestPath = Join-Path $transitionFixtureRoot 'candidate.json'
+    $transitionReadyPath = Join-Path $transitionFixtureRoot 'candidate.ready.json'
+    $transitionCandidateId = 'partisan-rc-transition-ancestry-tamper'
+    $transitionPackageSha = 'a' * 64
+    $transitionPackageVersion = '0.1.0-rc.transition-ancestry-tamper'
+    $transitionWorkbenchCrc = '0123abcd'
+    $transitionManifest = [PSCustomObject][ordered]@{
+        manifestSchemaVersion = 1
+        createdUtc = '2026-07-19T11:30:00Z'
+        candidate = [PSCustomObject][ordered]@{
+            id = $transitionCandidateId
+            version = $transitionPackageVersion
+            state = 'retained-uncertified'
+        }
+        source = [PSCustomObject][ordered]@{
+            gitHead = $transitionParent
+            embeddedImplementation = $transitionCurrentEmbedded
+            campaignSchema = 71
+            runtimeSettingsSchema = 24
+        }
+        workbench = [PSCustomObject][ordered]@{
+            crc = $transitionWorkbenchCrc
+        }
+        package = [PSCustomObject][ordered]@{
+            hashAlgorithm = 'sha256-manifest-v1'
+            sha256 = $transitionPackageSha
+        }
+    }
+    Write-Json $transitionManifestPath $transitionManifest
+    $transitionManifestSha = (Get-FileHash `
+        -LiteralPath $transitionManifestPath `
+        -Algorithm SHA256).Hash.ToLowerInvariant()
+    Write-Json $transitionReadyPath ([PSCustomObject][ordered]@{
+        schemaVersion = 1
+        candidateId = $transitionCandidateId
+        gitHead = $transitionParent
+        packageSha256 = $transitionPackageSha
+        manifestSha256 = $transitionManifestSha
+    })
+    $transitionReadySha = (Get-FileHash `
+        -LiteralPath $transitionReadyPath `
+        -Algorithm SHA256).Hash.ToLowerInvariant()
+    $transitionHistoricalCandidate = [PSCustomObject][ordered]@{
+        candidateId = $transitionCandidateId
+        candidateSourceHead = $transitionParent
+        manifestPath = $transitionManifestRelativePath
+        manifestSha256 = $transitionManifestSha
+        readySha256 = $transitionReadySha
+        packageHashAlgorithm = 'sha256-manifest-v1'
+        packageSha256 = $transitionPackageSha
+        packageVersion = $transitionPackageVersion
+        workbenchCrc = $transitionWorkbenchCrc
+    }
+    Assert-ThrowsLike `
+        'historical retained manifest embedded ancestry tamper' `
+        'historical retained candidate embedded implementation build is not an ancestor' {
+            Get-RetainedCandidateIdentity `
+                $transitionHistoricalCandidate `
+                'historical retained candidate' | Out-Null
+        }
+
+    $transitionManifest.createdUtc = '2026-07-19T10:30:00Z'
+    $transitionManifest.source.embeddedImplementation = [PSCustomObject]@{
+        sha = $transitionParent
+        utc = $transitionCurrentEmbedded.utc
+        label = 'schema71-settings24-transition-future-embedded'
+    }
+    Write-Json $transitionManifestPath $transitionManifest
+    $transitionManifestSha = (Get-FileHash `
+        -LiteralPath $transitionManifestPath `
+        -Algorithm SHA256).Hash.ToLowerInvariant()
+    Write-Json $transitionReadyPath ([PSCustomObject][ordered]@{
+        schemaVersion = 1
+        candidateId = $transitionCandidateId
+        gitHead = $transitionParent
+        packageSha256 = $transitionPackageSha
+        manifestSha256 = $transitionManifestSha
+    })
+    $transitionReadySha = (Get-FileHash `
+        -LiteralPath $transitionReadyPath `
+        -Algorithm SHA256).Hash.ToLowerInvariant()
+    $transitionHistoricalCandidate.manifestSha256 = $transitionManifestSha
+    $transitionHistoricalCandidate.readySha256 = $transitionReadySha
+    Assert-ThrowsLike `
+        'historical retained manifest embedded UTC after creation' `
+        'embedded implementation UTC must not be later than manifest.createdUtc' {
+            Get-RetainedCandidateIdentity `
+                $transitionHistoricalCandidate `
+                'historical retained candidate' | Out-Null
+        }
+
     Assert-NoLocalAbsolutePathValue 'https://example.invalid/evidence' `
         'Synthetic HTTPS preservation'
     Assert-NoLocalAbsolutePathValue $syntheticUpperHttps `
@@ -1578,7 +1813,8 @@ try {
     }
 
     Write-Host ('Portable Campaign Debug release-index self-test passed: ' +
-        'full/internal acceptance, tracked-index/external-bundle split, supported and ' +
+        'release build-transition monotonic ancestry/time/disposition boundaries, full/internal ' +
+        'acceptance, tracked-index/external-bundle split, supported and ' +
         'unsupported skip policy, WARN and mixed-severity red policy, ' +
         'certification/runtime-error red, exact retained semantic/log re-derivation, ' +
         'recorded diagnostic tamper axes, future historical red, immutable tool/harness ' +

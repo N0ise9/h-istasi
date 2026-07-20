@@ -602,7 +602,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	protected bool m_bCampaignDebugCompletionAwaitingStateRestore;
 	protected string m_sCampaignDebugPendingTerminalOutcome;
 	protected int m_iCampaignDebugStateRestoreLastAttemptSecond = -1;
-	protected int m_iCampaignDebugRecoveryFrameSequence;
+	protected int m_iCampaignDebugCleanupObservationSequence;
 	protected string m_sCampaignDebugRetainedStateRestoreReason;
 	protected ref array<string> m_aCampaignDebugStateRestoreFailureFingerprints = {};
 	protected bool m_bCampaignDebugCLIChecked;
@@ -855,6 +855,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	protected int m_iCampaignDebugSkippedCount;
 	protected int m_iCampaignDebugWaitSeconds;
 	protected bool m_bCampaignDebugHQRebuildAwaitingSettle;
+	protected bool m_bCampaignDebugCancellationPending;
 	protected int m_iCampaignDebugHQSpawnRequests;
 	protected int m_iCampaignDebugStartElapsed;
 	protected int m_iCampaignDebugStartMoney;
@@ -936,6 +937,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	protected ref HST_CampaignDebugRenderBubbleMissionTargetContext m_CampaignDebugRenderBubbleMissionTargetContext;
 	protected ref HST_CampaignDebugMissionSweepContext m_CampaignDebugMissionSweepContext;
 	protected ref HST_CampaignDebugCivilianPopulationContext m_CampaignDebugPhase20CivilianPopulationContext;
+	protected ref HST_CampaignDebugPhysicalResponseFoldbackDriveResult m_CampaignDebugPhysicalResponseFoldbackRestoreContext;
+	protected int m_iCampaignDebugPhysicalResponseRestoreRequestSequence;
 	protected string m_sCampaignDebugCurrentMissionInstanceId;
 	protected string m_sCampaignDebugEarlyMissionInstanceId;
 	protected string m_sCampaignDebugHQRuntimeSummaryBefore;
@@ -1745,6 +1748,12 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	override void OnPlayerDisconnected(int playerId, KickCauseCode cause, int timeout)
 	{
 		super.OnPlayerDisconnected(playerId, cause, timeout);
+		if (Replication.IsServer()
+			&& m_CampaignDebugPhysicalResponseFoldbackRestoreContext)
+		{
+			m_CampaignDebugPhysicalResponseFoldbackRestoreContext
+				.ObservePlayerDisconnected(playerId);
+		}
 		ObserveControlledCampaignEndExternalMutation("player disconnected");
 		if (IsControlledCampaignEndMutationIngressBlocked())
 			return;
@@ -1761,6 +1770,18 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	{
 		if (!Replication.IsServer())
 			return;
+		// Cleanup observations must stay in one monotonic domain while a debug
+		// run is active and while retained ownership is serviced afterward.
+		// Saturating is fail-closed: wrapping could make an apply-frame sample
+		// look newer than its owner acknowledgement.
+		if ((m_bCampaignDebugRunning
+			|| m_bCampaignDebugStateIsolationActive
+			|| m_CampaignDebugMissionSweepContext
+			|| m_CampaignDebugRenderBubbleMissionTargetContext
+			|| m_CampaignDebugPhase20CivilianPopulationContext
+			|| m_CampaignDebugPhysicalResponseFoldbackRestoreContext)
+			&& m_iCampaignDebugCleanupObservationSequence < int.MAX)
+			m_iCampaignDebugCleanupObservationSequence++;
 		if (!m_bCampaignPersistenceBootstrapComplete)
 		{
 			TryCompleteCampaignPersistenceBootstrap(timeSlice);
@@ -1880,11 +1901,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!m_bCampaignDebugRunning
 			&& m_bCampaignDebugStateIsolationActive)
 		{
-			if (m_iCampaignDebugRecoveryFrameSequence < int.MAX)
-				m_iCampaignDebugRecoveryFrameSequence++;
 			if (m_Persistence
 				&& m_Persistence.HasPendingCampaignDebugPersistenceRestore())
 				m_Persistence.TickPendingCheckpoint(timeSlice);
+			RetryRetainedCampaignDebugPhysicalResponseFoldbackPlayerOnOrdinaryFrame();
 			RetryRetainedCampaignDebugRenderBubbleCleanupOnOrdinaryFrame();
 			RetryRetainedCampaignDebugPhase20CivilianCleanupOnOrdinaryFrame();
 			RetryRetainedCampaignDebugStateRestoreOnOrdinaryFrame();
@@ -18685,9 +18705,24 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!m_bCampaignDebugRunning
 			&& !m_CampaignDebugMissionSweepContext
 			&& !m_CampaignDebugRenderBubbleMissionTargetContext
-			&& !m_CampaignDebugPhase20CivilianPopulationContext)
+			&& !m_CampaignDebugPhase20CivilianPopulationContext
+			&& !m_CampaignDebugPhysicalResponseFoldbackRestoreContext
+			&& !m_bCampaignDebugCancellationPending)
 			return "Partisan campaign debug | not running\n" + BuildCampaignDebugStatusReport();
 
+		m_bCampaignDebugCancellationPending = true;
+		RestoreCampaignDebugActorCommandAccess();
+		if (!ReleaseCampaignDebugPhysicalResponseFoldbackPlayerRestore(
+			"run cancellation"))
+		{
+			return "Partisan campaign debug | cancellation accepted; physical-response proof retains exact player-restore ownership until its later stable sample\n"
+				+ BuildCampaignDebugStatusReport();
+		}
+		return CompleteCampaignDebugCancellationAfterPhysicalResponsePlayerRestore();
+	}
+
+	protected string CompleteCampaignDebugCancellationAfterPhysicalResponsePlayerRestore()
+	{
 		RestoreCampaignDebugActorCommandAccess();
 		if (!AbortCampaignDebugMissionSweepContext("run cancellation"))
 		{
@@ -18725,6 +18760,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		RefreshPlayerMapMarkersAfterCampaignDebugCleanup();
 		RecordCampaignDebugCase(BuildCampaignDebugPlayerMarkerCompletionCase());
 		RecordCampaignDebugCase(BuildCampaignDebugRunCleanupSnapshotCase());
+		m_bCampaignDebugCancellationPending = false;
 		m_bCampaignDebugRunning = false;
 		m_bCampaignDebugCompleted = false;
 		m_bCampaignDebugCompletionAwaitingStateRestore = true;
@@ -18762,6 +18798,16 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return "Partisan campaign debug | failed: admin required";
 
 		string report = "Partisan campaign debug | cleanup";
+		if (!ReleaseCampaignDebugPhysicalResponseFoldbackPlayerRestore(
+			"admin cleanup command"))
+		{
+			report = report
+				+ "\nPhysical-response proof retains exact player-restore ownership; broader cleanup and state restore were not attempted";
+			AppendCampaignDebugLog("ERROR", "cleanup", report);
+			return report + "\n" + BuildCampaignDebugStatusReport();
+		}
+		if (m_bCampaignDebugCancellationPending)
+			return CompleteCampaignDebugCancellationAfterPhysicalResponsePlayerRestore();
 		if (!AbortCampaignDebugMissionSweepContext(
 			"admin cleanup command"))
 		{
@@ -18860,7 +18906,6 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		m_bCampaignDebugCompletionAwaitingStateRestore = false;
 		m_sCampaignDebugPendingTerminalOutcome = "";
 		m_iCampaignDebugStateRestoreLastAttemptSecond = -1;
-		m_iCampaignDebugRecoveryFrameSequence = 0;
 		m_sCampaignDebugRetainedStateRestoreReason = "";
 		m_aCampaignDebugStateRestoreFailureFingerprints.Clear();
 		m_CampaignDebugLiveState = null;
@@ -18984,6 +19029,12 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 	protected bool StartCampaignDebugRun(int playerId, string profile)
 	{
+		if (m_bCampaignDebugCancellationPending)
+		{
+			m_sCampaignDebugIsolationStatus
+				= "previous campaign debug cancellation must finish exact cleanup and state restoration before a new run";
+			return false;
+		}
 		if (!AbortCampaignDebugMissionSweepContext(
 			"new run preflight"))
 		{
@@ -19005,17 +19056,29 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				= "previous Phase 20 probe retains exact cleanup ownership";
 			return false;
 		}
+		if (!ReleaseCampaignDebugPhysicalResponseFoldbackPlayerRestore(
+			"new run preflight"))
+		{
+			m_sCampaignDebugIsolationStatus
+				= "previous physical-response proof retains exact player-restore ownership";
+			return false;
+		}
 		if (m_bCampaignDebugStateIsolationActive)
 		{
 			m_sCampaignDebugIsolationStatus
 				= "previous isolated campaign state must be recovered before a new run";
 			return false;
 		}
+		// Every retained cleanup owner is proven absent above. Start the next
+		// isolated lifecycle in a fresh bounded observation domain; never reset
+		// while a running or recovery owner could compare an earlier token.
+		m_iCampaignDebugCleanupObservationSequence = 0;
 		if (!BeginCampaignDebugStateIsolation(profile))
 			return false;
 
 		m_bCampaignDebugRunning = true;
 		m_bCampaignDebugCompleted = false;
+		m_bCampaignDebugCancellationPending = false;
 		m_bCampaignDebugPhysicalBlocked = false;
 		m_iCampaignDebugBootstrapPlayerSettleAttempts = 0;
 		m_iCampaignDebugBootstrapSpawnRequests = 0;
@@ -19059,6 +19122,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		m_CampaignDebugPhase24EscalationContext = null;
 		m_CampaignDebugMissionSweepContext = null;
 		m_CampaignDebugRenderBubbleMissionTargetContext = null;
+		m_CampaignDebugPhysicalResponseFoldbackRestoreContext = null;
 		m_sCampaignDebugLastResult = "started";
 		m_aCampaignDebugRecentLog.Clear();
 		m_aCampaignDebugStartActiveMissionIds.Clear();
@@ -19097,6 +19161,15 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	{
 		if (!m_bCampaignDebugRunning)
 			return;
+
+		if (m_bCampaignDebugCancellationPending)
+		{
+			if (!ReleaseCampaignDebugPhysicalResponseFoldbackPlayerRestore(
+				"pending cancellation later-sample restore"))
+				return;
+			CompleteCampaignDebugCancellationAfterPhysicalResponsePlayerRestore();
+			return;
+		}
 
 		if (m_iCampaignDebugWaitSeconds > 0)
 		{
@@ -22091,6 +22164,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		{
 			foldDrive.Drive(
 				this,
+				m_iCampaignDebugPlayerId,
 				ResolveControlledPlayerEntity(m_iCampaignDebugPlayerId),
 				m_State,
 				m_Balance,
@@ -22128,7 +22202,6 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				request = m_State.FindSupportRequest(request.m_sRequestId);
 			if (group)
 				group = m_State.FindActiveGroup(group.m_sGroupId);
-			foldDrive.RestorePlayer(this);
 		}
 
 		HST_CampaignSaveData roundTripSaveData = new HST_CampaignSaveData();
@@ -22271,7 +22344,18 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		while (m_State.m_aGeneratedRoutes.Count() > routeCountBefore)
 			m_State.m_aGeneratedRoutes.Remove(m_State.m_aGeneratedRoutes.Count() - 1);
 
-		FinalizeCampaignDebugCaseFromAssertions(responseCase);
+		if (foldDrive.NeedsRetainedPlayerRestore())
+		{
+			foldDrive.m_Case = responseCase;
+			m_CampaignDebugPhysicalResponseFoldbackRestoreContext = foldDrive;
+		}
+		else
+		{
+			AddCampaignDebugPhysicalResponseFoldbackPlayerRestoreAssertion(
+				responseCase,
+				foldDrive);
+			FinalizeCampaignDebugCaseFromAssertions(responseCase);
+		}
 		return responseCase;
 	}
 
@@ -22308,6 +22392,375 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		string reason)
 	{
 		return TeleportCampaignDebugPlayer(position, reason);
+	}
+
+	bool CampaignDebugValidatePhysicalResponseFoldbackPlayer(
+		int playerId,
+		IEntity expectedPlayer,
+		RplId expectedReplicationId,
+		out string evidence)
+	{
+		evidence = "physical-response controlled-player session changed";
+		if (playerId <= 0 || playerId != m_iCampaignDebugPlayerId
+			|| !expectedPlayer
+			|| expectedPlayer.IsDeleted()
+			|| expectedReplicationId == RplId.Invalid())
+			return false;
+
+		IEntity playerEntity = ResolveControlledPlayerEntity(playerId);
+		bool playerAvailable = playerEntity && !playerEntity.IsDeleted();
+		BaseRplComponent replication;
+		if (playerAvailable)
+		{
+			replication = BaseRplComponent.Cast(
+				playerEntity.FindComponent(BaseRplComponent));
+		}
+		string safetyEvidence = "controlled player unavailable or deleted";
+		bool onFootGrounded;
+		if (playerAvailable)
+		{
+			onFootGrounded = IsCampaignDebugCivilianPlayerOnFootGrounded(
+				playerEntity,
+				safetyEvidence);
+		}
+		CharacterControllerComponent characterController;
+		if (playerAvailable)
+		{
+			characterController = CharacterControllerComponent.Cast(
+				playerEntity.FindComponent(CharacterControllerComponent));
+		}
+		bool living = characterController && !characterController.IsDead();
+		bool exact = living
+			&& playerEntity == expectedPlayer
+			&& replication
+			&& replication.Id() == expectedReplicationId
+			&& onFootGrounded;
+		evidence = string.Format(
+			"player id %1/%2 | pointer exact %3 | replication exact %4 | living %5 | %6",
+			m_iCampaignDebugPlayerId,
+			playerId,
+			playerEntity == expectedPlayer,
+			replication && replication.Id() == expectedReplicationId,
+			living,
+			EmptyCampaignDebugField(safetyEvidence));
+		return exact;
+	}
+
+	int CampaignDebugClaimPhysicalResponseFoldbackPlayerRestoreRequest(
+		out string restoreRequestId)
+	{
+		m_iCampaignDebugPhysicalResponseRestoreRequestSequence++;
+		if (m_iCampaignDebugPhysicalResponseRestoreRequestSequence <= 0)
+			m_iCampaignDebugPhysicalResponseRestoreRequestSequence = 1;
+		string runId = m_sCampaignDebugRunId;
+		if (runId.IsEmpty())
+			runId = "recovery";
+		restoreRequestId = string.Format(
+			"%1:physical_response_restore:%2",
+			runId,
+			m_iCampaignDebugPhysicalResponseRestoreRequestSequence);
+		return m_iCampaignDebugPhysicalResponseRestoreRequestSequence;
+	}
+
+	bool CampaignDebugIsPhysicalResponseFoldbackPlayerSessionIrrecoverable(
+		int playerId,
+		IEntity expectedPlayer,
+		RplId expectedReplicationId,
+		out string evidence)
+	{
+		bool capturedPresent = expectedPlayer != null;
+		bool capturedDeleted = capturedPresent && expectedPlayer.IsDeleted();
+		CharacterControllerComponent capturedCharacterController;
+		if (capturedPresent && !capturedDeleted)
+		{
+			capturedCharacterController = CharacterControllerComponent.Cast(
+				expectedPlayer.FindComponent(CharacterControllerComponent));
+		}
+		bool capturedDead = capturedCharacterController
+			&& capturedCharacterController.IsDead();
+
+		IEntity playerEntity = ResolveControlledPlayerEntity(playerId);
+		bool playerAvailable = playerEntity && !playerEntity.IsDeleted();
+		BaseRplComponent replication;
+		CharacterControllerComponent currentCharacterController;
+		if (playerAvailable)
+		{
+			replication = BaseRplComponent.Cast(
+				playerEntity.FindComponent(BaseRplComponent));
+			currentCharacterController = CharacterControllerComponent.Cast(
+				playerEntity.FindComponent(CharacterControllerComponent));
+		}
+		bool currentLiving = currentCharacterController
+			&& !currentCharacterController.IsDead();
+		bool pointerExact = playerAvailable && playerEntity == expectedPlayer;
+		bool replicationExact = replication
+			&& replication.Id() == expectedReplicationId;
+		bool resolvedPointerReplacement = currentLiving
+			&& capturedPresent && playerEntity != expectedPlayer;
+		bool resolvedReplicationReplacement = currentLiving && pointerExact
+			&& replication && replication.Id() != RplId.Invalid()
+			&& expectedReplicationId != RplId.Invalid()
+			&& !replicationExact;
+		// A resolver/component gap is transiently unverifiable, not proof that
+		// the captured session ceased to exist. Relinquish only when the frozen
+		// entity itself is gone/dead or a live replacement is positively known.
+		bool irrecoverable = !capturedPresent || capturedDeleted || capturedDead
+			|| resolvedPointerReplacement || resolvedReplicationReplacement;
+		evidence = string.Format(
+			"player id %1/%2 exact %3 | captured present/deleted/dead %4/%5/%6 | current resolved/living %7/%8",
+			m_iCampaignDebugPlayerId,
+			playerId,
+			playerId > 0 && playerId == m_iCampaignDebugPlayerId,
+			capturedPresent,
+			capturedDeleted,
+			capturedDead,
+			playerAvailable,
+			currentLiving);
+		evidence = evidence + string.Format(
+			" | pointer exact/replaced %1/%2 | replication exact/replaced %3/%4 | irrecoverable %5",
+			pointerExact,
+			resolvedPointerReplacement,
+			replicationExact,
+			resolvedReplicationReplacement,
+			irrecoverable);
+		return irrecoverable;
+	}
+
+	bool CampaignDebugApplyPhysicalResponseFoldbackPlayerRestore(
+		int playerId,
+		IEntity expectedPlayer,
+		RplId expectedReplicationId,
+		string restoreRequestId,
+		int applySequence,
+		vector expectedTransform[4],
+		out string evidence)
+	{
+		if (restoreRequestId.IsEmpty() || applySequence <= 0)
+		{
+			evidence = "physical-response player restore request identity is invalid";
+			return false;
+		}
+		if (!CampaignDebugValidatePhysicalResponseFoldbackPlayer(
+			playerId,
+			expectedPlayer,
+			expectedReplicationId,
+			evidence))
+			return false;
+
+		bool teleported = SCR_Global.TeleportPlayer(
+			playerId,
+			expectedTransform[3],
+			SCR_EPlayerTeleportedReason.DEFAULT);
+		if (!CampaignDebugValidatePhysicalResponseFoldbackPlayer(
+			playerId,
+			expectedPlayer,
+			expectedReplicationId,
+			evidence))
+			return false;
+		bool transformApplied = expectedPlayer.SetTransform(expectedTransform);
+		float immediateMaximumTransformDelta;
+		bool transformExact = IsCampaignDebugCivilianPlayerTransformExact(
+			expectedPlayer,
+			expectedTransform,
+			immediateMaximumTransformDelta);
+		bool ownerRpcQueued
+			= HST_CommandMenuRequestComponent
+				.SendCampaignDebugPhysicalResponseRestoreOwner(
+					playerId,
+					restoreRequestId,
+					applySequence,
+					expectedReplicationId,
+					expectedTransform,
+					"enemy physical response foldback restore");
+		if (!ownerRpcQueued || !transformExact)
+		{
+			evidence = string.Format(
+				"exact restore apply incomplete | request %1 sequence %2 | server teleport %3 | owner full-transform RPC %4 | SetTransform changed %5 | transform exact %6 | maximum delta %7m",
+				restoreRequestId,
+				applySequence,
+				teleported,
+				ownerRpcQueued,
+				transformApplied,
+				transformExact,
+				Math.Round(immediateMaximumTransformDelta));
+			return false;
+		}
+		evidence = string.Format(
+			"exact restore applied | request %1 sequence %2 | server teleport %3 | owner full-transform RPC %4 | SetTransform changed %5 | transform exact %6 | maximum delta %7m",
+			restoreRequestId,
+			applySequence,
+			teleported,
+			ownerRpcQueued,
+			transformApplied,
+			transformExact,
+			Math.Round(immediateMaximumTransformDelta));
+		return true;
+	}
+
+	void ReceiveCampaignDebugPhysicalResponseRestoreOwnerAck(
+		int authoritativePlayerId,
+		string restoreRequestId,
+		int applySequence,
+		RplId actualPlayerReplicationId,
+		bool ownerTransformExact,
+		float ownerMaximumTransformDelta,
+		string evidence)
+	{
+		if (!Replication.IsServer() || restoreRequestId.IsEmpty()
+			|| applySequence <= 0)
+			return;
+		HST_CampaignDebugPhysicalResponseFoldbackDriveResult context
+			= m_CampaignDebugPhysicalResponseFoldbackRestoreContext;
+		if (!context)
+			return;
+
+		string sessionEvidence;
+		if (!CampaignDebugValidatePhysicalResponseFoldbackPlayer(
+			authoritativePlayerId,
+			context.m_PlayerEntityBeforeFoldback,
+			context.m_PlayerReplicationIdBeforeFoldback,
+			sessionEvidence))
+			return;
+		context.AcceptPlayerRestoreOwnerAcknowledgement(
+			authoritativePlayerId,
+			restoreRequestId,
+			applySequence,
+			actualPlayerReplicationId,
+			ownerTransformExact,
+			ownerMaximumTransformDelta,
+			evidence);
+	}
+
+	bool CampaignDebugSamplePhysicalResponseFoldbackPlayerRestore(
+		int playerId,
+		IEntity expectedPlayer,
+		RplId expectedReplicationId,
+		vector expectedTransform[4],
+		out float maximumTransformDelta,
+		out string evidence)
+	{
+		maximumTransformDelta = -1.0;
+		string sessionEvidence;
+		bool sessionExact = CampaignDebugValidatePhysicalResponseFoldbackPlayer(
+				playerId,
+				expectedPlayer,
+				expectedReplicationId,
+				sessionEvidence);
+		bool transformExact;
+		bool parentless;
+		if (sessionExact)
+		{
+			transformExact = IsCampaignDebugCivilianPlayerTransformExact(
+				expectedPlayer,
+				expectedTransform,
+				maximumTransformDelta);
+			parentless = expectedPlayer.GetParent() == null;
+		}
+		evidence = string.Format(
+			"later sample session exact %1 | parentless %2 | full transform exact %3 | maximum delta %4m | %5",
+			sessionExact,
+			parentless,
+			transformExact,
+			Math.Round(maximumTransformDelta),
+			EmptyCampaignDebugField(sessionEvidence));
+		return sessionExact && parentless && transformExact;
+	}
+
+	protected void AddCampaignDebugPhysicalResponseFoldbackPlayerRestoreAssertion(
+		HST_CampaignDebugCaseResult responseCase,
+		HST_CampaignDebugPhysicalResponseFoldbackDriveResult context)
+	{
+		if (!responseCase || !context)
+			return;
+		AddCampaignDebugAssertion(
+			responseCase,
+			"enemy_physical_response.player_restore",
+			"the exact controlled-player session and full transform are stable on a distinct later ordinary sample after the foldback drive",
+			context.m_sPlayerRestoreEvidence + string.Format(
+				" | server maximum transform delta %1m | owner maximum transform delta %2m | request %3 sequence/ack %4/%5 | dispatch/owner-ack/stable tokens %6/%7/%8 | terminal session loss %9",
+				Math.Round(context.m_fPlayerRestoreMaximumTransformDelta),
+				Math.Round(context.m_fPlayerRestoreOwnerMaximumTransformDelta),
+				EmptyCampaignDebugField(context.m_sPlayerRestoreRequestId),
+				context.m_iPlayerRestoreApplySequence,
+				context.m_iPlayerRestoreOwnerAckSequence,
+				context.m_iPlayerRestoreAppliedObservationToken,
+				context.m_iPlayerRestoreOwnerAckObservedToken,
+				context.m_iPlayerRestoreStableSampleObservationToken,
+				context.m_bPlayerRestoreSessionLost),
+			CampaignDebugStatus(context.m_bPlayerRestored),
+			"physical-response foldback retained exact player-restore ownership");
+	}
+
+	protected void RecordCampaignDebugPhysicalResponseFoldbackPendingCase(
+		HST_CampaignDebugPhysicalResponseFoldbackDriveResult context)
+	{
+		if (!context || !context.m_Case)
+			return;
+		AddCampaignDebugPhysicalResponseFoldbackPlayerRestoreAssertion(
+			context.m_Case,
+			context);
+		FinalizeCampaignDebugCaseFromAssertions(context.m_Case);
+		RecordCampaignDebugCase(context.m_Case);
+		context.m_Case = null;
+	}
+
+	protected bool ReleaseCampaignDebugPhysicalResponseFoldbackPlayerRestore(
+		string reason)
+	{
+		HST_CampaignDebugPhysicalResponseFoldbackDriveResult context
+			= m_CampaignDebugPhysicalResponseFoldbackRestoreContext;
+		if (!context)
+			return true;
+		int observationToken = GetCampaignDebugCleanupObservationToken();
+		if (!context.RestorePlayer(this, observationToken))
+		{
+			if (!context.NeedsRetainedPlayerRestore())
+			{
+				AppendCampaignDebugLog(
+					"ERROR",
+					"physical-response player restore",
+					EmptyCampaignDebugField(reason) + " | "
+						+ context.m_sPlayerRestoreEvidence);
+			}
+			return false;
+		}
+		m_CampaignDebugPhysicalResponseFoldbackRestoreContext = null;
+		RecordCampaignDebugPhysicalResponseFoldbackPendingCase(context);
+		if (context.m_bPlayerRestoreSessionLost)
+		{
+			AppendCampaignDebugLog(
+				"ERROR",
+				"physical-response player restore terminal session loss",
+				EmptyCampaignDebugField(reason) + " | "
+					+ context.m_sPlayerRestoreEvidence);
+		}
+		return true;
+	}
+
+	protected void StopCampaignDebugRunAfterFatalPhysicalResponsePlayerRestore(
+		HST_CampaignDebugPhysicalResponseFoldbackDriveResult context,
+		string reason)
+	{
+		if (context)
+			m_CampaignDebugPhysicalResponseFoldbackRestoreContext = context;
+		m_bCampaignDebugRunning = false;
+		m_bCampaignDebugCompleted = false;
+		m_bCampaignDebugCompletionAwaitingStateRestore = true;
+		m_sCampaignDebugPendingTerminalOutcome = "failed";
+		string restoreEvidence = "missing restore context";
+		if (context)
+			restoreEvidence
+				= EmptyCampaignDebugField(context.m_sPlayerRestoreEvidence);
+		m_sCampaignDebugLastResult = string.Format(
+			"aborted/fatal retained physical-response player restore | run %1 | %2 | %3",
+			m_sCampaignDebugRunId,
+			EmptyCampaignDebugField(reason),
+			restoreEvidence);
+		AppendCampaignDebugLog(
+			"ERROR",
+			"fatal physical-response player restore",
+			m_sCampaignDebugLastResult
+				+ " | terminal publication deferred until exact player and isolated-state restoration");
 	}
 
 	protected HST_ZoneState BuildCampaignDebugPhysicalResponseZone(string zoneId, string factionKey, HST_ZoneState baseZone)
@@ -26609,6 +27062,20 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 	protected void RunCampaignDebugBaselineReportStep()
 	{
+		HST_CampaignDebugPhysicalResponseFoldbackDriveResult pendingFoldback
+			= m_CampaignDebugPhysicalResponseFoldbackRestoreContext;
+		if (pendingFoldback)
+		{
+			if (!ReleaseCampaignDebugPhysicalResponseFoldbackPlayerRestore(
+				"staged baseline later-sample restore"))
+			{
+				m_iCampaignDebugWaitSeconds = 1;
+				return;
+			}
+			RunCampaignDebugBaselineReportTailStep();
+			return;
+		}
+
 		RecordCampaignDebugCase(BuildCampaignDebugPreflightCase());
 		RecordCampaignDebugObservation("foundation status", RequestMemberFoundationStatus(m_iCampaignDebugPlayerId));
 		RecordCampaignDebugObservation("campaign overview", RequestMemberInspectCampaign(m_iCampaignDebugPlayerId));
@@ -26625,7 +27092,27 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		RecordCampaignDebugCase(BuildCampaignDebugEnemyOrderResolutionCase());
 		if (m_EnemyDirector)
 			RecordCampaignDebugObservation("enemy resources", m_EnemyDirector.BuildEnemyResourceReport(m_State, m_Preset, m_Balance));
-		RecordCampaignDebugCase(BuildCampaignDebugPhysicalResponseFoldbackCase());
+		HST_CampaignDebugCaseResult physicalResponseFoldbackCase
+			= BuildCampaignDebugPhysicalResponseFoldbackCase();
+		pendingFoldback
+			= m_CampaignDebugPhysicalResponseFoldbackRestoreContext;
+		if (pendingFoldback)
+		{
+			if (ReleaseCampaignDebugPhysicalResponseFoldbackPlayerRestore(
+				"staged baseline restore apply"))
+			{
+				RunCampaignDebugBaselineReportTailStep();
+				return;
+			}
+			m_iCampaignDebugWaitSeconds = 1;
+			return;
+		}
+		RecordCampaignDebugCase(physicalResponseFoldbackCase);
+		RunCampaignDebugBaselineReportTailStep();
+	}
+
+	protected void RunCampaignDebugBaselineReportTailStep()
+	{
 		RecordCampaignDebugCase(BuildCampaignDebugGarrisonFoldbackCase());
 		RecordCampaignDebugCase(BuildCampaignDebugTownInfluenceLedgerCase());
 		RecordCampaignDebugCase(BuildCampaignDebugRadioTownInfluenceCase());
@@ -30191,6 +30678,26 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 					"runtime substep lost exact start correlation context");
 				return;
 			}
+			int ownedMissionIndex
+				= sweepContext.m_aOwnedNewMissionInstanceIds.Find(
+					m_sCampaignDebugCurrentMissionInstanceId);
+			HST_ActiveMissionState runtimeMission;
+			string runtimeMissionEvidence;
+			if (!ValidateCampaignDebugMissionSweepOwnedMissionExact(
+				sweepContext,
+				ownedMissionIndex,
+				runtimeMission,
+				runtimeMissionEvidence)
+				|| !runtimeMission
+				|| runtimeMission.m_eStatus
+					!= HST_EMissionStatus.HST_MISSION_ACTIVE)
+			{
+				StopCampaignDebugRunAfterFatalMissionSweepRetention(
+					sweepContext,
+					"runtime substep lost frozen mission pointer/origin | "
+						+ runtimeMissionEvidence);
+				return;
+			}
 			if (!sweepContext.m_bRuntimeCaseRecorded)
 			{
 				ProcessPlayerSpawnSweep("campaign debug mission runtime", true);
@@ -30226,6 +30733,31 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return;
 		}
 
+		HST_CampaignDebugMissionSweepContext terminalSweepContext
+			= m_CampaignDebugMissionSweepContext;
+		int terminalOwnedMissionIndex = -1;
+		if (terminalSweepContext)
+		{
+			terminalOwnedMissionIndex
+				= terminalSweepContext.m_aOwnedNewMissionInstanceIds.Find(
+					m_sCampaignDebugCurrentMissionInstanceId);
+		}
+		HST_ActiveMissionState terminalMission;
+		string terminalMissionEvidence;
+		if (!ValidateCampaignDebugMissionSweepOwnedMissionExact(
+			terminalSweepContext,
+			terminalOwnedMissionIndex,
+			terminalMission,
+			terminalMissionEvidence))
+		{
+			StopCampaignDebugRunAfterFatalMissionSweepRetention(
+				terminalSweepContext,
+				"terminal substep lost frozen mission pointer/origin | "
+					+ terminalMissionEvidence);
+			return;
+		}
+		terminalSweepContext.m_aOwnedNewMissionCleanupMutationStarted[
+			terminalOwnedMissionIndex] = true;
 		string completionStatus;
 		bool completed = CompleteCampaignDebugMissionInstance(m_sCampaignDebugCurrentMissionInstanceId, completionStatus);
 
@@ -30279,6 +30811,11 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			}
 			context.m_aPreStartMissionInstanceIds.Insert(
 				mission.m_sInstanceId);
+			context.m_aPreStartMissionPointers.Insert(mission);
+			context.m_aPreStartMissionDefinitionIds.Insert(
+				mission.m_sMissionId);
+			if (mission.m_sMissionId.IsEmpty())
+				context.m_bGlobalMissionIdentityExact = false;
 		}
 		context.m_iPreStartMissionInstanceCount
 			= context.m_aPreStartMissionInstanceIds.Count();
@@ -30303,9 +30840,17 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 					context.m_bGlobalMissionIdentityExact = false;
 					continue;
 				}
-				if (context.m_aPreStartMissionInstanceIds.Contains(
-					mission.m_sInstanceId))
+				bool preStartIdKnown
+					= context.m_aPreStartMissionInstanceIds.Contains(
+						mission.m_sInstanceId);
+				bool preStartPointerKnown
+					= context.m_aPreStartMissionPointers.Contains(mission);
+				if (preStartIdKnown || preStartPointerKnown)
+				{
+					if (preStartIdKnown != preStartPointerKnown)
+						context.m_bGlobalMissionIdentityExact = false;
 					continue;
+				}
 				if (context.m_aOwnedNewMissionInstanceIds.Contains(
 					mission.m_sInstanceId))
 				{
@@ -30314,19 +30859,56 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				}
 				context.m_aOwnedNewMissionInstanceIds.Insert(
 					mission.m_sInstanceId);
+				context.m_aOwnedNewMissionPointers.Insert(mission);
+				context.m_aOwnedNewMissionDefinitionIds.Insert(
+					mission.m_sMissionId);
+				context.m_aOwnedNewMissionCleanupMutationStarted.Insert(false);
+				if (mission.m_sMissionId.IsEmpty())
+					context.m_bGlobalMissionIdentityExact = false;
 			}
-			foreach (string preStartInstanceId : context.m_aPreStartMissionInstanceIds)
+			if (context.m_aPreStartMissionInstanceIds.Count()
+				!= context.m_iPreStartMissionInstanceCount
+				|| context.m_aPreStartMissionPointers.Count()
+					!= context.m_iPreStartMissionInstanceCount
+				|| context.m_aPreStartMissionDefinitionIds.Count()
+					!= context.m_iPreStartMissionInstanceCount)
+				context.m_bGlobalMissionIdentityExact = false;
+			for (int preStartIndex; preStartIndex
+				< context.m_aPreStartMissionInstanceIds.Count(); preStartIndex++)
 			{
-				int retainedMatches;
+				string preStartInstanceId
+					= context.m_aPreStartMissionInstanceIds[preStartIndex];
+				HST_ActiveMissionState preStartMission;
+				string preStartMissionId;
+				if (preStartIndex < context.m_aPreStartMissionPointers.Count())
+					preStartMission
+						= context.m_aPreStartMissionPointers[preStartIndex];
+				if (preStartIndex
+					< context.m_aPreStartMissionDefinitionIds.Count())
+				{
+					preStartMissionId
+						= context.m_aPreStartMissionDefinitionIds[preStartIndex];
+				}
+				int retainedIdClaims;
+				int retainedPointerClaims;
 				foreach (HST_ActiveMissionState retainedMission : m_State.m_aActiveMissions)
 				{
 					if (retainedMission
 						&& retainedMission.m_sInstanceId
 							== preStartInstanceId)
-						retainedMatches++;
+						retainedIdClaims++;
+					if (retainedMission == preStartMission)
+						retainedPointerClaims++;
 				}
-				if (retainedMatches != 1)
+				if (!preStartMission || preStartMissionId.IsEmpty()
+					|| retainedIdClaims != 1 || retainedPointerClaims != 1
+					|| m_State.FindActiveMission(preStartInstanceId)
+						!= preStartMission
+					|| preStartMission.m_sInstanceId != preStartInstanceId
+					|| preStartMission.m_sMissionId != preStartMissionId)
+				{
 					context.m_bGlobalMissionIdentityExact = false;
+				}
 			}
 		}
 		context.m_iPostStartNewMissionInstanceCount
@@ -30335,30 +30917,224 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		{
 			context.m_sMissionInstanceId
 				= context.m_aOwnedNewMissionInstanceIds[0];
-			if (m_State)
-				context.m_Mission = m_State.FindActiveMission(
-					context.m_sMissionInstanceId);
+			if (context.m_aOwnedNewMissionPointers.Count() == 1)
+				context.m_Mission = context.m_aOwnedNewMissionPointers[0];
 		}
 		bool currentRunPrefix = IsCampaignDebugCurrentRunMissionInstance(
 			context.m_sMissionInstanceId);
 		context.m_bStartCorrelationExact = context.m_bStartAccepted
 			&& context.m_bGlobalMissionIdentityExact
 			&& context.m_iPostStartNewMissionInstanceCount == 1
+			&& context.m_aOwnedNewMissionPointers.Count()
+				== context.m_iPostStartNewMissionInstanceCount
+			&& context.m_aOwnedNewMissionDefinitionIds.Count()
+				== context.m_iPostStartNewMissionInstanceCount
+			&& context.m_aOwnedNewMissionCleanupMutationStarted.Count()
+				== context.m_iPostStartNewMissionInstanceCount
 			&& currentRunPrefix
 			&& context.m_Mission
+			&& m_State.FindActiveMission(context.m_sMissionInstanceId)
+				== context.m_Mission
 			&& context.m_Mission.m_sMissionId == context.m_sMissionId
 			&& context.m_Mission.m_eStatus
 				== HST_EMissionStatus.HST_MISSION_ACTIVE;
 		context.m_sStartCorrelationEvidence = string.Format(
-			"accepted %1 | global identity set exact %2 | pre-start global IDs %3 | global post-minus-pre IDs %4 | exact candidate %5 | current-run prefix %6 | canonical requested-definition active pointer %7 | exact %8",
+			"accepted %1 | global identity set exact %2 | frozen pre-start count/ID/pointer/definition receipts %3/%4/%5/%6 | global post-minus-pre IDs %7 | exact candidate %8 | current-run prefix %9",
 			context.m_bStartAccepted,
 			context.m_bGlobalMissionIdentityExact,
 			context.m_iPreStartMissionInstanceCount,
+			context.m_aPreStartMissionInstanceIds.Count(),
+			context.m_aPreStartMissionPointers.Count(),
+			context.m_aPreStartMissionDefinitionIds.Count(),
 			context.m_iPostStartNewMissionInstanceCount,
 			EmptyCampaignDebugField(context.m_sMissionInstanceId),
-			currentRunPrefix,
-			context.m_Mission != null,
-			context.m_bStartCorrelationExact);
+			currentRunPrefix)
+			+ string.Format(
+				" | canonical requested-definition active pointer %1 | exact %2",
+				context.m_Mission != null,
+				context.m_bStartCorrelationExact);
+	}
+
+	protected bool ValidateCampaignDebugMissionSweepFullPartitionExact(
+		HST_CampaignDebugMissionSweepContext context,
+		out string evidence)
+	{
+		evidence = "mission-sweep full partition receipt is invalid";
+		if (!context || !m_State)
+			return false;
+		int preStartCount = context.m_aPreStartMissionInstanceIds.Count();
+		int ownedCount = context.m_aOwnedNewMissionInstanceIds.Count();
+		if (preStartCount != context.m_iPreStartMissionInstanceCount
+			|| context.m_aPreStartMissionPointers.Count() != preStartCount
+			|| context.m_aPreStartMissionDefinitionIds.Count() != preStartCount
+			|| context.m_aOwnedNewMissionPointers.Count() != ownedCount
+			|| context.m_aOwnedNewMissionDefinitionIds.Count() != ownedCount
+			|| context.m_aOwnedNewMissionCleanupMutationStarted.Count()
+				!= ownedCount)
+			return false;
+
+		array<string> currentMissionIds = {};
+		array<ref HST_ActiveMissionState> currentMissionPointers = {};
+		foreach (HST_ActiveMissionState currentMission : m_State.m_aActiveMissions)
+		{
+			if (!currentMission || currentMission.m_sInstanceId.IsEmpty()
+				|| currentMission.m_sMissionId.IsEmpty()
+				|| currentMissionIds.Contains(currentMission.m_sInstanceId)
+				|| currentMissionPointers.Contains(currentMission))
+				return false;
+			currentMissionIds.Insert(currentMission.m_sInstanceId);
+			currentMissionPointers.Insert(currentMission);
+
+			int preStartIdIndex = context.m_aPreStartMissionInstanceIds.Find(
+				currentMission.m_sInstanceId);
+			int preStartPointerIndex
+				= context.m_aPreStartMissionPointers.Find(currentMission);
+			bool preStartExact = preStartIdIndex >= 0
+				&& preStartIdIndex == preStartPointerIndex
+				&& context.m_aPreStartMissionDefinitionIds[preStartIdIndex]
+					== currentMission.m_sMissionId;
+			int ownedIdIndex = context.m_aOwnedNewMissionInstanceIds.Find(
+				currentMission.m_sInstanceId);
+			int ownedPointerIndex
+				= context.m_aOwnedNewMissionPointers.Find(currentMission);
+			bool ownedExact = ownedIdIndex >= 0
+				&& ownedIdIndex == ownedPointerIndex
+				&& context.m_aOwnedNewMissionDefinitionIds[ownedIdIndex]
+					== currentMission.m_sMissionId;
+			if (preStartExact == ownedExact
+				|| m_State.FindActiveMission(currentMission.m_sInstanceId)
+					!= currentMission)
+				return false;
+		}
+
+		for (int preStartIndex; preStartIndex < preStartCount;
+			preStartIndex++)
+		{
+			string preStartInstanceId
+				= context.m_aPreStartMissionInstanceIds[preStartIndex];
+			HST_ActiveMissionState preStartMission
+				= context.m_aPreStartMissionPointers[preStartIndex];
+			string preStartMissionId
+				= context.m_aPreStartMissionDefinitionIds[preStartIndex];
+			int currentIdIndex = currentMissionIds.Find(preStartInstanceId);
+			int currentPointerIndex
+				= currentMissionPointers.Find(preStartMission);
+			if (!preStartMission || preStartInstanceId.IsEmpty()
+				|| preStartMissionId.IsEmpty()
+				|| preStartMission.m_sInstanceId != preStartInstanceId
+				|| preStartMission.m_sMissionId != preStartMissionId
+				|| currentIdIndex < 0 || currentIdIndex != currentPointerIndex
+				|| m_State.FindActiveMission(preStartInstanceId)
+					!= preStartMission)
+				return false;
+		}
+
+		for (int ownedIndex; ownedIndex < ownedCount; ownedIndex++)
+		{
+			string ownedInstanceId
+				= context.m_aOwnedNewMissionInstanceIds[ownedIndex];
+			HST_ActiveMissionState ownedMission
+				= context.m_aOwnedNewMissionPointers[ownedIndex];
+			string ownedMissionId
+				= context.m_aOwnedNewMissionDefinitionIds[ownedIndex];
+			int currentIdIndex = currentMissionIds.Find(ownedInstanceId);
+			int currentPointerIndex
+				= currentMissionPointers.Find(ownedMission);
+			bool frozenReceiptExact = ownedMission
+				&& !ownedInstanceId.IsEmpty() && !ownedMissionId.IsEmpty()
+				&& ownedMission.m_sInstanceId == ownedInstanceId
+				&& ownedMission.m_sMissionId == ownedMissionId;
+			bool retainedExact = frozenReceiptExact && currentIdIndex >= 0
+				&& currentIdIndex == currentPointerIndex
+				&& m_State.FindActiveMission(ownedInstanceId) == ownedMission;
+			bool missingExact = frozenReceiptExact
+				&& context.m_aOwnedNewMissionCleanupMutationStarted[ownedIndex]
+				&& currentIdIndex < 0 && currentPointerIndex < 0
+				&& !m_State.FindActiveMission(ownedInstanceId);
+			if (!retainedExact && !missingExact)
+				return false;
+		}
+
+		evidence = string.Format(
+			"current/pre-start/owned rows %1/%2/%3 | frozen pre-start count %4 | exact partition true",
+			currentMissionIds.Count(),
+			preStartCount,
+			ownedCount,
+			context.m_iPreStartMissionInstanceCount);
+		return true;
+	}
+
+	protected bool ValidateCampaignDebugMissionSweepOwnedMissionExact(
+		HST_CampaignDebugMissionSweepContext context,
+		int ownedIndex,
+		out HST_ActiveMissionState mission,
+		out string evidence,
+		bool requireRequestedDefinition = true)
+	{
+		mission = null;
+		evidence = "mission-sweep ownership receipt is invalid";
+		if (!context || !m_State || ownedIndex < 0
+			|| context.m_aOwnedNewMissionInstanceIds.Count()
+				!= context.m_aOwnedNewMissionPointers.Count()
+			|| context.m_aOwnedNewMissionInstanceIds.Count()
+				!= context.m_aOwnedNewMissionDefinitionIds.Count()
+			|| context.m_aOwnedNewMissionInstanceIds.Count()
+				!= context.m_aOwnedNewMissionCleanupMutationStarted.Count()
+			|| ownedIndex >= context.m_aOwnedNewMissionInstanceIds.Count())
+			return false;
+
+		string instanceId
+			= context.m_aOwnedNewMissionInstanceIds[ownedIndex];
+		HST_ActiveMissionState frozenMission
+			= context.m_aOwnedNewMissionPointers[ownedIndex];
+		string frozenMissionId
+			= context.m_aOwnedNewMissionDefinitionIds[ownedIndex];
+		bool ownerCleanupMutationStarted
+			= context.m_aOwnedNewMissionCleanupMutationStarted[ownedIndex];
+		if (instanceId.IsEmpty() || frozenMissionId.IsEmpty()
+			|| !frozenMission
+			|| !IsCampaignDebugCurrentRunMissionInstance(instanceId))
+			return false;
+
+		int instanceClaims;
+		int pointerClaims;
+		foreach (HST_ActiveMissionState candidate : m_State.m_aActiveMissions)
+		{
+			if (!candidate)
+				continue;
+			if (candidate.m_sInstanceId == instanceId)
+				instanceClaims++;
+			if (candidate == frozenMission)
+				pointerClaims++;
+		}
+		mission = m_State.FindActiveMission(instanceId);
+		bool frozenReceiptExact
+			= frozenMission.m_sInstanceId == instanceId
+			&& frozenMission.m_sMissionId == frozenMissionId
+			&& (!requireRequestedDefinition
+				|| frozenMissionId == context.m_sMissionId);
+		bool retainedExact = frozenReceiptExact
+			&& instanceClaims == 1 && pointerClaims == 1
+			&& mission == frozenMission;
+		bool missingExact = frozenReceiptExact
+			&& ownerCleanupMutationStarted && instanceClaims == 0
+			&& pointerClaims == 0 && !mission;
+		evidence = string.Format(
+			"index %1 | instance %2 | definition %3/%4 required %5 | frozen receipt exact %6 | claims %7 | pointer claims %8 | canonical pointer %9",
+			ownedIndex,
+			EmptyCampaignDebugField(instanceId),
+			EmptyCampaignDebugField(frozenMissionId),
+			EmptyCampaignDebugField(context.m_sMissionId),
+			requireRequestedDefinition,
+			frozenReceiptExact,
+			instanceClaims,
+			pointerClaims,
+			mission == frozenMission)
+			+ string.Format(
+				" | missing allowed/exact %1/%2",
+				ownerCleanupMutationStarted,
+				missingExact);
+		return retainedExact || missingExact;
 	}
 
 	protected bool CleanupCampaignDebugMissionSweepOwnedInstances(
@@ -30367,24 +31143,98 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	{
 		if (!context || !m_State)
 			return false;
-		bool exact = true;
-		foreach (string instanceId : context.m_aOwnedNewMissionInstanceIds)
+		context.m_bContainmentExact = false;
+		if (context.m_sCleanupOwnershipEvidence.IsEmpty())
+			context.m_sCleanupOwnershipEvidence = "ownership preflight pending";
+		string globalPartitionEvidence;
+		if (!context.m_bGlobalMissionIdentityExact
+			|| !ValidateCampaignDebugMissionSweepFullPartitionExact(
+				context,
+				globalPartitionEvidence))
 		{
-			if (instanceId.IsEmpty()
-				|| !IsCampaignDebugCurrentRunMissionInstance(instanceId))
-			{
-				exact = false;
+			context.m_bFatalRetainedOwner = true;
+			context.m_sCleanupOwnershipEvidence
+				= "global pre-start/post-start mission identity was inexact; no owned cleanup mutation is safe | "
+					+ globalPartitionEvidence;
+			return false;
+		}
+		if (context.m_aOwnedNewMissionInstanceIds.Count()
+			!= context.m_aOwnedNewMissionPointers.Count()
+			|| context.m_aOwnedNewMissionInstanceIds.Count()
+				!= context.m_aOwnedNewMissionDefinitionIds.Count()
+			|| context.m_aOwnedNewMissionInstanceIds.Count()
+				!= context.m_aOwnedNewMissionCleanupMutationStarted.Count())
+		{
+			context.m_bFatalRetainedOwner = true;
+			context.m_sCleanupOwnershipEvidence = string.Format(
+				"owned mission ID/pointer/definition/mutation receipt counts differ: %1/%2/%3/%4",
+				context.m_aOwnedNewMissionInstanceIds.Count(),
+				context.m_aOwnedNewMissionPointers.Count(),
+				context.m_aOwnedNewMissionDefinitionIds.Count(),
+				context.m_aOwnedNewMissionCleanupMutationStarted.Count());
+			return false;
+		}
+		for (int preflightIndex; preflightIndex
+			< context.m_aOwnedNewMissionInstanceIds.Count(); preflightIndex++)
+		{
+			HST_ActiveMissionState preflightMission;
+			string preflightEvidence;
+			if (ValidateCampaignDebugMissionSweepOwnedMissionExact(
+				context,
+				preflightIndex,
+				preflightMission,
+				preflightEvidence,
+				false))
 				continue;
+			context.m_bFatalRetainedOwner = true;
+			context.m_sCleanupOwnershipEvidence
+				= "pre-mutation ownership mismatch | " + preflightEvidence;
+			return false;
+		}
+		for (int ownedIndex; ownedIndex
+			< context.m_aOwnedNewMissionInstanceIds.Count(); ownedIndex++)
+		{
+			string instanceId
+				= context.m_aOwnedNewMissionInstanceIds[ownedIndex];
+			string ownedMissionId
+				= context.m_aOwnedNewMissionDefinitionIds[ownedIndex];
+			HST_ActiveMissionState mutationBoundaryMission;
+			string mutationBoundaryEvidence;
+			if (!ValidateCampaignDebugMissionSweepOwnedMissionExact(
+				context,
+				ownedIndex,
+				mutationBoundaryMission,
+				mutationBoundaryEvidence,
+				false))
+			{
+				context.m_bFatalRetainedOwner = true;
+				context.m_sCleanupOwnershipEvidence = string.Format(
+					"owner %1 mutation-boundary ownership mismatch | %2",
+					ownedIndex,
+					mutationBoundaryEvidence);
+				return false;
 			}
-			string ownedMissionId = context.m_sMissionId;
-			HST_ActiveMissionState ownedMission
-				= m_State.FindActiveMission(instanceId);
-			if (ownedMission && !ownedMission.m_sMissionId.IsEmpty())
-				ownedMissionId = ownedMission.m_sMissionId;
+			context.m_aOwnedNewMissionCleanupMutationStarted[ownedIndex]
+				= true;
 			string completionStatus;
 			CompleteCampaignDebugMissionInstance(
 				instanceId,
 				completionStatus);
+			HST_ActiveMissionState postCompletionMission;
+			string postCompletionEvidence;
+			if (!ValidateCampaignDebugMissionSweepOwnedMissionExact(
+				context,
+				ownedIndex,
+				postCompletionMission,
+				postCompletionEvidence,
+				false))
+			{
+				context.m_bFatalRetainedOwner = true;
+				context.m_sCleanupOwnershipEvidence
+					= "post-completion ownership mismatch | "
+						+ postCompletionEvidence;
+				return false;
+			}
 			HST_CampaignDebugCaseResult containmentCase
 				= ContainCampaignDebugMissionInstance(
 					ownedMissionId,
@@ -30408,20 +31258,64 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 					transientExample);
 			HST_ActiveMissionState remaining
 				= m_State.FindActiveMission(instanceId);
+			HST_ActiveMissionState postContainmentMission;
+			string postContainmentEvidence;
+			bool postContainmentIdentityExact
+				= ValidateCampaignDebugMissionSweepOwnedMissionExact(
+					context,
+					ownedIndex,
+					postContainmentMission,
+					postContainmentEvidence,
+					false);
 			bool instanceExact = containmentPassed
+				&& postContainmentIdentityExact
 				&& (!remaining
 					|| remaining.m_eStatus
 						!= HST_EMissionStatus.HST_MISSION_ACTIVE)
 				&& unsafeAuthorityRows == 0 && transientRows == 0;
-			exact = exact && instanceExact;
+			if (!instanceExact)
+			{
+				string remainingStatus = "absent";
+				if (remaining)
+					remainingStatus = MissionStatusLabel(remaining.m_eStatus);
+				context.m_sCleanupOwnershipEvidence = string.Format(
+					"post-containment owner %1 mismatch | completion %2 | containment %3 | identity %4 | unsafe authority %5 retained %6 (%7) | transient %8 (%9)",
+					ownedIndex,
+					EmptyCampaignDebugField(completionStatus),
+					containmentPassed,
+					EmptyCampaignDebugField(postContainmentEvidence),
+					unsafeAuthorityRows,
+					retainedAuthorityRows,
+					EmptyCampaignDebugField(authorityExample),
+					transientRows,
+					EmptyCampaignDebugField(transientExample))
+					+ string.Format(
+						" | remaining %1 | status %2",
+						remaining != null,
+						remainingStatus);
+				context.m_bFatalRetainedOwner = true;
+				return false;
+			}
 			ClearCampaignDebugPrimitiveProofRelease(instanceId);
 		}
-		context.m_bContainmentExact = exact;
-		if (exact)
-			context.m_aOwnedNewMissionInstanceIds.Clear();
-		else
+		string finalPartitionEvidence;
+		if (!ValidateCampaignDebugMissionSweepFullPartitionExact(
+			context,
+			finalPartitionEvidence))
+		{
 			context.m_bFatalRetainedOwner = true;
-		return exact;
+			context.m_sCleanupOwnershipEvidence
+				= "post-containment full mission partition mismatch | "
+					+ finalPartitionEvidence;
+			return false;
+		}
+		context.m_bContainmentExact = true;
+		context.m_aOwnedNewMissionInstanceIds.Clear();
+		context.m_aOwnedNewMissionPointers.Clear();
+		context.m_aOwnedNewMissionDefinitionIds.Clear();
+		context.m_aOwnedNewMissionCleanupMutationStarted.Clear();
+		context.m_Mission = null;
+		return true;
 	}
 
 	protected bool AbortCampaignDebugMissionSweepContext(
@@ -30444,8 +31338,14 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		}
 		if (!m_CampaignDebugMissionSweepContext)
 			return true;
-		if (m_CampaignDebugMissionSweepContext.m_aOwnedNewMissionInstanceIds.Count()
-			> 0
+		if ((m_CampaignDebugMissionSweepContext.m_aOwnedNewMissionInstanceIds.Count()
+				> 0
+			|| m_CampaignDebugMissionSweepContext.m_aOwnedNewMissionPointers.Count()
+				> 0
+			|| m_CampaignDebugMissionSweepContext.m_aOwnedNewMissionDefinitionIds.Count()
+				> 0
+			|| m_CampaignDebugMissionSweepContext
+				.m_aOwnedNewMissionCleanupMutationStarted.Count() > 0)
 			&& !CleanupCampaignDebugMissionSweepOwnedInstances(
 				m_CampaignDebugMissionSweepContext,
 				"abort: " + reason))
@@ -30454,7 +31354,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			AppendCampaignDebugLog(
 				"ERROR",
 				"mission-sweep abort retained mission owner",
-				reason);
+				reason + " | " + EmptyCampaignDebugField(
+					m_CampaignDebugMissionSweepContext
+						.m_sCleanupOwnershipEvidence));
 			return false;
 		}
 		if (!retainReleasedContext)
@@ -30473,21 +31375,24 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			context.m_bFatalRetainedOwner = true;
 		string missionId;
 		string instanceId;
+		string cleanupOwnershipEvidence;
 		if (context)
 		{
 			missionId = context.m_sMissionId;
 			instanceId = context.m_sMissionInstanceId;
+			cleanupOwnershipEvidence = context.m_sCleanupOwnershipEvidence;
 		}
 		m_bCampaignDebugRunning = false;
 		m_bCampaignDebugCompleted = false;
 		m_bCampaignDebugCompletionAwaitingStateRestore = true;
 		m_sCampaignDebugPendingTerminalOutcome = "failed";
 		m_sCampaignDebugLastResult = string.Format(
-			"aborted/fatal retained mission-sweep owner | run %1 | mission %2/%3 | %4",
+			"aborted/fatal retained mission-sweep owner | run %1 | mission %2/%3 | %4 | ownership %5",
 			m_sCampaignDebugRunId,
 			EmptyCampaignDebugField(missionId),
 			EmptyCampaignDebugField(instanceId),
-			EmptyCampaignDebugField(reason));
+			EmptyCampaignDebugField(reason),
+			EmptyCampaignDebugField(cleanupOwnershipEvidence));
 		AppendCampaignDebugLog(
 			"ERROR",
 			"fatal mission-sweep containment",
@@ -31248,6 +32153,19 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			FinalizeCampaignDebugCaseFromAssertions(isolationCase);
 			return isolationCase;
 		}
+		if (!ReleaseCampaignDebugPhysicalResponseFoldbackPlayerRestore(
+			"state snapshot restore: " + reason))
+		{
+			AddCampaignDebugAssertion(
+				isolationCase,
+				"isolation.restore.physical_response_player",
+				"physical-response exact player/full-transform restore ownership releases before isolated campaign state restoration",
+				"retained",
+				"FAIL",
+				"state restoration was refused while physical-response player cleanup remained inexact");
+			FinalizeCampaignDebugCaseFromAssertions(isolationCase);
+			return isolationCase;
+		}
 		if (!AbortCampaignDebugMissionSweepContext(
 			"state snapshot restore: " + reason,
 			true))
@@ -31363,6 +32281,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			m_CampaignDebugMissionSweepContext = null;
 			m_CampaignDebugRenderBubbleMissionTargetContext = null;
 			m_CampaignDebugPhase20CivilianPopulationContext = null;
+			m_CampaignDebugPhysicalResponseFoldbackRestoreContext = null;
+			m_bCampaignDebugCancellationPending = false;
 			m_sCampaignDebugCurrentMissionInstanceId = "";
 			m_CampaignDebugLiveState = null;
 			m_CampaignDebugStateSnapshot = null;
@@ -31535,6 +32455,14 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	protected void CompleteCampaignDebugRun()
 	{
 		RestoreCampaignDebugActorCommandAccess();
+		if (!ReleaseCampaignDebugPhysicalResponseFoldbackPlayerRestore(
+			"run completion"))
+		{
+			StopCampaignDebugRunAfterFatalPhysicalResponsePlayerRestore(
+				m_CampaignDebugPhysicalResponseFoldbackRestoreContext,
+				"run completion retained exact player-restore ownership");
+			return;
+		}
 		if (!AbortCampaignDebugMissionSweepContext("run completion"))
 		{
 			StopCampaignDebugRunAfterFatalMissionSweepRetention(
@@ -54063,11 +54991,29 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 	protected int GetCampaignDebugCleanupObservationToken()
 	{
-		if (!m_bCampaignDebugRunning)
-			return m_iCampaignDebugRecoveryFrameSequence;
-		if (!m_State)
-			return -1;
-		return m_State.m_iElapsedSeconds;
+		return m_iCampaignDebugCleanupObservationSequence;
+	}
+
+	protected void RetryRetainedCampaignDebugPhysicalResponseFoldbackPlayerOnOrdinaryFrame()
+	{
+		if (m_bCampaignDebugRunning
+			|| !m_bCampaignDebugStateIsolationActive
+			|| !m_CampaignDebugPhysicalResponseFoldbackRestoreContext)
+			return;
+		HST_CampaignDebugPhysicalResponseFoldbackDriveResult context
+			= m_CampaignDebugPhysicalResponseFoldbackRestoreContext;
+		if (!ReleaseCampaignDebugPhysicalResponseFoldbackPlayerRestore(
+			"ordinary-frame retained cleanup retry"))
+			return;
+		if (!context.m_bPlayerRestoreSessionLost)
+		{
+			AppendCampaignDebugLog(
+				"INFO",
+				"cleanup recovery",
+				"physical-response retained player restore closed on the exact session/full-transform boundary");
+		}
+		if (m_bCampaignDebugCancellationPending)
+			CompleteCampaignDebugCancellationAfterPhysicalResponsePlayerRestore();
 	}
 
 	protected void RetryRetainedCampaignDebugRenderBubbleCleanupOnOrdinaryFrame()
@@ -54243,6 +55189,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		}
 		if (!m_State || !m_CampaignDebugStateSnapshot
 			|| !m_CampaignDebugLiveState)
+			return;
+		if (m_CampaignDebugPhysicalResponseFoldbackRestoreContext
+			&& !ReleaseCampaignDebugPhysicalResponseFoldbackPlayerRestore(
+				"ordinary-frame state-restore preflight"))
 			return;
 		if (m_CampaignDebugRenderBubbleMissionTargetContext
 			&& !m_CampaignDebugRenderBubbleMissionTargetContext.m_bCleanupExact)
@@ -54541,7 +55491,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		out string evidence)
 	{
 		evidence = "controlled player unavailable";
-		if (!playerEntity)
+		if (!playerEntity || playerEntity.IsDeleted())
 			return false;
 		if (IsZeroVector(playerEntity.GetOrigin()))
 		{
@@ -54677,7 +55627,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		out float maximumDelta)
 	{
 		maximumDelta = -1.0;
-		if (!playerEntity)
+		if (!playerEntity || playerEntity.IsDeleted())
 			return false;
 
 		vector currentTransform[4];

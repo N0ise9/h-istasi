@@ -771,7 +771,12 @@ class HST_CampaignDebugRenderBubbleMissionTargetContext
 class HST_CampaignDebugMissionSweepContext
 {
 	ref array<string> m_aPreStartMissionInstanceIds = {};
+	ref array<ref HST_ActiveMissionState> m_aPreStartMissionPointers = {};
+	ref array<string> m_aPreStartMissionDefinitionIds = {};
 	ref array<string> m_aOwnedNewMissionInstanceIds = {};
+	ref array<ref HST_ActiveMissionState> m_aOwnedNewMissionPointers = {};
+	ref array<string> m_aOwnedNewMissionDefinitionIds = {};
+	ref array<bool> m_aOwnedNewMissionCleanupMutationStarted = {};
 	ref HST_CampaignDebugCaseResult m_PhysicalCombatCase;
 	ref HST_ActiveMissionState m_Mission;
 	ref HST_MissionObjectiveState m_Objective;
@@ -784,6 +789,7 @@ class HST_CampaignDebugMissionSweepContext
 	string m_sObjectiveId;
 	string m_sStartResult;
 	string m_sStartCorrelationEvidence;
+	string m_sCleanupOwnershipEvidence;
 	string m_sPhysicalCombatStartResult;
 	string m_sPhysicalCombatFailureReason;
 	vector m_vObjectivePosition;

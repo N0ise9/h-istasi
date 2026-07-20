@@ -420,6 +420,8 @@ function Get-RetainedCandidateIdentity {
 	$manifestValue = $manifestTextValue | ConvertFrom-Json
 	$manifestCandidateValue = Get-ObjectPropertyValue $manifestValue "candidate"
 	$manifestSourceValue = Get-ObjectPropertyValue $manifestValue "source"
+	$manifestEmbeddedValue = Get-ObjectPropertyValue `
+		$manifestSourceValue "embeddedImplementation"
 	$manifestWorkbenchValue = Get-ObjectPropertyValue $manifestValue "workbench"
 	$manifestPackageValue = Get-ObjectPropertyValue $manifestValue "package"
 	$createdUtcValue = Require-UtcTimestamp `
@@ -432,6 +434,7 @@ function Get-RetainedCandidateIdentity {
 	if ([int] (Get-ObjectPropertyValue $manifestValue "manifestSchemaVersion") -ne 1 -or
 		$null -eq $manifestCandidateValue -or
 		$null -eq $manifestSourceValue -or
+		$null -eq $manifestEmbeddedValue -or
 		$null -eq $manifestWorkbenchValue -or
 		$null -eq $manifestPackageValue -or
 		[string] (Get-ObjectPropertyValue $manifestCandidateValue "id") -cne $candidateIdValue -or
@@ -442,6 +445,27 @@ function Get-RetainedCandidateIdentity {
 		[string] (Get-ObjectPropertyValue $manifestPackageValue "sha256") -cne $packageShaValue) {
 		throw "$Label differs from its retained manifest."
 	}
+	$embeddedShaValue = Require-Text `
+		(Get-ObjectPropertyValue $manifestEmbeddedValue "sha") `
+		"$Label manifest.source.embeddedImplementation.sha"
+	$embeddedUtcValue = Require-Text `
+		(Get-ObjectPropertyValue $manifestEmbeddedValue "utc") `
+		"$Label manifest.source.embeddedImplementation.utc"
+	$embeddedLabelValue = Require-Text `
+		(Get-ObjectPropertyValue $manifestEmbeddedValue "label") `
+		"$Label manifest.source.embeddedImplementation.label"
+	if ($embeddedShaValue -cnotmatch '^[0-9a-f]{40}$') {
+		throw "$Label embedded implementation SHA must be a lowercase full Git SHA."
+	}
+	$embeddedUtcTimestampValue = Require-UtcTimestamp `
+		$embeddedUtcValue "$Label embedded implementation UTC"
+	if ($embeddedUtcTimestampValue -gt $createdUtcValue) {
+		throw "$Label embedded implementation UTC must not be later than manifest.createdUtc."
+	}
+	Assert-GitAncestor `
+		$embeddedShaValue `
+		$candidateSourceValue `
+		"$Label embedded implementation build is not an ancestor of its candidate source HEAD"
 
 	$readyFullPathValue = Join-Path (Split-Path -Parent $manifestFullPathValue) "candidate.ready.json"
 	if (-not (Test-Path -LiteralPath $readyFullPathValue -PathType Leaf)) {
@@ -478,6 +502,9 @@ function Get-RetainedCandidateIdentity {
 		CreatedUtc = $createdUtcValue
 		CampaignSchema = $campaignSchemaValue
 		RuntimeSettingsSchema = $runtimeSettingsSchemaValue
+		EmbeddedSha = $embeddedShaValue
+		EmbeddedUtc = $embeddedUtcValue
+		EmbeddedLabel = $embeddedLabelValue
 		Manifest = $manifestValue
 	}
 }
@@ -4385,6 +4412,75 @@ function Assert-GitAncestor {
 	}
 }
 
+function Assert-ReleaseBuildTransition {
+	param(
+		[string] $RuntimeUseDisposition,
+		[object] $ManifestEmbedded,
+		[string] $CandidateSourceHead,
+		[string] $SourceBuildSha,
+		[string] $SourceBuildUtc,
+		[string] $SourceBuildLabel,
+		[string] $CheckoutHead
+	)
+
+	if ($RuntimeUseDisposition -cnotin @(
+			"active-runtime-candidate",
+			"supersede-before-runtime",
+			"rejected-after-runtime")) {
+		throw "The release build transition has an unsupported runtime-use disposition."
+	}
+
+	$manifestBuildSha = Require-Text `
+		(Get-ObjectPropertyValue $ManifestEmbedded "sha") `
+		"candidate manifest embedded implementation SHA"
+	$manifestBuildUtc = Require-Text `
+		(Get-ObjectPropertyValue $ManifestEmbedded "utc") `
+		"candidate manifest embedded build UTC"
+	$manifestBuildLabel = Require-Text `
+		(Get-ObjectPropertyValue $ManifestEmbedded "label") `
+		"candidate manifest embedded build label"
+	if ($manifestBuildSha -cnotmatch '^[0-9a-f]{40}$') {
+		throw "The candidate manifest embedded implementation SHA must be a lowercase full Git SHA."
+	}
+	if ($CandidateSourceHead -cnotmatch '^[0-9a-f]{40}$' -or
+		$SourceBuildSha -cnotmatch '^[0-9a-f]{40}$' -or
+		$CheckoutHead -cnotmatch '^[0-9a-f]{40}$') {
+		throw "The release build transition requires lowercase full Git SHAs."
+	}
+	$manifestBuildTime = Require-UtcTimestamp `
+		$manifestBuildUtc "candidate manifest embedded build UTC"
+	$sourceBuildTime = Require-UtcTimestamp `
+		$SourceBuildUtc "live embedded build UTC"
+	[void] (Require-Text $SourceBuildLabel "live embedded build label")
+
+	Assert-GitAncestor `
+		$manifestBuildSha `
+		$CandidateSourceHead `
+		"The candidate embedded implementation build is not an ancestor of its candidate source HEAD"
+	Assert-GitAncestor `
+		$SourceBuildSha `
+		$CheckoutHead `
+		"The live embedded implementation build is not an ancestor of checkout HEAD"
+
+	$sameBuildIdentity = $manifestBuildSha -ceq $SourceBuildSha `
+		-and $manifestBuildUtc -ceq $SourceBuildUtc `
+		-and $manifestBuildLabel -ceq $SourceBuildLabel
+	if ($RuntimeUseDisposition -ceq "active-runtime-candidate" -and
+		-not $sameBuildIdentity) {
+		throw "An active runtime candidate must match the live embedded implementation identity."
+	}
+	if ($RuntimeUseDisposition -cne "active-runtime-candidate" -and
+		-not $sameBuildIdentity) {
+		Assert-GitAncestor `
+			$CandidateSourceHead `
+			$SourceBuildSha `
+			"The live embedded implementation build did not advance from the retained candidate source HEAD"
+		if ($sourceBuildTime -le $manifestBuildTime) {
+			throw "The live embedded build UTC must advance after the retained candidate embedded build UTC."
+		}
+	}
+}
+
 function Assert-HistoricalExternalRuntimeEvidence {
 	param(
 		[object] $Evidence,
@@ -5267,6 +5363,14 @@ if ($releaseCandidateBuilt) {
 			throw "The tracked release-candidate diagnostic executable identity is invalid."
 		}
 	}
+	Assert-ReleaseBuildTransition `
+		-RuntimeUseDisposition $runtimeUseDisposition `
+		-ManifestEmbedded $manifestEmbedded `
+		-CandidateSourceHead $candidateSourceHead `
+		-SourceBuildSha $sourceBuildSha `
+		-SourceBuildUtc $sourceBuildUtc `
+		-SourceBuildLabel $sourceBuildLabel `
+		-CheckoutHead $checkoutHead
 	if ([string] (Get-ObjectPropertyValue $manifestCandidate "id") -cne $candidateId -or
 		[string] (Get-ObjectPropertyValue $manifestCandidate "version") -cne $packageVersion -or
 		[string] (Get-ObjectPropertyValue $manifestCandidate "state") -cne "retained-uncertified" -or
@@ -5274,9 +5378,6 @@ if ($releaseCandidateBuilt) {
 		(Get-ObjectPropertyValue $manifestSource "dirty") -isnot [bool] -or
 		[bool] (Get-ObjectPropertyValue $manifestSource "dirty") -or
 		[string] (Get-ObjectPropertyValue $manifestSource "auditedGameplayRevision") -cne $auditedRevision -or
-		[string] (Get-ObjectPropertyValue $manifestEmbedded "sha") -cne $sourceBuildSha -or
-		[string] (Get-ObjectPropertyValue $manifestEmbedded "utc") -cne $sourceBuildUtc -or
-		[string] (Get-ObjectPropertyValue $manifestEmbedded "label") -cne $sourceBuildLabel -or
 		[int] (Get-ObjectPropertyValue $manifestSource "campaignSchema") -ne $sourceCampaignSchema -or
 		[int] (Get-ObjectPropertyValue $manifestSource "runtimeSettingsSchema") -ne $sourceSettingsSchema -or
 		[string] (Get-ObjectPropertyValue $manifestAddon "guid") -cne $addonGuid -or
@@ -5959,6 +6060,8 @@ Add-Line $statusBuilder "| Campaign / runtime-settings schema | $mdTick$sourceCa
 Add-Line $statusBuilder "| Workbench CRC | $mdTick$($status.evidence.workbench.crc)$mdTick |"
 if ($releaseCandidateBuilt) {
 	Add-Line $statusBuilder "| Release candidate / source HEAD | $mdTick$(Escape-MarkdownCell $candidateId)$mdTick / $mdTick$candidateSourceHead$mdTick |"
+	Add-Line $statusBuilder "| Candidate embedded implementation identity | $mdTick$($activeCandidateIdentity.EmbeddedSha)$mdTick |"
+	Add-Line $statusBuilder "| Candidate embedded build UTC / label | $mdTick$($activeCandidateIdentity.EmbeddedUtc)$mdTick / $mdTick$(Escape-MarkdownCell $activeCandidateIdentity.EmbeddedLabel)$mdTick |"
 	Add-Line $statusBuilder "| Runtime use disposition | $mdTick$runtimeUseDisposition$mdTick |"
 	Add-Line $statusBuilder "| Candidate manifest | $mdTick$(Escape-MarkdownCell $candidateManifestPath)$mdTick |"
 	Add-Line $statusBuilder "| Manifest / ready-seal SHA-256 | $mdTick$candidateManifestSha$mdTick / $mdTick$candidateReadySha$mdTick |"

@@ -130,6 +130,73 @@ passes all five guarded Workbench targets. A native render-bubble cleanup run
 remains required; this source/compile repair does not inherit runtime evidence
 from an earlier candidate.
 
+## Unsealed Physical-Response Player Restore Cancellation Repair
+
+The working source retains the exact controlled-player session and full
+transform across the physical-response foldback drive. Every apply uses one
+unique run-scoped full-transform owner RPC, and only the authenticated owning
+controller may return its reliable acknowledgement. The acknowledgement's
+transform-exact boolean is admissible only when its maximum-delta metric is
+nonnegative and no greater than `0.001` meters. Release requires that exact
+acknowledgement before a distinct later stable, read-only server sample whose
+observation token is greater than the acknowledgement token. One
+coordinator-owned, saturating observation sequence advances once per server
+`EOnFrame` and is shared across the running and retained-recovery modes, so the
+boundary never switches from elapsed seconds to a reset counter. The owner-side
+preflight and post-teleport revalidation both require a live, undeleted,
+parentless entity outside every compartment transition before `SetTransform`.
+A failed or mismatched acknowledgement, or later session, parent, or transform
+drift, keeps the owner retained and rearms a corrective apply before another
+acknowledgement/sample pair.
+
+A pending owner acknowledgement now has a 5,000 ms real-time deadline measured
+with `System.GetTickCount(dispatchTick)` rather than campaign elapsed time. On
+the first new observation token after expiry, the restore still owns cleanup,
+retires the old request, sequence, and dispatch tick, and arms a full-transform
+reapply. The following observation token claims a fresh request/sequence, so a
+late acknowledgement for the timed-out attempt cannot match the pending exact-
+identity gate. Timeout recovery remains inside the once-per-observation-token
+mutation boundary and still requires the distinct later read-only server sample.
+
+Cancellation requested during that interval is latched and serviced before
+wait or baseline dispatch. Terminal disconnect, death, deletion, or respawn
+replacement records the physical-response case as `FAIL` and relinquishes the
+now-impossible player owner so mission, state, and persistence cleanup can
+continue instead of deadlocking. A temporarily unresolved controlled entity or
+replication component stays retryable; only a missing/deleted/dead captured
+entity or a positively observed live pointer/replication replacement is
+terminal. One release boundary centralizes case recording for baseline,
+cancellation, and ordinary-frame recovery, then routes to the correct
+continuation without duplicating or dropping the case. This is source/static-
+contract evidence only; native owner-acknowledgement, failed-ack reapply,
+timed-out-ack/late-stale-ack fencing, cancellation, and terminal-session-loss
+runs are still required.
+
+## Unsealed Mission-Sweep Cleanup Ownership Repair
+
+Before `Start`, mission-sweep correlation freezes aligned instance-ID, exact-
+pointer, and definition-ID receipts plus their final integer cardinality for
+every pre-existing mission. After `Start`, it requires all three arrays to
+retain that frozen count and revalidates the complete pre-start triple set
+before accepting the post-minus-pre result. The sweep then freezes four aligned
+receipts for every new mission it owns: instance ID, exact mission pointer,
+definition ID, and an owner-specific cleanup-mutation bit.
+
+Cleanup preflights the entire frozen owned set before mutating any mission,
+revalidates each owner again at its immediate mutation boundary, then flips
+only that owner's bit before its completion/containment path. The terminal
+substep publishes the same exact per-owner write-ahead receipt before its first
+completion call. A missing mission is acceptable on retry only when mutation
+previously began for that same owner and the retained strong-reference object
+still exactly matches its frozen instance-ID and definition-ID receipt,
+including requested-definition equality when that boundary requires it. One
+completed owner therefore cannot authorize an unexplained disappearance or
+identity rewrite of another. All receipts remain retained with indexed
+ownership evidence on any failure and clear together only after exact zero
+unsafe/transient residue. This is source/static-contract evidence until a
+native pre-start replacement-negative, multi-owner sweep, and interrupted-
+cleanup retry prove the boundary.
+
 ## Current Workbench Compiler Boundary
 
 The sealed `ee0e8add2a298e83fd304b7660c4fc480dc6383f` tree remains the last
@@ -192,6 +259,25 @@ evidence identity may not collide across the ordered history or current
 artifact. Candidate creation and gate timestamps must increase in the required
 topology, and source plus harness commits must prove the corresponding Git
 ancestry through the checkout.
+
+The replacement transition now distinguishes current source authority from a
+retained candidate's immutable source authority. The live embedded
+implementation SHA must be an ancestor of checkout HEAD, and the SHA embedded
+in each candidate manifest must be an ancestor of that candidate's source HEAD.
+The embedded build UTC in each candidate manifest must also be no later than
+that manifest's `createdUtc`; a manifest cannot predate the build it claims.
+Exact live SHA/UTC/label equality is required only while the artifact is an
+`active-runtime-candidate`. A `rejected-after-runtime` or
+`supersede-before-runtime` artifact keeps its independently verified old stamp
+while the live baseline advances; mutating its manifest is forbidden. Once the
+live identity differs, the retained candidate source HEAD must be an ancestor
+of the new live implementation SHA and the live build UTC must be strictly
+later. The same manifest-embedded-to-candidate-source ancestry check applies to
+every ordered historical candidate. Generated current status prints both the
+live and retained-candidate embedded identities so an intentional transition is
+visible. A fresh candidate activation may begin with Foundation and Workbench
+evidence only, absent runtime rows, and explicit `not-run`
+deterministic/native rungs.
 
 The checked ledger audits two ordered entries:
 `partisan-rc-0e632ec4f63e-20260719T004133Z` as `history[0]` with

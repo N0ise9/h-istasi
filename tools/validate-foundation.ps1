@@ -4990,12 +4990,80 @@ if (!(Test-Path -LiteralPath $physicalResponseFoldbackDrivePath -PathType Leaf))
 	throw "Missing extracted physical-response foldback drive context: $physicalResponseFoldbackDrivePath"
 }
 $physicalResponseFoldbackDriveText = Get-Content -Raw -LiteralPath $physicalResponseFoldbackDrivePath
+$physicalResponseCommandRequestPath = 'Scripts/Game/HST/Components/HST_CommandMenuRequestComponent.c'
+if (!(Test-Path -LiteralPath $physicalResponseCommandRequestPath -PathType Leaf)) {
+	throw "Missing physical-response owner request bridge: $physicalResponseCommandRequestPath"
+}
+$physicalResponseCommandRequestText = Get-Content -Raw -LiteralPath $physicalResponseCommandRequestPath
 $physicalResponseFoldbackCaseBlock = Get-ScriptMethodBlock `
 	$enemyTargetScoringCaseText `
 	'protected HST_CampaignDebugCaseResult BuildCampaignDebugPhysicalResponseFoldbackCaseOnDisposableClone()'
 $physicalResponseFoldbackBridgeBlock = Get-ScriptMethodBlock `
 	$enemyTargetScoringCaseText `
 	'bool CampaignDebugTeleportPhysicalResponseFoldbackPlayer('
+$physicalResponseFoldbackPlayerValidatorBlock = Get-ScriptMethodBlock `
+	$enemyTargetScoringCaseText `
+	'bool CampaignDebugValidatePhysicalResponseFoldbackPlayer('
+$physicalResponseFoldbackPlayerApplyBridgeBlock = Get-ScriptMethodBlock `
+	$enemyTargetScoringCaseText `
+	'bool CampaignDebugApplyPhysicalResponseFoldbackPlayerRestore('
+$physicalResponseCoordinatorFrameBlock = Get-ScriptMethodBlock `
+	$enemyTargetScoringCaseText `
+	'override void EOnFrame(IEntity owner, float timeSlice)'
+$physicalResponseStartBlock = Get-ScriptMethodBlock `
+	$enemyTargetScoringCaseText `
+	'protected bool StartCampaignDebugRun('
+$physicalResponsePlayerDisconnectedBlock = Get-ScriptMethodBlock `
+	$enemyTargetScoringCaseText `
+	'override void OnPlayerDisconnected('
+$physicalResponseCleanupObservationBlock = Get-ScriptMethodBlock `
+	$enemyTargetScoringCaseText `
+	'protected int GetCampaignDebugCleanupObservationToken()'
+$physicalResponseFoldbackPlayerClaimBlock = Get-ScriptMethodBlock `
+	$enemyTargetScoringCaseText `
+	'int CampaignDebugClaimPhysicalResponseFoldbackPlayerRestoreRequest('
+$physicalResponseFoldbackPlayerSessionLossBlock = Get-ScriptMethodBlock `
+	$enemyTargetScoringCaseText `
+	'bool CampaignDebugIsPhysicalResponseFoldbackPlayerSessionIrrecoverable('
+$physicalResponseFoldbackPlayerAckReceiveBlock = Get-ScriptMethodBlock `
+	$enemyTargetScoringCaseText `
+	'void ReceiveCampaignDebugPhysicalResponseRestoreOwnerAck('
+$physicalResponseFoldbackPlayerSampleBridgeBlock = Get-ScriptMethodBlock `
+	$enemyTargetScoringCaseText `
+	'bool CampaignDebugSamplePhysicalResponseFoldbackPlayerRestore('
+$physicalResponseCoordinatorTransformExactBlock = Get-ScriptMethodBlock `
+	$enemyTargetScoringCaseText `
+	'protected bool IsCampaignDebugCivilianPlayerTransformExact('
+$physicalResponseCoordinatorSafeOnFootBlock = Get-ScriptMethodBlock `
+	$enemyTargetScoringCaseText `
+	'protected bool IsCampaignDebugCivilianPlayerOnFootGrounded('
+$physicalResponseFoldbackPlayerAssertionBlock = Get-ScriptMethodBlock `
+	$enemyTargetScoringCaseText `
+	'protected void AddCampaignDebugPhysicalResponseFoldbackPlayerRestoreAssertion('
+$physicalResponseFoldbackPlayerReleaseBlock = Get-ScriptMethodBlock `
+	$enemyTargetScoringCaseText `
+	'protected bool ReleaseCampaignDebugPhysicalResponseFoldbackPlayerRestore('
+$physicalResponseFoldbackPlayerRetryBlock = Get-ScriptMethodBlock `
+	$enemyTargetScoringCaseText `
+	'protected void RetryRetainedCampaignDebugPhysicalResponseFoldbackPlayerOnOrdinaryFrame('
+$physicalResponseCancelRequestBlock = Get-ScriptMethodBlock `
+	$enemyTargetScoringCaseText `
+	'string RequestAdminCancelCampaignDebug('
+$physicalResponseCancelResumeBlock = Get-ScriptMethodBlock `
+	$enemyTargetScoringCaseText `
+	'protected string CompleteCampaignDebugCancellationAfterPhysicalResponsePlayerRestore()'
+$physicalResponseRunnerBlock = Get-ScriptMethodBlock `
+	$enemyTargetScoringCaseText `
+	'protected void TickCampaignDebugRunner('
+$physicalResponseBaselineRunnerBlock = Get-ScriptMethodBlock `
+	$enemyTargetScoringCaseText `
+	'protected void RunCampaignDebugBaselineReportStep()'
+$physicalResponseBaselineTailBlock = Get-ScriptMethodBlock `
+	$enemyTargetScoringCaseText `
+	'protected void RunCampaignDebugBaselineReportTailStep()'
+$physicalResponseStateRestoreRetryBlock = Get-ScriptMethodBlock `
+	$enemyTargetScoringCaseText `
+	'protected void RetryRetainedCampaignDebugStateRestoreOnOrdinaryFrame()'
 $physicalResponseFoldbackCaptureBlock = Get-ScriptMethodBlock `
 	$physicalResponseFoldbackDriveText `
 	'void CaptureBeforeDrive('
@@ -5004,28 +5072,200 @@ $physicalResponseFoldbackDriveBlock = Get-ScriptMethodBlock `
 	'void Drive('
 $physicalResponseFoldbackRestoreBlock = Get-ScriptMethodBlock `
 	$physicalResponseFoldbackDriveText `
-	'void RestorePlayer('
+	'bool RestorePlayer('
+$physicalResponseFoldbackAckAcceptBlock = Get-ScriptMethodBlock `
+	$physicalResponseFoldbackDriveText `
+	'bool AcceptPlayerRestoreOwnerAcknowledgement('
+$physicalResponseFoldbackDisconnectBlock = Get-ScriptMethodBlock `
+	$physicalResponseFoldbackDriveText `
+	'void ObservePlayerDisconnected('
+$physicalResponseFoldbackReapplyBlock = Get-ScriptMethodBlock `
+	$physicalResponseFoldbackDriveText `
+	'protected void ArmPlayerRestoreReapply('
+$physicalResponseFoldbackRetentionBlock = Get-ScriptMethodBlock `
+	$physicalResponseFoldbackDriveText `
+	'bool NeedsRetainedPlayerRestore()'
+$physicalResponseOwnerSendBlock = Get-ScriptMethodBlock `
+	$physicalResponseCommandRequestText `
+	'static bool SendCampaignDebugPhysicalResponseRestoreOwner('
+$physicalResponseOwnerApplyBlock = Get-ScriptMethodBlock `
+	$physicalResponseCommandRequestText `
+	'protected void RpcDo_CampaignDebugPhysicalResponseRestore('
+$physicalResponseOwnerTransformExactBlock = Get-ScriptMethodBlock `
+	$physicalResponseCommandRequestText `
+	'protected bool IsCampaignDebugPhysicalResponseRestoreTransformExact('
+$physicalResponseOwnerSafeOnFootBlock = Get-ScriptMethodBlock `
+	$physicalResponseCommandRequestText `
+	'protected bool IsCampaignDebugPhysicalResponseRestorePlayerSafeOnFoot('
+$physicalResponseOwnerLivingBlock = Get-ScriptMethodBlock `
+	$physicalResponseCommandRequestText `
+	'protected bool IsCampaignDebugPhysicalResponseRestorePlayerLiving('
+$physicalResponseOwnerReportBlock = Get-ScriptMethodBlock `
+	$physicalResponseCommandRequestText `
+	'protected void ReportCampaignDebugPhysicalResponseRestore('
+$physicalResponseOwnerServerRpcBlock = Get-ScriptMethodBlock `
+	$physicalResponseCommandRequestText `
+	'protected void RpcAsk_ReportCampaignDebugPhysicalResponseRestore('
+$physicalResponseOwnerDeliveryBlock = Get-ScriptMethodBlock `
+	$physicalResponseCommandRequestText `
+	'protected void DeliverCampaignDebugPhysicalResponseRestoreOwner('
+$physicalResponseOwnerReportReceiveBlock = Get-ScriptMethodBlock `
+	$physicalResponseCommandRequestText `
+	'protected void ReceiveCampaignDebugPhysicalResponseRestoreReport('
 if ([string]::IsNullOrEmpty($physicalResponseFoldbackCaseBlock) -or
 	[string]::IsNullOrEmpty($physicalResponseFoldbackBridgeBlock) -or
+	[string]::IsNullOrEmpty($physicalResponseFoldbackPlayerValidatorBlock) -or
+	[string]::IsNullOrEmpty($physicalResponseFoldbackPlayerApplyBridgeBlock) -or
+	[string]::IsNullOrEmpty($physicalResponseCoordinatorFrameBlock) -or
+	[string]::IsNullOrEmpty($physicalResponseStartBlock) -or
+	[string]::IsNullOrEmpty($physicalResponsePlayerDisconnectedBlock) -or
+	[string]::IsNullOrEmpty($physicalResponseCleanupObservationBlock) -or
+	[string]::IsNullOrEmpty($physicalResponseFoldbackPlayerClaimBlock) -or
+	[string]::IsNullOrEmpty($physicalResponseFoldbackPlayerSessionLossBlock) -or
+	[string]::IsNullOrEmpty($physicalResponseFoldbackPlayerAckReceiveBlock) -or
+	[string]::IsNullOrEmpty($physicalResponseFoldbackPlayerSampleBridgeBlock) -or
+	[string]::IsNullOrEmpty($physicalResponseCoordinatorTransformExactBlock) -or
+	[string]::IsNullOrEmpty($physicalResponseCoordinatorSafeOnFootBlock) -or
+	[string]::IsNullOrEmpty($physicalResponseFoldbackPlayerAssertionBlock) -or
+	[string]::IsNullOrEmpty($physicalResponseFoldbackPlayerReleaseBlock) -or
+	[string]::IsNullOrEmpty($physicalResponseFoldbackPlayerRetryBlock) -or
+	[string]::IsNullOrEmpty($physicalResponseCancelRequestBlock) -or
+	[string]::IsNullOrEmpty($physicalResponseCancelResumeBlock) -or
+	[string]::IsNullOrEmpty($physicalResponseRunnerBlock) -or
+	[string]::IsNullOrEmpty($physicalResponseBaselineRunnerBlock) -or
+	[string]::IsNullOrEmpty($physicalResponseBaselineTailBlock) -or
+	[string]::IsNullOrEmpty($physicalResponseStateRestoreRetryBlock) -or
 	[string]::IsNullOrEmpty($physicalResponseFoldbackCaptureBlock) -or
 	[string]::IsNullOrEmpty($physicalResponseFoldbackDriveBlock) -or
-	[string]::IsNullOrEmpty($physicalResponseFoldbackRestoreBlock)) {
+	[string]::IsNullOrEmpty($physicalResponseFoldbackRestoreBlock) -or
+	[string]::IsNullOrEmpty($physicalResponseFoldbackAckAcceptBlock) -or
+	[string]::IsNullOrEmpty($physicalResponseFoldbackDisconnectBlock) -or
+	[string]::IsNullOrEmpty($physicalResponseFoldbackReapplyBlock) -or
+	[string]::IsNullOrEmpty($physicalResponseFoldbackRetentionBlock) -or
+	[string]::IsNullOrEmpty($physicalResponseOwnerSendBlock) -or
+	[string]::IsNullOrEmpty($physicalResponseOwnerApplyBlock) -or
+	[string]::IsNullOrEmpty($physicalResponseOwnerTransformExactBlock) -or
+	[string]::IsNullOrEmpty($physicalResponseOwnerSafeOnFootBlock) -or
+	[string]::IsNullOrEmpty($physicalResponseOwnerLivingBlock) -or
+	[string]::IsNullOrEmpty($physicalResponseOwnerReportBlock) -or
+	[string]::IsNullOrEmpty($physicalResponseOwnerServerRpcBlock) -or
+	[string]::IsNullOrEmpty($physicalResponseOwnerDeliveryBlock) -or
+	[string]::IsNullOrEmpty($physicalResponseOwnerReportReceiveBlock)) {
 	throw 'Physical-response foldback compiler-pressure split is incomplete'
 }
 foreach ($requiredPhysicalResponseFoldbackContextEntry in @(
 		'class HST_CampaignDebugPhysicalResponseFoldbackDriveResult',
+		'static const int PLAYER_RESTORE_OWNER_ACK_TIMEOUT_MS = 5000;',
+		'static const float PLAYER_RESTORE_TRANSFORM_TOLERANCE_METERS = 0.001;',
 		'ref HST_ActiveGroupState m_GroupAfterDrive;',
+		'IEntity m_PlayerEntityBeforeFoldback;',
+		'RplId m_PlayerReplicationIdBeforeFoldback = RplId.Invalid();',
+		'vector m_aPlayerTransformBeforeFoldback[4];',
+		'bool m_bPlayerSessionCaptured;',
+		'bool m_bPlayerRestoreOwned;',
+		'bool m_bPlayerRestoreApplied;',
+		'bool m_bPlayerRestoreOwnerAckPending;',
+		'bool m_bPlayerRestoreOwnerAckExact;',
+		'bool m_bPlayerRestoreSessionLost;',
+		'bool m_bPlayerRestoreDisconnectObserved;',
+		'bool m_bPlayerRestored;',
+		'int m_iPlayerRestoreAppliedObservationToken = -1;',
+		'int m_iPlayerRestoreStableSampleObservationToken = -1;',
+		'int m_iPlayerRestoreLastAttemptObservationToken = -1;',
+		'int m_iPlayerRestoreApplySequence = -1;',
+		'int m_iPlayerRestoreOwnerAckSequence = -1;',
+		'int m_iPlayerRestoreOwnerAckObservedToken = -1;',
+		'int m_iPlayerRestoreOwnerDispatchTick = -1;',
+		'string m_sPlayerRestoreRequestId;',
 		'bool m_bFoldTickChanged;',
 		'bool m_bOrderSyncChanged;',
 		'string m_sGroupStatusBeforeFold;',
 		'bool m_bVehicleRuntimeBeforeFold;',
 		'bool IsBubbleTransitionExact()',
 		'bool IsPhysicalFoldExact()',
+		'bool NeedsRetainedPlayerRestore()',
 		'protected vector ResolveFarPosition('
 	)) {
 	if ($physicalResponseFoldbackDriveText.IndexOf($requiredPhysicalResponseFoldbackContextEntry) -lt 0) {
 		throw "Physical-response foldback context is missing: $requiredPhysicalResponseFoldbackContextEntry"
 	}
+}
+foreach ($physicalResponseObservationSequenceEntry in @(
+		'protected int m_iCampaignDebugCleanupObservationSequence;',
+		'if ((m_bCampaignDebugRunning',
+		'|| m_bCampaignDebugStateIsolationActive',
+		'|| m_CampaignDebugMissionSweepContext',
+		'|| m_CampaignDebugRenderBubbleMissionTargetContext',
+		'|| m_CampaignDebugPhase20CivilianPopulationContext',
+		'|| m_CampaignDebugPhysicalResponseFoldbackRestoreContext)',
+		'&& m_iCampaignDebugCleanupObservationSequence < int.MAX)',
+		'm_iCampaignDebugCleanupObservationSequence++;',
+		'return m_iCampaignDebugCleanupObservationSequence;'
+)) {
+	if (($enemyTargetScoringCaseText + $physicalResponseCoordinatorFrameBlock +
+		$physicalResponseCleanupObservationBlock).IndexOf(
+			$physicalResponseObservationSequenceEntry) -lt 0) {
+		throw "Physical-response cleanup observation domain is incomplete: $physicalResponseObservationSequenceEntry"
+	}
+}
+$physicalResponseFrameServerGateIndex = $physicalResponseCoordinatorFrameBlock.IndexOf(
+	'if (!Replication.IsServer())')
+$physicalResponseFrameObservationIncrementIndex = $physicalResponseCoordinatorFrameBlock.IndexOf(
+	'm_iCampaignDebugCleanupObservationSequence++;',
+	$physicalResponseFrameServerGateIndex)
+$physicalResponseFrameBootstrapGateIndex = $physicalResponseCoordinatorFrameBlock.IndexOf(
+	'if (!m_bCampaignPersistenceBootstrapComplete)',
+	$physicalResponseFrameObservationIncrementIndex)
+$physicalResponseStartMissionPreflightIndex = $physicalResponseStartBlock.IndexOf(
+	'AbortCampaignDebugMissionSweepContext(')
+$physicalResponseStartRenderPreflightIndex = $physicalResponseStartBlock.IndexOf(
+	'AbortCampaignDebugRenderBubbleMissionTargetProbe(',
+	$physicalResponseStartMissionPreflightIndex)
+$physicalResponseStartCivilianPreflightIndex = $physicalResponseStartBlock.IndexOf(
+	'AbortCampaignDebugPhase20CivilianPopulationProbe(',
+	$physicalResponseStartRenderPreflightIndex)
+$physicalResponseStartPlayerRestorePreflightIndex = $physicalResponseStartBlock.IndexOf(
+	'ReleaseCampaignDebugPhysicalResponseFoldbackPlayerRestore(',
+	$physicalResponseStartCivilianPreflightIndex)
+$physicalResponseStartIsolationGateIndex = $physicalResponseStartBlock.IndexOf(
+	'if (m_bCampaignDebugStateIsolationActive)',
+	$physicalResponseStartPlayerRestorePreflightIndex)
+$physicalResponseStartObservationResetIndex = $physicalResponseStartBlock.IndexOf(
+	'm_iCampaignDebugCleanupObservationSequence = 0;',
+	$physicalResponseStartIsolationGateIndex)
+$physicalResponseStartIsolationBeginIndex = $physicalResponseStartBlock.IndexOf(
+	'BeginCampaignDebugStateIsolation(profile)',
+	$physicalResponseStartObservationResetIndex)
+if ($physicalResponseFrameServerGateIndex -lt 0 -or
+	$physicalResponseFrameObservationIncrementIndex -le $physicalResponseFrameServerGateIndex -or
+	$physicalResponseFrameBootstrapGateIndex -le $physicalResponseFrameObservationIncrementIndex -or
+	$physicalResponseCleanupObservationBlock.IndexOf(
+		'm_iCampaignDebugRecoveryFrameSequence') -ge 0 -or
+	$physicalResponseCleanupObservationBlock.IndexOf(
+		'm_State.m_iElapsedSeconds') -ge 0 -or
+	$enemyTargetScoringCaseText.IndexOf(
+		'm_iCampaignDebugRecoveryFrameSequence') -ge 0 -or
+	([regex]::Matches(
+		$physicalResponseCoordinatorFrameBlock,
+		'm_iCampaignDebugCleanupObservationSequence\+\+').Count -ne 1) -or
+	([regex]::Matches(
+		$enemyTargetScoringCaseText,
+		'm_iCampaignDebugCleanupObservationSequence\s*=\s*0;').Count -ne 1) -or
+	$physicalResponseStartMissionPreflightIndex -lt 0 -or
+	$physicalResponseStartRenderPreflightIndex -le
+		$physicalResponseStartMissionPreflightIndex -or
+	$physicalResponseStartCivilianPreflightIndex -le
+		$physicalResponseStartRenderPreflightIndex -or
+	$physicalResponseStartPlayerRestorePreflightIndex -le
+		$physicalResponseStartCivilianPreflightIndex -or
+	$physicalResponseStartIsolationGateIndex -le
+		$physicalResponseStartPlayerRestorePreflightIndex -or
+	$physicalResponseStartObservationResetIndex -le
+		$physicalResponseStartIsolationGateIndex -or
+	$physicalResponseStartIsolationBeginIndex -le
+		$physicalResponseStartObservationResetIndex -or
+	$physicalResponseCleanupObservationBlock.IndexOf('if (') -ge 0) {
+	throw 'Physical-response cleanup observations must advance once per active server debug/recovery EOnFrame in one sequence, stop during idle uptime, and reset only after every prior retained owner is absent before a new isolation lifecycle.'
 }
 foreach ($requiredPhysicalResponseFoldbackCaseEntry in @(
 		'HST_CampaignDebugPhysicalResponseFoldbackDriveResult foldDrive',
@@ -5034,7 +5274,9 @@ foreach ($requiredPhysicalResponseFoldbackCaseEntry in @(
 		'group = foldDrive.m_GroupAfterDrive;',
 		'foldDrive.m_bFoldTickChanged',
 		'foldDrive.m_bOrderSyncChanged',
-		'foldDrive.RestorePlayer(this);',
+		'foldDrive.NeedsRetainedPlayerRestore()',
+		'foldDrive.m_Case = responseCase;',
+		'm_CampaignDebugPhysicalResponseFoldbackRestoreContext = foldDrive;',
 		'foldDrive.IsBubbleTransitionExact()',
 		'foldDrive.IsPhysicalFoldExact()'
 	)) {
@@ -5078,16 +5320,21 @@ $physicalResponseFoldTickIndex = $physicalResponseFoldbackCaseBlock.IndexOf(
 	'foldDrive.m_bFoldTickChanged')
 $physicalResponseOrderSyncIndex = $physicalResponseFoldbackCaseBlock.IndexOf(
 	'foldDrive.m_bOrderSyncChanged')
-$physicalResponseRestoreIndex = $physicalResponseFoldbackCaseBlock.IndexOf(
-	'foldDrive.RestorePlayer(this);')
+$physicalResponseRetainIndex = $physicalResponseFoldbackCaseBlock.IndexOf(
+	'foldDrive.NeedsRetainedPlayerRestore()')
 if ($physicalResponseCaptureIndex -lt 0 -or
 	$physicalResponseDriveIndex -le $physicalResponseCaptureIndex -or
 	$physicalResponseFoldTickIndex -le $physicalResponseDriveIndex -or
 	$physicalResponseOrderSyncIndex -le $physicalResponseFoldTickIndex -or
-	$physicalResponseRestoreIndex -le $physicalResponseOrderSyncIndex) {
-	throw 'Physical-response foldback must preserve capture, drive, fold tick, order sync, and player-restore ordering'
+	$physicalResponseRetainIndex -le $physicalResponseOrderSyncIndex) {
+	throw 'Physical-response foldback must preserve capture, drive, fold tick, order sync, and retained player-restore ordering'
 }
 foreach ($requiredPhysicalResponseDriveEntry in @(
+		'm_PlayerEntityBeforeFoldback = foldbackPlayer;',
+		'm_PlayerReplicationIdBeforeFoldback = replication.Id();',
+		'foldbackPlayer.GetTransform(m_aPlayerTransformBeforeFoldback);',
+		'CampaignDebugValidatePhysicalResponseFoldbackPlayer(',
+		'm_bPlayerRestoreOwned = true;',
 		'coordinator.CampaignDebugTeleportPhysicalResponseFoldbackPlayer(',
 		'physicalWar.UpdateZoneActivation(',
 		'physicalWar.FoldActiveSupportGroup(',
@@ -5096,6 +5343,803 @@ foreach ($requiredPhysicalResponseDriveEntry in @(
 	)) {
 	if ($physicalResponseFoldbackDriveBlock.IndexOf($requiredPhysicalResponseDriveEntry) -lt 0) {
 		throw "Extracted physical-response foldback drive is incomplete: $requiredPhysicalResponseDriveEntry"
+	}
+}
+foreach ($requiredPhysicalResponsePlayerValidatorEntry in @(
+		'playerId != m_iCampaignDebugPlayerId',
+		'expectedPlayer.IsDeleted()',
+		'ResolveControlledPlayerEntity(playerId)',
+		'bool playerAvailable = playerEntity && !playerEntity.IsDeleted();',
+		'if (playerAvailable)',
+		'playerEntity == expectedPlayer',
+		'replication.Id() == expectedReplicationId',
+		'CharacterControllerComponent.Cast(',
+		'!characterController.IsDead()',
+		'bool living',
+		'IsCampaignDebugCivilianPlayerOnFootGrounded('
+)) {
+	if ($physicalResponseFoldbackPlayerValidatorBlock.IndexOf(
+			$requiredPhysicalResponsePlayerValidatorEntry) -lt 0) {
+		throw "Physical-response player capture validation is incomplete: $requiredPhysicalResponsePlayerValidatorEntry"
+	}
+}
+$physicalResponsePlayerResolveIndex = $physicalResponseFoldbackPlayerValidatorBlock.IndexOf(
+	'ResolveControlledPlayerEntity(playerId)')
+$physicalResponsePlayerAvailableIndex = $physicalResponseFoldbackPlayerValidatorBlock.IndexOf(
+	'bool playerAvailable = playerEntity && !playerEntity.IsDeleted();',
+	$physicalResponsePlayerResolveIndex)
+$physicalResponsePlayerReplicationDereferenceIndex = $physicalResponseFoldbackPlayerValidatorBlock.IndexOf(
+	'playerEntity.FindComponent(BaseRplComponent)',
+	$physicalResponsePlayerAvailableIndex)
+$physicalResponsePlayerSafetyIndex = $physicalResponseFoldbackPlayerValidatorBlock.IndexOf(
+	'IsCampaignDebugCivilianPlayerOnFootGrounded(',
+	$physicalResponsePlayerReplicationDereferenceIndex)
+if ($physicalResponsePlayerResolveIndex -lt 0 -or
+	$physicalResponsePlayerAvailableIndex -le $physicalResponsePlayerResolveIndex -or
+	$physicalResponsePlayerReplicationDereferenceIndex -le $physicalResponsePlayerAvailableIndex -or
+	$physicalResponsePlayerSafetyIndex -le $physicalResponsePlayerReplicationDereferenceIndex) {
+	throw 'Physical-response coordinator session validation must deletion-guard the exact player before component and on-foot dereferences.'
+}
+foreach ($physicalResponseCoordinatorSafeOnFootEntry in @(
+		'if (!playerEntity || playerEntity.IsDeleted())',
+		'playerEntity.GetParent() == null',
+		'playerEntity.FindComponent(SCR_CompartmentAccessComponent)',
+		'access && !access.IsInCompartment()',
+		'!access.IsGettingIn()',
+		'!access.IsGettingOut()',
+		'!access.IsSwitchingSeatsAnim()',
+		'return onFoot && parentless && grounded;'
+)) {
+	if ($physicalResponseCoordinatorSafeOnFootBlock.IndexOf(
+			$physicalResponseCoordinatorSafeOnFootEntry) -lt 0) {
+		throw "Physical-response coordinator safe-on-foot gate is incomplete: $physicalResponseCoordinatorSafeOnFootEntry"
+	}
+}
+$physicalResponseCoordinatorSafeDeleteIndex = $physicalResponseCoordinatorSafeOnFootBlock.IndexOf(
+	'if (!playerEntity || playerEntity.IsDeleted())')
+$physicalResponseCoordinatorSafeOriginIndex = $physicalResponseCoordinatorSafeOnFootBlock.IndexOf(
+	'playerEntity.GetOrigin()',
+	$physicalResponseCoordinatorSafeDeleteIndex)
+$physicalResponseCoordinatorSafeComponentIndex = $physicalResponseCoordinatorSafeOnFootBlock.IndexOf(
+	'playerEntity.FindComponent(SCR_CompartmentAccessComponent)',
+	$physicalResponseCoordinatorSafeOriginIndex)
+$physicalResponseCoordinatorSafeParentIndex = $physicalResponseCoordinatorSafeOnFootBlock.IndexOf(
+	'playerEntity.GetParent() == null',
+	$physicalResponseCoordinatorSafeComponentIndex)
+if ($physicalResponseCoordinatorSafeDeleteIndex -lt 0 -or
+	$physicalResponseCoordinatorSafeOriginIndex -le $physicalResponseCoordinatorSafeDeleteIndex -or
+	$physicalResponseCoordinatorSafeComponentIndex -le $physicalResponseCoordinatorSafeOriginIndex -or
+	$physicalResponseCoordinatorSafeParentIndex -le $physicalResponseCoordinatorSafeComponentIndex) {
+	throw 'Physical-response coordinator safe-on-foot gate must deletion-guard origin, compartment, and parent dereferences.'
+}
+$physicalResponseRestoreOwnedIndex = $physicalResponseFoldbackDriveBlock.IndexOf(
+	'm_bPlayerRestoreOwned = true;')
+$physicalResponseFirstTeleportIndex = $physicalResponseFoldbackDriveBlock.IndexOf(
+	'coordinator.CampaignDebugTeleportPhysicalResponseFoldbackPlayer(')
+if ($physicalResponseRestoreOwnedIndex -lt 0 -or
+	$physicalResponseFirstTeleportIndex -le $physicalResponseRestoreOwnedIndex) {
+	throw 'Physical-response player restoration ownership must begin before the first teleport request.'
+}
+foreach ($requiredPhysicalResponsePlayerApplyEntry in @(
+		'CampaignDebugValidatePhysicalResponseFoldbackPlayer(',
+		'SCR_Global.TeleportPlayer(',
+		'HST_CommandMenuRequestComponent',
+		'.SendCampaignDebugPhysicalResponseRestoreOwner(',
+		'restoreRequestId',
+		'applySequence',
+		'expectedReplicationId',
+		'expectedTransform',
+		'expectedPlayer.SetTransform(expectedTransform)',
+		'IsCampaignDebugCivilianPlayerTransformExact(',
+		'if (!ownerRpcQueued || !transformExact)',
+		'return true;'
+)) {
+	if ($physicalResponseFoldbackPlayerApplyBridgeBlock.IndexOf(
+			$requiredPhysicalResponsePlayerApplyEntry) -lt 0) {
+		throw "Physical-response exact player/full-transform restore apply is incomplete: $requiredPhysicalResponsePlayerApplyEntry"
+	}
+}
+foreach ($requiredPhysicalResponseOwnerSendEntry in @(
+		'string restoreRequestId',
+		'int applySequence',
+		'RplId expectedPlayerReplicationId',
+		'vector expectedTransform[4]',
+		'ResolvePlayerRequestBridge(playerManager, playerId)',
+		'request.DeliverCampaignDebugPhysicalResponseRestoreOwner(',
+		'expectedPlayerReplicationId',
+		'expectedTransform'
+)) {
+	if ($physicalResponseOwnerSendBlock.IndexOf(
+			$requiredPhysicalResponseOwnerSendEntry) -lt 0) {
+		throw "Physical-response owner full-transform send bridge is incomplete: $requiredPhysicalResponseOwnerSendEntry"
+	}
+}
+foreach ($requiredPhysicalResponseOwnerDeliveryEntry in @(
+		'string restoreRequestId',
+		'int applySequence',
+		'RplId expectedPlayerReplicationId',
+		'vector expectedTransform[4]',
+		'RpcDo_CampaignDebugPhysicalResponseRestore(',
+		'expectedPlayerReplicationId',
+		'expectedTransform'
+)) {
+	if ($physicalResponseOwnerDeliveryBlock.IndexOf(
+			$requiredPhysicalResponseOwnerDeliveryEntry) -lt 0) {
+		throw "Physical-response owner full-transform delivery bridge is incomplete: $requiredPhysicalResponseOwnerDeliveryEntry"
+	}
+}
+foreach ($requiredPhysicalResponseOwnerApplyEntry in @(
+		'int expectedPlayerId',
+		'string restoreRequestId',
+		'int applySequence',
+		'RplId expectedPlayerReplicationId',
+		'vector expectedTransform[4]',
+		'bool playerAvailableBefore = playerEntity && !playerEntity.IsDeleted();',
+		'bool playerAvailableAfter = playerEntity && !playerEntity.IsDeleted();',
+		'IsCampaignDebugPhysicalResponseRestorePlayerSafeOnFoot(',
+		'requestSessionSafe',
+		'restoredSessionSafe',
+		'localPlayerId == expectedPlayerId',
+		'actualPlayerReplicationId == expectedPlayerReplicationId',
+		'SCR_Global.TeleportPlayer(',
+		'playerEntity.SetTransform(expectedTransform)',
+		'IsCampaignDebugPhysicalResponseRestoreTransformExact(',
+		'ReportCampaignDebugPhysicalResponseRestore('
+)) {
+	if ($physicalResponseOwnerApplyBlock.IndexOf(
+			$requiredPhysicalResponseOwnerApplyEntry) -lt 0) {
+		throw "Physical-response owner RPC no longer applies and acknowledges the exact full transform: $requiredPhysicalResponseOwnerApplyEntry"
+	}
+}
+foreach ($requiredPhysicalResponseSafeOnFootEntry in @(
+		'IsCampaignDebugPhysicalResponseRestorePlayerLiving(playerEntity)',
+		'playerEntity.GetParent() != null',
+		'SCR_CompartmentAccessComponent.Cast(',
+		'playerEntity.FindComponent(SCR_CompartmentAccessComponent)',
+		'access && !access.IsInCompartment()',
+		'!access.IsGettingIn()',
+		'!access.IsGettingOut()',
+		'!access.IsSwitchingSeatsAnim()'
+)) {
+	if ($physicalResponseOwnerSafeOnFootBlock.IndexOf(
+			$requiredPhysicalResponseSafeOnFootEntry) -lt 0) {
+		throw "Physical-response owner safe-on-foot gate is incomplete: $requiredPhysicalResponseSafeOnFootEntry"
+	}
+}
+$physicalResponseOwnerLivingDeleteGuardIndex = $physicalResponseOwnerLivingBlock.IndexOf(
+	'playerEntity.IsDeleted()')
+$physicalResponseOwnerLivingComponentIndex = $physicalResponseOwnerLivingBlock.IndexOf(
+	'playerEntity.FindComponent(CharacterControllerComponent)',
+	$physicalResponseOwnerLivingDeleteGuardIndex)
+if ($physicalResponseOwnerLivingDeleteGuardIndex -lt 0 -or
+	$physicalResponseOwnerLivingComponentIndex -le $physicalResponseOwnerLivingDeleteGuardIndex) {
+	throw 'Physical-response owner living/safe-on-foot classification must deletion-guard the player before component and parent dereferences.'
+}
+$physicalResponseSafeOnFootLivingIndex = $physicalResponseOwnerSafeOnFootBlock.IndexOf(
+	'IsCampaignDebugPhysicalResponseRestorePlayerLiving(playerEntity)')
+$physicalResponseSafeOnFootParentIndex = $physicalResponseOwnerSafeOnFootBlock.IndexOf(
+	'playerEntity.GetParent() != null',
+	$physicalResponseSafeOnFootLivingIndex)
+$physicalResponseSafeOnFootCompartmentIndex = $physicalResponseOwnerSafeOnFootBlock.IndexOf(
+	'playerEntity.FindComponent(SCR_CompartmentAccessComponent)',
+	$physicalResponseSafeOnFootParentIndex)
+if ($physicalResponseSafeOnFootLivingIndex -lt 0 -or
+	$physicalResponseSafeOnFootParentIndex -le $physicalResponseSafeOnFootLivingIndex -or
+	$physicalResponseSafeOnFootCompartmentIndex -le $physicalResponseSafeOnFootParentIndex) {
+	throw 'Physical-response owner safe-on-foot classification must prove living/deletion safety before parent and compartment dereferences.'
+}
+$physicalResponseOwnerPreAvailableIndex = $physicalResponseOwnerApplyBlock.IndexOf(
+	'bool playerAvailableBefore = playerEntity && !playerEntity.IsDeleted();')
+$physicalResponseOwnerPreComponentIndex = $physicalResponseOwnerApplyBlock.IndexOf(
+	'playerEntity.FindComponent(BaseRplComponent)',
+	$physicalResponseOwnerPreAvailableIndex)
+$physicalResponseOwnerPreSafeIndex = $physicalResponseOwnerApplyBlock.IndexOf(
+	'IsCampaignDebugPhysicalResponseRestorePlayerSafeOnFoot(',
+	$physicalResponseOwnerPreComponentIndex)
+$physicalResponseOwnerTeleportIndex = $physicalResponseOwnerApplyBlock.IndexOf(
+	'SCR_Global.TeleportPlayer(',
+	$physicalResponseOwnerPreSafeIndex)
+$physicalResponseOwnerPostAvailableIndex = $physicalResponseOwnerApplyBlock.IndexOf(
+	'bool playerAvailableAfter = playerEntity && !playerEntity.IsDeleted();',
+	$physicalResponseOwnerTeleportIndex)
+$physicalResponseOwnerPostComponentIndex = $physicalResponseOwnerApplyBlock.IndexOf(
+	'playerEntity.FindComponent(BaseRplComponent)',
+	$physicalResponseOwnerPostAvailableIndex)
+$physicalResponseOwnerPostSafeIndex = $physicalResponseOwnerApplyBlock.IndexOf(
+	'IsCampaignDebugPhysicalResponseRestorePlayerSafeOnFoot(',
+	$physicalResponseOwnerPostComponentIndex)
+$physicalResponseOwnerSetTransformIndex = $physicalResponseOwnerApplyBlock.IndexOf(
+	'playerEntity.SetTransform(expectedTransform)',
+	$physicalResponseOwnerPostSafeIndex)
+$physicalResponseOwnerTransformReadIndex = $physicalResponseOwnerApplyBlock.IndexOf(
+	'IsCampaignDebugPhysicalResponseRestoreTransformExact(',
+	$physicalResponseOwnerSetTransformIndex)
+$physicalResponseOwnerParentReadIndex = $physicalResponseOwnerApplyBlock.IndexOf(
+	'playerEntity.GetParent() == null',
+	$physicalResponseOwnerTransformReadIndex)
+if ($physicalResponseOwnerPreAvailableIndex -lt 0 -or
+	$physicalResponseOwnerPreComponentIndex -le $physicalResponseOwnerPreAvailableIndex -or
+	$physicalResponseOwnerPreSafeIndex -le $physicalResponseOwnerPreComponentIndex -or
+	$physicalResponseOwnerTeleportIndex -le $physicalResponseOwnerPreSafeIndex -or
+	$physicalResponseOwnerPostAvailableIndex -le $physicalResponseOwnerTeleportIndex -or
+	$physicalResponseOwnerPostComponentIndex -le $physicalResponseOwnerPostAvailableIndex -or
+	$physicalResponseOwnerPostSafeIndex -le $physicalResponseOwnerPostComponentIndex -or
+	$physicalResponseOwnerSetTransformIndex -le $physicalResponseOwnerPostSafeIndex -or
+	$physicalResponseOwnerTransformReadIndex -le $physicalResponseOwnerSetTransformIndex -or
+	$physicalResponseOwnerParentReadIndex -le $physicalResponseOwnerTransformReadIndex -or
+	([regex]::Matches(
+		$physicalResponseOwnerApplyBlock,
+		'IsCampaignDebugPhysicalResponseRestorePlayerSafeOnFoot\(').Count -ne 2)) {
+	throw 'Physical-response owner restore must deletion-guard and require the exact safe-on-foot session before and after teleport, then gate transform/parent dereferences on that post-mutation identity.'
+}
+foreach ($physicalResponseTransformHelperBlock in @(
+		$physicalResponseOwnerTransformExactBlock,
+		$physicalResponseCoordinatorTransformExactBlock
+)) {
+	$physicalResponseTransformDeleteGuardIndex = $physicalResponseTransformHelperBlock.IndexOf(
+		'playerEntity.IsDeleted()')
+	$physicalResponseTransformDereferenceIndex = $physicalResponseTransformHelperBlock.IndexOf(
+		'playerEntity.GetTransform(',
+		$physicalResponseTransformDeleteGuardIndex)
+	if ($physicalResponseTransformDeleteGuardIndex -lt 0 -or
+		$physicalResponseTransformDereferenceIndex -le $physicalResponseTransformDeleteGuardIndex) {
+		throw 'Physical-response owner/server transform comparison must deletion-guard the player entity before reading its transform.'
+	}
+}
+if (![regex]::IsMatch(
+		$physicalResponseCommandRequestText,
+		'(?s)\[RplRpc\(RplChannel\.Reliable,\s*RplRcver\.Owner\)\]\s*protected void RpcDo_CampaignDebugPhysicalResponseRestore\(') -or
+	![regex]::IsMatch(
+		$physicalResponseCommandRequestText,
+		'(?s)\[RplRpc\(RplChannel\.Reliable,\s*RplRcver\.Server\)\]\s*protected void RpcAsk_ReportCampaignDebugPhysicalResponseRestore\(')) {
+	throw 'Physical-response full-transform request and acknowledgement must use reliable owner/server RPCs.'
+}
+foreach ($requiredPhysicalResponseOwnerReportEntry in @(
+		'restoreRequestId',
+		'applySequence',
+		'actualPlayerReplicationId',
+		'ownerTransformExact',
+		'ownerMaximumTransformDelta',
+		'ReceiveCampaignDebugPhysicalResponseRestoreReport(',
+		'RpcAsk_ReportCampaignDebugPhysicalResponseRestore'
+)) {
+	if (($physicalResponseOwnerReportBlock + $physicalResponseOwnerServerRpcBlock).IndexOf(
+			$requiredPhysicalResponseOwnerReportEntry) -lt 0) {
+		throw "Physical-response owner acknowledgement report is incomplete: $requiredPhysicalResponseOwnerReportEntry"
+	}
+}
+foreach ($requiredPhysicalResponseOwnerAuthEntry in @(
+		'PlayerController controller = PlayerController.Cast(m_OwnerEntity);',
+		'PlayerManager playerManager = GetGame().GetPlayerManager();',
+		'int playerId = controller.GetPlayerId();',
+		'playerManager.GetPlayerController(playerId) != controller',
+		'coordinator.ReceiveCampaignDebugPhysicalResponseRestoreOwnerAck(',
+		'playerId',
+		'restoreRequestId',
+		'applySequence'
+)) {
+	if ($physicalResponseOwnerReportReceiveBlock.IndexOf(
+			$requiredPhysicalResponseOwnerAuthEntry) -lt 0) {
+		throw "Physical-response owner acknowledgement authorization is incomplete: $requiredPhysicalResponseOwnerAuthEntry"
+	}
+}
+if ($physicalResponseOwnerReportReceiveBlock.IndexOf(
+		'ResolveAuthoritativePlayerId(') -ge 0 -or
+	$physicalResponseOwnerReportReceiveBlock.IndexOf('clientPlayerId') -ge 0) {
+	throw 'Physical-response owner acknowledgement must authorize the exact owning PlayerController, without caller-supplied or fallback player identity.'
+}
+foreach ($requiredPhysicalResponsePlayerSampleEntry in @(
+		'CampaignDebugValidatePhysicalResponseFoldbackPlayer(',
+		'IsCampaignDebugCivilianPlayerTransformExact(',
+		'expectedPlayer.GetParent() == null',
+		'return sessionExact && parentless && transformExact;'
+)) {
+	if ($physicalResponseFoldbackPlayerSampleBridgeBlock.IndexOf(
+			$requiredPhysicalResponsePlayerSampleEntry) -lt 0) {
+		throw "Physical-response later player/full-transform sample is incomplete: $requiredPhysicalResponsePlayerSampleEntry"
+	}
+}
+$physicalResponseSampleSessionIndex = $physicalResponseFoldbackPlayerSampleBridgeBlock.IndexOf(
+	'bool sessionExact = CampaignDebugValidatePhysicalResponseFoldbackPlayer(')
+$physicalResponseSampleSessionGateIndex = $physicalResponseFoldbackPlayerSampleBridgeBlock.IndexOf(
+	'if (sessionExact)',
+	$physicalResponseSampleSessionIndex)
+$physicalResponseSampleTransformIndex = $physicalResponseFoldbackPlayerSampleBridgeBlock.IndexOf(
+	'IsCampaignDebugCivilianPlayerTransformExact(',
+	$physicalResponseSampleSessionGateIndex)
+$physicalResponseSampleParentIndex = $physicalResponseFoldbackPlayerSampleBridgeBlock.IndexOf(
+	'expectedPlayer.GetParent() == null',
+	$physicalResponseSampleTransformIndex)
+if ($physicalResponseSampleSessionIndex -lt 0 -or
+	$physicalResponseSampleSessionGateIndex -le $physicalResponseSampleSessionIndex -or
+	$physicalResponseSampleTransformIndex -le $physicalResponseSampleSessionGateIndex -or
+	$physicalResponseSampleParentIndex -le $physicalResponseSampleTransformIndex) {
+	throw 'Physical-response later server sample must validate the deletion-guarded session before transform and parent dereferences.'
+}
+$physicalResponseApplyPreValidationIndex = `
+	$physicalResponseFoldbackPlayerApplyBridgeBlock.IndexOf(
+		'CampaignDebugValidatePhysicalResponseFoldbackPlayer(')
+$physicalResponseApplyTeleportIndex = `
+	$physicalResponseFoldbackPlayerApplyBridgeBlock.IndexOf(
+		'SCR_Global.TeleportPlayer(')
+$physicalResponseApplyOwnerRpcIndex = `
+	$physicalResponseFoldbackPlayerApplyBridgeBlock.IndexOf(
+		'.SendCampaignDebugPhysicalResponseRestoreOwner(')
+$physicalResponseApplyPostValidationIndex = `
+	$physicalResponseFoldbackPlayerApplyBridgeBlock.IndexOf(
+		'CampaignDebugValidatePhysicalResponseFoldbackPlayer(',
+		$physicalResponseApplyPreValidationIndex + 1)
+$physicalResponseApplySetTransformIndex = `
+	$physicalResponseFoldbackPlayerApplyBridgeBlock.IndexOf(
+		'expectedPlayer.SetTransform(expectedTransform)')
+$physicalResponseApplyImmediateExactIndex = `
+	$physicalResponseFoldbackPlayerApplyBridgeBlock.IndexOf(
+		'IsCampaignDebugCivilianPlayerTransformExact(',
+		$physicalResponseApplySetTransformIndex)
+if ($physicalResponseApplyPreValidationIndex -lt 0 -or
+	$physicalResponseApplyTeleportIndex -le $physicalResponseApplyPreValidationIndex -or
+	$physicalResponseApplyPostValidationIndex -le $physicalResponseApplyTeleportIndex -or
+	$physicalResponseApplySetTransformIndex -le $physicalResponseApplyPostValidationIndex -or
+	$physicalResponseApplyImmediateExactIndex -le $physicalResponseApplySetTransformIndex -or
+	$physicalResponseApplyOwnerRpcIndex -le $physicalResponseApplyImmediateExactIndex) {
+	throw 'Physical-response player restore must validate, apply and verify the server transform, then dispatch the exact full-transform owner RPC in order.'
+}
+foreach ($physicalResponseReadOnlySampleForbiddenEntry in @(
+		'SCR_Global.TeleportPlayer(',
+		'SetTransform('
+)) {
+	if ($physicalResponseFoldbackPlayerSampleBridgeBlock.IndexOf(
+			$physicalResponseReadOnlySampleForbiddenEntry) -ge 0) {
+		throw "Physical-response later stable sample must remain read-only: $physicalResponseReadOnlySampleForbiddenEntry"
+	}
+}
+if ($physicalResponseFoldbackPlayerApplyBridgeBlock.IndexOf(
+		'return sessionExact && transformExact;') -ge 0) {
+	throw 'Physical-response restore application must not certify same-frame transform stability; only the later sample may release ownership.'
+}
+foreach ($physicalResponseRestoreStateEntry in @(
+		'm_iPlayerRestoreLastAttemptObservationToken == observationToken',
+		'CampaignDebugClaimPhysicalResponseFoldbackPlayerRestoreRequest(',
+		'm_sPlayerRestoreRequestId',
+		'm_iPlayerRestoreApplySequence',
+		'if (m_iPlayerRestoreApplySequence <= 0',
+		'|| m_sPlayerRestoreRequestId.IsEmpty())',
+		'm_bPlayerRestoreOwnerAckPending = true;',
+		'm_bPlayerRestoreOwnerAckExact = false;',
+		'm_iPlayerRestoreOwnerDispatchTick = System.GetTickCount();',
+		'CampaignDebugApplyPhysicalResponseFoldbackPlayerRestore(',
+		'm_iPlayerRestoreAppliedObservationToken = observationToken;',
+		'm_bPlayerRestoreOwnerAckPending',
+		'System.GetTickCount(m_iPlayerRestoreOwnerDispatchTick)',
+		'>= PLAYER_RESTORE_OWNER_ACK_TIMEOUT_MS',
+		'owner acknowledgement timed out after %1ms',
+		'fresh request/sequence reapply armed',
+		'm_iPlayerRestoreOwnerAckSequence',
+		'm_bPlayerRestoreOwnerAckExact',
+		'm_iPlayerRestoreOwnerAckObservedToken = observationToken;',
+		'awaiting a distinct later server sample',
+		'observationToken <= m_iPlayerRestoreOwnerAckObservedToken',
+		'CampaignDebugSamplePhysicalResponseFoldbackPlayerRestore(',
+		'm_iPlayerRestoreStableSampleObservationToken = observationToken;',
+		'corrective full-transform reapply armed'
+)) {
+	if ($physicalResponseFoldbackRestoreBlock.IndexOf(
+			$physicalResponseRestoreStateEntry) -lt 0) {
+		throw "Physical-response retained player-restore state machine is incomplete: $physicalResponseRestoreStateEntry"
+	}
+}
+$physicalResponseRestoreClaimIndex = $physicalResponseFoldbackRestoreBlock.IndexOf(
+	'CampaignDebugClaimPhysicalResponseFoldbackPlayerRestoreRequest(')
+$physicalResponseRestoreAckPendingArmIndex = $physicalResponseFoldbackRestoreBlock.IndexOf(
+	'm_bPlayerRestoreOwnerAckPending = true;',
+	$physicalResponseRestoreClaimIndex)
+$physicalResponseRestoreRequestValidationIndex = $physicalResponseFoldbackRestoreBlock.IndexOf(
+	'if (m_iPlayerRestoreApplySequence <= 0',
+	$physicalResponseRestoreClaimIndex)
+$physicalResponseRestoreAckExactResetIndex = $physicalResponseFoldbackRestoreBlock.IndexOf(
+	'm_bPlayerRestoreOwnerAckExact = false;',
+	$physicalResponseRestoreAckPendingArmIndex)
+$physicalResponseRestoreDispatchTickIndex = $physicalResponseFoldbackRestoreBlock.IndexOf(
+	'm_iPlayerRestoreOwnerDispatchTick = System.GetTickCount();',
+	$physicalResponseRestoreAckExactResetIndex)
+$physicalResponseRestoreDispatchIndex = $physicalResponseFoldbackRestoreBlock.IndexOf(
+	'CampaignDebugApplyPhysicalResponseFoldbackPlayerRestore(',
+	$physicalResponseRestoreDispatchTickIndex)
+$physicalResponseRestoreAckPendingGateIndex = $physicalResponseFoldbackRestoreBlock.IndexOf(
+	'if (m_bPlayerRestoreOwnerAckPending',
+	$physicalResponseRestoreDispatchIndex)
+$physicalResponseRestoreAckElapsedIndex = $physicalResponseFoldbackRestoreBlock.IndexOf(
+	'System.GetTickCount(m_iPlayerRestoreOwnerDispatchTick)',
+	$physicalResponseRestoreAckPendingGateIndex)
+$physicalResponseRestoreAckTimeoutIndex = $physicalResponseFoldbackRestoreBlock.IndexOf(
+	'>= PLAYER_RESTORE_OWNER_ACK_TIMEOUT_MS',
+	$physicalResponseRestoreAckElapsedIndex)
+$physicalResponseRestoreAckTimeoutReapplyIndex = $physicalResponseFoldbackRestoreBlock.IndexOf(
+	'ArmPlayerRestoreReapply(',
+	$physicalResponseRestoreAckTimeoutIndex)
+$physicalResponseRestoreAckFailureIndex = $physicalResponseFoldbackRestoreBlock.IndexOf(
+	'if (!m_bPlayerRestoreOwnerAckExact)',
+	$physicalResponseRestoreAckTimeoutReapplyIndex)
+$physicalResponseRestoreAckObservationIndex = $physicalResponseFoldbackRestoreBlock.IndexOf(
+	'm_iPlayerRestoreOwnerAckObservedToken = observationToken;',
+	$physicalResponseRestoreAckFailureIndex)
+$physicalResponseRestoreDistinctSampleGateIndex = $physicalResponseFoldbackRestoreBlock.IndexOf(
+	'observationToken <= m_iPlayerRestoreOwnerAckObservedToken',
+	$physicalResponseRestoreAckObservationIndex)
+$physicalResponseRestoreSampleIndex = $physicalResponseFoldbackRestoreBlock.IndexOf(
+	'CampaignDebugSamplePhysicalResponseFoldbackPlayerRestore(',
+	$physicalResponseRestoreDistinctSampleGateIndex)
+if ($physicalResponseRestoreClaimIndex -lt 0 -or
+	$physicalResponseRestoreRequestValidationIndex -le $physicalResponseRestoreClaimIndex -or
+	$physicalResponseRestoreAckPendingArmIndex -le $physicalResponseRestoreRequestValidationIndex -or
+	$physicalResponseRestoreAckExactResetIndex -le $physicalResponseRestoreAckPendingArmIndex -or
+	$physicalResponseRestoreDispatchTickIndex -le $physicalResponseRestoreAckExactResetIndex -or
+	$physicalResponseRestoreDispatchIndex -le $physicalResponseRestoreDispatchTickIndex -or
+	$physicalResponseRestoreAckPendingGateIndex -le $physicalResponseRestoreDispatchIndex -or
+	$physicalResponseRestoreAckElapsedIndex -le $physicalResponseRestoreAckPendingGateIndex -or
+	$physicalResponseRestoreAckTimeoutIndex -le $physicalResponseRestoreAckElapsedIndex -or
+	$physicalResponseRestoreAckTimeoutReapplyIndex -le $physicalResponseRestoreAckTimeoutIndex -or
+	$physicalResponseRestoreAckFailureIndex -le $physicalResponseRestoreAckTimeoutReapplyIndex -or
+	$physicalResponseRestoreAckObservationIndex -le $physicalResponseRestoreAckFailureIndex -or
+	$physicalResponseRestoreDistinctSampleGateIndex -le $physicalResponseRestoreAckObservationIndex -or
+	$physicalResponseRestoreSampleIndex -le $physicalResponseRestoreDistinctSampleGateIndex) {
+	throw 'Physical-response restore must claim and arm request identity plus a real-time acknowledgement deadline before dispatch, timeout to a fresh request, accept an exact owner acknowledgement, then wait for a distinct later server sample.'
+}
+$physicalResponseRestoreObservationGateIndex = $physicalResponseFoldbackRestoreBlock.IndexOf(
+	'if (m_iPlayerRestoreLastAttemptObservationToken == observationToken)')
+$physicalResponseRestoreObservationGateReturnIndex = $physicalResponseFoldbackRestoreBlock.IndexOf(
+	'return false;',
+	$physicalResponseRestoreObservationGateIndex)
+$physicalResponseRestoreObservationClaimIndex = $physicalResponseFoldbackRestoreBlock.IndexOf(
+	'm_iPlayerRestoreLastAttemptObservationToken = observationToken;',
+	$physicalResponseRestoreObservationGateReturnIndex)
+if ($physicalResponseRestoreObservationGateIndex -lt 0 -or
+	$physicalResponseRestoreObservationGateReturnIndex -le $physicalResponseRestoreObservationGateIndex -or
+	$physicalResponseRestoreObservationClaimIndex -le $physicalResponseRestoreObservationGateReturnIndex -or
+	$physicalResponseRestoreClaimIndex -le $physicalResponseRestoreObservationClaimIndex -or
+	$physicalResponseRestoreAckTimeoutReapplyIndex -le $physicalResponseRestoreObservationClaimIndex) {
+	throw 'Physical-response apply, timeout rearm, acknowledgement observation, and stable sampling must mutate at most once per observation token.'
+}
+foreach ($physicalResponseClaimEntry in @(
+		'm_iCampaignDebugPhysicalResponseRestoreRequestSequence++;',
+		'restoreRequestId = string.Format(',
+		'physical_response_restore',
+		'return m_iCampaignDebugPhysicalResponseRestoreRequestSequence;'
+)) {
+	if ($physicalResponseFoldbackPlayerClaimBlock.IndexOf(
+			$physicalResponseClaimEntry) -lt 0) {
+		throw "Physical-response restore request identity claim is incomplete: $physicalResponseClaimEntry"
+	}
+}
+foreach ($physicalResponseAckAcceptEntry in @(
+		'!m_bPlayerRestoreOwnerAckPending',
+		'playerId != m_iPlayerId',
+		'restoreRequestId != m_sPlayerRestoreRequestId',
+		'applySequence != m_iPlayerRestoreApplySequence',
+		'actualPlayerReplicationId',
+		'== m_PlayerReplicationIdBeforeFoldback',
+		'bool ownerTransformMetricExact = ownerMaximumTransformDelta >= 0.0',
+		'<= PLAYER_RESTORE_TRANSFORM_TOLERANCE_METERS;',
+		'm_iPlayerRestoreOwnerAckSequence = applySequence;',
+		'm_bPlayerRestoreOwnerAckPending = false;',
+		'm_iPlayerRestoreOwnerDispatchTick = -1;',
+		'= ownerTransformExact && ownerTransformMetricExact',
+		'&& replicationExact;'
+)) {
+	if ($physicalResponseFoldbackAckAcceptBlock.IndexOf(
+			$physicalResponseAckAcceptEntry) -lt 0) {
+		throw "Physical-response owner acknowledgement exact-match gate is incomplete: $physicalResponseAckAcceptEntry"
+	}
+}
+foreach ($physicalResponseAckReceiveEntry in @(
+		'm_CampaignDebugPhysicalResponseFoldbackRestoreContext',
+		'CampaignDebugValidatePhysicalResponseFoldbackPlayer(',
+		'context.AcceptPlayerRestoreOwnerAcknowledgement(',
+		'authoritativePlayerId',
+		'restoreRequestId',
+		'applySequence'
+)) {
+	if ($physicalResponseFoldbackPlayerAckReceiveBlock.IndexOf(
+			$physicalResponseAckReceiveEntry) -lt 0) {
+		throw "Physical-response coordinator acknowledgement gate is incomplete: $physicalResponseAckReceiveEntry"
+	}
+}
+$physicalResponseAckSessionValidationIndex = $physicalResponseFoldbackPlayerAckReceiveBlock.IndexOf(
+	'CampaignDebugValidatePhysicalResponseFoldbackPlayer(')
+$physicalResponseAckAcceptIndex = $physicalResponseFoldbackPlayerAckReceiveBlock.IndexOf(
+	'context.AcceptPlayerRestoreOwnerAcknowledgement(',
+	$physicalResponseAckSessionValidationIndex)
+if ($physicalResponseAckSessionValidationIndex -lt 0 -or
+	$physicalResponseAckAcceptIndex -le $physicalResponseAckSessionValidationIndex) {
+	throw 'Physical-response acknowledgement ingress must validate the exact live captured player session before latching request/sequence evidence.'
+}
+$physicalResponseAckRejectedIndex = $physicalResponseFoldbackRestoreBlock.IndexOf(
+	'if (!m_bPlayerRestoreOwnerAckExact)')
+$physicalResponseAckRejectedReapplyIndex = $physicalResponseFoldbackRestoreBlock.IndexOf(
+	'ArmPlayerRestoreReapply(',
+	$physicalResponseAckRejectedIndex)
+if ($physicalResponseAckRejectedIndex -lt 0 -or
+	$physicalResponseAckRejectedReapplyIndex -le $physicalResponseAckRejectedIndex -or
+	$physicalResponseFoldbackReapplyBlock.IndexOf(
+		'm_bPlayerRestoreApplied = false;') -lt 0 -or
+	$physicalResponseFoldbackReapplyBlock.IndexOf(
+		'm_bPlayerRestoreOwnerAckPending = false;') -lt 0 -or
+	$physicalResponseFoldbackReapplyBlock.IndexOf(
+		'm_iPlayerRestoreApplySequence = -1;') -lt 0 -or
+	$physicalResponseFoldbackReapplyBlock.IndexOf(
+		'm_iPlayerRestoreOwnerDispatchTick = -1;') -lt 0 -or
+	$physicalResponseFoldbackReapplyBlock.IndexOf(
+		'm_sPlayerRestoreRequestId = "";') -lt 0) {
+	throw 'A failed or timed-out physical-response owner acknowledgement must clear the active request, sequence, deadline, and pending state before arming a full-transform reapply.'
+}
+foreach ($physicalResponseDisconnectEntry in @(
+		'm_CampaignDebugPhysicalResponseFoldbackRestoreContext',
+		'.ObservePlayerDisconnected(playerId);',
+		'playerId == m_iPlayerId',
+		'm_bPlayerSessionCaptured',
+		'm_bPlayerRestoreOwned',
+		'!m_bPlayerRestored',
+		'm_bPlayerRestoreDisconnectObserved = true;'
+)) {
+	if (($physicalResponsePlayerDisconnectedBlock +
+		$physicalResponseFoldbackDisconnectBlock).IndexOf(
+			$physicalResponseDisconnectEntry) -lt 0) {
+		throw "Physical-response authoritative disconnect receipt is incomplete: $physicalResponseDisconnectEntry"
+	}
+}
+$physicalResponseDisconnectObserveIndex = $physicalResponsePlayerDisconnectedBlock.IndexOf(
+	'.ObservePlayerDisconnected(playerId);')
+$physicalResponseDisconnectFirstReturnIndex = $physicalResponsePlayerDisconnectedBlock.IndexOf(
+	'return;',
+	$physicalResponseDisconnectObserveIndex)
+$physicalResponseDisconnectRestoreReceiptIndex = $physicalResponseFoldbackRestoreBlock.IndexOf(
+	'bool sessionIrrecoverable = m_bPlayerRestoreDisconnectObserved;')
+$physicalResponseDisconnectFallbackGateIndex = $physicalResponseFoldbackRestoreBlock.IndexOf(
+	'if (!sessionIrrecoverable)',
+	$physicalResponseDisconnectRestoreReceiptIndex)
+$physicalResponseDisconnectFallbackIndex = $physicalResponseFoldbackRestoreBlock.IndexOf(
+	'CampaignDebugIsPhysicalResponseFoldbackPlayerSessionIrrecoverable(',
+	$physicalResponseDisconnectFallbackGateIndex)
+$physicalResponseDisconnectTerminalIndex = $physicalResponseFoldbackRestoreBlock.IndexOf(
+	'&& sessionIrrecoverable)',
+	$physicalResponseDisconnectFallbackIndex)
+if ($physicalResponseDisconnectObserveIndex -lt 0 -or
+	$physicalResponseDisconnectFirstReturnIndex -le $physicalResponseDisconnectObserveIndex -or
+	$physicalResponseDisconnectRestoreReceiptIndex -lt 0 -or
+	$physicalResponseDisconnectFallbackGateIndex -le $physicalResponseDisconnectRestoreReceiptIndex -or
+	$physicalResponseDisconnectFallbackIndex -le $physicalResponseDisconnectFallbackGateIndex -or
+	$physicalResponseDisconnectTerminalIndex -le $physicalResponseDisconnectFallbackIndex) {
+	throw 'Physical-response disconnect must latch the exact owned player event before coordinator early returns and use it as positive terminal proof ahead of the fail-closed resolver fallback.'
+}
+foreach ($physicalResponseSessionLossEntry in @(
+		'playerId == m_iCampaignDebugPlayerId',
+		'playerEntity == expectedPlayer',
+		'replication.Id() == expectedReplicationId',
+		'bool capturedPresent = expectedPlayer != null;',
+		'bool capturedDeleted = capturedPresent && expectedPlayer.IsDeleted();',
+		'bool capturedDead',
+		'bool playerAvailable = playerEntity && !playerEntity.IsDeleted();',
+		'bool currentLiving',
+		'bool resolvedPointerReplacement = currentLiving',
+		'bool resolvedReplicationReplacement = currentLiving && pointerExact',
+		'bool irrecoverable',
+		'return irrecoverable;'
+)) {
+	if ($physicalResponseFoldbackPlayerSessionLossBlock.IndexOf(
+			$physicalResponseSessionLossEntry) -lt 0) {
+		throw "Physical-response irrecoverable session-loss classification is incomplete: $physicalResponseSessionLossEntry"
+	}
+}
+$physicalResponseCapturedDeleteGuardIndex = $physicalResponseFoldbackPlayerSessionLossBlock.IndexOf(
+	'bool capturedDeleted = capturedPresent && expectedPlayer.IsDeleted();')
+$physicalResponseCapturedComponentIndex = $physicalResponseFoldbackPlayerSessionLossBlock.IndexOf(
+	'expectedPlayer.FindComponent(CharacterControllerComponent)',
+	$physicalResponseCapturedDeleteGuardIndex)
+$physicalResponseCurrentResolveIndex = $physicalResponseFoldbackPlayerSessionLossBlock.IndexOf(
+	'ResolveControlledPlayerEntity(playerId)')
+$physicalResponseCurrentDeleteGuardIndex = $physicalResponseFoldbackPlayerSessionLossBlock.IndexOf(
+	'bool playerAvailable = playerEntity && !playerEntity.IsDeleted();',
+	$physicalResponseCurrentResolveIndex)
+$physicalResponseCurrentComponentIndex = $physicalResponseFoldbackPlayerSessionLossBlock.IndexOf(
+	'playerEntity.FindComponent(BaseRplComponent)',
+	$physicalResponseCurrentDeleteGuardIndex)
+$physicalResponseIrrecoverablePredicate = [regex]::Match(
+	$physicalResponseFoldbackPlayerSessionLossBlock,
+	'(?s)bool irrecoverable\s*=\s*(?<predicate>.*?);')
+if ($physicalResponseCapturedDeleteGuardIndex -lt 0 -or
+	$physicalResponseCapturedComponentIndex -le $physicalResponseCapturedDeleteGuardIndex -or
+	$physicalResponseCurrentResolveIndex -lt 0 -or
+	$physicalResponseCurrentDeleteGuardIndex -le $physicalResponseCurrentResolveIndex -or
+	$physicalResponseCurrentComponentIndex -le $physicalResponseCurrentDeleteGuardIndex -or
+	!$physicalResponseIrrecoverablePredicate.Success -or
+	$physicalResponseIrrecoverablePredicate.Groups['predicate'].Value.IndexOf(
+		'resolvedPointerReplacement') -lt 0 -or
+	$physicalResponseIrrecoverablePredicate.Groups['predicate'].Value.IndexOf(
+		'resolvedReplicationReplacement') -lt 0 -or
+	$physicalResponseIrrecoverablePredicate.Groups['predicate'].Value -match
+		'!(?:playerAvailable|currentLiving|playerEntity|replication)') {
+	throw 'Physical-response terminal session loss must deletion-guard dereferences and fail closed only for a missing/deleted/dead capture or a positively resolved live pointer/replication replacement; unresolved current state remains retryable.'
+}
+$physicalResponseSessionLossCheckIndex = $physicalResponseFoldbackRestoreBlock.IndexOf(
+	'CampaignDebugIsPhysicalResponseFoldbackPlayerSessionIrrecoverable(')
+$physicalResponseSessionLostLatchIndex = $physicalResponseFoldbackRestoreBlock.IndexOf(
+	'm_bPlayerRestoreSessionLost = true;',
+	$physicalResponseSessionLossCheckIndex)
+$physicalResponseSessionOwnershipRelinquishIndex = $physicalResponseFoldbackRestoreBlock.IndexOf(
+	'm_bPlayerRestoreOwned = false;',
+	$physicalResponseSessionLostLatchIndex)
+$physicalResponseSessionDispatchTickResetIndex = $physicalResponseFoldbackRestoreBlock.IndexOf(
+	'm_iPlayerRestoreOwnerDispatchTick = -1;',
+	$physicalResponseSessionOwnershipRelinquishIndex)
+$physicalResponseSessionLossReturnIndex = $physicalResponseFoldbackRestoreBlock.IndexOf(
+	'return true;',
+	$physicalResponseSessionDispatchTickResetIndex)
+if ($physicalResponseSessionLossCheckIndex -lt 0 -or
+	$physicalResponseSessionLostLatchIndex -le $physicalResponseSessionLossCheckIndex -or
+	$physicalResponseSessionOwnershipRelinquishIndex -le $physicalResponseSessionLostLatchIndex -or
+	$physicalResponseSessionDispatchTickResetIndex -le $physicalResponseSessionOwnershipRelinquishIndex -or
+	$physicalResponseSessionLossReturnIndex -le $physicalResponseSessionDispatchTickResetIndex -or
+	$physicalResponseFoldbackPlayerAssertionBlock.IndexOf(
+		'CampaignDebugStatus(context.m_bPlayerRestored)') -lt 0 -or
+	$physicalResponseFoldbackPlayerAssertionBlock.IndexOf(
+		'context.m_bPlayerRestoreSessionLost') -lt 0) {
+	throw 'Irrecoverable physical-response session loss must relinquish nonexistent/replaced ownership while recording a failed restore assertion.'
+}
+if ($physicalResponseFoldbackRestoreBlock.IndexOf(
+		'm_bPlayerRestored = coordinator.CampaignDebugApply') -ge 0 -or
+	$physicalResponseFoldbackRetentionBlock.IndexOf(
+		'(m_bNearTeleport || m_bFarTeleport)') -ge 0 -or
+	$physicalResponseFoldbackRetentionBlock.IndexOf(
+		'm_bPlayerRestoreOwned') -lt 0 -or
+	$physicalResponseFoldbackRetentionBlock.IndexOf(
+		'!m_bPlayerRestoreSessionLost') -lt 0) {
+	throw 'Physical-response restore must retain attempt-owned authority and forbid same-frame or confirmed-teleport-only release.'
+}
+$physicalResponseReleaseRestoreIndex = $physicalResponseFoldbackPlayerReleaseBlock.IndexOf(
+	'if (!context.RestorePlayer(this, observationToken))')
+$physicalResponseReleaseClearIndex = $physicalResponseFoldbackPlayerReleaseBlock.IndexOf(
+	'm_CampaignDebugPhysicalResponseFoldbackRestoreContext = null;',
+	$physicalResponseReleaseRestoreIndex)
+$physicalResponseReleaseRecordIndex = $physicalResponseFoldbackPlayerReleaseBlock.IndexOf(
+	'RecordCampaignDebugPhysicalResponseFoldbackPendingCase(context);',
+	$physicalResponseReleaseClearIndex)
+$physicalResponseReleaseSessionLossIndex = $physicalResponseFoldbackPlayerReleaseBlock.IndexOf(
+	'if (context.m_bPlayerRestoreSessionLost)',
+	$physicalResponseReleaseRecordIndex)
+$physicalResponseReleaseSessionLossErrorIndex = $physicalResponseFoldbackPlayerReleaseBlock.IndexOf(
+	'"ERROR"',
+	$physicalResponseReleaseSessionLossIndex)
+if ($physicalResponseReleaseRestoreIndex -lt 0 -or
+	$physicalResponseReleaseClearIndex -le $physicalResponseReleaseRestoreIndex -or
+	$physicalResponseReleaseRecordIndex -le $physicalResponseReleaseClearIndex -or
+	$physicalResponseReleaseSessionLossIndex -le $physicalResponseReleaseRecordIndex -or
+	$physicalResponseReleaseSessionLossErrorIndex -le $physicalResponseReleaseSessionLossIndex -or
+	$physicalResponseFoldbackPlayerRetryBlock.IndexOf(
+		'ReleaseCampaignDebugPhysicalResponseFoldbackPlayerRestore(') -lt 0 -or
+	$enemyTargetScoringCaseText.IndexOf(
+		'protected ref HST_CampaignDebugPhysicalResponseFoldbackDriveResult m_CampaignDebugPhysicalResponseFoldbackRestoreContext;') -lt 0) {
+	throw 'Physical-response player restore must retain one coordinator-owned retry context, then clear it before the centralized pending-case record and terminal-loss report.'
+}
+$physicalResponsePendingRecordOccurrences = [regex]::Matches(
+	$enemyTargetScoringCaseText,
+	'RecordCampaignDebugPhysicalResponseFoldbackPendingCase\(').Count
+if ($physicalResponsePendingRecordOccurrences -ne 2) {
+	throw "Physical-response pending-case recording must remain centralized in release: found $physicalResponsePendingRecordOccurrences definition/call occurrences."
+}
+$physicalResponseCancelLatchIndex = $physicalResponseCancelRequestBlock.IndexOf(
+	'm_bCampaignDebugCancellationPending = true;')
+$physicalResponseCancelReleaseIndex = $physicalResponseCancelRequestBlock.IndexOf(
+	'ReleaseCampaignDebugPhysicalResponseFoldbackPlayerRestore(',
+	$physicalResponseCancelLatchIndex)
+$physicalResponseCancelResumeIndex = $physicalResponseCancelRequestBlock.IndexOf(
+	'CompleteCampaignDebugCancellationAfterPhysicalResponsePlayerRestore()',
+	$physicalResponseCancelReleaseIndex)
+if ($physicalResponseCancelLatchIndex -lt 0 -or
+	$physicalResponseCancelReleaseIndex -le $physicalResponseCancelLatchIndex -or
+	$physicalResponseCancelResumeIndex -le $physicalResponseCancelReleaseIndex) {
+	throw 'Physical-response cancellation must latch before centralized restore/release and resume only after that release records the pending case.'
+}
+foreach ($requiredPhysicalResponseCancelResumeEntry in @(
+		'm_bCampaignDebugCancellationPending = false;',
+		'm_bCampaignDebugRunning = false;',
+		'm_sCampaignDebugPendingTerminalOutcome = "cancelled";',
+		'RestoreCampaignDebugStateSnapshot("run cancellation")'
+)) {
+	if ($physicalResponseCancelResumeBlock.IndexOf(
+			$requiredPhysicalResponseCancelResumeEntry) -lt 0) {
+		throw "Physical-response cancellation continuation is incomplete: $requiredPhysicalResponseCancelResumeEntry"
+	}
+}
+$physicalResponseCancelResumeLastAbortIndex = $physicalResponseCancelResumeBlock.IndexOf(
+	'AbortCampaignDebugPhase20CivilianPopulationProbe(')
+$physicalResponseCancelResumeLatchClearIndex = $physicalResponseCancelResumeBlock.IndexOf(
+	'm_bCampaignDebugCancellationPending = false;')
+$physicalResponseCancelResumeStopIndex = $physicalResponseCancelResumeBlock.IndexOf(
+	'm_bCampaignDebugRunning = false;',
+	$physicalResponseCancelResumeLatchClearIndex)
+if ($physicalResponseCancelResumeLastAbortIndex -lt 0 -or
+	$physicalResponseCancelResumeLatchClearIndex -le $physicalResponseCancelResumeLastAbortIndex -or
+	$physicalResponseCancelResumeStopIndex -le $physicalResponseCancelResumeLatchClearIndex) {
+	throw 'Physical-response cancellation intent must remain latched across every abort failure and clear only when cancellation commits.'
+}
+$physicalResponseRunnerCancelGateIndex = $physicalResponseRunnerBlock.IndexOf(
+	'if (m_bCampaignDebugCancellationPending)')
+$physicalResponseRunnerCancelReleaseIndex = $physicalResponseRunnerBlock.IndexOf(
+	'ReleaseCampaignDebugPhysicalResponseFoldbackPlayerRestore(',
+	$physicalResponseRunnerCancelGateIndex)
+$physicalResponseRunnerCancelResumeIndex = $physicalResponseRunnerBlock.IndexOf(
+	'CompleteCampaignDebugCancellationAfterPhysicalResponsePlayerRestore()',
+	$physicalResponseRunnerCancelReleaseIndex)
+$physicalResponseRunnerWaitIndex = $physicalResponseRunnerBlock.IndexOf(
+	'if (m_iCampaignDebugWaitSeconds > 0)')
+$physicalResponseRunnerBaselineIndex = $physicalResponseRunnerBlock.IndexOf(
+	'RunCampaignDebugBaselineReportStep()')
+if ($physicalResponseRunnerCancelGateIndex -lt 0 -or
+	$physicalResponseRunnerCancelReleaseIndex -le $physicalResponseRunnerCancelGateIndex -or
+	$physicalResponseRunnerCancelResumeIndex -le $physicalResponseRunnerCancelReleaseIndex -or
+	$physicalResponseRunnerWaitIndex -le $physicalResponseRunnerCancelResumeIndex -or
+	$physicalResponseRunnerBaselineIndex -le $physicalResponseRunnerWaitIndex) {
+	throw 'A retained physical-response cancellation must resume before wait handling or baseline-tail execution can advance the run.'
+}
+$physicalResponseRetryReleaseIndex = $physicalResponseFoldbackPlayerRetryBlock.IndexOf(
+	'ReleaseCampaignDebugPhysicalResponseFoldbackPlayerRestore(')
+$physicalResponseRetryCancelGateIndex = $physicalResponseFoldbackPlayerRetryBlock.IndexOf(
+	'if (m_bCampaignDebugCancellationPending)',
+	$physicalResponseRetryReleaseIndex)
+$physicalResponseRetryCancelResumeIndex = $physicalResponseFoldbackPlayerRetryBlock.IndexOf(
+	'CompleteCampaignDebugCancellationAfterPhysicalResponsePlayerRestore()',
+	$physicalResponseRetryCancelGateIndex)
+if ($physicalResponseRetryReleaseIndex -lt 0 -or
+	$physicalResponseRetryCancelGateIndex -le $physicalResponseRetryReleaseIndex -or
+	$physicalResponseRetryCancelResumeIndex -le $physicalResponseRetryCancelGateIndex -or
+	$enemyTargetScoringCaseText.IndexOf(
+		'protected bool m_bCampaignDebugCancellationPending;') -lt 0) {
+	throw 'Ordinary-frame physical-response recovery must use centralized release/record and then resume any latched cancellation.'
+}
+$physicalResponseStateRetryReleaseIndex = `
+	$physicalResponseStateRestoreRetryBlock.IndexOf(
+		'ReleaseCampaignDebugPhysicalResponseFoldbackPlayerRestore(')
+$physicalResponseStateRetryRestoreIndex = `
+	$physicalResponseStateRestoreRetryBlock.IndexOf(
+		'RestoreCampaignDebugStateSnapshot(')
+if ($physicalResponseStateRetryReleaseIndex -lt 0 -or
+	$physicalResponseStateRetryRestoreIndex -le $physicalResponseStateRetryReleaseIndex) {
+	throw 'Retained physical-response player restoration must close before an ordinary-frame isolated-state restore retry.'
+}
+$physicalResponseBaselinePendingIndex = `
+	$physicalResponseBaselineRunnerBlock.IndexOf(
+		'= m_CampaignDebugPhysicalResponseFoldbackRestoreContext;')
+$physicalResponseBaselineReleaseIndex = `
+	$physicalResponseBaselineRunnerBlock.IndexOf(
+		'ReleaseCampaignDebugPhysicalResponseFoldbackPlayerRestore(',
+		$physicalResponseBaselinePendingIndex)
+$physicalResponseBaselineTailIndex = `
+	$physicalResponseBaselineRunnerBlock.IndexOf(
+		'RunCampaignDebugBaselineReportTailStep()',
+		$physicalResponseBaselineReleaseIndex)
+$physicalResponseBaselineCaseIndex = `
+	$physicalResponseBaselineRunnerBlock.IndexOf(
+		'BuildCampaignDebugPhysicalResponseFoldbackCase()')
+if ($physicalResponseBaselinePendingIndex -lt 0 -or
+	$physicalResponseBaselineReleaseIndex -le $physicalResponseBaselinePendingIndex -or
+	$physicalResponseBaselineTailIndex -le $physicalResponseBaselineReleaseIndex -or
+	$physicalResponseBaselineCaseIndex -le $physicalResponseBaselineTailIndex -or
+	$physicalResponseBaselineTailBlock.IndexOf(
+		'BuildCampaignDebugGarrisonFoldbackCase()') -lt 0 -or
+	$physicalResponseBaselineRunnerBlock.IndexOf(
+		'BuildCampaignDebugGarrisonFoldbackCase()') -ge 0) {
+	throw 'Physical-response later-sample restoration must use centralized release/record before the baseline tail can run.'
+}
+foreach ($physicalResponseCallerRecordBlock in @(
+		$physicalResponseCancelRequestBlock,
+		$physicalResponseRunnerBlock,
+		$physicalResponseFoldbackPlayerRetryBlock,
+		$physicalResponseBaselineRunnerBlock,
+		$physicalResponseStateRestoreRetryBlock
+)) {
+	if ($physicalResponseCallerRecordBlock.IndexOf(
+			'RecordCampaignDebugPhysicalResponseFoldbackPendingCase(') -ge 0) {
+		throw 'Physical-response callers must not record a released pending case; release owns clear-before-record publication.'
 	}
 }
 if ($physicalResponseFoldbackBridgeBlock.IndexOf(
@@ -22259,7 +23303,7 @@ foreach ($schema61DebugRepublishEntry in @(
 		throw "Schema-61 Campaign Debug live-state restore must synchronize and publish the restored projection: $schema61DebugRepublishEntry"
 	}
 }
-$schema61DebugCancelBlock = Get-ScriptMethodBlock $schema61CoordinatorText 'string RequestAdminCancelCampaignDebug('
+$schema61DebugCancelBlock = Get-ScriptMethodBlock $schema61CoordinatorText 'protected string CompleteCampaignDebugCancellationAfterPhysicalResponsePlayerRestore()'
 $schema61DebugCompleteBlock = Get-ScriptMethodBlock $schema61CoordinatorText 'protected void CompleteCampaignDebugRun('
 foreach ($schema61DebugRestoreRoute in @(
 	@($schema61DebugCancelBlock, 'RestoreCampaignDebugStateSnapshot("run cancellation")', 'campaign debug cancellation restored live state'),
@@ -28056,7 +29100,8 @@ if ($ambientPhase20CleanupAssertionsBlock.IndexOf('context.m_bAmbientCleanupExac
 	$ambientPhase20CleanupAssertionsBlock.IndexOf('"PASS"') -ge 0) {
 	throw "Phase-8 Phase-20 cleanup assertions must derive PASS from retained exact cleanup state, never a literal status"
 }
-$ambientPhase20CancelBlock = Get-ScriptMethodBlock $ambientCoordinatorText 'string RequestAdminCancelCampaignDebug('
+$ambientPhase20CancelRequestBlock = Get-ScriptMethodBlock $ambientCoordinatorText 'string RequestAdminCancelCampaignDebug('
+$ambientPhase20CancelBlock = Get-ScriptMethodBlock $ambientCoordinatorText 'protected string CompleteCampaignDebugCancellationAfterPhysicalResponsePlayerRestore()'
 $ambientPhase20AdminCleanupBlock = Get-ScriptMethodBlock $ambientCoordinatorText 'string RequestAdminCleanupCampaignDebug('
 $ambientPhase20RestoreBlock = Get-ScriptMethodBlock $ambientCoordinatorText 'protected HST_CampaignDebugCaseResult RestoreCampaignDebugStateSnapshot('
 $ambientPhase20CompleteBlock = Get-ScriptMethodBlock $ambientCoordinatorText 'protected void CompleteCampaignDebugRun('
@@ -28107,7 +29152,7 @@ if ($ambientPhase20FatalStopBlock.IndexOf('m_bCampaignDebugRunning = false;') -l
 	$ambientPhase20FatalStopBlock.IndexOf('m_State =') -ge 0) {
 	throw "Phase-8 Phase-20 fatal retained-owner stop must defer terminal publication until exact restoration without swapping the owned isolated state"
 }
-if ($ambientPhase20CancelBlock.IndexOf('!m_CampaignDebugPhase20CivilianPopulationContext') -lt 0 -or
+if ($ambientPhase20CancelRequestBlock.IndexOf('!m_CampaignDebugPhase20CivilianPopulationContext') -lt 0 -or
 	$ambientPhase20AdminCleanupBlock.IndexOf('AbortCampaignDebugPhase20CivilianPopulationProbe(') -lt 0 -or
 	$ambientPhase20ContextCleanupBlock.IndexOf('GetCampaignDebugCleanupObservationToken()') -lt 0 -or
 	$ambientPhase20ContextCleanupBlock.IndexOf('m_iLastCleanupAttemptSecond') -lt 0 -or
@@ -28310,14 +29355,172 @@ $missionSweepBeginBlock = Get-ScriptMethodBlock $ambientCoordinatorText `
 	'protected HST_CampaignDebugMissionSweepContext BeginCampaignDebugMissionSweepStartCorrelation('
 $missionSweepCompleteBlock = Get-ScriptMethodBlock $ambientCoordinatorText `
 	'protected void CompleteCampaignDebugMissionSweepStartCorrelation('
+$missionSweepFullPartitionValidatorBlock = Get-ScriptMethodBlock `
+	$ambientCoordinatorText `
+	'protected bool ValidateCampaignDebugMissionSweepFullPartitionExact('
 $missionSweepCleanupBlock = Get-ScriptMethodBlock $ambientCoordinatorText `
 	'protected bool CleanupCampaignDebugMissionSweepOwnedInstances('
+$missionSweepOwnedMissionValidatorBlock = Get-ScriptMethodBlock `
+	$ambientCoordinatorText `
+	'protected bool ValidateCampaignDebugMissionSweepOwnedMissionExact('
 $missionSweepRunnerBlock = Get-ScriptMethodBlock $ambientCoordinatorText `
 	'protected void RunCampaignDebugMissionSweepStep()'
+$missionSweepAbortBlock = Get-ScriptMethodBlock $ambientCoordinatorText `
+	'protected bool AbortCampaignDebugMissionSweepContext('
+$missionSweepFatalStopBlock = Get-ScriptMethodBlock $ambientCoordinatorText `
+	'protected void StopCampaignDebugRunAfterFatalMissionSweepRetention('
+if ([string]::IsNullOrEmpty($missionSweepBeginBlock) -or
+	[string]::IsNullOrEmpty($missionSweepCompleteBlock) -or
+	[string]::IsNullOrEmpty($missionSweepFullPartitionValidatorBlock) -or
+	[string]::IsNullOrEmpty($missionSweepOwnedMissionValidatorBlock) -or
+	[string]::IsNullOrEmpty($missionSweepRunnerBlock)) {
+	throw 'Mission-sweep receipt and mutation-boundary method extraction is incomplete.'
+}
+foreach ($missionSweepPreStartReceiptEntry in @(
+		'ref array<string> m_aPreStartMissionInstanceIds = {};',
+		'ref array<ref HST_ActiveMissionState> m_aPreStartMissionPointers = {};',
+		'ref array<string> m_aPreStartMissionDefinitionIds = {};'
+)) {
+	if ($ambientDebugResultText.IndexOf($missionSweepPreStartReceiptEntry) -lt 0) {
+		throw "Mission-sweep pre-start frozen receipt storage is incomplete: $missionSweepPreStartReceiptEntry"
+	}
+}
+foreach ($missionSweepPreStartCaptureEntry in @(
+		'context.m_aPreStartMissionInstanceIds.Contains(',
+		'context.m_aPreStartMissionInstanceIds.Insert(',
+		'context.m_aPreStartMissionPointers.Insert(mission);',
+		'context.m_aPreStartMissionDefinitionIds.Insert(',
+		'mission.m_sInstanceId',
+		'mission.m_sMissionId',
+		'context.m_iPreStartMissionInstanceCount',
+		'= context.m_aPreStartMissionInstanceIds.Count();',
+		'context.m_bGlobalMissionIdentityExact = false;'
+)) {
+	if ($missionSweepBeginBlock.IndexOf($missionSweepPreStartCaptureEntry) -lt 0) {
+		throw "Mission-sweep pre-start ID/pointer/definition capture is incomplete: $missionSweepPreStartCaptureEntry"
+	}
+}
+$missionSweepPreStartContainsIndex = $missionSweepBeginBlock.IndexOf(
+	'context.m_aPreStartMissionInstanceIds.Contains(')
+$missionSweepPreStartIdCaptureIndex = $missionSweepBeginBlock.IndexOf(
+	'context.m_aPreStartMissionInstanceIds.Insert(',
+	$missionSweepPreStartContainsIndex)
+$missionSweepPreStartPointerCaptureIndex = $missionSweepBeginBlock.IndexOf(
+	'context.m_aPreStartMissionPointers.Insert(mission);',
+	$missionSweepPreStartIdCaptureIndex)
+$missionSweepPreStartDefinitionCaptureIndex = $missionSweepBeginBlock.IndexOf(
+	'context.m_aPreStartMissionDefinitionIds.Insert(',
+	$missionSweepPreStartPointerCaptureIndex)
+$missionSweepPreStartFrozenCountFieldIndex = $missionSweepBeginBlock.IndexOf(
+	'context.m_iPreStartMissionInstanceCount',
+	$missionSweepPreStartDefinitionCaptureIndex)
+$missionSweepPreStartFrozenCountAssignmentIndex = $missionSweepBeginBlock.IndexOf(
+	'= context.m_aPreStartMissionInstanceIds.Count();',
+	$missionSweepPreStartFrozenCountFieldIndex)
+if ($missionSweepPreStartContainsIndex -lt 0 -or
+	$missionSweepPreStartIdCaptureIndex -le $missionSweepPreStartContainsIndex -or
+	$missionSweepPreStartPointerCaptureIndex -le $missionSweepPreStartIdCaptureIndex -or
+	$missionSweepPreStartDefinitionCaptureIndex -le $missionSweepPreStartPointerCaptureIndex -or
+	$missionSweepPreStartFrozenCountFieldIndex -le $missionSweepPreStartDefinitionCaptureIndex -or
+	$missionSweepPreStartFrozenCountAssignmentIndex -le $missionSweepPreStartFrozenCountFieldIndex) {
+	throw 'Mission-sweep pre-start correlation must freeze each unique mission ID, pointer, definition, and final cardinality together before start.'
+}
+foreach ($missionSweepPreStartValidationEntry in @(
+		'for (int preStartIndex;',
+		'= context.m_aPreStartMissionInstanceIds[preStartIndex];',
+		'= context.m_aPreStartMissionPointers[preStartIndex];',
+		'= context.m_aPreStartMissionDefinitionIds[preStartIndex];',
+		'int retainedIdClaims;',
+		'int retainedPointerClaims;',
+		'retainedMission.m_sInstanceId',
+		'retainedMission == preStartMission',
+		'retainedIdClaims++;',
+		'retainedPointerClaims++;',
+		'!preStartMission || preStartMissionId.IsEmpty()',
+		'retainedIdClaims != 1 || retainedPointerClaims != 1',
+		'm_State.FindActiveMission(preStartInstanceId)',
+		'!= preStartMission',
+		'preStartMission.m_sInstanceId != preStartInstanceId',
+		'preStartMission.m_sMissionId != preStartMissionId'
+)) {
+	if ($missionSweepCompleteBlock.IndexOf($missionSweepPreStartValidationEntry) -lt 0) {
+		throw "Mission-sweep pre-start frozen receipt validation is incomplete: $missionSweepPreStartValidationEntry"
+	}
+}
+$missionSweepPreStartFrozenCountPatternTemplate = `
+	'context\.m_aPreStart{0}\.Count\(\)\s*!=\s*context\.m_iPreStartMissionInstanceCount'
+foreach ($missionSweepPreStartArraySuffix in @(
+		'MissionInstanceIds',
+		'MissionPointers',
+		'MissionDefinitionIds'
+)) {
+	$missionSweepPreStartFrozenCountPattern = [string]::Format(
+		$missionSweepPreStartFrozenCountPatternTemplate,
+		$missionSweepPreStartArraySuffix)
+	$missionSweepPreStartFrozenCountMatches = [regex]::Matches(
+		$missionSweepCompleteBlock,
+		$missionSweepPreStartFrozenCountPattern)
+	if ($missionSweepPreStartFrozenCountMatches.Count -ne 1) {
+		throw "Mission-sweep pre-start frozen cardinality must compare $missionSweepPreStartArraySuffix exactly once with the captured count."
+	}
+}
+$missionSweepPreStartCountValidationIndex = $missionSweepCompleteBlock.IndexOf(
+	'context.m_aPreStartMissionInstanceIds.Count()')
+$missionSweepPreStartValidationLoopIndex = $missionSweepCompleteBlock.IndexOf(
+	'for (int preStartIndex;',
+	$missionSweepPreStartCountValidationIndex)
+$missionSweepPreStartIdReceiptReadIndex = $missionSweepCompleteBlock.IndexOf(
+	'= context.m_aPreStartMissionInstanceIds[preStartIndex];',
+	$missionSweepPreStartValidationLoopIndex)
+$missionSweepPreStartPointerReceiptReadIndex = $missionSweepCompleteBlock.IndexOf(
+	'= context.m_aPreStartMissionPointers[preStartIndex];',
+	$missionSweepPreStartIdReceiptReadIndex)
+$missionSweepPreStartDefinitionReceiptReadIndex = $missionSweepCompleteBlock.IndexOf(
+	'= context.m_aPreStartMissionDefinitionIds[preStartIndex];',
+	$missionSweepPreStartPointerReceiptReadIndex)
+$missionSweepPreStartClaimScanIndex = $missionSweepCompleteBlock.IndexOf(
+	'foreach (HST_ActiveMissionState retainedMission',
+	$missionSweepPreStartDefinitionReceiptReadIndex)
+$missionSweepPreStartUniqueClaimValidationIndex = $missionSweepCompleteBlock.IndexOf(
+	'retainedIdClaims != 1 || retainedPointerClaims != 1',
+	$missionSweepPreStartClaimScanIndex)
+$missionSweepPreStartCanonicalValidationIndex = $missionSweepCompleteBlock.IndexOf(
+	'm_State.FindActiveMission(preStartInstanceId)',
+	$missionSweepPreStartUniqueClaimValidationIndex)
+$missionSweepPreStartInstanceIdentityValidationIndex = $missionSweepCompleteBlock.IndexOf(
+	'preStartMission.m_sInstanceId != preStartInstanceId',
+	$missionSweepPreStartCanonicalValidationIndex)
+$missionSweepPreStartDefinitionIdentityValidationIndex = $missionSweepCompleteBlock.IndexOf(
+	'preStartMission.m_sMissionId != preStartMissionId',
+	$missionSweepPreStartInstanceIdentityValidationIndex)
+$missionSweepStartCorrelationCertificationIndex = $missionSweepCompleteBlock.IndexOf(
+	'context.m_bStartCorrelationExact =',
+	$missionSweepPreStartDefinitionIdentityValidationIndex)
+if ($missionSweepPreStartCountValidationIndex -lt 0 -or
+	$missionSweepPreStartValidationLoopIndex -le $missionSweepPreStartCountValidationIndex -or
+	$missionSweepPreStartIdReceiptReadIndex -le $missionSweepPreStartValidationLoopIndex -or
+	$missionSweepPreStartPointerReceiptReadIndex -le $missionSweepPreStartIdReceiptReadIndex -or
+	$missionSweepPreStartDefinitionReceiptReadIndex -le $missionSweepPreStartPointerReceiptReadIndex -or
+	$missionSweepPreStartClaimScanIndex -le $missionSweepPreStartDefinitionReceiptReadIndex -or
+	$missionSweepPreStartUniqueClaimValidationIndex -le $missionSweepPreStartClaimScanIndex -or
+	$missionSweepPreStartCanonicalValidationIndex -le $missionSweepPreStartUniqueClaimValidationIndex -or
+	$missionSweepPreStartInstanceIdentityValidationIndex -le $missionSweepPreStartCanonicalValidationIndex -or
+	$missionSweepPreStartDefinitionIdentityValidationIndex -le $missionSweepPreStartInstanceIdentityValidationIndex -or
+	$missionSweepStartCorrelationCertificationIndex -le $missionSweepPreStartDefinitionIdentityValidationIndex) {
+	throw 'Mission-sweep start correlation must validate every pre-start ID/pointer/definition receipt before certifying the post-minus-pre owner.'
+}
 foreach ($missionSweepCorrelationEntry in @(
 	'm_State.m_aActiveMissions',
 	'm_aPreStartMissionInstanceIds',
+	'm_aPreStartMissionPointers',
+	'm_aPreStartMissionDefinitionIds',
 	'm_aOwnedNewMissionInstanceIds',
+	'm_aOwnedNewMissionPointers',
+	'm_aOwnedNewMissionDefinitionIds',
+	'm_aOwnedNewMissionCleanupMutationStarted',
+	'context.m_aOwnedNewMissionPointers.Insert(mission);',
+	'context.m_aOwnedNewMissionDefinitionIds.Insert(',
+	'context.m_aOwnedNewMissionCleanupMutationStarted.Insert(false);',
 	'm_bGlobalMissionIdentityExact',
 	'm_iPostStartNewMissionInstanceCount == 1',
 	'IsCampaignDebugCurrentRunMissionInstance(',
@@ -28330,10 +29533,67 @@ foreach ($missionSweepCorrelationEntry in @(
 		throw "Mission-sweep exact global start correlation is incomplete: $missionSweepCorrelationEntry"
 	}
 }
+$missionSweepPreStartIdMembershipIndex = $missionSweepCompleteBlock.IndexOf(
+	'bool preStartIdKnown')
+$missionSweepPreStartPointerMembershipIndex = $missionSweepCompleteBlock.IndexOf(
+	'bool preStartPointerKnown',
+	$missionSweepPreStartIdMembershipIndex)
+$missionSweepPreStartEitherMembershipIndex = $missionSweepCompleteBlock.IndexOf(
+	'if (preStartIdKnown || preStartPointerKnown)',
+	$missionSweepPreStartPointerMembershipIndex)
+$missionSweepPreStartMismatchedMembershipIndex = $missionSweepCompleteBlock.IndexOf(
+	'if (preStartIdKnown != preStartPointerKnown)',
+	$missionSweepPreStartEitherMembershipIndex)
+$missionSweepFirstOwnedPointerCaptureIndex = $missionSweepCompleteBlock.IndexOf(
+	'context.m_aOwnedNewMissionPointers.Insert(mission);',
+	$missionSweepPreStartMismatchedMembershipIndex)
+if ($missionSweepPreStartIdMembershipIndex -lt 0 -or
+	$missionSweepPreStartPointerMembershipIndex -le
+		$missionSweepPreStartIdMembershipIndex -or
+	$missionSweepPreStartEitherMembershipIndex -le
+		$missionSweepPreStartPointerMembershipIndex -or
+	$missionSweepPreStartMismatchedMembershipIndex -le
+		$missionSweepPreStartEitherMembershipIndex -or
+	$missionSweepFirstOwnedPointerCaptureIndex -le
+		$missionSweepPreStartMismatchedMembershipIndex) {
+	throw 'Mission-sweep post-minus-pre collection must pair frozen pre-start ID and pointer membership before claiming any new mission owner.'
+}
+foreach ($missionSweepFullPartitionEntry in @(
+		'context.m_aPreStartMissionInstanceIds.Count()',
+		'context.m_aPreStartMissionPointers.Count()',
+		'context.m_aPreStartMissionDefinitionIds.Count()',
+		'context.m_aOwnedNewMissionInstanceIds.Count()',
+		'context.m_aOwnedNewMissionPointers.Count()',
+		'context.m_aOwnedNewMissionDefinitionIds.Count()',
+		'context.m_aOwnedNewMissionCleanupMutationStarted.Count()',
+		'array<string> currentMissionIds = {};',
+		'array<ref HST_ActiveMissionState> currentMissionPointers = {};',
+		'currentMissionIds.Contains(currentMission.m_sInstanceId)',
+		'currentMissionPointers.Contains(currentMission)',
+		'int preStartIdIndex',
+		'int preStartPointerIndex',
+		'int ownedIdIndex',
+		'int ownedPointerIndex',
+		'if (preStartExact == ownedExact',
+		'm_State.FindActiveMission(currentMission.m_sInstanceId)',
+		'currentIdIndex != currentPointerIndex',
+		'bool frozenReceiptExact',
+		'bool retainedExact',
+		'bool missingExact',
+		'context.m_aOwnedNewMissionCleanupMutationStarted[ownedIndex]',
+		'if (!retainedExact && !missingExact)'
+)) {
+	if ($missionSweepFullPartitionValidatorBlock.IndexOf(
+			$missionSweepFullPartitionEntry) -lt 0) {
+		throw "Mission-sweep full frozen partition validation is incomplete: $missionSweepFullPartitionEntry"
+	}
+}
 if (($missionSweepBeginBlock + $missionSweepCompleteBlock).IndexOf(
 		'FindLatestCampaignDebugMissionInstanceId(') -ge 0 -or
 	$missionSweepCleanupBlock.IndexOf(
-		'foreach (string instanceId') -lt 0 -or
+		'for (int preflightIndex;') -lt 0 -or
+	$missionSweepCleanupBlock.IndexOf(
+		'for (int ownedIndex;') -lt 0 -or
 	$missionSweepCleanupBlock.IndexOf(
 		'CompleteCampaignDebugMissionInstance(') -lt 0 -or
 	$missionSweepCleanupBlock.IndexOf(
@@ -28341,10 +29601,179 @@ if (($missionSweepBeginBlock + $missionSweepCompleteBlock).IndexOf(
 	$missionSweepCleanupBlock.IndexOf(
 		'unsafeAuthorityRows == 0 && transientRows == 0') -lt 0 -or
 	$missionSweepCleanupBlock.IndexOf(
-		'if (exact)') -lt 0 -or
+		'context.m_bContainmentExact = true;') -lt 0 -or
 	$missionSweepCleanupBlock.IndexOf(
-		'm_aOwnedNewMissionInstanceIds.Clear()') -lt 0) {
+		'm_aOwnedNewMissionInstanceIds.Clear()') -lt 0 -or
+	$missionSweepCleanupBlock.IndexOf(
+		'm_aOwnedNewMissionPointers.Clear()') -lt 0 -or
+	$missionSweepCleanupBlock.IndexOf(
+		'm_aOwnedNewMissionDefinitionIds.Clear()') -lt 0 -or
+	$missionSweepCleanupBlock.IndexOf(
+		'm_aOwnedNewMissionCleanupMutationStarted.Clear()') -lt 0 -or
+	$missionSweepCleanupBlock.IndexOf(
+		'if (ownedMission && !ownedMission.m_sMissionId.IsEmpty())') -ge 0) {
 	throw 'Mission-sweep cleanup must contain every globally owned post-minus-pre instance and clear ownership only after exact residue proof.'
+}
+foreach ($missionSweepOwnedMissionValidatorEntry in @(
+	'context.m_aOwnedNewMissionInstanceIds.Count()',
+	'context.m_aOwnedNewMissionPointers.Count()',
+	'context.m_aOwnedNewMissionDefinitionIds.Count()',
+	'context.m_aOwnedNewMissionCleanupMutationStarted.Count()',
+	'context.m_aOwnedNewMissionCleanupMutationStarted[ownedIndex]',
+	'IsCampaignDebugCurrentRunMissionInstance(instanceId)',
+	'instanceClaims == 1 && pointerClaims == 1',
+	'mission == frozenMission',
+	'frozenMission.m_sInstanceId == instanceId',
+	'frozenMission.m_sMissionId == frozenMissionId',
+	'frozenMissionId == context.m_sMissionId',
+	'ownerCleanupMutationStarted && instanceClaims == 0',
+	'pointerClaims == 0 && !mission',
+	'bool frozenReceiptExact',
+	'bool retainedExact = frozenReceiptExact',
+	'bool missingExact = frozenReceiptExact',
+	'bool requireRequestedDefinition = true',
+	'(!requireRequestedDefinition'
+)) {
+	if ([string]::IsNullOrEmpty($missionSweepOwnedMissionValidatorBlock) -or
+		$missionSweepOwnedMissionValidatorBlock.IndexOf(
+			$missionSweepOwnedMissionValidatorEntry) -lt 0) {
+		throw "Mission-sweep frozen mission ownership validation is incomplete: $missionSweepOwnedMissionValidatorEntry"
+	}
+}
+$missionSweepFrozenReceiptIndex = $missionSweepOwnedMissionValidatorBlock.IndexOf(
+	'bool frozenReceiptExact')
+$missionSweepRetainedReceiptIndex = $missionSweepOwnedMissionValidatorBlock.IndexOf(
+	'bool retainedExact = frozenReceiptExact',
+	$missionSweepFrozenReceiptIndex)
+$missionSweepMissingReceiptIndex = $missionSweepOwnedMissionValidatorBlock.IndexOf(
+	'bool missingExact = frozenReceiptExact',
+	$missionSweepRetainedReceiptIndex)
+if ($missionSweepFrozenReceiptIndex -lt 0 -or
+	$missionSweepRetainedReceiptIndex -le $missionSweepFrozenReceiptIndex -or
+	$missionSweepMissingReceiptIndex -le $missionSweepRetainedReceiptIndex -or
+	([regex]::Matches(
+		$missionSweepOwnedMissionValidatorBlock,
+		'frozenReceiptExact').Count -lt 3)) {
+	throw 'Mission-sweep retained and receipt-authorized missing branches must share the same frozen ID/pointer/definition identity predicate.'
+}
+foreach ($missionSweepRetryEntry in @(
+		'ref array<bool> m_aOwnedNewMissionCleanupMutationStarted = {};',
+		'context.m_aOwnedNewMissionCleanupMutationStarted.Insert(false);',
+		'context.m_aOwnedNewMissionCleanupMutationStarted[ownedIndex]',
+		'context.m_aOwnedNewMissionCleanupMutationStarted.Clear();'
+)) {
+	if (($ambientDebugResultText + $missionSweepCompleteBlock +
+		$missionSweepOwnedMissionValidatorBlock + $missionSweepCleanupBlock).IndexOf(
+			$missionSweepRetryEntry) -lt 0) {
+		throw "Mission-sweep per-owner cleanup receipt is incomplete: $missionSweepRetryEntry"
+	}
+}
+if (($ambientDebugResultText + $missionSweepCleanupBlock).IndexOf(
+		'm_bCleanupMutationStarted') -ge 0) {
+	throw 'Mission-sweep cleanup must not use one global mutation latch for multiple owned missions.'
+}
+$missionSweepCleanupGlobalIdentityGateIndex = $missionSweepCleanupBlock.IndexOf(
+	'if (!context.m_bGlobalMissionIdentityExact)')
+$missionSweepCleanupGlobalIdentityFatalIndex = $missionSweepCleanupBlock.IndexOf(
+	'context.m_bFatalRetainedOwner = true;',
+	$missionSweepCleanupGlobalIdentityGateIndex)
+$missionSweepCleanupGlobalIdentityReturnIndex = $missionSweepCleanupBlock.IndexOf(
+	'return false;',
+	$missionSweepCleanupGlobalIdentityFatalIndex)
+$missionSweepCleanupInitialPartitionIndex = $missionSweepCleanupBlock.IndexOf(
+	'ValidateCampaignDebugMissionSweepFullPartitionExact(')
+$missionSweepCleanupPreflightIndex = $missionSweepCleanupBlock.IndexOf(
+	'for (int preflightIndex;')
+$missionSweepCleanupSetValidationIndex = $missionSweepCleanupBlock.IndexOf(
+	'ValidateCampaignDebugMissionSweepOwnedMissionExact(',
+	$missionSweepCleanupPreflightIndex)
+$missionSweepCleanupOwnerLoopIndex = $missionSweepCleanupBlock.IndexOf(
+	'for (int ownedIndex;')
+$missionSweepCleanupOwnerValidationIndex = $missionSweepCleanupBlock.IndexOf(
+	'ValidateCampaignDebugMissionSweepOwnedMissionExact(',
+	$missionSweepCleanupOwnerLoopIndex)
+$missionSweepCleanupOwnerMutationReceiptIndex = $missionSweepCleanupBlock.IndexOf(
+	'context.m_aOwnedNewMissionCleanupMutationStarted[ownedIndex]',
+	$missionSweepCleanupOwnerValidationIndex)
+$missionSweepCleanupMutationIndex = $missionSweepCleanupBlock.IndexOf(
+	'CompleteCampaignDebugMissionInstance(')
+$missionSweepCleanupContainmentIndex = $missionSweepCleanupBlock.IndexOf(
+	'ContainCampaignDebugMissionInstance(')
+$missionSweepCleanupFinalPartitionIndex = $missionSweepCleanupBlock.IndexOf(
+	'ValidateCampaignDebugMissionSweepFullPartitionExact(',
+	$missionSweepCleanupInitialPartitionIndex + 1)
+$missionSweepCleanupReleaseIndex = $missionSweepCleanupBlock.IndexOf(
+	'context.m_bContainmentExact = true;',
+	$missionSweepCleanupFinalPartitionIndex)
+if ($missionSweepCleanupGlobalIdentityGateIndex -lt 0 -or
+	$missionSweepCleanupInitialPartitionIndex -le
+		$missionSweepCleanupGlobalIdentityGateIndex -or
+	$missionSweepCleanupGlobalIdentityFatalIndex -le
+		$missionSweepCleanupInitialPartitionIndex -or
+	$missionSweepCleanupGlobalIdentityReturnIndex -le
+		$missionSweepCleanupGlobalIdentityFatalIndex -or
+	$missionSweepCleanupPreflightIndex -le
+		$missionSweepCleanupGlobalIdentityReturnIndex -or
+	$missionSweepCleanupSetValidationIndex -le
+		$missionSweepCleanupPreflightIndex -or
+	$missionSweepCleanupOwnerLoopIndex -le
+		$missionSweepCleanupSetValidationIndex -or
+	$missionSweepCleanupOwnerValidationIndex -le
+		$missionSweepCleanupOwnerLoopIndex -or
+	$missionSweepCleanupOwnerMutationReceiptIndex -le
+		$missionSweepCleanupOwnerValidationIndex -or
+	$missionSweepCleanupMutationIndex -le
+		$missionSweepCleanupOwnerMutationReceiptIndex -or
+	$missionSweepCleanupContainmentIndex -le $missionSweepCleanupMutationIndex -or
+	$missionSweepCleanupFinalPartitionIndex -le
+		$missionSweepCleanupContainmentIndex -or
+	$missionSweepCleanupReleaseIndex -le
+		$missionSweepCleanupFinalPartitionIndex -or
+	([regex]::Matches(
+		$missionSweepCleanupBlock,
+		'ValidateCampaignDebugMissionSweepFullPartitionExact\(').Count -ne 2)) {
+	throw 'Mission-sweep cleanup must reject globally inexact correlation, validate the full current/pre-start/owned partition before mutation and release, revalidate each owner at its mutation boundary, publish only that owner receipt, and only then complete or contain it.'
+}
+$missionSweepRuntimeOwnershipIndex = $missionSweepRunnerBlock.IndexOf(
+	'ValidateCampaignDebugMissionSweepOwnedMissionExact(')
+$missionSweepRuntimeReportIndex = $missionSweepRunnerBlock.IndexOf(
+	'BuildCampaignDebugMissionRuntimeReport(')
+$missionSweepTerminalOwnershipIndex = $missionSweepRunnerBlock.IndexOf(
+	'ValidateCampaignDebugMissionSweepOwnedMissionExact(',
+	$missionSweepRuntimeOwnershipIndex + 1)
+$missionSweepTerminalCompletionIndex = $missionSweepRunnerBlock.IndexOf(
+	'CompleteCampaignDebugMissionInstance(',
+	$missionSweepTerminalOwnershipIndex)
+$missionSweepTerminalMutationReceiptIndex = $missionSweepRunnerBlock.IndexOf(
+	'terminalSweepContext.m_aOwnedNewMissionCleanupMutationStarted[',
+	$missionSweepTerminalOwnershipIndex)
+$missionSweepTerminalMutationSetIndex = $missionSweepRunnerBlock.IndexOf(
+	'terminalOwnedMissionIndex] = true;',
+	$missionSweepTerminalMutationReceiptIndex)
+if ($missionSweepRuntimeOwnershipIndex -lt 0 -or
+	$missionSweepRuntimeReportIndex -le $missionSweepRuntimeOwnershipIndex -or
+	$missionSweepTerminalOwnershipIndex -le $missionSweepRuntimeReportIndex -or
+	$missionSweepTerminalMutationReceiptIndex -le
+		$missionSweepTerminalOwnershipIndex -or
+	$missionSweepTerminalMutationSetIndex -le
+		$missionSweepTerminalMutationReceiptIndex -or
+	$missionSweepTerminalCompletionIndex -le
+		$missionSweepTerminalMutationSetIndex) {
+	throw 'Mission-sweep runtime and terminal substeps must revalidate the frozen mission pointer/origin and publish the indexed write-ahead receipt before observation or mutation.'
+}
+foreach ($missionSweepCleanupEvidenceEntry in @(
+		'm_sCleanupOwnershipEvidence',
+		'ownership preflight pending',
+		'mutation-boundary ownership mismatch',
+		'remaining %1 | status %2',
+		'mission-sweep abort retained mission owner',
+		'ownership %5'
+)) {
+	if (($ambientDebugResultText + $missionSweepCleanupBlock +
+		$missionSweepAbortBlock + $missionSweepFatalStopBlock).IndexOf(
+			$missionSweepCleanupEvidenceEntry) -lt 0) {
+		throw "Mission-sweep retained cleanup evidence is not threaded into terminal diagnostics: $missionSweepCleanupEvidenceEntry"
+	}
 }
 $missionCombatPrepareBlock = Get-ScriptMethodBlock $ambientCoordinatorText `
 	'protected bool PrepareCampaignDebugMissionAreaPhysicalCombatProbe('
@@ -35920,7 +37349,7 @@ foreach ($campaignDebugRenderBubbleAbortEntry in @(
 		throw "Render-bubble mission-target staged ownership is missing exact abort cleanup: $campaignDebugRenderBubbleAbortEntry"
 	}
 }
-$campaignDebugRenderBubbleCancelBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'string RequestAdminCancelCampaignDebug('
+$campaignDebugRenderBubbleCancelBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'protected string CompleteCampaignDebugCancellationAfterPhysicalResponsePlayerRestore()'
 $campaignDebugRenderBubbleAdminCleanupBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'string RequestAdminCleanupCampaignDebug('
 $campaignDebugRenderBubbleCompleteBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'protected void CompleteCampaignDebugRun()'
 if (-not [regex]::IsMatch(
@@ -36239,7 +37668,7 @@ foreach ($schema70TrackedOrderCleanupCaseEntry in @(
 	}
 }
 foreach ($schema70TrackedOrderCleanupCaller in @(
-	(Get-ScriptMethodBlock $schema70CoordinatorText 'string RequestAdminCancelCampaignDebug('),
+	(Get-ScriptMethodBlock $schema70CoordinatorText 'protected string CompleteCampaignDebugCancellationAfterPhysicalResponsePlayerRestore()'),
 	(Get-ScriptMethodBlock $schema70CoordinatorText 'protected void CompleteCampaignDebugRun()')
 )) {
 	if ([string]::IsNullOrEmpty($schema70TrackedOrderCleanupCaller) -or
@@ -43552,17 +44981,40 @@ if ($nativeDebugCoordinatorRestoreBlock.IndexOf('"isolation.world_scope"') -lt 0
 	$nativeDebugRestoreExactCaseBlock.IndexOf('worldScopeAdvisory') -lt 0) {
 	throw 'Campaign Debug disposable-session restart scope must remain an explicit non-blocking advisory after exact restoration'
 }
+$nativeDebugCleanupObservationIndex = $nativeDebugFrameBlock.IndexOf(
+	'm_iCampaignDebugCleanupObservationSequence++')
 $nativeDebugFreezeIndex = $nativeDebugFrameBlock.IndexOf(
-	'if (!m_bCampaignDebugRunning')
+	'if (!m_bCampaignDebugRunning',
+	$nativeDebugCleanupObservationIndex)
 $nativeDebugOrdinaryProducerIndex = $nativeDebugFrameBlock.IndexOf(
 	'm_PlayerSpawn.Tick(timeSlice)')
+$nativeDebugPendingCheckpointTickIndex = $nativeDebugFrameFreezeBlock.IndexOf(
+	'TickPendingCheckpoint(timeSlice)')
+$nativeDebugPhysicalResponseRetryIndex = $nativeDebugFrameFreezeBlock.IndexOf(
+	'RetryRetainedCampaignDebugPhysicalResponseFoldbackPlayerOnOrdinaryFrame()',
+	$nativeDebugPendingCheckpointTickIndex)
+$nativeDebugRenderBubbleRetryIndex = $nativeDebugFrameFreezeBlock.IndexOf(
+	'RetryRetainedCampaignDebugRenderBubbleCleanupOnOrdinaryFrame()',
+	$nativeDebugPhysicalResponseRetryIndex)
+$nativeDebugPhase20RetryIndex = $nativeDebugFrameFreezeBlock.IndexOf(
+	'RetryRetainedCampaignDebugPhase20CivilianCleanupOnOrdinaryFrame()',
+	$nativeDebugRenderBubbleRetryIndex)
+$nativeDebugStateRestoreRetryIndex = $nativeDebugFrameFreezeBlock.IndexOf(
+	'RetryRetainedCampaignDebugStateRestoreOnOrdinaryFrame()',
+	$nativeDebugPhase20RetryIndex)
+$nativeDebugFreezeReturnIndex = $nativeDebugFrameFreezeBlock.IndexOf(
+	'return;',
+	$nativeDebugStateRestoreRetryIndex)
 if ([string]::IsNullOrEmpty($nativeDebugFrameFreezeBlock) -or
 	$nativeDebugFrameFreezeBlock.IndexOf('m_bCampaignDebugStateIsolationActive') -lt 0 -or
-	$nativeDebugFrameFreezeBlock.IndexOf('m_iCampaignDebugRecoveryFrameSequence++') -lt 0 -or
-	$nativeDebugFrameFreezeBlock.IndexOf('TickPendingCheckpoint(timeSlice)') -lt 0 -or
-	$nativeDebugFrameFreezeBlock.IndexOf('RetryRetainedCampaignDebugStateRestoreOnOrdinaryFrame()') -lt 0 -or
-	$nativeDebugFrameFreezeBlock.IndexOf('return;') -lt 0 -or
-	$nativeDebugFreezeIndex -lt 0 -or
+	$nativeDebugCleanupObservationIndex -lt 0 -or
+	$nativeDebugFreezeIndex -le $nativeDebugCleanupObservationIndex -or
+	$nativeDebugPendingCheckpointTickIndex -lt 0 -or
+	$nativeDebugPhysicalResponseRetryIndex -le $nativeDebugPendingCheckpointTickIndex -or
+	$nativeDebugRenderBubbleRetryIndex -le $nativeDebugPhysicalResponseRetryIndex -or
+	$nativeDebugPhase20RetryIndex -le $nativeDebugRenderBubbleRetryIndex -or
+	$nativeDebugStateRestoreRetryIndex -le $nativeDebugPhase20RetryIndex -or
+	$nativeDebugFreezeReturnIndex -le $nativeDebugStateRestoreRetryIndex -or
 	$nativeDebugOrdinaryProducerIndex -le $nativeDebugFreezeIndex) {
 	throw 'Campaign Debug retained recovery frames must advance callbacks/cleanup while returning before every ordinary campaign producer'
 }
@@ -53710,19 +55162,41 @@ if ([int] $releaseStatusData.schemaVersion -ne 3 -or
 	@($releaseStatusHistory).Count -lt 1) {
 	throw 'Release status must retain a built candidate and schema-3 ordered historical candidate evidence.'
 }
-if ($null -eq $releaseStatusActiveFocused -or
-	$null -eq $releaseStatusActiveCanary -or
-	$null -eq $releaseStatusActiveFull -or
-	[string]::IsNullOrWhiteSpace([string] $releaseStatusActiveFocused.status) -or
-	[string]::IsNullOrWhiteSpace([string] $releaseStatusActiveCanary.status) -or
-	[string]::IsNullOrWhiteSpace([string] $releaseStatusActiveFull.status) -or
-	$releaseStatusDeterministicRungs.Count -ne 1 -or
+if ($releaseStatusDeterministicRungs.Count -ne 1 -or
 	[string]::IsNullOrWhiteSpace(
 		[string] $releaseStatusDeterministicRungs[0].status) -or
 	$releaseStatusNativeRungs.Count -ne 1 -or
 	[string]::IsNullOrWhiteSpace(
 		[string] $releaseStatusNativeRungs[0].status)) {
-	throw 'Schema-3 release status must retain one active focused, corrected-canary, full-profile, deterministic-service, and native-engine-world evidence row.'
+	throw 'Schema-3 release status must retain one deterministic-service and one native-engine-world proof rung.'
+}
+foreach ($releaseStatusActiveEvidence in @(
+		$releaseStatusActiveFocused,
+		$releaseStatusActiveCanary,
+		$releaseStatusActiveFull)) {
+	if ($null -ne $releaseStatusActiveEvidence -and
+		[string]::IsNullOrWhiteSpace(
+			[string] $releaseStatusActiveEvidence.status)) {
+		throw 'Present active release evidence must have a non-empty status.'
+	}
+}
+foreach ($releaseDocsBuildTransitionEntry in @(
+		'function Assert-ReleaseBuildTransition',
+		'$Label embedded implementation UTC must not be later than manifest.createdUtc.',
+		'$Label embedded implementation build is not an ancestor of its candidate source HEAD',
+		'The candidate embedded implementation build is not an ancestor of its candidate source HEAD',
+		'The live embedded implementation build is not an ancestor of checkout HEAD',
+		'An active runtime candidate must match the live embedded implementation identity.',
+		'The live embedded implementation build did not advance from the retained candidate source HEAD',
+		'The live embedded build UTC must advance after the retained candidate embedded build UTC.',
+		'Candidate embedded implementation identity',
+		'Candidate embedded build UTC / label'
+	)) {
+	if ($releaseDocsGeneratorText.IndexOf(
+		$releaseDocsBuildTransitionEntry,
+		[StringComparison]::Ordinal) -lt 0) {
+		throw "Release-document build-transition contract is incomplete: $releaseDocsBuildTransitionEntry"
+	}
 }
 foreach ($releaseDocsRejectedRuntimeEntry in @(
 		'"rejected-after-runtime"',
@@ -53860,6 +55334,7 @@ foreach ($candidateCampaignDebugRunnerEntry in @(
 
 & $releaseCandidateBuilderPath -SelfTest
 & $releaseManifestPath -SelfTest
+& (Join-Path $PSScriptRoot "update-release-docs.ps1") -SelfTest
 Write-Host "Guarded build-once, all-target Workbench retention, exact package index, and portable release-manifest contract OK"
 
 & {

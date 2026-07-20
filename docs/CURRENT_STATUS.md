@@ -19,6 +19,8 @@ The retained candidate identity below binds its exact source HEAD, manifest, can
 | Campaign / runtime-settings schema | `71` / `24` |
 | Workbench CRC | `f64e0868` |
 | Release candidate / source HEAD | `partisan-rc-ee0e8add2a29-20260719T063815Z` / `ee0e8add2a298e83fd304b7660c4fc480dc6383f` |
+| Candidate embedded implementation identity | `32727238d74b29905c68e5a80bb5897dfdc783c0` |
+| Candidate embedded build UTC / label | `2026-07-18T16:34:38Z` / `schema71-settings24-focused-force-authority` |
 | Runtime use disposition | `rejected-after-runtime` |
 | Candidate manifest | `docs/evidence/release-candidates/partisan-rc-ee0e8add2a29-20260719T063815Z/candidate.json` |
 | Manifest / ready-seal SHA-256 | `1b877e3aa21773a268704bcb3fe889768fca3aa2d78541aa7285b061398ce907` / `01741b85d0edba69f54b07388cdd7c452b8f6f1ad7ef4f6faf253918a4bbf280` |
