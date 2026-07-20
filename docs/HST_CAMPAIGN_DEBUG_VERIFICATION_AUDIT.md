@@ -59,6 +59,11 @@ made writable and rechecked before drift mutation, while the source checkout is
 left untouched. A deterministic read-only-source probe prevents this contract
 from passing only because one workstation currently has writable source files;
 Foundation pins the helper, repository boundary, probe, and producer restore.
+The portable focused consumer reconstructs a bounded fixture-function subset
+from that source and now imports the writable-copy helper before the repository
+function that calls it. Foundation pins this dependency closure, and the
+focused-consumer self-test must pass in a fresh PowerShell process so a prior
+aggregate run cannot supply a missing function through shared scope.
 
 The full-profile release-index fixture now owns cleanup independently of its
 callers. Each short tools, transition, or portable-temp root enters a private
@@ -75,8 +80,9 @@ create a fixture.
 
 Checkpoint acceptance requires the release-index, corrected-canary, focused
 aggregate, focused-consumer, general-consumer, generated-document check, and
-Foundation commands to pass serially on one clean unchanged commit. No command
-may overlap another, and any HEAD or bound-hash drift restarts the sequence.
+Foundation commands to pass serially in independently started PowerShell
+processes on one clean unchanged commit. No command may overlap another, and
+any HEAD or bound-hash drift restarts the sequence.
 This is portable tooling proof only. The next immutable package, its five
 focused runs, corrected native canary, full profile, dedicated multiplayer,
 restart, and soak remain pending; release remains `NO-GO`.

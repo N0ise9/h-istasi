@@ -3489,6 +3489,7 @@ function Invoke-PortableFocusedEvidenceConsumerSelfTest {
 			"New-SelfTestExecutable",
 			"New-SelfTestFixture",
 			"Invoke-SelfTestProducer",
+			"Copy-SelfTestWritableFile",
 			"New-SelfTestRepository")
 		$fixtureFunctionSource = New-Object Collections.Generic.List[string]
 		foreach ($fixtureFunctionName in $fixtureFunctionNames) {

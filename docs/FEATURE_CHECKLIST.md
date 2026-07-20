@@ -74,13 +74,16 @@ and release remains `NO-GO`. Separately, the sealed embedded implementation iden
   the exact orphan metric cardinality is not one, and preserves canonical empty
   evidence arrays during consumer validation. The focused fixture also
   normalizes only copied temporary harness files and proves that boundary with a
-  deterministic read-only-source regression. The full-profile fixture registers
+  deterministic read-only-source regression. The portable focused consumer's
+  reconstructed fixture subset explicitly imports that writable-copy helper
+  before its repository consumer, and Foundation pins the dependency order.
+  The full-profile fixture registers
   every exact tools, transition, and portable-temp root before creation or move,
   verifies its exclusive owner marker and non-reparse tree before cleanup, and
   requires an unchanged before/after root census. It also holds a fail-fast
   cross-process mutex from before helper loading through that final census, so a
   second invocation is rejected before fixture creation. Its acceptance gate is
-  the clean, non-overlapping serial
+  the clean, non-overlapping, fresh-process serial
   full/canary/aggregate/focused-consumer/general-consumer/check/Foundation
   sequence after every bound tool hash matches its committed Git blob.
 - [ ] Publish the next package's five focused runs through the exact schema-2

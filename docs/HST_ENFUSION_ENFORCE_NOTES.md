@@ -40,6 +40,11 @@ The embedded implementation stamp remains
   property-name validation, read an array-valued property through its
   `PSObject.Properties[...].Value` when zero-length array shape is part of the
   contract; then verify both the array type and its exact count.
+- A self-test that reconstructs selected fixture functions from another
+  script's AST must also extract every helper those functions call. Passing the
+  source script in its native scope does not prove that the reconstructed
+  subset is executable. Pin the transitive helper in Foundation and run the
+  reconstructed consumer self-test independently before accepting the chain.
 - Register every synthetic release-index root with the owning self-test before
   creating the directory or moving evidence into it. Create the exact short
   tools, transition, or portable-temp child without `-Force`, write an exclusive

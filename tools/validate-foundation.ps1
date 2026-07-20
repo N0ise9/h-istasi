@@ -55315,6 +55315,7 @@ foreach ($releaseDocsPortableFocusedEntry in @(
 		'function Assert-FocusedNoReparseAncestry',
 		'function Get-FocusedAggregateId',
 		'function Get-FocusedRawDiagnosticCensus',
+		'"Copy-SelfTestWritableFile"',
 		'$suiteStartedCount -eq 1 -and',
 		'$allSuiteStartedCount -eq 1 -and',
 		'$allTestSuccessCount -eq 1 -and',
@@ -55361,6 +55362,47 @@ foreach ($releaseDocsPortableFocusedEntry in @(
 			[StringComparison]::Ordinal) -lt 0) {
 		throw "Release-document portable focused consumer contract is incomplete: $releaseDocsPortableFocusedEntry"
 	}
+}
+$releaseDocsFocusedConsumerSelfTestText = Get-ScriptMethodBlock `
+	$releaseDocsGeneratorText `
+	'function Invoke-PortableFocusedEvidenceConsumerSelfTest'
+$releaseDocsFocusedFixtureNamesStart =
+	$releaseDocsFocusedConsumerSelfTestText.IndexOf(
+		'$fixtureFunctionNames = @(',
+		[StringComparison]::Ordinal)
+if ([string]::IsNullOrEmpty($releaseDocsFocusedConsumerSelfTestText) -or
+	$releaseDocsFocusedFixtureNamesStart -lt 0) {
+	throw 'Release-document focused consumer fixture-function list is unavailable.'
+}
+$releaseDocsFocusedFixtureNamesEnd =
+	$releaseDocsFocusedConsumerSelfTestText.IndexOf(
+		'$fixtureFunctionSource =',
+		$releaseDocsFocusedFixtureNamesStart,
+		[StringComparison]::Ordinal)
+if ($releaseDocsFocusedFixtureNamesEnd -le
+	$releaseDocsFocusedFixtureNamesStart) {
+	throw 'Release-document focused consumer fixture-function list is unavailable.'
+}
+$releaseDocsFocusedFixtureNamesText =
+	$releaseDocsFocusedConsumerSelfTestText.Substring(
+		$releaseDocsFocusedFixtureNamesStart,
+		$releaseDocsFocusedFixtureNamesEnd -
+			$releaseDocsFocusedFixtureNamesStart)
+$releaseDocsFocusedCopyHelperIndex =
+	$releaseDocsFocusedFixtureNamesText.IndexOf(
+		'"Copy-SelfTestWritableFile"',
+		[StringComparison]::Ordinal)
+$releaseDocsFocusedRepositoryHelperIndex =
+	$releaseDocsFocusedFixtureNamesText.IndexOf(
+		'"New-SelfTestRepository"',
+		[StringComparison]::Ordinal)
+if ($releaseDocsFocusedCopyHelperIndex -lt 0 -or
+	$releaseDocsFocusedRepositoryHelperIndex -le
+		$releaseDocsFocusedCopyHelperIndex -or
+	([regex]::Matches(
+		$releaseDocsFocusedFixtureNamesText,
+		'"Copy-SelfTestWritableFile"')).Count -ne 1) {
+	throw 'Release-document focused consumer must extract the writable-copy helper before its repository consumer.'
 }
 $releaseDocsPortableFocusedValidatorText = Get-ScriptMethodBlock `
 	$releaseDocsGeneratorText `
