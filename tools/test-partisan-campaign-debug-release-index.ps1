@@ -516,8 +516,8 @@ function ConvertTo-RecordedValidationSummary {
             [bool]$Validation.CorrectedCanaryCaseSetExact
         CorrectedCanaryWarningContractExact =
             [bool]$Validation.CorrectedCanaryWarningContractExact
-        CorrectedCanaryNoBlockedAssertions =
-            [bool]$Validation.CorrectedCanaryNoBlockedAssertions
+        CorrectedCanaryBlockedContractExact =
+            [bool]$Validation.CorrectedCanaryBlockedContractExact
         CorrectedCanaryOrphanContractExact =
             [bool]$Validation.CorrectedCanaryOrphanContractExact
         IntentionalMissionConvoyAdmissionDiagnosticsProven =
