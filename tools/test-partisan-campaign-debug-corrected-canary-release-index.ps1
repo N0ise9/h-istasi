@@ -1682,18 +1682,23 @@ function Invoke-Producer {
 }
 
 function Assert-ProducerRejected {
-    param([string]$Label, [scriptblock]$Action)
+    param(
+        [string]$Label,
+        [scriptblock]$Action,
+        [string]$ExpectedMessage
+    )
 
-    $rejected = $false
     try {
-        & $Action
+        & $Action | Out-Null
     }
     catch {
-        $rejected = $true
+        if (-not [string]::IsNullOrWhiteSpace($ExpectedMessage) -and
+            [string]$_.Exception.Message -cne $ExpectedMessage) {
+            throw "Corrected-canary fail-closed self-test rejected $Label for the wrong reason: $($_.Exception.Message)"
+        }
+        return
     }
-    if (-not $rejected) {
-        throw "Corrected-canary fail-closed self-test did not reject $Label."
-    }
+    throw "Corrected-canary fail-closed self-test did not reject $Label."
 }
 
 $tempParent = [IO.Path]::GetFullPath((Join-Path `
@@ -2364,11 +2369,12 @@ try {
         -FixtureRoot (Join-Path $tempParent 'recorded-orphan-tamper')
     $orphanTamperRun = Get-Content -Raw -LiteralPath $orphanTamper.RunPath |
         ConvertFrom-Json
-    $orphanTamperRun.outcome.validation.FinalOrphanActiveGroups = '1'
+    $orphanTamperRun.outcome.validation.FinalOrphanActiveGroups = [long]1
     Write-Json $orphanTamper.RunPath $orphanTamperRun
-    Assert-ProducerRejected 'recorded final-orphan tamper' {
-        [void](Invoke-Producer $orphanTamper)
-    }
+    Assert-ProducerRejected `
+        -Label 'recorded final-orphan tamper' `
+        -ExpectedMessage 'The recorded final-orphan proof differs from retained raw evidence.' `
+        -Action { [void](Invoke-Producer $orphanTamper) }
 
     $timestampTamper = New-CorrectedCanaryFixture `
         -FixtureRoot (Join-Path $tempParent 'timestamp-runtime-tamper')

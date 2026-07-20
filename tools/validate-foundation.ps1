@@ -55893,12 +55893,15 @@ foreach ($correctedCanarySelfTestEntry in @(
 		'''URL-wrapped drive path''',
 		'''URL-wrapped UNC path''',
 		'''URL-wrapped file URI''',
+		'[string]$_.Exception.Message -cne $ExpectedMessage',
+		'fail-closed self-test rejected $Label for the wrong reason',
 		'$headTamperRun.harness.gitHead = ''b'' * 40',
 		'''campaignRunnerGitBlobSha256''',
 		'''candidateModuleGitBlobSha256''',
 		'''releaseIndexProducerGitBlobSha256''',
 		'''releaseDocsConsumerGitBlobSha256''',
-		'$orphanTamperRun.outcome.validation.FinalOrphanActiveGroups = ''1''',
+		'$orphanTamperRun.outcome.validation.FinalOrphanActiveGroups = [long]1',
+		'-ExpectedMessage ''The recorded final-orphan proof differs from retained raw evidence.''',
 		'$timestampTamperRun.outcome.runtimeSeconds = 11'
 	)) {
 	if ($campaignDebugCorrectedCanarySelfTestText.IndexOf(
