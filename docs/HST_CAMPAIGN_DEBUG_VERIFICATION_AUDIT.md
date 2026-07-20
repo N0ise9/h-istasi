@@ -47,6 +47,12 @@ Windows PowerShell preserves canonical `[]` as a zero-length array rather than
 enumerating it to null. Foundation pins both mechanics and rejects their earlier
 unsafe shapes.
 
+The Campaign Debug consumer also treats canonical empty Phase 17/24 metric
+objects as valid objects. Strict-mode PowerShell cannot safely project
+`PSObject.Properties.Name` when that collection is empty, so both expected and
+recorded property inventories now enumerate the property collection explicitly.
+Foundation rejects the brittle member-enumeration form.
+
 The corrected-canary consumer fixture keeps its deep synthetic evidence under
 a short ignored `.tmp` root, rejects collisions and reparse ancestry, and cleans
 only that exact owned root. This prevents clean-worktree Git inspection from

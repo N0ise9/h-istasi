@@ -55423,6 +55423,29 @@ if ([string]::IsNullOrEmpty($releaseDocsPortableFocusedValidatorText) -or
 	throw 'Release-document focused consumer does not preserve the exact empty unapproved-evidence array.'
 }
 
+$releaseDocsPortableCampaignDebugValidatorText = Get-ScriptMethodBlock `
+	$releaseDocsGeneratorText `
+	'function Assert-PortableFullCampaignDebugEvidence'
+$releaseDocsExactPropertyValidatorText = Get-ScriptMethodBlock `
+	$releaseDocsGeneratorText `
+	'function Assert-ExactObjectProperties'
+if ([string]::IsNullOrEmpty($releaseDocsPortableCampaignDebugValidatorText) -or
+	[string]::IsNullOrEmpty($releaseDocsExactPropertyValidatorText) -or
+	$releaseDocsPortableCampaignDebugValidatorText.IndexOf(
+		'.PSObject.Properties.Name',
+		[StringComparison]::Ordinal) -ge 0 -or
+	$releaseDocsExactPropertyValidatorText.IndexOf(
+		'.PSObject.Properties.Name',
+		[StringComparison]::Ordinal) -ge 0 -or
+	([regex]::Matches(
+		$releaseDocsPortableCampaignDebugValidatorText,
+		'\.PSObject\.Properties\s*\|\s*\r?\n?\s*ForEach-Object\s*\{\s*\[string\]\s*\$_\.Name\s*\}')).Count -lt 2 -or
+	([regex]::Matches(
+		$releaseDocsExactPropertyValidatorText,
+		'\.PSObject\.Properties\s*\|\s*\r?\n?\s*ForEach-Object\s*\{\s*\[string\]\s*\$_\.Name\s*\}')).Count -ne 1) {
+	throw 'Release-document property-name enumeration must preserve canonical empty JSON objects under strict mode.'
+}
+
 $candidateCampaignDebugRunnerText = Get-Content -Raw `
 	$candidateCampaignDebugRunnerPath
 foreach ($candidateCampaignDebugRunnerEntry in @(

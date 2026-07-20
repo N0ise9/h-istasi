@@ -72,7 +72,8 @@ and release remains `NO-GO`. Separately, the sealed embedded implementation iden
   corrected-canary job-host publication races with bounded ordinary child
   processes and exact atomic receipts, preserves a typed `-1` red sentinel when
   the exact orphan metric cardinality is not one, and preserves canonical empty
-  evidence arrays during consumer validation. The focused fixture also
+  evidence arrays and empty Phase 17/24 metric objects during consumer
+  validation. The focused fixture also
   normalizes only copied temporary harness files and proves that boundary with a
   deterministic read-only-source regression. The portable focused consumer's
   reconstructed fixture subset explicitly imports that writable-copy helper

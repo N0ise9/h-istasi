@@ -5516,7 +5516,8 @@ function Assert-PortableFullCampaignDebugEvidence {
 		throw "$Label portable status must be an object."
 	}
 	Assert-EqualSet $expectedPortableStatusFields `
-		@($Evidence.PSObject.Properties.Name) "$Label portable status fields"
+		@($Evidence.PSObject.Properties |
+			ForEach-Object { [string] $_.Name }) "$Label portable status fields"
 
 	$allowedStatuses = if ($isCorrectedCanary) {
 		@("passed-noncertifying", "failed-corrected-canary")
@@ -6458,10 +6459,12 @@ function Assert-PortableFullCampaignDebugEvidence {
 	$recordedPhase17Metrics = Get-ObjectPropertyValue $recordedValidation "Phase17Metrics"
 	$recordedPhase24Metrics = Get-ObjectPropertyValue $recordedValidation "Phase24Metrics"
 	Assert-ExactObjectProperties $recordedPhase17Metrics `
-		@((Get-ObjectPropertyValue $derivedValidation "Phase17Metrics").PSObject.Properties.Name) `
+		@((Get-ObjectPropertyValue $derivedValidation "Phase17Metrics").PSObject.Properties |
+			ForEach-Object { [string] $_.Name }) `
 		"$Label run validation Phase17 metrics"
 	Assert-ExactObjectProperties $recordedPhase24Metrics `
-		@((Get-ObjectPropertyValue $derivedValidation "Phase24Metrics").PSObject.Properties.Name) `
+		@((Get-ObjectPropertyValue $derivedValidation "Phase24Metrics").PSObject.Properties |
+			ForEach-Object { [string] $_.Name }) `
 		"$Label run validation Phase24 metrics"
 	$recordedValidationValue = Get-ObjectPropertyValue $recordedValidation "Valid"
 	if ($recordedValidationValue -isnot [bool] -or
@@ -8607,7 +8610,8 @@ function Assert-ExactObjectProperties {
 	if ($null -eq $Object -or $Object -is [string] -or $Object -is [Array]) {
 		throw "$Label must be a JSON object."
 	}
-	$actual = @($Object.PSObject.Properties.Name)
+	$actual = @($Object.PSObject.Properties |
+		ForEach-Object { [string] $_.Name })
 	Assert-EqualSet $Expected $actual "$Label properties"
 }
 

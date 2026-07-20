@@ -40,6 +40,10 @@ The embedded implementation stamp remains
   property-name validation, read an array-valued property through its
   `PSObject.Properties[...].Value` when zero-length array shape is part of the
   contract; then verify both the array type and its exact count.
+- Under strict mode, member enumeration through
+  `object.PSObject.Properties.Name` throws when a canonical JSON object has no
+  properties. Enumerate `PSObject.Properties` explicitly and project each
+  property name so `{}` remains a valid zero-property object.
 - A self-test that reconstructs selected fixture functions from another
   script's AST must also extract every helper those functions call. Passing the
   source script in its native scope does not prove that the reconstructed
