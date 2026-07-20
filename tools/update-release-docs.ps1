@@ -1113,8 +1113,9 @@ function Invoke-BoundRunnerSemanticValidation {
 		'Test-RunMetric', 'Test-ExactPassingAssertion', 'Get-ExactAssertionStatus',
 		'Get-ExactAssertionActual', 'Get-FocusedForceAuthorityAssertionIds',
 		'Get-CorrectedCanaryCaseManifest', 'Get-CorrectedCanaryAssertionManifest',
+		'Get-CampaignDebugStateDiffLabels', 'Get-CampaignDebugStateDiffValidation',
 		'Test-CampaignDebugArtifacts', 'Get-CampaignDebugHardDiagnosticCensus',
-		'Get-GuardErrorCensus')
+		'Get-AuxiliaryDiagnosticProjection', 'Get-GuardErrorCensus')
 	$functionSource = New-Object Collections.Generic.List[string]
 	foreach ($functionName in $requiredFunctions) {
 		$matches = @($runnerAst.FindAll({

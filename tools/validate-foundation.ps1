@@ -55634,6 +55634,9 @@ foreach ($correctedCanarySelfTestEntry in @(
 
 foreach ($correctedCanaryConsumerIntegrityEntry in @(
 		'function Assert-ExactCampaignDebugStateDiff',
+		'''Get-CampaignDebugStateDiffLabels''',
+		'''Get-CampaignDebugStateDiffValidation''',
+		'''Get-AuxiliaryDiagnosticProjection''',
 		'"assertionCount", "stateDiffRows", "nonzeroStateDiffRows"',
 		'"failedAssertionIds", "warningAssertionIds", "warningAssertions"',
 		'foreach ($row in @(Get-ObjectPropertyValue $proof "warningAssertions"))',
