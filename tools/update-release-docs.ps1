@@ -3013,8 +3013,10 @@ function Assert-PortablePackagedFocusedEvidence {
 		$resultHardFree = Get-ObjectPropertyValue $result "HardDiagnosticFree"
 		$failureEvidence = Get-ObjectPropertyValue $result "JUnitFailureEvidence"
 		$errorEvidence = Get-ObjectPropertyValue $result "JUnitErrorEvidence"
-		$unapprovedEvidence = Get-ObjectPropertyValue `
-			$result "UnapprovedHardDiagnosticEvidence"
+		# Direct property access preserves a canonical empty JSON array; function
+		# output enumeration collapses that value to null in Windows PowerShell.
+		$unapprovedEvidence =
+			$result.PSObject.Properties["UnapprovedHardDiagnosticEvidence"].Value
 		if ((Get-ObjectPropertyValue $result "Success") -isnot [bool] -or
 			-not [bool] (Get-ObjectPropertyValue $result "Success") -or
 			(($result.Candidate | ConvertTo-Json -Depth 100 -Compress) -cne

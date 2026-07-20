@@ -55337,6 +55337,7 @@ foreach ($releaseDocsPortableFocusedEntry in @(
 		'Historical packaged-focused raw harness is not an ancestor of its aggregation harness',
 		'Active packaged-focused raw harness is not an ancestor of its aggregation harness',
 		'LegacySchema1 = $true',
+		'$result.PSObject.Properties["UnapprovedHardDiagnosticEvidence"].Value',
 		'Focused producer-shaped schema-2 consumer self-test failed.',
 		'Focused consumer self-test admitted duplicate marker',
 		'post-publication raw blob tamper',
@@ -55360,6 +55361,24 @@ foreach ($releaseDocsPortableFocusedEntry in @(
 			[StringComparison]::Ordinal) -lt 0) {
 		throw "Release-document portable focused consumer contract is incomplete: $releaseDocsPortableFocusedEntry"
 	}
+}
+$releaseDocsPortableFocusedValidatorText = Get-ScriptMethodBlock `
+	$releaseDocsGeneratorText `
+	'function Assert-PortablePackagedFocusedEvidence'
+if ([string]::IsNullOrEmpty($releaseDocsPortableFocusedValidatorText) -or
+	([regex]::Matches(
+		$releaseDocsPortableFocusedValidatorText,
+		'\$result\.PSObject\.Properties\["UnapprovedHardDiagnosticEvidence"\]\.Value')).Count -ne 1 -or
+	$releaseDocsPortableFocusedValidatorText.IndexOf(
+		'$unapprovedEvidence -isnot [array]',
+		[StringComparison]::Ordinal) -lt 0 -or
+	$releaseDocsPortableFocusedValidatorText.IndexOf(
+		'@($unapprovedEvidence).Count -ne 0',
+		[StringComparison]::Ordinal) -lt 0 -or
+	[regex]::IsMatch(
+		$releaseDocsPortableFocusedValidatorText,
+		'\$unapprovedEvidence\s*=\s*Get-ObjectPropertyValue[\s`]*\$result\s+"UnapprovedHardDiagnosticEvidence"')) {
+	throw 'Release-document focused consumer does not preserve the exact empty unapproved-evidence array.'
 }
 
 $candidateCampaignDebugRunnerText = Get-Content -Raw `
