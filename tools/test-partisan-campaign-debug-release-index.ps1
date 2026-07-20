@@ -1646,9 +1646,19 @@ try {
     Assert-EqualSet $externalAdvisoryIds $internalResult.ExternalRequiredAdvisoryIds `
         'Synthetic retained external-required advisory IDs'
 
+    $stateDiffRed = New-Fixture 'state-diff-red' 'state-diff-red'
+    [void]$fixtures.Add($stateDiffRed)
+    $stateDiffRedEvidence = Get-EvidenceFromFixture $stateDiffRed
+    Assert-ThrowsLike 'state-diff nonzero-delta rejection' `
+        'retained state diff row 0 is not a zero-delta restoration row' {
+        Invoke-Consumer `
+            $stateDiffRed $stateDiffRedEvidence `
+            'synthetic state-diff-red rejection' | Out-Null
+    }
+
     foreach ($mode in @(
             'warn', 'unsupported-skip', 'cert-red', 'unknown-blocker',
-            'state-diff-red', 'orphan-red', 'runtime-red', 'outcome-error-red',
+            'orphan-red', 'runtime-red', 'outcome-error-red',
             'raw-diagnostic-red', 'mixed-blocked-fail', 'mixed-skipped-warn')) {
         $fixture = New-Fixture $mode $mode
         [void]$fixtures.Add($fixture)

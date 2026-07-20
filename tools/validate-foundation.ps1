@@ -55716,7 +55716,10 @@ foreach ($campaignDebugReleaseIndexSelfTestEntry in @(
 		'campaignRunnerGitBlobSha256 = $runnerGitBlobSha',
 		'candidateModuleGitBlobSha256 = $candidateModuleGitBlobSha',
 		'releaseIndexProducerGitBlobSha256 = $producerGitBlobSha',
-		'releaseDocsConsumerGitBlobSha256 = $consumerGitBlobSha'
+		'releaseDocsConsumerGitBlobSha256 = $consumerGitBlobSha',
+		'''state-diff nonzero-delta rejection''',
+		'''retained state diff row 0 is not a zero-delta restoration row''',
+		'''synthetic state-diff-red rejection'''
 	)) {
 	if ($campaignDebugReleaseIndexSelfTestText.IndexOf(
 			$campaignDebugReleaseIndexSelfTestEntry,
