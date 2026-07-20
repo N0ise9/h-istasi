@@ -40,6 +40,13 @@ The embedded implementation stamp remains
   property-name validation, read an array-valued property through its
   `PSObject.Properties[...].Value` when zero-length array shape is part of the
   contract; then verify both the array type and its exact count.
+- Register every synthetic release-index root with the owning self-test before
+  creating the directory or moving evidence into it. Create the exact short
+  tools, transition, or portable-temp child without `-Force`, write an exclusive
+  owner marker, and cleanup only after exact parent/name, marker, and recursive
+  non-reparse checks. A failed fixture constructor must retain its registry row
+  for final retry, and the complete run must compare its before/after root
+  census; caller assignment is not cleanup authority.
 - Run the full release-index, corrected-canary, focused aggregate, focused
   consumer, general consumer, generated-doc check, and Foundation gates one at a
   time on one clean commit. A tool-byte or HEAD change invalidates the serial

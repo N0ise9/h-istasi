@@ -60,6 +60,16 @@ left untouched. A deterministic read-only-source probe prevents this contract
 from passing only because one workstation currently has writable source files;
 Foundation pins the helper, repository boundary, probe, and producer restore.
 
+The full-profile release-index fixture now owns cleanup independently of its
+callers. Each short tools, transition, or portable-temp root enters a private
+registry before non-adopting creation, receives an exclusive process-bound owner
+marker, and is removed only after exact containment, marker, and recursive
+non-reparse validation. Failed constructors receive an immediate best-effort
+cleanup plus final retry, and the outer harness compares the complete matching
+root census before and after the run. This closes both discarded negative-test
+results and the former create/move-before-registration window without globbing
+or adopting another run's fixture.
+
 Checkpoint acceptance requires the release-index, corrected-canary, focused
 aggregate, focused-consumer, general-consumer, generated-document check, and
 Foundation commands to pass serially on one clean unchanged commit. No command

@@ -74,8 +74,11 @@ and release remains `NO-GO`. Separately, the sealed embedded implementation iden
   the exact orphan metric cardinality is not one, and preserves canonical empty
   evidence arrays during consumer validation. The focused fixture also
   normalizes only copied temporary harness files and proves that boundary with a
-  deterministic read-only-source regression. Its acceptance gate is the clean,
-  non-overlapping serial
+  deterministic read-only-source regression. The full-profile fixture registers
+  every exact tools, transition, and portable-temp root before creation or move,
+  verifies its exclusive owner marker and non-reparse tree before cleanup, and
+  requires an unchanged before/after root census. Its acceptance gate is the
+  clean, non-overlapping serial
   full/canary/aggregate/focused-consumer/general-consumer/check/Foundation
   sequence after every bound tool hash matches its committed Git blob.
 - [ ] Publish the next package's five focused runs through the exact schema-2
