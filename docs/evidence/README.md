@@ -13,6 +13,36 @@ records are not rewritten.
 Repository attributes keep both JSON records on canonical LF endings so their
 byte hashes remain stable across checkouts.
 
+## Portable Schema-2 Runtime Evidence
+
+New packaged focused evidence is published as one tracked schema-2 aggregate
+under `focused-autotest/`. The tracked JSON is only the portable index: the raw
+five-run/40-blob tree remains in the immutable external evidence root. Each
+`sourceRuns[].runEnvelopePath` is relative to that supplied root and must use
+`<candidate-id>/focused-autotest/<profile>/<run-leaf>/run.json`. Publication and
+release-doc consumption independently reopen the five envelopes, exact eight-
+blob inventories, candidate manifests/seals, JUnit results, logs, and hashes.
+The index binds the focused-run harness Git blobs plus the committed aggregate
+producer and release-doc consumer. A mismatch produces red
+`replacement-required` evidence; it never rewrites an accepted aggregate.
+
+New corrected `force_authority` canaries and full Campaign Debug runs share the
+portable schema-2 Campaign Debug release-index envelope. Their tracked
+`release-index.json` remains byte-identical to the copy in the external raw
+bundle, whose canonical ten files are reopened and rehashed by the consumer.
+The corrected-canary policy additionally derives the exact case/assertion
+census, rejects hidden assertion failures or skips, and requires the current
+green census of 9 PASS/2 WARN/0 FAIL/0 BLOCKED/0 SKIPPED. Its only warnings are
+`cleanup.player_marker.live` and `isolation.world_scope` in their canonical
+parent cases; any blocker is red. The evidence closes only as scoped
+`passed-noncertifying` or red `failed-corrected-canary`. Existing schema-1
+summaries remain immutable historical evidence and are not rewritten into the
+new format.
+
+Tool hashes in schema-2 evidence are admission boundaries. Run publication and
+consumer self-tests only from a stationary committed tool set; dirty producer,
+runner, candidate-module, or consumer bytes correctly fail closed.
+
 ## Release-Ledger Schema 3 Historical Evidence
 
 Release-ledger Schema 3 is distinct from Campaign Schema 71. Its

@@ -32,6 +32,58 @@ param(
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+$script:FocusedRequiredPatternMarker =
+    'PARTISAN_REQUIRED_LOG_PATTERN_B64 '
+
+function Get-NormalizedRequiredLogPatterns {
+    param([AllowEmptyCollection()][string[]]$Patterns)
+
+    if ($null -eq $Patterns -or $Patterns.Count -eq 0 -or
+        $Patterns.Count -gt 64) {
+        throw 'Focused autotest requires between one and 64 required log patterns.'
+    }
+    $normalized = New-Object Collections.Generic.List[string]
+    $seen = New-Object 'Collections.Generic.HashSet[string]' `
+        ([StringComparer]::Ordinal)
+    foreach ($patternValue in $Patterns) {
+        $pattern = [string]$patternValue
+        if ([string]::IsNullOrWhiteSpace($pattern) -or
+            $pattern.Length -gt 4096 -or
+            $pattern -match '[\x00\r\n]' -or
+            -not $seen.Add($pattern)) {
+            throw 'Focused required log patterns must be unique, nonempty, single-line text.'
+        }
+        [void]$normalized.Add($pattern)
+    }
+    return $normalized.ToArray()
+}
+
+function Write-RequiredLogPatternContract {
+    param(
+        [Parameter(Mandatory = $true)][string]$ConsolePath,
+        [AllowEmptyString()]
+        [Parameter(Mandatory = $true)][string]$OriginalConsoleText,
+        [Parameter(Mandatory = $true)][string[]]$Patterns
+    )
+
+    $utf8 = New-Object Text.UTF8Encoding($false, $true)
+    $contractLines = @($Patterns | ForEach-Object {
+        $script:FocusedRequiredPatternMarker +
+            [Convert]::ToBase64String($utf8.GetBytes($_))
+    })
+    $separator = if ($OriginalConsoleText.EndsWith(
+            "`n",
+            [StringComparison]::Ordinal)) {
+        ''
+    }
+    else {
+        "`n"
+    }
+    [IO.File]::AppendAllText(
+        $ConsolePath,
+        $separator + ($contractLines -join "`n") + "`n",
+        $utf8)
+}
 
 if (-not ('PartisanFocusedAutotestJob' -as [type])) {
     Add-Type -TypeDefinition @"
@@ -1195,12 +1247,13 @@ function Get-CandidateMountAttestation {
 
     $expectedProject = [IO.Path]::GetFullPath($PackedProjectPath).Replace('\', '/')
     $pattern = "(?im)^\s*\d{2}:\d{2}:\d{2}\.\d{3}\s+ENGINE\s+:\s+" +
-        "gproj:\s+'(?<path>[^']+)'\s+guid:\s+'" +
-        [regex]::Escape($AddonGuid) + "'\s*(?<mode>\([^)]+\))?\s*$"
+        "gproj:\s+'(?<path>[^']+)'\s+guid:\s+'(?<guid>[^']+)'" +
+        "\s*(?<mode>\([^)]+\))?\s*$"
     $recordCount = 0
     $exactPathCount = 0
     $packedCount = 0
     $invalidModeCount = 0
+    $guidExactCount = 0
     foreach ($consoleFile in @(Get-ChildItem `
             -LiteralPath $GuardRoot `
             -Recurse `
@@ -1220,6 +1273,11 @@ function Get-CandidateMountAttestation {
                     [StringComparison]::OrdinalIgnoreCase)) {
                 $exactPathCount++
             }
+            if ($match.Groups['guid'].Value.Equals(
+                    $AddonGuid,
+                    [StringComparison]::Ordinal)) {
+                $guidExactCount++
+            }
             if ($match.Groups['mode'].Value -ceq '(packed)') {
                 $packedCount++
             }
@@ -1233,12 +1291,13 @@ function Get-CandidateMountAttestation {
         Valid = $recordCount -gt 0 -and
             $exactPathCount -eq $recordCount -and
             $packedCount -gt 0 -and
-            $invalidModeCount -eq 0
+            $invalidModeCount -eq 0 -and
+            $guidExactCount -eq $recordCount
         RecordCount = $recordCount
         ExactPathCount = $exactPathCount
         PackedCount = $packedCount
         InvalidModeCount = $invalidModeCount
-        GuidExact = $recordCount -gt 0
+        GuidExact = $recordCount -gt 0 -and $guidExactCount -eq $recordCount
         Packed = $packedCount -gt 0 -and $invalidModeCount -eq 0
     }
 }
@@ -1324,6 +1383,8 @@ function Get-EvidenceFileRows {
     return $rows.ToArray()
 }
 
+$normalizedRequiredLogPatterns = Get-NormalizedRequiredLogPatterns `
+    -Patterns $RequiredLogPatterns
 $hardDiagnosticClassifierChecks = Test-FocusedHardDiagnosticCensus
 $candidateModulePath = Join-Path $PSScriptRoot 'Partisan.ReleaseCandidate.psm1'
 Import-Module -Name $candidateModulePath -Force -ErrorAction Stop
@@ -1750,10 +1811,7 @@ try {
     }
 
     $requiredPatternsSeen = $true
-    foreach ($pattern in $RequiredLogPatterns) {
-        if ([string]::IsNullOrEmpty($pattern)) {
-            continue
-        }
+    foreach ($pattern in $normalizedRequiredLogPatterns) {
         if ($consoleText.IndexOf($pattern, [StringComparison]::Ordinal) -lt 0) {
             $requiredPatternsSeen = $false
         }
@@ -1813,6 +1871,10 @@ try {
             $hardDiagnosticCensus.UnapprovedHardDiagnosticCount
         UnapprovedHardDiagnosticEvidence = $unapprovedHardDiagnosticEvidence
     }
+    Write-RequiredLogPatternContract `
+        -ConsolePath $consoleFiles[0].FullName `
+        -OriginalConsoleText $consoleText `
+        -Patterns $normalizedRequiredLogPatterns
     if (-not $result.Success) {
         throw 'Focused autotest evidence did not pass.'
     }

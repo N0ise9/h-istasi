@@ -4302,3 +4302,55 @@ Consequences:
 - No new persisted schema or second operation owner is introduced.
 - Static proof is necessary but insufficient; a new immutable package must
   prove archive replay and contact seating, and release remains `NO-GO`.
+
+## CRI-080 - Publish Future Runtime Evidence From Raw Schema-2 Contracts
+
+- Status: Proposed; pending a stationary committed tool set and passing
+  producer, consumer, and Foundation self-tests
+- Date: 2026-07-20
+
+Context: Historical Schema-1 summaries remain authoritative for their captured
+packages, but they are not the forward contract for independently reopening
+every raw blob, ordered assertion row, and evidence-tool binding. Future
+focused and corrected-canary promotion must fail closed on hidden file,
+assertion, diagnostic, candidate, package, or tool drift without rewriting the
+immutable historical record.
+
+Decision: For the next immutable candidate and every later candidate, publish
+focused evidence from exactly five serial, individually named packaged runs
+with eight raw envelope files each. The Schema-2 focused aggregate must reopen
+and rehash all 40 files, bind the candidate/package/run identities and
+committed tool blobs, and prove its distinct 35/35 `aggregate-policy`
+assertions. The release-doc consumer must independently reopen the external raw
+tree through its explicit evidence-bundle root and rederive the aggregate.
+
+Only an accepted focused aggregate may authorize the corrected canary against
+the unchanged package. The Schema-2 corrected-canary release index must derive
+from the retained ten-file raw bundle and accept exactly 11 cases at 9 PASS,
+2 WARN, 0 FAIL, 0 BLOCKED, and 0 SKIPPED; 91 ordered assertion rows; 87/87
+certifying rows; only `cleanup.player_marker.live` in
+`cleanup.player_marker_completion` and `isolation.world_scope` in
+`cleanup.state_isolation_restore` may warn; and the exact 18-label zero-delta
+state set. Its tracked index must remain byte-identical to the external index,
+and the release-doc consumer must independently reopen the raw bundle and
+rederive case, proof, diagnostic, cleanup, and state-diff truth.
+
+Accepted Schema-2 evidence is immutable. A rejected later attempt records a
+candidate-bound red replacement receipt or rejected index and never overwrites
+accepted bytes. All Schema-1 summaries and readers remain immutable historical
+evidence for their original packages; no historical result is upgraded,
+rewritten, borrowed, or transferred.
+
+Consequences:
+
+- This decision remains proposed until the complete tool set is committed and
+  its producer, consumer, and Foundation self-tests pass against one stationary
+  checkout. No Schema-2 runtime result is claimed by this decision.
+- These tooling and static contracts do not execute runtime, prove gameplay,
+  certify a package, or advance Gate 1 or any later gate. The 35 aggregate-
+  policy assertions are not Campaign Debug assertions.
+- Campaign Schema 71 and runtime-settings Schema 24 remain unchanged. This is
+  an evidence-publication contract, not a campaign/settings migration.
+- A new immutable candidate must earn focused, corrected-canary, and permitted
+  full-profile evidence in order. Historical evidence cannot satisfy any rung.
+- Release remains `NO-GO`.

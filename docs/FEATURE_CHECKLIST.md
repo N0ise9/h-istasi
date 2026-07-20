@@ -65,6 +65,22 @@ and release remains `NO-GO`. Separately, the sealed embedded implementation iden
 - [x] Source-fix convoy-contact driver recovery in `ebaaeca`: permit reseating
   only for exact degraded/rebind groups with real roots, living unseated crew,
   five-second cadence, and the 45-second grace. Native package proof is pending.
+- [ ] Commit and isolate the portable evidence-tool checkpoint: strict
+  assertion-derived corrected-canary runner, schema-2 Campaign Debug release
+  index, schema-2 five-run focused aggregate, portable release-doc consumers,
+  and Foundation sentinels. Run the full/canary/aggregate/consumer self-tests
+  only after every bound tool hash matches its committed Git blob.
+- [ ] Publish the next package's five focused runs through the exact schema-2
+  5-profile/40-blob/35-policy-assertion aggregate. Reopen the external raw tree
+  during release-doc consumption; do not transfer the retained schema-1 focused
+  summary or count aggregate-policy assertions as Campaign Debug assertions.
+- [ ] Run the corrected `force_authority` canary on that unchanged package and
+  publish a portable schema-2 ten-file release index. Require the exact
+  9 PASS/2 WARN/0 FAIL/0 BLOCKED/0 SKIPPED case census, assertion/certification
+  census, zero hidden assertion failure/skip, exact two-warning policy, 18/0
+  state restoration, final orphan cleanup, accepted diagnostic census,
+  committed four-tool Git-blob binding, and independent raw-bundle consumption
+  before the full profile may start.
 
 ## Release-Ledger Schema 3 Checklist
 

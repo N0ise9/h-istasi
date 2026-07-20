@@ -238,12 +238,53 @@ tick, order sync, and restore branch into
 uses a 277-line, 61-declaration, 28-branch coordinator builder, reaches
 `Module: Game`, reports `Script validation successful`, and passes 5,849
 files/11,902 classes at CRC `6de587f1`, with zero hard errors and exact-zero
-cleanup. The same source-shape correction is present in the current working tree
-and has a Foundation regression contract. That tree independently passes
-guarded PC, XBOX_ONE, XBOX_SERIES, PS4, and PS5 validation at 5,849 files/11,926
-classes, common CRC `51464603`, zero hard errors, and exact-zero owned cleanup.
-This closes the current source/build gate but is not sealed or package-bound
-runtime evidence; a new immutable candidate is still required.
+cleanup. The same source-shape correction and the later bounded player-restore
+deadline guard were validated together on PC, XBOX_ONE, XBOX_SERIES, PS4, and
+PS5 at 5,849 files/11,926 classes, common CRC `0295457c`, zero hard errors, and
+exact-zero owned cleanup. The validated Enforce snapshot was then committed
+unchanged as `845b97f67384018901303dacd98236ed11af3fa9`. This closes the
+current source/build gate but is not package-bound runtime evidence; a new
+immutable candidate is still required.
+
+## Unsealed Portable Focused/Canary Evidence Tooling
+
+The next package must not reuse the hand-shaped schema-1 aggregate boundary.
+`New-PartisanFocusedAutotestAggregate.ps1` defines a schema-2, fail-closed
+publisher for the exact five packaged focused profiles. It reopens each
+`run.json`, verifies an exact eight-blob directory census and candidate seal,
+rehashes all 40 blobs, requires canonical serial ordering and one clean harness,
+and records 35/35 aggregation-policy assertions. Those assertions prove only
+the aggregate boundary; they are not Campaign Debug assertions and the result
+remains `passed-noncertifying`. Invalid input produces an immutable red
+`replacement-required` receipt rather than overwriting prior accepted evidence.
+
+The Campaign Debug runner and release-index producer now also define the
+schema-2 corrected-canary boundary. The runner canonicalizes the requested
+profile before routing, derives case status and certification totals from
+ordinal assertion rows, rejects hidden assertion failures/skips, and binds the
+only two permitted non-certifying warnings to their exact parent cases:
+`cleanup.player_marker.live` under `cleanup.player_marker_completion` and
+`isolation.world_scope` under `cleanup.state_isolation_restore`. The current
+green contract is exactly 9 PASS/2 WARN/0 FAIL/0 BLOCKED/0 SKIPPED; any blocker
+rejects the canary. The release index independently checks the exact
+11-case/91-assertion-row/35-focused-assertion/87-counted-condition contract,
+the 18-row zero-delta restore, final orphan count, diagnostic census, candidate
+and executable identities, and the committed Git blobs for the runner,
+candidate module, producer, and release-doc consumer. Its only closed statuses
+are scoped `passed-noncertifying` or red `failed-corrected-canary`; red stops the
+full profile and requires a replacement candidate.
+
+The 91-row assertion contract is ordered and case-scoped because cleanup IDs
+repeat legitimately across cases and one prefix-cleanup case embeds the run ID.
+The four non-certifying rows are exact rather than count-only. The ordered state
+diff also pins all 18 semantic labels, and the secondary error/crash channels
+may contain only exact projections of already classified approved diagnostics;
+a novel hard event in either channel is rejection evidence.
+
+These are tooling/source contracts, not new runtime evidence. Their producer,
+consumer, and self-tests must first be committed as one stationary tool set,
+then pass isolated release-index, aggregate, release-doc, and Foundation checks.
+Only a fresh immutable package may produce the next focused and canary records.
 
 ## Release-Ledger Schema 3 Audit Boundary
 

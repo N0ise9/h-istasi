@@ -38,6 +38,10 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
+# ValidateSet is intentionally case-insensitive, so normalize once before any
+# case-sensitive profile routing or retained evidence serialization.
+$Profile = $Profile.ToLowerInvariant()
+
 if (-not ("PartisanGuardedJob" -as [type])) {
     Add-Type -TypeDefinition @"
 using System;
@@ -609,10 +613,14 @@ function Get-SafeArtifactValidationSummary {
         CertificationBlocked = [int]$Validation.CertificationBlocked
         CertificationWarn = [int]$Validation.CertificationWarn
         CertificationPassed = [bool]$Validation.CertificationPassed
+        CorrectedCanaryContract = [bool]$Validation.CorrectedCanaryContract
         Trigger = ConvertTo-SafeArtifactScalar -Value $Validation.Trigger -GuardRoot $GuardRoot -ProjectDirectory $ProjectDirectory -ResolvedAddonRoots $ResolvedAddonRoots
         ArtifactCount = [int]$Validation.ArtifactCount
         StateDiffRows = [int]$Validation.StateDiffRows
         NonzeroStateDiffRows = [int]$Validation.NonzeroStateDiffRows
+        StateDiffManifestExact = [bool](
+            $Validation.PSObject.Properties['StateDiffManifestExact'] -and
+            $Validation.StateDiffManifestExact)
         Phase17 = $safePhase17
         Phase17Metrics = ConvertTo-SafeArtifactPropertyBag -Bag $Validation.Phase17Metrics -GuardRoot $GuardRoot -ProjectDirectory $ProjectDirectory -ResolvedAddonRoots $ResolvedAddonRoots
         Phase24 = $safePhase24
@@ -621,6 +629,21 @@ function Get-SafeArtifactValidationSummary {
         FocusedCaseId = ConvertTo-SafeArtifactScalar -Value $Validation.FocusedCaseId -GuardRoot $GuardRoot -ProjectDirectory $ProjectDirectory -ResolvedAddonRoots $ResolvedAddonRoots
         FocusedCaseStatus = ConvertTo-SafeArtifactScalar -Value $Validation.FocusedCaseStatus -GuardRoot $GuardRoot -ProjectDirectory $ProjectDirectory -ResolvedAddonRoots $ResolvedAddonRoots
         FocusedAssertions = $safeFocusedAssertions
+        CorrectedCanaryAssertionManifestExact = [bool](
+            $Validation.PSObject.Properties['CorrectedCanaryAssertionManifestExact'] -and
+            $Validation.CorrectedCanaryAssertionManifestExact)
+        CorrectedCanaryCaseSetExact = [bool](
+            $Validation.PSObject.Properties['CorrectedCanaryCaseSetExact'] -and
+            $Validation.CorrectedCanaryCaseSetExact)
+        CorrectedCanaryWarningContractExact = [bool](
+            $Validation.PSObject.Properties['CorrectedCanaryWarningContractExact'] -and
+            $Validation.CorrectedCanaryWarningContractExact)
+        CorrectedCanaryNoBlockedAssertions = [bool](
+            $Validation.PSObject.Properties['CorrectedCanaryNoBlockedAssertions'] -and
+            $Validation.CorrectedCanaryNoBlockedAssertions)
+        CorrectedCanaryOrphanContractExact = [bool](
+            $Validation.PSObject.Properties['CorrectedCanaryOrphanContractExact'] -and
+            $Validation.CorrectedCanaryOrphanContractExact)
         IntentionalMissionConvoyAdmissionDiagnosticsProven =
             [bool]$Validation.IntentionalMissionConvoyAdmissionDiagnosticsProven
         IntentionalMissionConvoySettlementDiagnosticProven =
@@ -1357,6 +1380,248 @@ function Get-FocusedForceAuthorityAssertionIds {
     )
 }
 
+function Get-CorrectedCanaryCaseManifest {
+    param([Parameter(Mandatory = $true)][string]$RunId)
+
+    return @(
+        [pscustomobject]@{ Id = 'preflight.state_isolation'; Status = 'PASS'; Category = 'preflight'; Feature = 'campaign_debug'; Stage = 'state_isolation' },
+        [pscustomobject]@{ Id = 'post_case_cleanup.preflight_state_isolation'; Status = 'PASS'; Category = 'cleanup'; Feature = 'campaign_debug'; Stage = 'post_case' },
+        [pscustomobject]@{ Id = 'cleanup.prefixed_state.start_preflight.hst_debug_'; Status = 'PASS'; Category = 'cleanup'; Feature = 'campaign_debug'; Stage = 'prefix_cleanup' },
+        [pscustomobject]@{ Id = 'early_mechanics.force_authority'; Status = 'PASS'; Category = 'early_mechanics'; Feature = 'force_authority'; Stage = 'focused_force_authority' },
+        [pscustomobject]@{ Id = 'post_case_cleanup.early_mechanics_force_authority'; Status = 'PASS'; Category = 'cleanup'; Feature = 'force_authority'; Stage = 'post_case' },
+        [pscustomobject]@{ Id = 'cleanup.enemy_orders.run_completion'; Status = 'PASS'; Category = 'cleanup'; Feature = 'enemy_commander'; Stage = 'typed_settlement' },
+        [pscustomobject]@{ Id = "cleanup.prefixed_state.run_completion.hst_debug_$RunId"; Status = 'PASS'; Category = 'cleanup'; Feature = 'campaign_debug'; Stage = 'prefix_cleanup' },
+        [pscustomobject]@{ Id = 'cleanup.prefixed_state.run_completion_persistence_smoke_cleanup.hst_smoke'; Status = 'PASS'; Category = 'cleanup'; Feature = 'campaign_debug'; Stage = 'prefix_cleanup' },
+        [pscustomobject]@{ Id = 'cleanup.player_marker_completion'; Status = 'WARN'; Category = 'cleanup'; Feature = 'player_markers'; Stage = 'final' },
+        [pscustomobject]@{ Id = 'cleanup.run_leak_snapshot'; Status = 'PASS'; Category = 'cleanup'; Feature = 'campaign_debug'; Stage = 'final' },
+        [pscustomobject]@{ Id = 'cleanup.state_isolation_restore'; Status = 'WARN'; Category = 'cleanup'; Feature = 'campaign_debug'; Stage = 'state_restore' }
+    )
+}
+
+function Get-CorrectedCanaryAssertionManifest {
+    param([Parameter(Mandatory = $true)][string]$RunId)
+
+    $rows = New-Object Collections.Generic.List[object]
+    $append = {
+        param(
+            [string]$CaseId,
+            [string[]]$AssertionIds,
+            [string[]]$NoncertifyingIds = @(),
+            [string[]]$WarningIds = @()
+        )
+        foreach ($assertionId in $AssertionIds) {
+            [void]$rows.Add([pscustomobject]@{
+                CaseId = $CaseId
+                Id = $assertionId
+                Status = if ($WarningIds -ccontains $assertionId) {
+                    'WARN'
+                }
+                else {
+                    'PASS'
+                }
+                CountsTowardCertification = $NoncertifyingIds -cnotcontains $assertionId
+            })
+        }
+    }
+
+    & $append 'preflight.state_isolation' @(
+        'isolation.development_world',
+        'isolation.distinct_state',
+        'isolation.persistence_suspended')
+    $postCleanupIds = @(
+        'post_cleanup.active_missions',
+        'post_cleanup.mission_assets',
+        'post_cleanup.active_groups',
+        'post_cleanup.runtime_factions',
+        'post_cleanup.runtime_group_primary_spawn',
+        'post_cleanup.runtime_group_population_settled',
+        'post_cleanup.markers',
+        'post_cleanup.backing_markers')
+    & $append 'post_case_cleanup.preflight_state_isolation' $postCleanupIds
+    $prefixCleanupIds = @(
+        'cleanup.prefix.before_count',
+        'cleanup.prefix.radio_fixture_world',
+        'cleanup.prefix.after_count',
+        'cleanup.prefix.tagged_world_entities',
+        'cleanup.prefix.marker_rebuild')
+    & $append 'cleanup.prefixed_state.start_preflight.hst_debug_' $prefixCleanupIds
+    $focusedIds = @(Get-FocusedForceAuthorityAssertionIds)
+    & $append 'early_mechanics.force_authority' $focusedIds @(
+        'town_influence.external_completion')
+    & $append 'post_case_cleanup.early_mechanics_force_authority' $postCleanupIds
+    & $append 'cleanup.enemy_orders.run_completion' @(
+        'cleanup.enemy_orders.typed_settlement',
+        'cleanup.enemy_orders.open',
+        'cleanup.enemy_orders.runtime')
+    & $append "cleanup.prefixed_state.run_completion.hst_debug_$RunId" $prefixCleanupIds
+    & $append `
+        'cleanup.prefixed_state.run_completion_persistence_smoke_cleanup.hst_smoke' `
+        $prefixCleanupIds
+    & $append 'cleanup.player_marker_completion' @(
+        'cleanup.player_marker.config',
+        'cleanup.player_marker.live') @('cleanup.player_marker.live') @(
+        'cleanup.player_marker.live')
+    & $append 'cleanup.run_leak_snapshot' @(
+        'cleanup.current_mission_id',
+        'cleanup.debug_prefixed_records',
+        'cleanup.smoke_prefixed_records',
+        'cleanup.active_mission_delta',
+        'cleanup.pending_player_support',
+        'cleanup.open_enemy_orders',
+        'cleanup.orphan_active_groups',
+        'cleanup.runtime_factions',
+        'cleanup.runtime_group_primary_spawn',
+        'cleanup.runtime_group_population_settled',
+        'cleanup.marker_orphans',
+        'cleanup.backing_markers') @('cleanup.smoke_prefixed_records')
+    & $append 'cleanup.state_isolation_restore' @(
+        'isolation.radio_fixture_world',
+        'isolation.snapshot',
+        'isolation.state_restore',
+        'isolation.persistence_restore',
+        'isolation.world_scope') @('isolation.world_scope') @(
+        'isolation.world_scope')
+
+    return $rows.ToArray()
+}
+
+function Get-CampaignDebugStateDiffLabels {
+    return @(
+        'elapsed',
+        'money',
+        'HR',
+        'training',
+        'war level',
+        'active missions',
+        'objectives',
+        'runtime vehicles',
+        'mission assets',
+        'active groups',
+        'support requests',
+        'enemy orders',
+        'markers',
+        'garage vehicles',
+        'arsenal items',
+        'civilian zones',
+        'strategic events',
+        'undercover records')
+}
+
+function Get-CampaignDebugStateDiffValidation {
+    param(
+        [Parameter(Mandatory = $true)][string]$Text,
+        [Parameter(Mandatory = $true)][string]$RunId
+    )
+
+    $expectedLabels = @(Get-CampaignDebugStateDiffLabels)
+    $normalizedText = $Text.Replace("`r`n", "`n").Replace("`r", "`n")
+    if ($normalizedText.EndsWith("`n", [StringComparison]::Ordinal)) {
+        # WriteAllLines emits one terminal newline. Remove exactly one so any
+        # additional blank line remains an unexpected grammar row.
+        $normalizedText = $normalizedText.Substring(0, $normalizedText.Length - 1)
+    }
+    $lines = @($normalizedText -split "`n")
+    $candidateRows = if ($lines.Count -gt 2) {
+        @($lines[2..($lines.Count - 1)])
+    }
+    else {
+        @()
+    }
+
+    $headerExact = $lines.Count -ge 2 -and
+        $lines[0] -ceq 'Partisan campaign debug state diff' -and
+        $lines[1] -ceq "run $RunId"
+    $labelsExact = $candidateRows.Count -eq $expectedLabels.Count
+    $grammarExact = $labelsExact
+    $arithmeticExact = $labelsExact
+    $zeroDeltaExact = $labelsExact
+    $nonzero = 0
+    for ($index = 0; $index -lt $candidateRows.Count; $index++) {
+        $row = [string]$candidateRows[$index]
+        $censusMatch = [regex]::Match(
+            $row,
+            ' \| delta (?<delta>-?\d+)$',
+            [Text.RegularExpressions.RegexOptions]::CultureInvariant)
+        if ($censusMatch.Success) {
+            $censusDelta = [int64]0
+            if ([int64]::TryParse(
+                    $censusMatch.Groups['delta'].Value,
+                    [Globalization.NumberStyles]::AllowLeadingSign,
+                    [Globalization.CultureInfo]::InvariantCulture,
+                    [ref]$censusDelta) -and $censusDelta -ne 0) {
+                $nonzero++
+            }
+        }
+
+        if ($index -ge $expectedLabels.Count) {
+            $labelsExact = $false
+            $grammarExact = $false
+            $arithmeticExact = $false
+            continue
+        }
+        $prefix = $expectedLabels[$index] + ' '
+        if (-not $row.StartsWith($prefix, [StringComparison]::Ordinal)) {
+            $labelsExact = $false
+            $grammarExact = $false
+            $arithmeticExact = $false
+            continue
+        }
+        $valueText = $row.Substring($prefix.Length)
+        $valueMatch = [regex]::Match(
+            $valueText,
+            '^(?<before>-?\d+) -> (?<after>-?\d+) \| delta (?<delta>-?\d+)$',
+            [Text.RegularExpressions.RegexOptions]::CultureInvariant)
+        if (-not $valueMatch.Success) {
+            $grammarExact = $false
+            $arithmeticExact = $false
+            continue
+        }
+        $before = [int64]0
+        $after = [int64]0
+        $delta = [int64]0
+        $integerGrammarExact =
+            [int64]::TryParse(
+                $valueMatch.Groups['before'].Value,
+                [Globalization.NumberStyles]::AllowLeadingSign,
+                [Globalization.CultureInfo]::InvariantCulture,
+                [ref]$before) -and
+            [int64]::TryParse(
+                $valueMatch.Groups['after'].Value,
+                [Globalization.NumberStyles]::AllowLeadingSign,
+                [Globalization.CultureInfo]::InvariantCulture,
+                [ref]$after) -and
+            [int64]::TryParse(
+                $valueMatch.Groups['delta'].Value,
+                [Globalization.NumberStyles]::AllowLeadingSign,
+                [Globalization.CultureInfo]::InvariantCulture,
+                [ref]$delta)
+        if (-not $integerGrammarExact) {
+            $grammarExact = $false
+            $arithmeticExact = $false
+            continue
+        }
+        if (([decimal]$after - [decimal]$before) -ne [decimal]$delta) {
+            $arithmeticExact = $false
+        }
+        if ($delta -ne 0) {
+            $zeroDeltaExact = $false
+        }
+    }
+    return [pscustomobject][ordered]@{
+        HeaderExact = $headerExact
+        LabelsExact = $labelsExact
+        GrammarExact = $grammarExact
+        ArithmeticExact = $arithmeticExact
+        ZeroDeltaExact = $zeroDeltaExact
+        ContractExact = $headerExact -and
+            $candidateRows.Count -eq $expectedLabels.Count -and
+            $labelsExact -and $grammarExact -and $arithmeticExact -and
+            $zeroDeltaExact
+        RowCount = $candidateRows.Count
+        NonzeroRowCount = $nonzero
+    }
+}
+
 function Test-CampaignDebugArtifacts {
     param(
         [Parameter(Mandatory = $true)][string]$JsonPath,
@@ -1366,7 +1631,8 @@ function Test-CampaignDebugArtifacts {
         [Parameter(Mandatory = $true)][string]$ExpectedUtc,
         [Parameter(Mandatory = $true)][string]$ExpectedLabel,
         [ValidateSet("full_certification", "force_authority")]
-        [string]$ExpectedProfile = "full_certification"
+        [string]$ExpectedProfile = "full_certification",
+        [switch]$RequireCorrectedCanaryContract
     )
 
     $jsonText = Read-SharedFileText -Path $JsonPath
@@ -1433,6 +1699,11 @@ function Test-CampaignDebugArtifacts {
     }
 
     if ($ExpectedProfile -eq "force_authority") {
+        $assertionManifestExact = $false
+        $caseSetExact = $false
+        $warningContractExact = $false
+        $noBlockedAssertions = $false
+        $orphanContractExact = $false
         if ([bool]$run.m_bCertificationPassed) {
             $problems.Add("focused-proof-claimed-full-certification")
         }
@@ -1493,6 +1764,381 @@ function Test-CampaignDebugArtifacts {
             $problems.Add("final-orphan-cleanup")
         }
 
+        if ($RequireCorrectedCanaryContract) {
+            if ($ExpectedProfile -cne "force_authority" -or
+                [string]$run.m_sProfile -cne "force_authority") {
+                $problems.Add("corrected-canary-profile-contract")
+            }
+
+            $expectedCaseManifest = @(
+                Get-CorrectedCanaryCaseManifest -RunId ([string]$run.m_sRunId))
+            $caseSetExact = $expectedCaseManifest.Count -eq $cases.Count
+            if ($caseSetExact) {
+                for ($caseIndex = 0; $caseIndex -lt $expectedCaseManifest.Count; $caseIndex++) {
+                    $expectedCase = $expectedCaseManifest[$caseIndex]
+                    $actualCase = $cases[$caseIndex]
+                    if ([string]$actualCase.m_sCaseId -cne [string]$expectedCase.Id -or
+                        [string]$actualCase.m_sStatus -cne [string]$expectedCase.Status -or
+                        [string]$actualCase.m_sCategory -cne [string]$expectedCase.Category -or
+                        [string]$actualCase.m_sFeature -cne [string]$expectedCase.Feature -or
+                        [string]$actualCase.m_sStage -cne [string]$expectedCase.Stage) {
+                        $caseSetExact = $false
+                        break
+                    }
+                }
+            }
+            if (-not $caseSetExact) {
+                $problems.Add("corrected-canary-case-set")
+            }
+            if ($cases.Count -ne 11 -or
+                $statusCounts.PASS -ne 9 -or
+                $statusCounts.WARN -ne 2 -or
+                $statusCounts.FAIL -ne 0 -or
+                $statusCounts.BLOCKED -ne 0 -or
+                $statusCounts.SKIPPED -ne 0) {
+                $problems.Add("corrected-canary-case-census")
+            }
+            if ([int]$run.m_iCertificationRequiredCount -ne 87 -or
+                [int]$run.m_iCertificationProvenCount -ne 87 -or
+                [int]$run.m_iCertificationFailCount -ne 0 -or
+                [int]$run.m_iCertificationBlockedCount -ne 0 -or
+                [int]$run.m_iCertificationWarnCount -ne 0 -or
+                [bool]$run.m_bCertificationPassed) {
+                $problems.Add("corrected-canary-certification-census")
+            }
+
+            $canonicalStatuses = @("PASS", "WARN", "FAIL", "BLOCKED", "SKIPPED")
+            $strictAssertionRows = New-Object Collections.Generic.List[object]
+            $strictCertificationCounts = [ordered]@{
+                PASS = 0
+                WARN = 0
+                FAIL = 0
+                BLOCKED = 0
+                SKIPPED = 0
+            }
+            $strictFailedAssertionCount = 0
+            $strictSkippedAssertionCount = 0
+            foreach ($strictCase in $cases) {
+                $strictCaseId = [string]$strictCase.m_sCaseId
+                $strictCaseStatus = [string]$strictCase.m_sStatus
+                $strictCaseStatusCanonical =
+                    $canonicalStatuses -ccontains $strictCaseStatus
+                if (-not $strictCaseStatusCanonical) {
+                    $problems.Add("corrected-canary-case-status-contract")
+                }
+
+                $derivedCaseStatus = "PASS"
+                $derivedCaseSeverity = 0
+                $seenAssertionIds = New-Object `
+                    'Collections.Generic.HashSet[string]' `
+                    ([StringComparer]::Ordinal)
+                foreach ($strictAssertion in @($strictCase.m_aAssertions)) {
+                    $strictAssertionId = [string]$strictAssertion.m_sAssertionId
+                    if ([string]::IsNullOrWhiteSpace($strictAssertionId) -or
+                        -not $seenAssertionIds.Add($strictAssertionId)) {
+                        $problems.Add("corrected-canary-assertion-id-contract")
+                    }
+
+                    $strictAssertionStatus = [string]$strictAssertion.m_sStatus
+                    $strictAssertionStatusCanonical =
+                        $canonicalStatuses -ccontains $strictAssertionStatus
+                    if (-not $strictAssertionStatusCanonical) {
+                        $problems.Add("corrected-canary-assertion-status-contract")
+                    }
+
+                    $certificationProperty = $strictAssertion.PSObject.Properties[
+                        'm_bCountsTowardCertification']
+                    $countsTowardCertification = $false
+                    if (-not $certificationProperty -or
+                        $certificationProperty.Value -isnot [bool]) {
+                        $problems.Add("corrected-canary-certification-flag-contract")
+                    }
+                    else {
+                        $countsTowardCertification =
+                            [bool]$certificationProperty.Value
+                    }
+
+                    $strictAssertionRows.Add([pscustomobject]@{
+                        CaseId = $strictCaseId
+                        CaseCategory = [string]$strictCase.m_sCategory
+                        CaseFeature = [string]$strictCase.m_sFeature
+                        CaseStage = [string]$strictCase.m_sStage
+                        Id = $strictAssertionId
+                        Status = $strictAssertionStatus
+                        CountsTowardCertification = $countsTowardCertification
+                        Expected = [string]$strictAssertion.m_sExpected
+                        Actual = [string]$strictAssertion.m_sActual
+                        Reason = [string]$strictAssertion.m_sFailureReason
+                        ProofLevel = [string]$strictAssertion.m_sProofLevel
+                        ObservedPath = [string]$strictAssertion.m_sObservedPath
+                        RequiredPath = [string]$strictAssertion.m_sRequiredPath
+                    })
+
+                    if ($strictAssertionStatusCanonical) {
+                        $assertionSeverity = switch -CaseSensitive (
+                            $strictAssertionStatus) {
+                            "SKIPPED" { 1 }
+                            "WARN" { 2 }
+                            "BLOCKED" { 3 }
+                            "FAIL" { 4 }
+                            default { 0 }
+                        }
+                        if ($assertionSeverity -gt $derivedCaseSeverity) {
+                            $derivedCaseSeverity = $assertionSeverity
+                            $derivedCaseStatus = $strictAssertionStatus
+                        }
+                        if ($strictAssertionStatus -ceq "FAIL") {
+                            $strictFailedAssertionCount++
+                        }
+                        elseif ($strictAssertionStatus -ceq "SKIPPED") {
+                            $strictSkippedAssertionCount++
+                        }
+
+                        if ($countsTowardCertification) {
+                            $strictCertificationCounts[$strictAssertionStatus]++
+                        }
+                    }
+                }
+
+                if ($strictCaseStatusCanonical -and
+                    $strictCaseStatus -cne $derivedCaseStatus) {
+                    $problems.Add("corrected-canary-case-disposition")
+                }
+            }
+
+            if ($strictFailedAssertionCount -ne 0 -or
+                $strictSkippedAssertionCount -ne 0) {
+                $problems.Add("corrected-canary-hidden-fail-or-skip")
+            }
+            $strictCertificationRequired =
+                $strictCertificationCounts.PASS +
+                $strictCertificationCounts.WARN +
+                $strictCertificationCounts.FAIL +
+                $strictCertificationCounts.BLOCKED
+            if ($strictCertificationRequired -ne 87 -or
+                $strictCertificationCounts.PASS -ne 87 -or
+                $strictCertificationCounts.WARN -ne 0 -or
+                $strictCertificationCounts.FAIL -ne 0 -or
+                $strictCertificationCounts.BLOCKED -ne 0 -or
+                $strictCertificationCounts.SKIPPED -ne 0 -or
+                $strictCertificationRequired -ne
+                    [int]$run.m_iCertificationRequiredCount -or
+                $strictCertificationCounts.PASS -ne
+                    [int]$run.m_iCertificationProvenCount -or
+                $strictCertificationCounts.WARN -ne
+                    [int]$run.m_iCertificationWarnCount -or
+                $strictCertificationCounts.FAIL -ne
+                    [int]$run.m_iCertificationFailCount -or
+                $strictCertificationCounts.BLOCKED -ne
+                    [int]$run.m_iCertificationBlockedCount) {
+                $problems.Add("corrected-canary-certification-assertion-census")
+            }
+
+            $expectedAssertionManifest = @(
+                Get-CorrectedCanaryAssertionManifest -RunId ([string]$run.m_sRunId))
+            $assertionManifestExact =
+                $expectedAssertionManifest.Count -eq $strictAssertionRows.Count -and
+                @($expectedAssertionManifest | Where-Object {
+                    $_.CountsTowardCertification
+                }).Count -eq 87
+            if ($assertionManifestExact) {
+                for ($manifestIndex = 0;
+                    $manifestIndex -lt $expectedAssertionManifest.Count;
+                    $manifestIndex++) {
+                    $expectedAssertion = $expectedAssertionManifest[$manifestIndex]
+                    $actualAssertion = $strictAssertionRows[$manifestIndex]
+                    if ([string]$actualAssertion.CaseId -cne
+                            [string]$expectedAssertion.CaseId -or
+                        [string]$actualAssertion.Id -cne [string]$expectedAssertion.Id -or
+                        [string]$actualAssertion.Status -cne
+                            [string]$expectedAssertion.Status -or
+                        [bool]$actualAssertion.CountsTowardCertification -ne
+                            [bool]$expectedAssertion.CountsTowardCertification) {
+                        $assertionManifestExact = $false
+                        break
+                    }
+                }
+            }
+            if (-not $assertionManifestExact) {
+                $problems.Add("corrected-canary-assertion-manifest")
+            }
+
+            $strictFocusedCases = @($cases | Where-Object {
+                [string]$_.m_sCaseId -ceq "early_mechanics.force_authority"
+            })
+            $strictFocusedContractValid = $strictFocusedCases.Count -eq 1
+            if ($strictFocusedContractValid) {
+                $strictFocusedAssertions = @($strictFocusedCases[0].m_aAssertions)
+                $strictExpectedFocusedIds = @(
+                    Get-FocusedForceAuthorityAssertionIds | Sort-Object -CaseSensitive)
+                $strictActualFocusedIds = @($strictFocusedAssertions |
+                    ForEach-Object { [string]$_.m_sAssertionId } |
+                    Sort-Object -CaseSensitive)
+                $strictFocusedContractValid =
+                    $strictFocusedAssertions.Count -eq 35 -and
+                    $strictExpectedFocusedIds.Count -eq
+                        $strictActualFocusedIds.Count
+                if ($strictFocusedContractValid) {
+                    for ($focusedIndex = 0;
+                        $focusedIndex -lt $strictExpectedFocusedIds.Count;
+                        $focusedIndex++) {
+                        if ($strictExpectedFocusedIds[$focusedIndex] -cne
+                            $strictActualFocusedIds[$focusedIndex]) {
+                            $strictFocusedContractValid = $false
+                            break
+                        }
+                    }
+                }
+                if ($strictFocusedContractValid) {
+                    foreach ($strictFocusedAssertion in $strictFocusedAssertions) {
+                        $focusedCertificationProperty =
+                            $strictFocusedAssertion.PSObject.Properties[
+                                'm_bCountsTowardCertification']
+                        $expectedFocusedCertification =
+                            [string]$strictFocusedAssertion.m_sAssertionId -cne
+                                "town_influence.external_completion"
+                        if ([string]$strictFocusedAssertion.m_sStatus -cne "PASS" -or
+                            -not $focusedCertificationProperty -or
+                            $focusedCertificationProperty.Value -isnot [bool] -or
+                            [bool]$focusedCertificationProperty.Value -ne
+                                $expectedFocusedCertification) {
+                            $strictFocusedContractValid = $false
+                            break
+                        }
+                    }
+                }
+            }
+            if (-not $strictFocusedContractValid) {
+                $problems.Add("corrected-canary-focused-assertion-contract")
+            }
+
+            $warningAssertions = @($strictAssertionRows | Where-Object {
+                [string]$_.Status -ceq "WARN"
+            })
+            $blockedAssertions = @($strictAssertionRows | Where-Object {
+                [string]$_.Status -ceq "BLOCKED"
+            })
+            $warningCases = @($cases | Where-Object {
+                [string]$_.m_sStatus -ceq "WARN"
+            })
+            $blockedCases = @($cases | Where-Object {
+                [string]$_.m_sStatus -ceq "BLOCKED"
+            })
+            $warningContractExact =
+                $warningCases.Count -eq 2 -and
+                $warningAssertions.Count -eq 2
+            if ($warningContractExact) {
+                $markerWarnings = @($warningAssertions | Where-Object {
+                    [string]$_.Id -ceq "cleanup.player_marker.live"
+                })
+                $worldWarnings = @($warningAssertions | Where-Object {
+                    [string]$_.Id -ceq "isolation.world_scope"
+                })
+                $markerWarningCases = @($warningCases | Where-Object {
+                    [string]$_.m_sCaseId -ceq
+                        "cleanup.player_marker_completion"
+                })
+                $worldWarningCases = @($warningCases | Where-Object {
+                    [string]$_.m_sCaseId -ceq
+                        "cleanup.state_isolation_restore"
+                })
+                $warningContractExact =
+                    $markerWarnings.Count -eq 1 -and
+                    $worldWarnings.Count -eq 1 -and
+                    $markerWarningCases.Count -eq 1 -and
+                    $worldWarningCases.Count -eq 1
+            }
+            if ($warningContractExact) {
+                $markerWarning = $markerWarnings[0]
+                $worldWarning = $worldWarnings[0]
+                $warningContractExact =
+                    [string]$markerWarning.CaseId -ceq
+                        "cleanup.player_marker_completion" -and
+                    [string]$markerWarning.CaseCategory -ceq "cleanup" -and
+                    [string]$markerWarning.CaseFeature -ceq "player_markers" -and
+                    [string]$markerWarning.CaseStage -ceq "final" -and
+                    [string]$markerWarning.Id -ceq "cleanup.player_marker.live" -and
+                    [string]$markerWarning.Expected -ceq
+                        "enabled player marker service has desired/tracked/live marker after cleanup" -and
+                    [string]$markerWarning.Actual -cmatch
+                        '^enabled [01] \| desired \d+ \| tracked \d+ \| live \d+ \| entry [01]$' -and
+                    [string]$markerWarning.Reason -ceq
+                        "player marker did not reconcile after campaign debug completion" -and
+                    [string]$markerWarning.ProofLevel -ceq "STATE_ONLY" -and
+                    [string]$markerWarning.ObservedPath -ceq "diagnostic_only" -and
+                    [string]$markerWarning.RequiredPath -ceq
+                        "no debug-owned state or world leak" -and
+                    -not [bool]$markerWarning.CountsTowardCertification -and
+                    [string]$worldWarning.CaseId -ceq
+                        "cleanup.state_isolation_restore" -and
+                    [string]$worldWarning.CaseCategory -ceq "cleanup" -and
+                    [string]$worldWarning.CaseFeature -ceq "campaign_debug" -and
+                    [string]$worldWarning.CaseStage -ceq "state_restore" -and
+                    [string]$worldWarning.Id -ceq "isolation.world_scope" -and
+                    [string]$worldWarning.Expected -ceq
+                        "runtime certification remains scoped to the disposable development session" -and
+                    [string]$worldWarning.Actual -ceq
+                        "world runtime, player inventory, health, and service caches require session restart before another certifying run" -and
+                    [string]$worldWarning.Reason -ceq
+                        "restart the disposable development session before another certification run" -and
+                    [string]$worldWarning.ProofLevel -ceq "EXTERNAL_PROCESS" -and
+                    [string]$worldWarning.ObservedPath -ceq
+                        "manual_external_gap" -and
+                    [string]$worldWarning.RequiredPath -ceq
+                        "external process restart, reconnect, or long-soak harness" -and
+                    -not [bool]$worldWarning.CountsTowardCertification
+            }
+            if (-not $warningContractExact) {
+                $problems.Add("corrected-canary-warning-contract")
+            }
+
+            $noBlockedAssertions =
+                $blockedCases.Count -eq 0 -and
+                $blockedAssertions.Count -eq 0
+            if (-not $noBlockedAssertions) {
+                $problems.Add("corrected-canary-blocked-assertion")
+            }
+
+            $orphanCases = @($cases | Where-Object {
+                [string]$_.m_sCaseId -ceq "cleanup.run_leak_snapshot"
+            })
+            $orphanContractExact = $orphanCases.Count -eq 1
+            if ($orphanContractExact) {
+                $orphanAssertions = @($orphanCases[0].m_aAssertions | Where-Object {
+                    [string]$_.m_sAssertionId -ceq "cleanup.orphan_active_groups"
+                })
+                $orphanMetrics = @($orphanCases[0].m_aMetrics | Where-Object {
+                    [string]$_.m_sMetricId -ceq "cleanup.orphan_active_groups"
+                })
+                $orphanContractExact =
+                    $orphanAssertions.Count -eq 1 -and
+                    $orphanMetrics.Count -eq 1 -and
+                    [string]$orphanAssertions[0].m_sStatus -ceq "PASS" -and
+                    [bool]$orphanAssertions[0].m_bCountsTowardCertification -and
+                    [string]$orphanAssertions[0].m_sExpected -ceq
+                        "no active groups without zone/mission/support/order/QRF backing" -and
+                    [string]$orphanAssertions[0].m_sActual -ceq
+                        "0 | total 0 | debug 0 | smoke 0 | other 0" -and
+                    [string]$orphanAssertions[0].m_sFailureReason -ceq
+                        "orphan active groups remain after debug run" -and
+                    [string]$orphanAssertions[0].m_sProofLevel -ceq
+                        "STATE_ONLY" -and
+                    [string]$orphanAssertions[0].m_sObservedPath -ceq
+                        "cleanup_probe" -and
+                    [string]$orphanAssertions[0].m_sRequiredPath -ceq
+                        "no debug-owned state or world leak" -and
+                    [string]$orphanMetrics[0].m_sName -ceq
+                        "cleanup.orphan_active_groups" -and
+                    [string]$orphanMetrics[0].m_sValue -ceq "0" -and
+                    [string]$orphanMetrics[0].m_sUnit -ceq "count" -and
+                    [string]$orphanMetrics[0].m_sFeature -ceq "campaign_debug" -and
+                    [string]$orphanMetrics[0].m_sStage -ceq "final"
+            }
+            if (-not $orphanContractExact) {
+                $problems.Add("corrected-canary-orphan-contract")
+            }
+        }
+
         $restoreCases = @(Find-Case -Run $run -CaseId "cleanup.state_isolation_restore")
         if ($restoreCases.Count -ne 1 -or
             -not (Test-ExactPassingAssertion -Case $restoreCases[0] -AssertionId "isolation.snapshot") -or
@@ -1523,12 +2169,12 @@ function Test-CampaignDebugArtifacts {
             $problems.Add("summary-identity")
         }
 
-        $deltaMatches = [Regex]::Matches($stateDiffText, '(?m)\|\s+delta\s+(-?\d+)\s*$')
-        $nonzeroDeltas = @($deltaMatches | Where-Object { [int]$_.Groups[1].Value -ne 0 }).Count
-        if ($stateDiffText -notmatch "(?m)^Partisan campaign debug state diff\s*$" -or
-            $stateDiffText -notmatch "(?m)^run $escapedRunId\s*$" -or
-            $deltaMatches.Count -ne 18 -or
-            $nonzeroDeltas -ne 0 -or
+        $stateDiffValidation = Get-CampaignDebugStateDiffValidation `
+            -Text $stateDiffText `
+            -RunId ([string]$run.m_sRunId)
+        if (-not $stateDiffValidation.ContractExact -or
+            $stateDiffValidation.RowCount -ne 18 -or
+            $stateDiffValidation.NonzeroRowCount -ne 0 -or
             $stateDiffText -match "campaign state missing at artifact write") {
             $problems.Add("state-diff")
         }
@@ -1557,10 +2203,17 @@ function Test-CampaignDebugArtifacts {
             CertificationBlocked = [int]$run.m_iCertificationBlockedCount
             CertificationWarn = [int]$run.m_iCertificationWarnCount
             CertificationPassed = [bool]$run.m_bCertificationPassed
+            CorrectedCanaryContract = [bool]$RequireCorrectedCanaryContract
             Trigger = $trigger
             ArtifactCount = $artifactNames.Count
-            StateDiffRows = $deltaMatches.Count
-            NonzeroStateDiffRows = $nonzeroDeltas
+            StateDiffRows = $stateDiffValidation.RowCount
+            NonzeroStateDiffRows = $stateDiffValidation.NonzeroRowCount
+            StateDiffManifestExact = $stateDiffValidation.ContractExact
+            CorrectedCanaryAssertionManifestExact = $assertionManifestExact
+            CorrectedCanaryCaseSetExact = $caseSetExact
+            CorrectedCanaryWarningContractExact = $warningContractExact
+            CorrectedCanaryNoBlockedAssertions = $noBlockedAssertions
+            CorrectedCanaryOrphanContractExact = $orphanContractExact
             Phase17 = @()
             Phase17Metrics = [pscustomobject][ordered]@{}
             Phase24 = @()
@@ -1770,12 +2423,12 @@ function Test-CampaignDebugArtifacts {
         $problems.Add("summary-identity")
     }
 
-    $deltaMatches = [Regex]::Matches($stateDiffText, '(?m)\|\s+delta\s+(-?\d+)\s*$')
-    $nonzeroDeltas = @($deltaMatches | Where-Object { [int]$_.Groups[1].Value -ne 0 }).Count
-    if ($stateDiffText -notmatch "(?m)^Partisan campaign debug state diff\s*$" -or
-        $stateDiffText -notmatch "(?m)^run $escapedRunId\s*$" -or
-        $deltaMatches.Count -ne 18 -or
-        $nonzeroDeltas -ne 0 -or
+    $stateDiffValidation = Get-CampaignDebugStateDiffValidation `
+        -Text $stateDiffText `
+        -RunId ([string]$run.m_sRunId)
+    if (-not $stateDiffValidation.ContractExact -or
+        $stateDiffValidation.RowCount -ne 18 -or
+        $stateDiffValidation.NonzeroRowCount -ne 0 -or
         $stateDiffText -match "campaign state missing at artifact write") {
         $problems.Add("state-diff")
     }
@@ -1931,10 +2584,12 @@ function Test-CampaignDebugArtifacts {
         CertificationBlocked = [int]$run.m_iCertificationBlockedCount
         CertificationWarn = [int]$run.m_iCertificationWarnCount
         CertificationPassed = [bool]$run.m_bCertificationPassed
+        CorrectedCanaryContract = $false
         Trigger = $trigger
         ArtifactCount = $artifactNames.Count
-        StateDiffRows = $deltaMatches.Count
-        NonzeroStateDiffRows = $nonzeroDeltas
+        StateDiffRows = $stateDiffValidation.RowCount
+        NonzeroStateDiffRows = $stateDiffValidation.NonzeroRowCount
+        StateDiffManifestExact = $stateDiffValidation.ContractExact
         Phase17 = $phase17Status.ToArray()
         Phase17Metrics = [pscustomobject]$phase17Metrics
         Phase24 = $phase24Status.ToArray()
@@ -1974,12 +2629,27 @@ function Invoke-ArtifactValidatorSelfTest {
     $stateDiffPath = Join-Path $Directory $stateDiffName
 
     $newAssertion = {
-        param([string]$Id, [string]$Status = "PASS", [string]$Actual = "")
+        param(
+            [string]$Id,
+            [string]$Status = "PASS",
+            [string]$Actual = "",
+            [bool]$CountsTowardCertification = $false,
+            [string]$Expected = "",
+            [string]$FailureReason = "",
+            [string]$ProofLevel = "STATE_ONLY",
+            [string]$ObservedPath = "runtime_state",
+            [string]$RequiredPath = "runtime_state"
+        )
         [pscustomobject]@{
             m_sAssertionId = $Id
             m_sStatus = $Status
+            m_sExpected = $Expected
             m_sActual = $Actual
-            m_bCountsTowardCertification = $false
+            m_sFailureReason = $FailureReason
+            m_sProofLevel = $ProofLevel
+            m_sObservedPath = $ObservedPath
+            m_sRequiredPath = $RequiredPath
+            m_bCountsTowardCertification = $CountsTowardCertification
         }
     }
     $newMetric = {
@@ -1992,6 +2662,7 @@ function Invoke-ArtifactValidatorSelfTest {
         )
         [pscustomobject]@{
             m_sMetricId = $Id
+            m_sName = $Id
             m_sValue = $Value
             m_sUnit = $Unit
             m_sFeature = $Feature
@@ -2003,11 +2674,17 @@ function Invoke-ArtifactValidatorSelfTest {
             [string]$Id,
             [string]$Status = "PASS",
             [object[]]$Assertions = @(),
-            [object[]]$Metrics = @()
+            [object[]]$Metrics = @(),
+            [string]$Category = "",
+            [string]$Feature = "",
+            [string]$Stage = ""
         )
         [pscustomobject]@{
             m_sCaseId = $Id
             m_sStatus = $Status
+            m_sCategory = $Category
+            m_sFeature = $Feature
+            m_sStage = $Stage
             m_aAssertions = $Assertions
             m_aMetrics = $Metrics
         }
@@ -2158,8 +2835,8 @@ function Invoke-ArtifactValidatorSelfTest {
     $stateDiffLines = New-Object Collections.Generic.List[string]
     $stateDiffLines.Add("Partisan campaign debug state diff")
     $stateDiffLines.Add("run $runId")
-    for ($index = 0; $index -lt 18; $index++) {
-        $stateDiffLines.Add("synthetic $index -> $index | delta 0")
+    foreach ($label in @(Get-CampaignDebugStateDiffLabels)) {
+        $stateDiffLines.Add("$label 0 -> 0 | delta 0")
     }
     [IO.File]::WriteAllLines(
         $stateDiffPath,
@@ -2329,18 +3006,80 @@ function Invoke-ArtifactValidatorSelfTest {
         $originalJson,
         (New-Object Text.UTF8Encoding($false)))
 
-    $focusedAssertions = @(Get-FocusedForceAuthorityAssertionIds | ForEach-Object {
-        & $newAssertion $_
-    })
-    $focusedCases = @(
-        (& $newCase "early_mechanics.force_authority" "PASS" $focusedAssertions),
-        (& $newCase "cleanup.run_leak_snapshot" "PASS" @((& $newAssertion "cleanup.orphan_active_groups")) @((& $newMetric "cleanup.orphan_active_groups" "0"))),
-        (& $newCase "cleanup.state_isolation_restore" "PASS" @(
-            (& $newAssertion "isolation.snapshot"),
-            (& $newAssertion "isolation.state_restore"),
-            (& $newAssertion "isolation.persistence_restore")
-        ))
-    )
+    $focusedCases = New-Object Collections.Generic.List[object]
+    $focusedCaseManifest = @(Get-CorrectedCanaryCaseManifest -RunId $runId)
+    $focusedAssertionManifest = @(
+        Get-CorrectedCanaryAssertionManifest -RunId $runId)
+    foreach ($caseManifestRow in $focusedCaseManifest) {
+        $caseAssertions = New-Object Collections.Generic.List[object]
+        foreach ($assertionManifestRow in @($focusedAssertionManifest |
+            Where-Object { [string]$_.CaseId -ceq [string]$caseManifestRow.Id })) {
+            $assertionParameters = @{
+                Id = [string]$assertionManifestRow.Id
+                Status = [string]$assertionManifestRow.Status
+                Actual = "synthetic accepted result"
+                CountsTowardCertification =
+                    [bool]$assertionManifestRow.CountsTowardCertification
+            }
+            if ([string]$assertionManifestRow.Id -ceq
+                "cleanup.player_marker.live") {
+                $assertionParameters.Expected =
+                    "enabled player marker service has desired/tracked/live marker after cleanup"
+                $assertionParameters.Actual =
+                    "enabled 1 | desired 0 | tracked 0 | live 0 | entry 1"
+                $assertionParameters.FailureReason =
+                    "player marker did not reconcile after campaign debug completion"
+                $assertionParameters.ProofLevel = "STATE_ONLY"
+                $assertionParameters.ObservedPath = "diagnostic_only"
+                $assertionParameters.RequiredPath =
+                    "no debug-owned state or world leak"
+            }
+            elseif ([string]$assertionManifestRow.Id -ceq
+                "isolation.world_scope") {
+                $assertionParameters.Expected =
+                    "runtime certification remains scoped to the disposable development session"
+                $assertionParameters.Actual =
+                    "world runtime, player inventory, health, and service caches require session restart before another certifying run"
+                $assertionParameters.FailureReason =
+                    "restart the disposable development session before another certification run"
+                $assertionParameters.ProofLevel = "EXTERNAL_PROCESS"
+                $assertionParameters.ObservedPath = "manual_external_gap"
+                $assertionParameters.RequiredPath =
+                    "external process restart, reconnect, or long-soak harness"
+            }
+            elseif ([string]$assertionManifestRow.Id -ceq
+                "cleanup.orphan_active_groups") {
+                $assertionParameters.Expected =
+                    "no active groups without zone/mission/support/order/QRF backing"
+                $assertionParameters.Actual =
+                    "0 | total 0 | debug 0 | smoke 0 | other 0"
+                $assertionParameters.FailureReason =
+                    "orphan active groups remain after debug run"
+                $assertionParameters.ProofLevel = "STATE_ONLY"
+                $assertionParameters.ObservedPath = "cleanup_probe"
+                $assertionParameters.RequiredPath =
+                    "no debug-owned state or world leak"
+            }
+            [void]$caseAssertions.Add((& $newAssertion @assertionParameters))
+        }
+        $caseMetrics = @()
+        if ([string]$caseManifestRow.Id -ceq "cleanup.run_leak_snapshot") {
+            $caseMetrics = @((& $newMetric `
+                "cleanup.orphan_active_groups" `
+                "0" `
+                "count" `
+                "campaign_debug" `
+                "final"))
+        }
+        [void]$focusedCases.Add((& $newCase `
+            -Id ([string]$caseManifestRow.Id) `
+            -Status ([string]$caseManifestRow.Status) `
+            -Assertions $caseAssertions.ToArray() `
+            -Metrics $caseMetrics `
+            -Category ([string]$caseManifestRow.Category) `
+            -Feature ([string]$caseManifestRow.Feature) `
+            -Stage ([string]$caseManifestRow.Stage)))
+    }
     $focusedRun = [pscustomobject]@{
         m_sRunId = $runId
         m_sProfile = "force_authority"
@@ -2350,17 +3089,19 @@ function Invoke-ArtifactValidatorSelfTest {
         m_iStartedAtSecond = 1
         m_iEndedAtSecond = 2
         m_iPassCount = @($focusedCases | Where-Object { $_.m_sStatus -eq "PASS" }).Count
-        m_iWarnCount = 0
+        m_iWarnCount = @($focusedCases | Where-Object { $_.m_sStatus -eq "WARN" }).Count
         m_iFailCount = 0
-        m_iBlockedCount = 0
+        m_iBlockedCount = @($focusedCases | Where-Object {
+            $_.m_sStatus -eq "BLOCKED"
+        }).Count
         m_iSkippedCount = 0
-        m_iCertificationRequiredCount = 0
-        m_iCertificationProvenCount = 0
+        m_iCertificationRequiredCount = 87
+        m_iCertificationProvenCount = 87
         m_iCertificationFailCount = 0
         m_iCertificationBlockedCount = 0
         m_iCertificationWarnCount = 0
         m_bCertificationPassed = $false
-        m_aCases = $focusedCases
+        m_aCases = $focusedCases.ToArray()
         m_aMetrics = $runMetrics
         m_aArtifacts = @($jsonName, $summaryName, $stateDiffName)
     }
@@ -2386,10 +3127,17 @@ function Invoke-ArtifactValidatorSelfTest {
         ExpectedUtc = $ExpectedUtc
         ExpectedLabel = $ExpectedLabel
         ExpectedProfile = "force_authority"
+        RequireCorrectedCanaryContract = $true
     }
     $focusedResult = Test-CampaignDebugArtifacts @focusedParameters
     if (-not $focusedResult.Valid -or
         $focusedResult.FullCertification -or
+        -not $focusedResult.CorrectedCanaryContract -or
+        -not $focusedResult.StateDiffManifestExact -or
+        -not $focusedResult.CorrectedCanaryAssertionManifestExact -or
+        -not $focusedResult.CorrectedCanaryWarningContractExact -or
+        -not $focusedResult.CorrectedCanaryNoBlockedAssertions -or
+        -not $focusedResult.CorrectedCanaryOrphanContractExact -or
         $focusedResult.ProofScope -ne "focused_force_authority" -or
         $focusedResult.FocusedCaseId -ne "early_mechanics.force_authority" -or
         @($focusedResult.FocusedAssertions).Count -ne @(Get-FocusedForceAuthorityAssertionIds).Count) {
@@ -2397,8 +3145,33 @@ function Invoke-ArtifactValidatorSelfTest {
     }
 
     $focusedNegativeChecks = New-Object Collections.Generic.List[string]
+    $assertFocusedMutationRejected = {
+        param(
+            [Parameter(Mandatory = $true)][string]$Name,
+            [Parameter(Mandatory = $true)]$MutatedRun,
+            [Parameter(Mandatory = $true)][string[]]$ExpectedProblems
+        )
+
+        [IO.File]::WriteAllText(
+            $jsonPath,
+            ($MutatedRun | ConvertTo-Json -Depth 12),
+            (New-Object Text.UTF8Encoding($false)))
+        $mutationResult = Test-CampaignDebugArtifacts @focusedParameters
+        if ($mutationResult.Valid) {
+            throw "Synthetic focused $Name mutation was accepted."
+        }
+        foreach ($expectedProblem in $ExpectedProblems) {
+            if ($mutationResult.Problems -notcontains $expectedProblem) {
+                throw "Synthetic focused $Name mutation did not report $expectedProblem."
+            }
+        }
+        [void]$focusedNegativeChecks.Add($Name)
+    }
+
     $failedCaseRun = $focusedJson | ConvertFrom-Json
-    $failedCaseRun.m_aCases[0].m_sStatus = "FAIL"
+    (@($failedCaseRun.m_aCases | Where-Object {
+        $_.m_sCaseId -eq "early_mechanics.force_authority"
+    })[0]).m_sStatus = "FAIL"
     $failedCaseRun.m_iPassCount--
     $failedCaseRun.m_iFailCount++
     [IO.File]::WriteAllText(
@@ -2413,7 +3186,10 @@ function Invoke-ArtifactValidatorSelfTest {
     [void]$focusedNegativeChecks.Add("case-status")
 
     $failedAssertionRun = $focusedJson | ConvertFrom-Json
-    (@($failedAssertionRun.m_aCases[0].m_aAssertions | Where-Object {
+    $failedAssertionCase = @($failedAssertionRun.m_aCases | Where-Object {
+        $_.m_sCaseId -eq "early_mechanics.force_authority"
+    })[0]
+    (@($failedAssertionCase.m_aAssertions | Where-Object {
         $_.m_sAssertionId -eq "combat_presence.aggregate"
     })[0]).m_sStatus = "FAIL"
     [IO.File]::WriteAllText(
@@ -2428,7 +3204,11 @@ function Invoke-ArtifactValidatorSelfTest {
     [void]$focusedNegativeChecks.Add("assertion-failure")
 
     $unexpectedAssertionRun = $focusedJson | ConvertFrom-Json
-    $unexpectedAssertionRun.m_aCases[0].m_aAssertions += & $newAssertion "town_influence.unexpected_contract"
+    $unexpectedAssertionCase = @($unexpectedAssertionRun.m_aCases | Where-Object {
+        $_.m_sCaseId -eq "early_mechanics.force_authority"
+    })[0]
+    $unexpectedAssertionCase.m_aAssertions +=
+        & $newAssertion "town_influence.unexpected_contract"
     [IO.File]::WriteAllText(
         $jsonPath,
         ($unexpectedAssertionRun | ConvertTo-Json -Depth 12),
@@ -2452,6 +3232,210 @@ function Invoke-ArtifactValidatorSelfTest {
         throw "Synthetic focused certification-claim self-test failed."
     }
     [void]$focusedNegativeChecks.Add("certification-claim")
+
+    $missingCaseRun = $focusedJson | ConvertFrom-Json
+    $missingCaseRun.m_aCases = @($missingCaseRun.m_aCases | Where-Object {
+        [string]$_.m_sCaseId -cne
+            "post_case_cleanup.preflight_state_isolation"
+    })
+    & $assertFocusedMutationRejected `
+        -Name "case-set" `
+        -MutatedRun $missingCaseRun `
+        -ExpectedProblems @("corrected-canary-case-set")
+
+    $hiddenCertificationFailRun = $focusedJson | ConvertFrom-Json
+    $hiddenCertificationFailCase = @(
+        $hiddenCertificationFailRun.m_aCases | Where-Object {
+            [string]$_.m_sCaseId -ceq "preflight.state_isolation"
+        })[0]
+    $hiddenCertificationFailCase.m_aAssertions[0].m_sStatus = "FAIL"
+    & $assertFocusedMutationRejected `
+        -Name "hidden-certification-fail" `
+        -MutatedRun $hiddenCertificationFailRun `
+        -ExpectedProblems @(
+            "corrected-canary-hidden-fail-or-skip",
+            "corrected-canary-certification-assertion-census")
+
+    $certificationFlagRun = $focusedJson | ConvertFrom-Json
+    $certificationFlagCase = @($certificationFlagRun.m_aCases |
+        Where-Object {
+            [string]$_.m_sCaseId -ceq "preflight.state_isolation"
+        })[0]
+    $certificationFlagCase.m_aAssertions[0].m_bCountsTowardCertification =
+        $false
+    & $assertFocusedMutationRejected `
+        -Name "certification-flag" `
+        -MutatedRun $certificationFlagRun `
+        -ExpectedProblems @(
+            "corrected-canary-certification-assertion-census")
+
+    $misplacedWarningRun = $focusedJson | ConvertFrom-Json
+    $misplacedWarningSource = @($misplacedWarningRun.m_aCases |
+        Where-Object {
+            [string]$_.m_sCaseId -ceq "cleanup.player_marker_completion"
+        })[0]
+    $misplacedWarningTarget = @($misplacedWarningRun.m_aCases |
+        Where-Object {
+            [string]$_.m_sCaseId -ceq
+                "post_case_cleanup.preflight_state_isolation"
+        })[0]
+    $misplacedWarningAssertion = @($misplacedWarningSource.m_aAssertions |
+        Where-Object {
+            [string]$_.m_sAssertionId -ceq "cleanup.player_marker.live"
+        })[0]
+    $misplacedWarningSource.m_aAssertions = @(
+        $misplacedWarningSource.m_aAssertions | Where-Object {
+            [string]$_.m_sAssertionId -cne "cleanup.player_marker.live"
+        })
+    $misplacedWarningTarget.m_aAssertions = @($misplacedWarningAssertion)
+    & $assertFocusedMutationRejected `
+        -Name "warning-parent-link" `
+        -MutatedRun $misplacedWarningRun `
+        -ExpectedProblems @("corrected-canary-warning-contract")
+
+    $misplacedWorldWarningRun = $focusedJson | ConvertFrom-Json
+    $misplacedWorldWarningSource = @($misplacedWorldWarningRun.m_aCases |
+        Where-Object {
+            [string]$_.m_sCaseId -ceq "cleanup.state_isolation_restore"
+        })[0]
+    $misplacedWorldWarningTarget = @($misplacedWorldWarningRun.m_aCases |
+        Where-Object {
+            [string]$_.m_sCaseId -ceq
+                "post_case_cleanup.early_mechanics_force_authority"
+        })[0]
+    $misplacedWorldWarningAssertion = @(
+        $misplacedWorldWarningSource.m_aAssertions | Where-Object {
+            [string]$_.m_sAssertionId -ceq "isolation.world_scope"
+        })[0]
+    $misplacedWorldWarningSource.m_aAssertions = @(
+        $misplacedWorldWarningSource.m_aAssertions | Where-Object {
+            [string]$_.m_sAssertionId -cne "isolation.world_scope"
+        })
+    $misplacedWorldWarningTarget.m_aAssertions = @(
+        $misplacedWorldWarningTarget.m_aAssertions +
+        @($misplacedWorldWarningAssertion))
+    & $assertFocusedMutationRejected `
+        -Name "world-warning-parent-link" `
+        -MutatedRun $misplacedWorldWarningRun `
+        -ExpectedProblems @("corrected-canary-warning-contract")
+
+    $orphanMetadataRun = $focusedJson | ConvertFrom-Json
+    $orphanMetadataCase = @($orphanMetadataRun.m_aCases | Where-Object {
+        [string]$_.m_sCaseId -ceq "cleanup.run_leak_snapshot"
+    })[0]
+    $orphanMetadataAssertion = @($orphanMetadataCase.m_aAssertions |
+        Where-Object {
+            [string]$_.m_sAssertionId -ceq "cleanup.orphan_active_groups"
+        })[0]
+    $orphanMetadataAssertion.m_sObservedPath = "Cleanup_probe"
+    & $assertFocusedMutationRejected `
+        -Name "orphan-metadata-casing" `
+        -MutatedRun $orphanMetadataRun `
+        -ExpectedProblems @("corrected-canary-orphan-contract")
+
+    $orphanActualRun = $focusedJson | ConvertFrom-Json
+    $orphanActualCase = @($orphanActualRun.m_aCases | Where-Object {
+        [string]$_.m_sCaseId -ceq "cleanup.run_leak_snapshot"
+    })[0]
+    $orphanActualAssertion = @($orphanActualCase.m_aAssertions |
+        Where-Object {
+            [string]$_.m_sAssertionId -ceq "cleanup.orphan_active_groups"
+        })[0]
+    $orphanActualAssertion.m_sActual =
+        "0 | total 1 | debug 0 | smoke 0 | other 1"
+    & $assertFocusedMutationRejected `
+        -Name "orphan-actual" `
+        -MutatedRun $orphanActualRun `
+        -ExpectedProblems @("corrected-canary-orphan-contract")
+
+    $orphanMetricNameRun = $focusedJson | ConvertFrom-Json
+    $orphanMetricNameCase = @($orphanMetricNameRun.m_aCases | Where-Object {
+        [string]$_.m_sCaseId -ceq "cleanup.run_leak_snapshot"
+    })[0]
+    $orphanMetricNameCase.m_aMetrics[0].m_sName =
+        "cleanup.Orphan_active_groups"
+    & $assertFocusedMutationRejected `
+        -Name "orphan-metric-name-casing" `
+        -MutatedRun $orphanMetricNameRun `
+        -ExpectedProblems @("corrected-canary-orphan-contract")
+
+    $mixedCaseProfileRun = $focusedJson | ConvertFrom-Json
+    $mixedCaseProfileRun.m_sProfile = "Force_Authority"
+    & $assertFocusedMutationRejected `
+        -Name "profile-casing" `
+        -MutatedRun $mixedCaseProfileRun `
+        -ExpectedProblems @("corrected-canary-profile-contract")
+
+    $mixedCaseFocusedIdRun = $focusedJson | ConvertFrom-Json
+    $mixedCaseFocusedIdCase = @($mixedCaseFocusedIdRun.m_aCases |
+        Where-Object {
+            [string]$_.m_sCaseId -ceq "early_mechanics.force_authority"
+        })[0]
+    $mixedCaseFocusedIdCase.m_aAssertions[0].m_sAssertionId =
+        ([string]$mixedCaseFocusedIdCase.m_aAssertions[0].m_sAssertionId).
+            ToUpperInvariant()
+    & $assertFocusedMutationRejected `
+        -Name "focused-id-casing" `
+        -MutatedRun $mixedCaseFocusedIdRun `
+        -ExpectedProblems @(
+            "corrected-canary-focused-assertion-contract")
+
+    $mixedCaseFocusedStatusRun = $focusedJson | ConvertFrom-Json
+    $mixedCaseFocusedStatusCase = @(
+        $mixedCaseFocusedStatusRun.m_aCases | Where-Object {
+            [string]$_.m_sCaseId -ceq "early_mechanics.force_authority"
+        })[0]
+    $mixedCaseFocusedStatusCase.m_aAssertions[0].m_sStatus = "pass"
+    & $assertFocusedMutationRejected `
+        -Name "focused-status-casing" `
+        -MutatedRun $mixedCaseFocusedStatusRun `
+        -ExpectedProblems @(
+            "corrected-canary-assertion-status-contract",
+            "corrected-canary-focused-assertion-contract")
+
+    $hiddenSkippedRun = $focusedJson | ConvertFrom-Json
+    $hiddenSkippedCase = @($hiddenSkippedRun.m_aCases | Where-Object {
+        [string]$_.m_sCaseId -ceq "cleanup.player_marker_completion"
+    })[0]
+    $hiddenSkippedCase.m_aAssertions +=
+        & $newAssertion "corrected_canary.synthetic_hidden_skip" "SKIPPED"
+    & $assertFocusedMutationRejected `
+        -Name "hidden-noncertifying-skip" `
+        -MutatedRun $hiddenSkippedRun `
+        -ExpectedProblems @("corrected-canary-hidden-fail-or-skip")
+
+    $certificationCounterRun = $focusedJson | ConvertFrom-Json
+    $certificationCounterRun.m_iCertificationProvenCount = 86
+    & $assertFocusedMutationRejected `
+        -Name "certification-counter" `
+        -MutatedRun $certificationCounterRun `
+        -ExpectedProblems @("corrected-canary-certification-census")
+
+    $mixedCaseCaseStatusRun = $focusedJson | ConvertFrom-Json
+    $mixedCaseCaseStatus = @($mixedCaseCaseStatusRun.m_aCases |
+        Where-Object {
+            [string]$_.m_sCaseId -ceq
+                "post_case_cleanup.preflight_state_isolation"
+        })[0]
+    $mixedCaseCaseStatus.m_sStatus = "pass"
+    & $assertFocusedMutationRejected `
+        -Name "case-status-casing" `
+        -MutatedRun $mixedCaseCaseStatusRun `
+        -ExpectedProblems @("corrected-canary-case-status-contract")
+
+    $duplicateAssertionIdRun = $focusedJson | ConvertFrom-Json
+    $duplicateAssertionIdCase = @($duplicateAssertionIdRun.m_aCases |
+        Where-Object {
+            [string]$_.m_sCaseId -ceq
+                "post_case_cleanup.preflight_state_isolation"
+        })[0]
+    $duplicateAssertionIdCase.m_aAssertions = @(
+        (& $newAssertion "corrected_canary.synthetic_duplicate"),
+        (& $newAssertion "corrected_canary.synthetic_duplicate"))
+    & $assertFocusedMutationRejected `
+        -Name "duplicate-assertion-id" `
+        -MutatedRun $duplicateAssertionIdRun `
+        -ExpectedProblems @("corrected-canary-assertion-id-contract")
 
     [IO.File]::WriteAllText(
         $jsonPath,
@@ -3443,9 +4427,16 @@ function Test-CampaignDebugHardDiagnosticCensus {
             (Join-Path $logDirectory 'console.log'),
             'no hard diagnostics',
             (New-Object Text.UTF8Encoding($false)))
+        $errorPath = Join-Path $logDirectory 'error.log'
+        $crashPath = Join-Path $logDirectory 'crash.log'
+        $safeAuxiliaryText = 'no auxiliary hard diagnostics'
         [IO.File]::WriteAllText(
-            (Join-Path $logDirectory 'error.log'),
-            '17:00:03.000 SCRIPT (E): noncanonical error-log mirror is ignored',
+            $errorPath,
+            $safeAuxiliaryText,
+            (New-Object Text.UTF8Encoding($false)))
+        [IO.File]::WriteAllText(
+            $crashPath,
+            $safeAuxiliaryText,
             (New-Object Text.UTF8Encoding($false)))
         $singleCanonical = Get-GuardErrorCensus `
             -GuardRoot $tempRoot `
@@ -3457,9 +4448,54 @@ function Test-CampaignDebugHardDiagnosticCensus {
         if (-not $singleCanonical.Valid -or
             $singleCanonical.CanonicalScriptLogCount -ne 1 -or
             $singleCanonical.CanonicalConsoleLogCount -ne 1 -or
+            $singleCanonical.CanonicalErrorLogCount -ne 1 -or
+            $singleCanonical.CanonicalCrashLogCount -ne 1 -or
+            -not $singleCanonical.AuxiliaryDiagnosticsValid -or
             $singleCanonical.HardDiagnosticCount -ne 0) {
             throw 'Campaign Debug canonical script-log isolation self-test failed.'
         }
+
+        [IO.File]::WriteAllText(
+            $errorPath,
+            '17:00:03.000 SCRIPT (E): unique auxiliary error',
+            (New-Object Text.UTF8Encoding($false)))
+        $errorLogRed = Get-GuardErrorCensus `
+            -GuardRoot $tempRoot `
+            -Profile force_authority `
+            -IntentionalMissionConvoyAdmissionDiagnosticsProven $false `
+            -IntentionalMissionConvoySettlementDiagnosticProven $false `
+            -IntentionalMissionConvoyCorruptionDiagnosticsProven $false `
+            -IntentionalMissionConvoyWatchdogDiagnosticProven $false
+        if ($errorLogRed.Valid -or
+            $errorLogRed.ErrorLogProjectionExact -or
+            $errorLogRed.AuxiliaryUnapprovedEventCount -ne 1) {
+            throw 'Campaign Debug auxiliary error-log rejection self-test failed.'
+        }
+        [IO.File]::WriteAllText(
+            $errorPath,
+            $safeAuxiliaryText,
+            (New-Object Text.UTF8Encoding($false)))
+
+        [IO.File]::WriteAllText(
+            $crashPath,
+            'fatal error: unique auxiliary crash',
+            (New-Object Text.UTF8Encoding($false)))
+        $crashLogRed = Get-GuardErrorCensus `
+            -GuardRoot $tempRoot `
+            -Profile force_authority `
+            -IntentionalMissionConvoyAdmissionDiagnosticsProven $false `
+            -IntentionalMissionConvoySettlementDiagnosticProven $false `
+            -IntentionalMissionConvoyCorruptionDiagnosticsProven $false `
+            -IntentionalMissionConvoyWatchdogDiagnosticProven $false
+        if ($crashLogRed.Valid -or
+            $crashLogRed.CrashLogProjectionExact -or
+            $crashLogRed.AuxiliaryUnapprovedEventCount -ne 1) {
+            throw 'Campaign Debug auxiliary crash-log rejection self-test failed.'
+        }
+        [IO.File]::WriteAllText(
+            $crashPath,
+            $safeAuxiliaryText,
+            (New-Object Text.UTF8Encoding($false)))
 
         [IO.File]::WriteAllText(
             (Join-Path $logDirectory 'console.log'),
@@ -3486,6 +4522,14 @@ function Test-CampaignDebugHardDiagnosticCensus {
             (Join-Path $logDirectory 'console.log'),
             $identityText,
             (New-Object Text.UTF8Encoding($false)))
+        [IO.File]::WriteAllText(
+            $errorPath,
+            $identityText,
+            (New-Object Text.UTF8Encoding($false)))
+        [IO.File]::WriteAllText(
+            $crashPath,
+            $identityText,
+            (New-Object Text.UTF8Encoding($false)))
         $mirroredIdentity = Get-GuardErrorCensus `
             -GuardRoot $tempRoot `
             -Profile force_authority `
@@ -3496,12 +4540,22 @@ function Test-CampaignDebugHardDiagnosticCensus {
         if (-not $mirroredIdentity.Valid -or
             $mirroredIdentity.HardDiagnosticCount -ne 2 -or
             $mirroredIdentity.ApprovedStockDiagnosticCount -ne 2 -or
+            -not $mirroredIdentity.ErrorLogProjectionExact -or
+            -not $mirroredIdentity.CrashLogProjectionExact -or
             $mirroredIdentity.UnapprovedHardDiagnosticCount -ne 0) {
             throw 'Campaign Debug canonical mirrored-diagnostic multiset self-test failed.'
         }
         [IO.File]::WriteAllText(
             $canonicalPath,
             $forceLifecycleText,
+            (New-Object Text.UTF8Encoding($false)))
+        [IO.File]::WriteAllText(
+            $errorPath,
+            $safeAuxiliaryText,
+            (New-Object Text.UTF8Encoding($false)))
+        [IO.File]::WriteAllText(
+            $crashPath,
+            $safeAuxiliaryText,
             (New-Object Text.UTF8Encoding($false)))
 
         [IO.File]::WriteAllText(
@@ -3590,7 +4644,85 @@ function Test-CampaignDebugHardDiagnosticCensus {
         }
     }
 
-    return 36
+    return 38
+}
+
+function Get-AuxiliaryDiagnosticProjection {
+    param(
+        [AllowEmptyString()]
+        [Parameter(Mandatory = $true)][string]$Text,
+        [Parameter(Mandatory = $true)][int]$ExpectedStockDiagnosticCount
+    )
+
+    $eventHeaderPattern =
+        '(?im)^(?:\s*\d{2}:\d{2}:\d{2}\.\d+\s+' +
+        '(?:SCRIPT|ENGINE)\s+\(E\):\s*)?' +
+        'Virtual Machine Exception\s*$'
+    $eventHeaders = @([regex]::Matches($Text, $eventHeaderPattern))
+    $kinds = New-Object Collections.Generic.List[string]
+    $unapprovedEventCount = 0
+    for ($index = 0; $index -lt $eventHeaders.Count; $index++) {
+        $start = $eventHeaders[$index].Index
+        $end = if ($index + 1 -lt $eventHeaders.Count) {
+            $eventHeaders[$index + 1].Index
+        }
+        else {
+            $Text.Length
+        }
+        $eventText = $Text.Substring($start, $end - $start)
+        $wrongParameter = $eventText -cmatch '(?m)^\s*Reason:\s*Wrong parameter value\s*$'
+        $identityFunction = $eventText -cmatch
+            "(?m)^\s*Function:\s*'GetPlayerIdentityId'\s*$"
+        $editable = $eventText -cmatch
+            "(?m)^\s*Class:\s*'SCR_EditableEntityCore'\s*$"
+        $reconnect = $eventText -cmatch
+            "(?m)^\s*Class:\s*'SCR_ReconnectComponent'\s*$"
+        if ($wrongParameter -and $identityFunction -and $editable -and
+            -not $reconnect) {
+            [void]$kinds.Add('stock-startup-editable-identity')
+        }
+        elseif ($wrongParameter -and $identityFunction -and $reconnect -and
+            -not $editable) {
+            [void]$kinds.Add('stock-startup-reconnect-identity')
+        }
+        else {
+            $unapprovedEventCount++
+        }
+    }
+
+    $nonVmHardHeaders = @([regex]::Matches(
+        $Text,
+        '(?im)^\s*(?:\d{2}:\d{2}:\d{2}\.\d+\s+)?' +
+            '(?:SCRIPT|ENGINE)\s+\(E\):\s*' +
+            '(?!Virtual Machine Exception\s*$).+$')).Count
+    $strongFatalMarkers = @([regex]::Matches(
+        $Text,
+        '(?im)\b(?:access violation|unhandled exception|fatal error|' +
+            'assertion failed|segmentation fault|stack overflow|' +
+            'out of memory|engine crash|minidump)\b')).Count
+    $unapprovedEventCount += $nonVmHardHeaders + $strongFatalMarkers
+
+    $projectionExact = $false
+    if ($ExpectedStockDiagnosticCount -eq 0) {
+        $projectionExact = $eventHeaders.Count -eq 0 -and
+            $unapprovedEventCount -eq 0
+    }
+    elseif ($ExpectedStockDiagnosticCount -eq 2) {
+        $projectionExact =
+            $eventHeaders.Count -eq 2 -and
+            $kinds.Count -eq 2 -and
+            $kinds[0] -ceq 'stock-startup-editable-identity' -and
+            $kinds[1] -ceq 'stock-startup-reconnect-identity' -and
+            $unapprovedEventCount -eq 0
+    }
+
+    return [pscustomobject][ordered]@{
+        Valid = $projectionExact
+        ProjectionExact = $projectionExact
+        StockDiagnosticCount = $kinds.Count
+        UnapprovedEventCount = $unapprovedEventCount
+        EventKinds = $kinds.ToArray()
+    }
 }
 
 function Get-GuardErrorCensus {
@@ -3617,6 +4749,8 @@ function Get-GuardErrorCensus {
     $logRoot = Join-Path $GuardRoot 'logs'
     $scriptLogs = @()
     $consoleLogs = @()
+    $errorLogs = @()
+    $crashLogs = @()
     if (Test-Path -LiteralPath $logRoot -PathType Container) {
         $scriptLogs = @(Get-ChildItem `
             -LiteralPath $logRoot `
@@ -3632,23 +4766,60 @@ function Get-GuardErrorCensus {
             -Filter 'console.log' `
             -Force `
             -ErrorAction Stop)
+        $errorLogs = @(Get-ChildItem `
+            -LiteralPath $logRoot `
+            -Recurse `
+            -File `
+            -Filter 'error.log' `
+            -Force `
+            -ErrorAction Stop)
+        $crashLogs = @(Get-ChildItem `
+            -LiteralPath $logRoot `
+            -Recurse `
+            -File `
+            -Filter 'crash.log' `
+            -Force `
+            -ErrorAction Stop)
     }
     $canonicalLogPairSameDirectory = $false
-    if ($scriptLogs.Count -eq 1 -and $consoleLogs.Count -eq 1) {
+    $auxiliaryLogPairSameDirectory = $false
+    if ($scriptLogs.Count -eq 1 -and
+        $consoleLogs.Count -eq 1 -and
+        $errorLogs.Count -eq 1 -and
+        $crashLogs.Count -eq 1) {
         $scriptLogDirectory = [IO.Path]::GetFullPath($scriptLogs[0].DirectoryName)
         $consoleLogDirectory = [IO.Path]::GetFullPath($consoleLogs[0].DirectoryName)
+        $errorLogDirectory = [IO.Path]::GetFullPath($errorLogs[0].DirectoryName)
+        $crashLogDirectory = [IO.Path]::GetFullPath($crashLogs[0].DirectoryName)
         $canonicalLogPairSameDirectory = $scriptLogDirectory.Equals(
             $consoleLogDirectory,
             [StringComparison]::OrdinalIgnoreCase)
+        $auxiliaryLogPairSameDirectory =
+            $scriptLogDirectory.Equals(
+                $errorLogDirectory,
+                [StringComparison]::OrdinalIgnoreCase) -and
+            $scriptLogDirectory.Equals(
+                $crashLogDirectory,
+                [StringComparison]::OrdinalIgnoreCase)
     }
     if ($scriptLogs.Count -ne 1 -or
         $consoleLogs.Count -ne 1 -or
-        -not $canonicalLogPairSameDirectory) {
+        $errorLogs.Count -ne 1 -or
+        $crashLogs.Count -ne 1 -or
+        -not $canonicalLogPairSameDirectory -or
+        -not $auxiliaryLogPairSameDirectory) {
         return [pscustomobject][ordered]@{
             Valid = $false
             CanonicalScriptLogCount = $scriptLogs.Count
             CanonicalConsoleLogCount = $consoleLogs.Count
+            CanonicalErrorLogCount = $errorLogs.Count
+            CanonicalCrashLogCount = $crashLogs.Count
             CanonicalLogPairSameDirectory = $canonicalLogPairSameDirectory
+            AuxiliaryLogPairSameDirectory = $auxiliaryLogPairSameDirectory
+            AuxiliaryDiagnosticsValid = $false
+            ErrorLogProjectionExact = $false
+            CrashLogProjectionExact = $false
+            AuxiliaryUnapprovedEventCount = 0
             HardDiagnosticFree = $false
             HardDiagnosticCount = 0
             ScriptErrors = 0
@@ -3683,6 +4854,12 @@ function Get-GuardErrorCensus {
     if (($consoleLogs[0].Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
         throw 'The canonical Campaign Debug console log must not be a reparse point.'
     }
+    if (($errorLogs[0].Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+        throw 'The canonical Campaign Debug error log must not be a reparse point.'
+    }
+    if (($crashLogs[0].Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+        throw 'The canonical Campaign Debug crash log must not be a reparse point.'
+    }
     $census = Get-CampaignDebugHardDiagnosticCensus `
         -ScriptText (Read-SharedFileText -Path $scriptLogs[0].FullName) `
         -ConsoleText (Read-SharedFileText -Path $consoleLogs[0].FullName) `
@@ -3702,8 +4879,43 @@ function Get-GuardErrorCensus {
         -NotePropertyName CanonicalConsoleLogCount `
         -NotePropertyValue 1
     $census | Add-Member `
+        -NotePropertyName CanonicalErrorLogCount `
+        -NotePropertyValue 1
+    $census | Add-Member `
+        -NotePropertyName CanonicalCrashLogCount `
+        -NotePropertyValue 1
+    $census | Add-Member `
         -NotePropertyName CanonicalLogPairSameDirectory `
         -NotePropertyValue $true
+    $census | Add-Member `
+        -NotePropertyName AuxiliaryLogPairSameDirectory `
+        -NotePropertyValue $true
+    $errorProjection = Get-AuxiliaryDiagnosticProjection `
+        -Text (Read-SharedFileText -Path $errorLogs[0].FullName) `
+        -ExpectedStockDiagnosticCount $census.ApprovedStockDiagnosticCount
+    $crashProjection = Get-AuxiliaryDiagnosticProjection `
+        -Text (Read-SharedFileText -Path $crashLogs[0].FullName) `
+        -ExpectedStockDiagnosticCount $census.ApprovedStockDiagnosticCount
+    $auxiliaryUnapprovedEventCount =
+        [int]$errorProjection.UnapprovedEventCount +
+        [int]$crashProjection.UnapprovedEventCount
+    $auxiliaryDiagnosticsValid =
+        $errorProjection.Valid -and
+        $crashProjection.Valid -and
+        $auxiliaryUnapprovedEventCount -eq 0
+    $census | Add-Member `
+        -NotePropertyName AuxiliaryDiagnosticsValid `
+        -NotePropertyValue $auxiliaryDiagnosticsValid
+    $census | Add-Member `
+        -NotePropertyName ErrorLogProjectionExact `
+        -NotePropertyValue ([bool]$errorProjection.ProjectionExact)
+    $census | Add-Member `
+        -NotePropertyName CrashLogProjectionExact `
+        -NotePropertyValue ([bool]$crashProjection.ProjectionExact)
+    $census | Add-Member `
+        -NotePropertyName AuxiliaryUnapprovedEventCount `
+        -NotePropertyValue $auxiliaryUnapprovedEventCount
+    $census.Valid = [bool]$census.Valid -and $auxiliaryDiagnosticsValid
     return $census
 }
 
@@ -4564,6 +5776,9 @@ try {
                         ExpectedLabel = $ExpectedBuildLabel
                         ExpectedProfile = $Profile
                     }
+                    if ($Profile -ceq 'force_authority') {
+                        $artifactParameters.RequireCorrectedCanaryContract = $true
+                    }
                     $artifactValidation = Test-CampaignDebugArtifacts @artifactParameters
                     $safeArtifactValidation = Get-SafeArtifactValidationSummary `
                         -Validation $artifactValidation `
@@ -5111,19 +6326,17 @@ if ($evidenceRunRoot) {
             FileCount = $rawRows.Count
             EnvelopeSha256 = $envelopeSha
         }
-        if ($Profile -ceq 'full_certification') {
-            $releaseIndexRows = @(& $releaseIndexProducerPath `
-                -RunEnvelopePath $envelopePath `
-                -OutputPath (Join-Path $evidenceRunRoot 'release-index.json'))
-            if ($releaseIndexRows.Count -ne 1 -or
-                [string]::IsNullOrWhiteSpace(
-                    [string]$releaseIndexRows[0].ReleaseIndexSha256)) {
-                throw 'The portable Campaign Debug release-index producer returned an invalid result.'
-            }
-            $evidenceReceipt.ReleaseIndexSha256 =
-                $releaseIndexRows[0].ReleaseIndexSha256
-            $evidenceReceipt.ReleaseIndexStatus = $releaseIndexRows[0].Status
+        $releaseIndexRows = @(& $releaseIndexProducerPath `
+            -RunEnvelopePath $envelopePath `
+            -OutputPath (Join-Path $evidenceRunRoot 'release-index.json'))
+        if ($releaseIndexRows.Count -ne 1 -or
+            [string]::IsNullOrWhiteSpace(
+                [string]$releaseIndexRows[0].ReleaseIndexSha256)) {
+            throw 'The portable Campaign Debug release-index producer returned an invalid result.'
         }
+        $evidenceReceipt.ReleaseIndexSha256 =
+            $releaseIndexRows[0].ReleaseIndexSha256
+        $evidenceReceipt.ReleaseIndexStatus = $releaseIndexRows[0].Status
         Write-Output ('EVIDENCE ' + ([pscustomobject]$evidenceReceipt |
             ConvertTo-Json -Compress))
     }

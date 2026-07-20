@@ -54997,12 +54997,32 @@ $releaseCandidateConsumerTestPath = Join-Path `
 $candidateCampaignDebugRunnerPath = Join-Path `
 	$PSScriptRoot `
 	'run-guarded-campaign-debug.ps1'
+$campaignDebugReleaseIndexProducerPath = Join-Path `
+	$PSScriptRoot `
+	'New-PartisanCampaignDebugReleaseIndex.ps1'
+$campaignDebugReleaseIndexSelfTestPath = Join-Path `
+	$PSScriptRoot `
+	'test-partisan-campaign-debug-release-index.ps1'
+$campaignDebugCorrectedCanarySelfTestPath = Join-Path `
+	$PSScriptRoot `
+	'test-partisan-campaign-debug-corrected-canary-release-index.ps1'
+$focusedAutotestAggregateProducerPath = Join-Path `
+	$PSScriptRoot `
+	'New-PartisanFocusedAutotestAggregate.ps1'
+$focusedAutotestAggregateSelfTestPath = Join-Path `
+	$PSScriptRoot `
+	'test-partisan-focused-autotest-aggregate.ps1'
 foreach ($releaseToolPath in @(
 		$releaseCandidateBuilderPath,
 		$releaseManifestPath,
 		$releaseCandidateConsumerPath,
 		$releaseCandidateConsumerTestPath,
-		$candidateCampaignDebugRunnerPath
+		$candidateCampaignDebugRunnerPath,
+		$campaignDebugReleaseIndexProducerPath,
+		$campaignDebugReleaseIndexSelfTestPath,
+		$campaignDebugCorrectedCanarySelfTestPath,
+		$focusedAutotestAggregateProducerPath,
+		$focusedAutotestAggregateSelfTestPath
 	)) {
 	if (-not (Test-Path -LiteralPath $releaseToolPath -PathType Leaf)) {
 		throw "Release-candidate tooling is missing: $(Split-Path -Leaf $releaseToolPath)"
@@ -55278,6 +55298,50 @@ foreach ($releaseDocsHistoryEntry in @(
 	}
 }
 
+foreach ($releaseDocsPortableFocusedEntry in @(
+		'[switch] $FocusedConsumerSelfTest',
+		'function Assert-LegacyPackagedFocusedEvidence',
+		'function Assert-NoDuplicateFocusedJsonProperties',
+		'function ConvertFrom-FocusedStrictUtf8JsonSnapshot',
+		'function ConvertFrom-FocusedStrictUtf8TextSnapshot',
+		'function Get-PartisanFocusedRequiredPatternContract',
+		'function Get-PartisanFocusedRawMountAttestation',
+		'function Test-FocusedContainedPath',
+		'function Assert-FocusedNoReparseAncestry',
+		'function Get-FocusedAggregateId',
+		'function Get-FocusedRawDiagnosticCensus',
+		'$suiteStartedCount -eq 1 -and',
+		'$failedListSavedCount -eq 1 -and',
+		'$requiredPatternContract = Get-PartisanFocusedRequiredPatternContract',
+		'$rawMount = Get-PartisanFocusedRawMountAttestation',
+		'function ConvertTo-PartisanFocusedSafeDiagnosticText',
+		'function Assert-PortablePackagedFocusedEvidence',
+		'function Assert-PackagedFocusedEvidence',
+		'function Invoke-PortableFocusedEvidenceConsumerSelfTest',
+		'$expectedStatusFields = @(',
+		'"partisan.focused-autotest.aggregate.v2"',
+		'$totalHard -ne 11 -or $totalStock -ne 10 -or $totalIntentional -ne 1 -or',
+		'aggregatePolicyAssertionCount = 35',
+		'HarnessGitHead = $rawHarnessHead',
+		'AggregationGitHead = $aggregationHead',
+		'schema-2 focused summary has an unsupported identity.',
+		'Historical packaged-focused raw harness is not an ancestor of its aggregation harness',
+		'Active packaged-focused raw harness is not an ancestor of its aggregation harness',
+		'LegacySchema1 = $true',
+		'Focused producer-shaped schema-2 consumer self-test failed.',
+		'Focused consumer self-test admitted duplicate marker',
+		'post-publication raw blob tamper',
+		'post-publication source envelope tamper',
+		'post-publication source-index tamper',
+		'Portable focused-evidence consumer self-test passed.'
+	)) {
+	if ($releaseDocsGeneratorText.IndexOf(
+			$releaseDocsPortableFocusedEntry,
+			[StringComparison]::Ordinal) -lt 0) {
+		throw "Release-document portable focused consumer contract is incomplete: $releaseDocsPortableFocusedEntry"
+	}
+}
+
 $candidateCampaignDebugRunnerText = Get-Content -Raw `
 	$candidateCampaignDebugRunnerPath
 foreach ($candidateCampaignDebugRunnerEntry in @(
@@ -55345,7 +55409,7 @@ foreach ($candidateCampaignDebugRunnerEntry in @(
 		'Campaign Debug duplicate same-source ENGINE-diagnostic self-test failed.',
 		'Campaign Debug split canonical log-pair self-test failed.',
 		'Campaign Debug duplicate canonical log self-test failed.',
-		'return 36',
+		'return 38',
 		'if (-not $errorCensus.Valid)',
 		'HardDiagnosticClassifierChecks'
 	)) {
@@ -55356,8 +55420,319 @@ foreach ($candidateCampaignDebugRunnerEntry in @(
 	}
 }
 
+foreach ($correctedCanaryRunnerEntry in @(
+		'[switch]$RequireCorrectedCanaryContract',
+		'$canonicalStatuses = @("PASS", "WARN", "FAIL", "BLOCKED", "SKIPPED")',
+		'$strictCaseStatus -cne $derivedCaseStatus',
+		'$strictSkippedAssertionCount -ne 0',
+		'$strictCertificationCounts.SKIPPED -ne 0',
+		'$strictFocusedAssertions.Count -eq 35',
+		'$focusedCertificationProperty.Value -isnot [bool]',
+		'corrected-canary-focused-assertion-contract',
+		'function Get-CorrectedCanaryCaseManifest',
+		'function Get-CorrectedCanaryAssertionManifest',
+		'function Get-CampaignDebugStateDiffLabels',
+		'function Get-CampaignDebugStateDiffValidation',
+		'$lines[0] -ceq ''Partisan campaign debug state diff''',
+		'$lines[1] -ceq "run $RunId"',
+		'$candidateRows.Count -eq $expectedLabels.Count',
+		'([decimal]$after - [decimal]$before) -ne [decimal]$delta',
+		'ZeroDeltaExact = $zeroDeltaExact',
+		'ContractExact = $headerExact -and',
+		'$stateDiffValidation.ContractExact',
+		'$statusCounts.WARN -ne 2',
+		'$statusCounts.BLOCKED -ne 0',
+		'$expectedAssertionManifest.Count -eq $strictAssertionRows.Count',
+		'$strictCertificationRequired -ne 87',
+		'$warningCases.Count -eq 2',
+		'$warningAssertions.Count -eq 2',
+		'$blockedAssertions.Count -eq 0',
+		'CorrectedCanaryNoBlockedAssertions',
+		'corrected-canary-blocked-assertion',
+		'''cleanup.player_marker_completion''; Status = ''WARN''',
+		'''cleanup.state_isolation_restore''; Status = ''WARN''',
+		'''cleanup.player_marker.live'') @(''cleanup.player_marker.live'')',
+		'''isolation.world_scope'') @(''isolation.world_scope'')',
+		'CorrectedCanaryOrphanContractExact',
+		'no active groups without zone/mission/support/order/QRF backing',
+		'0 | total 0 | debug 0 | smoke 0 | other 0',
+		'orphan active groups remain after debug run',
+		'cleanup_probe',
+		'[string]$orphanMetrics[0].m_sName -ceq',
+		'orphan-metadata-casing',
+		'orphan-metric-name-casing',
+		'orphan-actual',
+		'function Get-AuxiliaryDiagnosticProjection',
+		'CanonicalErrorLogCount',
+		'CanonicalCrashLogCount',
+		'AuxiliaryDiagnosticsValid',
+		'ErrorLogProjectionExact',
+		'CrashLogProjectionExact',
+		'AuxiliaryUnapprovedEventCount',
+		'Campaign Debug auxiliary error-log rejection self-test failed.',
+		'Campaign Debug auxiliary crash-log rejection self-test failed.'
+	)) {
+	if ($candidateCampaignDebugRunnerText.IndexOf(
+			$correctedCanaryRunnerEntry,
+			[StringComparison]::Ordinal) -lt 0) {
+		throw "Campaign Debug runner corrected-canary assertion contract is incomplete: $correctedCanaryRunnerEntry"
+	}
+}
+
+$campaignDebugReleaseIndexProducerText = Get-Content -Raw `
+	$campaignDebugReleaseIndexProducerPath
+foreach ($correctedCanaryReleaseIndexEntry in @(
+		'$correctedCanaryPolicyId = ''partisan-campaign-debug-corrected-canary-v2''',
+		'$indexEvidenceKind = ''packaged-campaign-debug-corrected-canary''',
+		'schemaVersion = 2',
+		'Assert-EqualSet $correctedCanaryFocusedAssertionIds $focusedAssertionIds',
+		'Assert-EqualSet $expectedCaseIds @($cases',
+		'$focusedAssertionCount -eq 35',
+		'$focusedAssertionsCertificationExact -and',
+		'$correctedCanaryCaseSetExact -and',
+		'$correctedCanaryAssertionManifestExact -and',
+		'$correctedCanaryWarningContractExact -and',
+		'$correctedCanaryNoBlockedAssertions -and',
+		'$correctedCanaryStateDiffManifestExact -and',
+		'$correctedCanaryOrphanContractExact -and',
+		'$rawAssertionCount -eq 91',
+		'$correctedCanaryAssertionSkipFree -and',
+		'$rawCertificationCounts.required -eq 87',
+		'function Get-ImmutableGitBlobSha256',
+		'function Get-RepositoryStatusRows',
+		'function Get-StableFileSnapshot',
+		'function Assert-NoDuplicateJsonObjectKeys',
+		'function Invoke-SnapshotSemanticValidation',
+		'function Get-ReleaseIndexStateDiffLabels',
+		'function Get-ReleaseIndexStateDiffValidation',
+		'$releaseIndexStateDiffValidation.ContractExact',
+		'independent publisher grammar, arithmetic, or guarded-runner validation',
+		'function Invoke-CampaignDebugReleaseIndexSelfTestLateDriftBarrier',
+		'function Invoke-CampaignDebugReleaseIndexSelfTestPublicationWindowBarrier',
+		'function Invoke-CampaignDebugReleaseIndexSelfTestConcurrentPublicationBarrier',
+		'function Open-CampaignDebugPublicationReadLocks',
+		'function Close-CampaignDebugPublicationReadLocks',
+		'[IO.FileShare]::Read',
+		'$urlTail -match ''(^|[?&#=])//(?=[^/\s])''',
+		'Inspect path-bearing tokens before removing otherwise portable HTTP',
+		'PartisanCampaignDebugSemanticSnapshot_',
+		'$rawCaseCounts.warn -eq 2',
+		'$rawCaseCounts.blocked -eq 0',
+		'$correctedCanaryNoBlockedAssertions =',
+		'[IO.FileMode]::CreateNew',
+		'[IO.File]::Move($temporaryPath, $Path)',
+		'$finalSnapshotMap[$path] = $finalSnapshot',
+		'$finalSemanticJson -cne $initialSemanticJson',
+		'The retained run envelope changed immediately before release-index publication.',
+		'Closing run-envelope inventory and retained raw file set',
+		'& $assertPublicationInputsUnchanged ''immediately before''',
+		'& $assertPublicationInputsUnchanged ''after''',
+		'return $false',
+		'$createdByThisInvocation = $true',
+		'$publishedNewIndex = [bool](Write-PortableJson',
+		'publication failed and its new output could not be rolled back safely',
+		'The corrected-canary release index requires a clean harness checkout.',
+		'campaignRunnerGitBlobSha256',
+		'candidateModuleGitBlobSha256',
+		'releaseIndexProducerGitBlobSha256',
+		'releaseDocsConsumerGitBlobSha256',
+		'differs from immutable Git content.'
+	)) {
+	if ($campaignDebugReleaseIndexProducerText.IndexOf(
+			$correctedCanaryReleaseIndexEntry,
+			[StringComparison]::Ordinal) -lt 0) {
+		throw "Campaign Debug corrected-canary release-index contract is incomplete: $correctedCanaryReleaseIndexEntry"
+	}
+}
+
+$campaignDebugCorrectedCanarySelfTestText = Get-Content -Raw `
+	$campaignDebugCorrectedCanarySelfTestPath
+foreach ($correctedCanarySelfTestEntry in @(
+		'-Mode ''hidden-skip''',
+		'-Mode ''focused-certification-swap''',
+		'''balanced-certification-swap''',
+		'''nonfocused-id-substitution''',
+		'''diff-missing''',
+		'''diff-duplicate''',
+		'''diff-renamed''',
+		'''diff-order''',
+		'''diff-arithmetic''',
+		'''diff-nonnumeric''',
+		'''diff-nonzero''',
+		'''diff-extra-line''',
+		'''orphan-id-red''',
+		'''orphan-metric-id-red''',
+		'''orphan-metric-case-red''',
+		'''orphan-metric-name-red''',
+		'''orphan-metadata-red''',
+		'''orphan-actual-red''',
+		'''orphan-certification-red''',
+		'''error-log-red''',
+		'''crash-log-red''',
+		'BuildProvenanceMatches',
+		'hardDiagnosticClassifierChecks = 38',
+		'caseCensus = ''11/9/2/0/0/0''',
+		'$warningIds.Count -ne 2',
+		'$blockedIds.Count -ne 0',
+		'm_sName = $Id',
+		'duplicate run-envelope JSON key',
+		'duplicate raw-artifact JSON key',
+		'failClosedChecks = $tableDrivenRedContracts.Count',
+		'immutable release-index replacement',
+		'PARTISAN_CAMPAIGN_DEBUG_RELEASE_INDEX_SELFTEST_LATE_DRIFT_TOKEN',
+		'lateDriftPublicationChecks = 1',
+		'PARTISAN_CAMPAIGN_DEBUG_RELEASE_INDEX_SELFTEST_PUBLICATION_TOKEN',
+		'PARTISAN_CAMPAIGN_DEBUG_RELEASE_INDEX_SELFTEST_CONCURRENT_TOKEN',
+		'publicationWindowLockChecks = 1',
+		'concurrentPublicationRollbackChecks = 1',
+		'concurrent byte-identical publication rollback self-test deleted or changed the winning index',
+		'localPathNegativeChecks = $urlWrappedPathCases.Count',
+		'stateDiffNegativeChecks = 8',
+		'''URL-wrapped drive path''',
+		'''URL-wrapped UNC path''',
+		'''URL-wrapped file URI''',
+		'$headTamperRun.harness.gitHead = ''b'' * 40',
+		'''campaignRunnerGitBlobSha256''',
+		'''candidateModuleGitBlobSha256''',
+		'''releaseIndexProducerGitBlobSha256''',
+		'''releaseDocsConsumerGitBlobSha256''',
+		'$orphanTamperRun.outcome.validation.FinalOrphanActiveGroups = ''1''',
+		'$timestampTamperRun.outcome.runtimeSeconds = 11'
+	)) {
+	if ($campaignDebugCorrectedCanarySelfTestText.IndexOf(
+			$correctedCanarySelfTestEntry,
+			[StringComparison]::Ordinal) -lt 0) {
+		throw "Campaign Debug corrected-canary release-index self-test is incomplete: $correctedCanarySelfTestEntry"
+	}
+}
+
+foreach ($correctedCanaryConsumerIntegrityEntry in @(
+		'function Assert-ExactCampaignDebugStateDiff',
+		'"assertionCount", "stateDiffRows", "nonzeroStateDiffRows"',
+		'"failedAssertionIds", "warningAssertionIds", "warningAssertions"',
+		'foreach ($row in @(Get-ObjectPropertyValue $proof "warningAssertions"))',
+		'$rawAssertionCount = 0',
+		'$rawAssertionCount++',
+		'assertionCount = $rawAssertionCount',
+		'$rawAssertionCount -eq 91',
+		'$derivedWarningJson = ConvertTo-Json -InputObject @($warningRows.ToArray())',
+		'release index did not derive its warning assertion linkage from raw JSON',
+		'$focusedNoncertifyingAssertions.Count -eq 1',
+		'"town_influence.external_completion"',
+		'function Assert-HistoricalCorrectedCanaryEvidence',
+		'@("passed-noncertifying", "failed-corrected-canary")',
+		'Portable corrected-canary green historical transition self-test failed.',
+		'Portable corrected-canary red historical transition self-test failed.',
+		'accepted portable canary at corrected-canary retirement',
+		'rejected portable canary at post-canary retirement',
+		'wrong proof assertion census',
+		'warning assertion extra property',
+		'warning assertion raw-linkage tamper'
+	)) {
+	if ($releaseDocsGeneratorText.IndexOf(
+			$correctedCanaryConsumerIntegrityEntry,
+			[StringComparison]::Ordinal) -lt 0) {
+		throw "Release-document corrected-canary consumer integrity contract is incomplete: $correctedCanaryConsumerIntegrityEntry"
+	}
+}
+
+$focusedAutotestAggregateProducerText = Get-Content -Raw `
+	$focusedAutotestAggregateProducerPath
+foreach ($focusedAutotestAggregateEntry in @(
+		'$script:FocusedAggregateSchema = 2',
+		'''partisan.focused-autotest.aggregate.v2''',
+		'''packaged-focused-autotest-set''',
+		'''HST_EnemyCounterattackAutotestSuite''',
+		'''HST_EnemyGarrisonRebuildAutotestSuite''',
+		'''HST_EnemyPlanningCommitmentAutotestSuite''',
+		'''HST_EnemyQRFAutotestSuite''',
+		'''HST_CampaignProfileJournalAuthorityAutotestSuite''',
+		'profileCount = 5',
+		'filesPerProfile = 8',
+		'totalFileCount = 40',
+		'aggregatePolicyAssertionsPerProfile = 7',
+		'aggregatePolicyAssertionCount = 35',
+		'function Get-PartisanFocusedGitBlobSha256',
+		'$process.StandardInput.Close()',
+		'allWorktreeHashesMatchGitBlobs = $true',
+		'function Get-PartisanFocusedCandidateBinding',
+		'candidateSealReopenRequired = $true',
+		'historicalBlobImmutabilityRequired = $true',
+		'function Assert-PartisanFocusedHistoricalProvenance',
+		'function Get-PartisanFocusedPublicationInputSnapshot',
+		'function ConvertTo-PartisanFocusedSafeDiagnosticText',
+		'$script:FocusedRequiredPatternMarker =',
+		'$script:FocusedMountProjectSuffix =',
+		'function Get-PartisanFocusedRequiredPatternContract',
+		'function Get-PartisanFocusedRawMountAttestation',
+		'$suiteStartedCount -eq 1 -and',
+		'$failedListSavedCount -eq 1 -and',
+		'The focused required-pattern result differs from retained raw evidence.',
+		'Recorded mount attestation differs from retained console evidence.',
+		'PARTISAN_FOCUSED_AGGREGATE_SELFTEST_LATE_DRIFT_TOKEN',
+		'''evidence_snapshot_drift''',
+		'$JUnitInput',
+		'function New-PartisanFocusedRejectionReceipt',
+		'''packaged-focused-autotest-set-rejection''',
+		'''replacement-required'''
+	)) {
+	if ($focusedAutotestAggregateProducerText.IndexOf(
+			$focusedAutotestAggregateEntry,
+			[StringComparison]::Ordinal) -lt 0) {
+		throw "Focused-autotest aggregate schema-2 contract is incomplete: $focusedAutotestAggregateEntry"
+	}
+}
+
+$focusedAutotestAggregateSelfTestText = Get-Content -Raw `
+	$focusedAutotestAggregateSelfTestPath
+foreach ($focusedAutotestAggregateSelfTestEntry in @(
+		'FOCUSED_AGGREGATE_SELFTEST',
+		'''profile_set_invalid''',
+		'''candidate_identity_drift''',
+		'''harness_git_blob_mismatch''',
+		'''raw_blob_tampering''',
+		'''index_tampering''',
+		'''candidate_tampering''',
+		'''policy_drift''',
+		'''raw_junit_tampering''',
+		'''aggregation_tool_drift''',
+		'''historical_blob_replacement''',
+		'''evidence_snapshot_drift''',
+		'PARTISAN_FOCUSED_AGGREGATE_SELFTEST_LATE_DRIFT_TOKEN',
+		'''harness-orphan-commit''',
+		'''restore focused history ancestry''',
+		'''restore focused history blobs''',
+		'''restore valid focused history''',
+		'''required-pattern-contract''',
+		'''raw-mount-attestation''',
+		'''raw_mount_tampering''',
+		'PARTISAN_REQUIRED_LOG_PATTERN_B64 ',
+		'candidate-addons/Partisan/addon.gproj',
+		'Autotest JUnit XML saved to: ',
+		'Autotest failed list saved to: ',
+		'<local-path>'
+	)) {
+	if ($focusedAutotestAggregateSelfTestText.IndexOf(
+			$focusedAutotestAggregateSelfTestEntry,
+			[StringComparison]::Ordinal) -lt 0) {
+		throw "Focused-autotest aggregate self-test tamper coverage is incomplete: $focusedAutotestAggregateSelfTestEntry"
+	}
+}
+
 & $releaseCandidateBuilderPath -SelfTest
 & $releaseManifestPath -SelfTest
+Write-Host 'Running full-profile Campaign Debug release-index self-test'
+& $campaignDebugReleaseIndexSelfTestPath
+Write-Host 'Full-profile Campaign Debug release-index self-test OK'
+Write-Host 'Running corrected-canary Campaign Debug release-index self-test'
+& $campaignDebugCorrectedCanarySelfTestPath
+Write-Host 'Corrected-canary Campaign Debug release-index self-test OK'
+Write-Host 'Running focused-autotest aggregate self-test'
+& $focusedAutotestAggregateSelfTestPath
+Write-Host 'Focused-autotest aggregate self-test OK'
+Write-Host 'Running portable focused-evidence consumer self-test'
+& (Join-Path $PSScriptRoot "update-release-docs.ps1") -FocusedConsumerSelfTest
+Write-Host 'Portable focused-evidence consumer self-test OK'
 & (Join-Path $PSScriptRoot "update-release-docs.ps1") -SelfTest
 Write-Host "Guarded build-once, all-target Workbench retention, exact package index, and portable release-manifest contract OK"
 

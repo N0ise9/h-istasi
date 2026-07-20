@@ -85,6 +85,43 @@ directory outside its disposable guard. It copies raw evidence only after
 process quiescence, preserves relative paths, rejects destination escape, and
 then removes only its exact owned guard.
 
+### Schema-2 Raw-Evidence Publication Boundary
+
+Future package-bound focused evidence begins with five serial, individually
+named raw run envelopes retained outside the checkout, eight files per run.
+`tools/New-PartisanFocusedAutotestAggregate.ps1` admits exactly that five-run,
+40-file tree, rehashes every blob, and publishes the tracked Schema-2 focused
+index. `tools/update-release-docs.ps1` is an independent consumer: through
+`-EvidenceBundleRoot` or `PARTISAN_RELEASE_EVIDENCE_ROOT`, it reopens the
+external raw tree, repeats the path, identity, and hash checks, and rederives
+the result instead of trusting the tracked index alone. The aggregate's 35 `aggregate-policy`
+assertions describe index-admission policy only; they do not become Campaign
+Debug assertions and do not prove gameplay or packaged-runtime behavior.
+
+Corrected-canary evidence follows the parallel ten-file path. The guarded
+runner retains the raw Campaign Debug bundle outside the checkout,
+`tools/New-PartisanCampaignDebugReleaseIndex.ps1` derives a Schema-2 release index,
+and the tracked copy must remain byte-identical to the externally retained
+index. The release-doc consumer independently reopens the same raw root and
+rederives the ordered case, assertion, certification, diagnostic, cleanup, and
+state-diff contracts. The current acceptance contract is exact: 11 cases at 9 PASS,
+2 WARN, 0 FAIL, 0 BLOCKED, and 0 SKIPPED; 91 ordered assertion rows; 87/87
+certifying rows; only `cleanup.player_marker.live` in
+`cleanup.player_marker_completion` and `isolation.world_scope` in
+`cleanup.state_isolation_restore` may warn; and the exact 18-label state-diff
+set must remain zero.
+
+Both publishers bind candidate, package, run identity, and the committed Git
+blobs for the runner, candidate module, publisher, and release-doc consumer.
+Accepted evidence bytes are immutable. A later rejected attempt records a
+candidate-bound red replacement receipt or rejected index and cannot overwrite
+the accepted artifact. Historical Schema-1 readers and evidence remain intact
+for their original candidates; no Schema-1 result is converted or transferred.
+This publication architecture changes neither Campaign Schema 71 nor runtime-
+settings Schema 24. Its static contracts and self-tests do not advance a gate,
+execute runtime, or certify runtime behavior; only new evidence captured in the
+ordered package-bound gate sequence can do so.
+
 This boundary produced the first retained candidate,
 `partisan-rc-c2b16c4a2d85-20260718T201442Z`, from clean source HEAD
 `c2b16c4a2d85e71503cd46265feafb54bce69e83`. Its canonical four-file package

@@ -8417,6 +8417,61 @@ This file is for practical engine/script behavior, not project planning. Keep en
   unknown messages, a third stock message, wrong ordering, the wrong testcase,
   or missing proof tokens. Record the approved and unapproved counts and mark
   these successful runs as not hard-diagnostic-free.
+- Publish the five packaged focused runs through the schema-2 focused aggregate
+  contract before attaching them to release status. The aggregate must reopen
+  exactly five canonical run envelopes in gate order, require eight indexed
+  blobs per run and an exact 40-blob directory census, rehash every blob, reopen
+  each candidate manifest and ready seal, and prove one candidate and one clean
+  focused-run harness. Its 35/35 `aggregate-policy` assertions are seven
+  aggregation checks per profile; they are not Campaign Debug assertions and
+  remain non-certifying. Any missing, duplicate, reordered, overlapping,
+  tampered, or identity-drifting input publishes a separate red
+  `replacement-required` receipt and must never replace an accepted aggregate.
+- Treat a new corrected `force_authority` canary as a portable schema-2 evidence
+  bundle, while retaining existing schema-1 summaries as immutable history. The
+  guarded runner derives every case status and certification count from ordinal,
+  case-sensitive assertion rows, requires the exact 11-case canary set, binds
+  the 35 focused assertions to `early_mechanics.force_authority`, rejects any
+  hidden assertion `FAIL` or `SKIPPED`, and permits only two exact
+  non-certifying warnings in their canonical parent cases:
+  `cleanup.player_marker.live` under `cleanup.player_marker_completion` and
+  `isolation.world_scope` under `cleanup.state_isolation_restore`. A green
+  current canary is therefore exactly 9 PASS/2 WARN/0 FAIL/0 BLOCKED/0 SKIPPED;
+  any blocker is a rejection. Mixed-case profile input must canonicalize before
+  routing so it cannot bypass this contract.
+- Bind the corrected-canary assertion census as an ordered per-case manifest,
+  not a flat ID set. The exact boundary is 91 assertion rows with 87 counting
+  toward certification. Four rows are deliberately non-certifying:
+  `town_influence.external_completion`, `cleanup.player_marker.live`,
+  `cleanup.smoke_prefixed_records`, and `isolation.world_scope`. Repeated
+  cleanup assertion IDs are valid only in their exact parent cases and order;
+  the run-completion prefix-cleanup case must embed the envelope's exact run ID.
+- `error.log` and `crash.log` are evidence channels, not files that must always
+  be empty. A valid canary may mirror the same approved stock exceptions already
+  classified from the canonical script/console pair. Reparse those channels and
+  require their hard-event multisets to be exact permitted projections with no
+  unique or unapproved event.
+- The state-diff contract is an ordered 18-row identity, not only a zero count:
+  `elapsed`, `money`, `HR`, `training`, `war level`, `active missions`,
+  `objectives`, `runtime vehicles`, `mission assets`, `active groups`,
+  `support requests`, `enemy orders`, `markers`, `garage vehicles`,
+  `arsenal items`, `civilian zones`, `strategic events`, and
+  `undercover records`. Every delta must be zero.
+- A portable corrected-canary release index must be reproducible from the raw
+  ten-file bundle and independently consumable. Bind the clean harness HEAD plus
+  the committed Git-blob SHA-256 values for the Campaign Debug runner, release-
+  candidate module, release-index producer, and release-doc consumer; recheck
+  candidate seals, settings, executable identities, raw assertion/case totals,
+  state-diff rows, orphan cleanup, diagnostic census, and every cleanup counter.
+  A green canary remains `passed-noncertifying`; any proof, diagnostic, identity,
+  or integrity defect becomes `failed-corrected-canary`, requires a replacement
+  candidate, and stops the full profile.
+- Tool-bound evidence self-tests require a stationary committed tool set. A
+  producer or consumer worktree hash that differs from its Git blob is a real
+  fail-closed result, not a test flake. Commit the coherent tooling checkpoint,
+  then run the full-profile release-index, corrected-canary release-index,
+  focused-aggregate, release-doc, and Foundation self-tests without overlapping
+  validators or modifying bound files.
 
 ## Native Reference Sources
 

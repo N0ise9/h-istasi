@@ -80,6 +80,40 @@ final candidate. The manifest is checked again after that move, and a matching
 ready seal is written atomically last; without it, the directory is not a
 published candidate.
 
+### Pending Schema-2 Runtime-Evidence Sequence
+
+Before the next candidate begins runtime promotion, the focused aggregate
+producer, corrected-canary release-index producer, guarded runners, candidate
+module, and release-doc consumer must form one stationary committed tool set.
+Their producer self-tests, consumer self-tests, and Foundation checks must pass
+against that same checkout. This is a pending static/tooling checkpoint only:
+it does not alter Campaign Schema 71 or runtime-settings Schema 24, execute a
+packaged runtime, prove runtime behavior, or advance Gate 1 or any later gate.
+
+After that checkpoint, Gate 1 proceeds in this exact order:
+
+1. Build and retain one new immutable candidate from the stationary checkout.
+2. Run the five individually named packaged focused profiles serially against
+   that exact candidate. Retain eight raw envelope files per profile outside
+   the checkout, publish one Schema-2 aggregate over the exact five-run,
+   40-file set, and have the release-doc consumer independently reopen and
+   rehash that raw set. Its 35/35 `aggregate-policy` assertions prove only the
+   aggregate admission contract; they are not Campaign Debug assertions or
+   gameplay/runtime proof.
+3. Only after the focused aggregate is accepted, run the corrected canary
+   against the unchanged candidate and retain its ten-file raw bundle. Its
+   current acceptance contract is exactly 9 PASS, 2 WARN, 0 FAIL, 0 BLOCKED,
+   and 0 SKIPPED across 11 cases; 91 ordered assertion rows; 87/87 certifying
+   rows; only the two whitelisted warning assertions; and the exact 18-label
+   zero-delta state set. Publish a Schema-2 release index and require the
+   consumer to reopen and rederive the result from the raw bundle.
+4. Run Full Campaign Debug only if that corrected-canary index is accepted.
+
+All tracked Schema-1 summaries remain immutable historical evidence and remain
+readable for their original packages. They are never rewritten, upgraded, or
+transferred to the new candidate. A rejected replacement attempt must retain
+candidate-bound red evidence without overwriting accepted bytes.
+
 The boundary first retained candidate
 `partisan-rc-c2b16c4a2d85-20260718T201442Z` from clean source HEAD
 `c2b16c4a2d85e71503cd46265feafb54bce69e83`, with aggregate package SHA-256
