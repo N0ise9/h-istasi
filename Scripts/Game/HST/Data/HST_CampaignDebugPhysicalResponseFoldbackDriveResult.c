@@ -379,6 +379,10 @@ class HST_CampaignDebugPhysicalResponseFoldbackDriveResult
 			|| restoreRequestId != m_sPlayerRestoreRequestId
 			|| applySequence != m_iPlayerRestoreApplySequence)
 			return false;
+		if (m_iPlayerRestoreOwnerDispatchTick < 0
+			|| System.GetTickCount(m_iPlayerRestoreOwnerDispatchTick)
+				>= PLAYER_RESTORE_OWNER_ACK_TIMEOUT_MS)
+			return false;
 
 		bool replicationExact = actualPlayerReplicationId
 			== m_PlayerReplicationIdBeforeFoldback;

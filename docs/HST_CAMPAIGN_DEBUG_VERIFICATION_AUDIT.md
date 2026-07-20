@@ -153,13 +153,15 @@ keeps the owner retained and rearms a corrective apply before another
 acknowledgement/sample pair.
 
 A pending owner acknowledgement now has a 5,000 ms real-time deadline measured
-with `System.GetTickCount(dispatchTick)` rather than campaign elapsed time. On
-the first new observation token after expiry, the restore still owns cleanup,
-retires the old request, sequence, and dispatch tick, and arms a full-transform
-reapply. The following observation token claims a fresh request/sequence, so a
-late acknowledgement for the timed-out attempt cannot match the pending exact-
-identity gate. Timeout recovery remains inside the once-per-observation-token
-mutation boundary and still requires the distinct later read-only server sample.
+with `System.GetTickCount(dispatchTick)` rather than campaign elapsed time. An
+acknowledgement at or after that deadline is rejected on ingress before any
+acknowledgement state changes. On the first new observation token after expiry,
+the restore still owns cleanup, retires the old request, sequence, and dispatch
+tick, and arms a full-transform reapply. The following observation token claims
+a fresh request/sequence, so a late acknowledgement for the timed-out attempt
+cannot match the pending exact-identity gate. Timeout recovery remains inside
+the once-per-observation-token mutation boundary and still requires the
+distinct later read-only server sample.
 
 Cancellation requested during that interval is latched and serviced before
 wait or baseline dispatch. Terminal disconnect, death, deletion, or respawn

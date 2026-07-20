@@ -5816,6 +5816,9 @@ foreach ($physicalResponseAckAcceptEntry in @(
 		'playerId != m_iPlayerId',
 		'restoreRequestId != m_sPlayerRestoreRequestId',
 		'applySequence != m_iPlayerRestoreApplySequence',
+		'm_iPlayerRestoreOwnerDispatchTick < 0',
+		'System.GetTickCount(m_iPlayerRestoreOwnerDispatchTick)',
+		'>= PLAYER_RESTORE_OWNER_ACK_TIMEOUT_MS',
 		'actualPlayerReplicationId',
 		'== m_PlayerReplicationIdBeforeFoldback',
 		'bool ownerTransformMetricExact = ownerMaximumTransformDelta >= 0.0',
@@ -5830,6 +5833,27 @@ foreach ($physicalResponseAckAcceptEntry in @(
 			$physicalResponseAckAcceptEntry) -lt 0) {
 		throw "Physical-response owner acknowledgement exact-match gate is incomplete: $physicalResponseAckAcceptEntry"
 	}
+}
+$physicalResponseAckIngressDeadlineIndex =
+	$physicalResponseFoldbackAckAcceptBlock.IndexOf(
+		'System.GetTickCount(m_iPlayerRestoreOwnerDispatchTick)')
+$physicalResponseAckIngressMutationIndex =
+	$physicalResponseFoldbackAckAcceptBlock.IndexOf(
+		'm_iPlayerRestoreOwnerAckSequence = applySequence;')
+$physicalResponseAckIngressMetricIndex =
+	$physicalResponseFoldbackAckAcceptBlock.IndexOf(
+		'bool ownerTransformMetricExact = ownerMaximumTransformDelta >= 0.0')
+$physicalResponseAckIngressExactIndex =
+	$physicalResponseFoldbackAckAcceptBlock.IndexOf(
+		'= ownerTransformExact && ownerTransformMetricExact')
+if ($physicalResponseAckIngressDeadlineIndex -lt 0 -or
+	$physicalResponseAckIngressMutationIndex -le
+		$physicalResponseAckIngressDeadlineIndex -or
+	$physicalResponseAckIngressMetricIndex -le
+		$physicalResponseAckIngressDeadlineIndex -or
+	$physicalResponseAckIngressExactIndex -le
+		$physicalResponseAckIngressMetricIndex) {
+	throw 'Physical-response owner acknowledgement ingress must reject an expired dispatch and derive exactness from the reported transform delta before mutating acknowledgement state.'
 }
 foreach ($physicalResponseAckReceiveEntry in @(
 		'm_CampaignDebugPhysicalResponseFoldbackRestoreContext',
@@ -29673,7 +29697,7 @@ if (($ambientDebugResultText + $missionSweepCleanupBlock).IndexOf(
 	throw 'Mission-sweep cleanup must not use one global mutation latch for multiple owned missions.'
 }
 $missionSweepCleanupGlobalIdentityGateIndex = $missionSweepCleanupBlock.IndexOf(
-	'if (!context.m_bGlobalMissionIdentityExact)')
+	'if (!context.m_bGlobalMissionIdentityExact')
 $missionSweepCleanupGlobalIdentityFatalIndex = $missionSweepCleanupBlock.IndexOf(
 	'context.m_bFatalRetainedOwner = true;',
 	$missionSweepCleanupGlobalIdentityGateIndex)

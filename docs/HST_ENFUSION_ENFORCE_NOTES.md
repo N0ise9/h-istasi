@@ -151,13 +151,14 @@ The embedded implementation stamp remains
   every compartment transition before the full transform is applied.
 - Bound a pending owner acknowledgement with a 5,000 ms real-time deadline
   measured by `System.GetTickCount(dispatchTick)`, not campaign elapsed time.
-  On the first new observation token after the deadline, retain restore
-  ownership, clear the timed-out request/sequence and dispatch tick, and arm a
-  full-transform reapply. The next observation token claims and dispatches a
-  fresh request/sequence, so a late acknowledgement for the retired attempt is
-  rejected by the pending/request/sequence gates. Do not let timeout recovery
-  bypass the once-per-observation-token mutation boundary or the later read-only
-  server sample.
+  Reject an acknowledgement at or after that deadline on ingress before it can
+  mutate acknowledgement state. On the first new observation token after the
+  deadline, retain restore ownership, clear the timed-out request/sequence and
+  dispatch tick, and arm a full-transform reapply. The next observation token
+  claims and dispatches a fresh request/sequence, so a late acknowledgement for
+  the retired attempt is rejected by the pending/request/sequence gates. Do not
+  let timeout recovery bypass the once-per-observation-token mutation boundary
+  or the later read-only server sample.
 - Disconnect, death, entity deletion, or respawn replacement can make exact
   player restoration impossible. Classify that terminal session loss as a
   recorded physical-response `FAIL`, relinquish the impossible player owner,
