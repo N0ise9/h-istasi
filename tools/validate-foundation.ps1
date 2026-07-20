@@ -55783,6 +55783,129 @@ if ([regex]::Matches(
 		[regex]::Escape('$stockText = $stockText.Replace(')).Count -ne 2) {
 	throw 'Campaign Debug full-profile auxiliary fixture must normalize exactly two stock diagnostic headers.'
 }
+$campaignDebugFixtureRootContractText = Get-ScriptMethodBlock `
+	$campaignDebugReleaseIndexSelfTestText `
+	'function Get-RegisteredFixtureRootContract'
+if ([string]::IsNullOrEmpty($campaignDebugFixtureRootContractText)) {
+	throw 'Campaign Debug full-profile release-index self-test is missing its fixture-root contract.'
+}
+foreach ($campaignDebugFixtureRootContractEntry in @(
+		'[ValidateSet(''fixture'', ''transition'', ''portable'')]',
+		'[IO.Path]::GetTempPath()',
+		'[IO.Path]::GetFullPath($PSScriptRoot)',
+		'''^\.ri-[0-9a-f]{12}$''',
+		'''^\.ri-transition-[0-9a-f]{12}$''',
+		'''^partisan-ri-[0-9a-f]{12}$''')) {
+	if ($campaignDebugFixtureRootContractText.IndexOf(
+			$campaignDebugFixtureRootContractEntry,
+			[StringComparison]::Ordinal) -lt 0) {
+		throw "Campaign Debug fixture-root contract is incomplete: $campaignDebugFixtureRootContractEntry"
+	}
+}
+
+$campaignDebugFixtureRootTopologyText = Get-ScriptMethodBlock `
+	$campaignDebugReleaseIndexSelfTestText `
+	'function Assert-RegisteredFixtureRootTopology'
+if ([string]::IsNullOrEmpty($campaignDebugFixtureRootTopologyText)) {
+	throw 'Campaign Debug full-profile release-index self-test is missing its fixture-root topology guard.'
+}
+foreach ($campaignDebugFixtureRootTopologyEntry in @(
+		'$rootPath = [IO.Path]::GetFullPath([string]$Record.Path)',
+		'[IO.Path]::GetDirectoryName($rootPath)',
+		'[StringComparison]::OrdinalIgnoreCase',
+		'[IO.FileAttributes]::ReparsePoint',
+		'Collections.Generic.Stack[string]',
+		'Get-ChildItem -LiteralPath $currentPath',
+		'''A registered release-index self-test root contains a reparse point.''')) {
+	if ($campaignDebugFixtureRootTopologyText.IndexOf(
+			$campaignDebugFixtureRootTopologyEntry,
+			[StringComparison]::Ordinal) -lt 0) {
+		throw "Campaign Debug fixture-root topology guard is incomplete: $campaignDebugFixtureRootTopologyEntry"
+	}
+}
+
+$campaignDebugFixtureRootCreateText = Get-ScriptMethodBlock `
+	$campaignDebugReleaseIndexSelfTestText `
+	'function New-RegisteredFixtureRoot'
+if ([string]::IsNullOrEmpty($campaignDebugFixtureRootCreateText)) {
+	throw 'Campaign Debug full-profile release-index self-test is missing its fixture-root allocator.'
+}
+foreach ($campaignDebugFixtureRootCreateEntry in @(
+		'$fixtureCleanupRegistry.Add($record)',
+		'Test-Path -LiteralPath $rootPath -PathType Any',
+		'$rootItem = New-Item -ItemType Directory -Path $rootPath',
+		'[IO.FileMode]::CreateNew',
+		'[IO.FileShare]::None',
+		'''partisan-release-index-selftest-owner-v1''',
+		'$record.MarkerCreated = $true',
+		'Assert-RegisteredFixtureRootTopology -Record $record',
+		'Remove-RegisteredFixtureRoot `')) {
+	if ($campaignDebugFixtureRootCreateText.IndexOf(
+			$campaignDebugFixtureRootCreateEntry,
+			[StringComparison]::Ordinal) -lt 0) {
+		throw "Campaign Debug fixture-root allocator is incomplete: $campaignDebugFixtureRootCreateEntry"
+	}
+}
+$campaignDebugFixtureRootRegisterOffset =
+	$campaignDebugFixtureRootCreateText.IndexOf(
+		'$fixtureCleanupRegistry.Add($record)',
+		[StringComparison]::Ordinal)
+$campaignDebugFixtureRootCreateOffset =
+	$campaignDebugFixtureRootCreateText.IndexOf(
+		'$rootItem = New-Item -ItemType Directory -Path $rootPath',
+		[StringComparison]::Ordinal)
+if ($campaignDebugFixtureRootRegisterOffset -lt 0 -or
+	$campaignDebugFixtureRootCreateOffset -le
+		$campaignDebugFixtureRootRegisterOffset -or
+	$campaignDebugFixtureRootCreateText.IndexOf(
+		'-Force',
+		[StringComparison]::Ordinal) -ge 0) {
+	throw 'Campaign Debug fixture-root allocator must register before non-adopting root creation.'
+}
+
+$campaignDebugFixtureRootCleanupText = Get-ScriptMethodBlock `
+	$campaignDebugReleaseIndexSelfTestText `
+	'function Remove-RegisteredFixtureRoot'
+if ([string]::IsNullOrEmpty($campaignDebugFixtureRootCleanupText)) {
+	throw 'Campaign Debug full-profile release-index self-test is missing its fixture-root cleanup guard.'
+}
+foreach ($campaignDebugFixtureRootCleanupEntry in @(
+		'Test-Path -LiteralPath $Record.Path -PathType Any',
+		'Assert-RegisteredFixtureRootTopology -Record $Record',
+		'[IO.File]::ReadAllText([string]$Record.MarkerPath)',
+		'Remove-Item -LiteralPath $Record.Path -Recurse -Force -ErrorAction Stop',
+		'''A registered release-index self-test root cleanup did not converge.''')) {
+	if ($campaignDebugFixtureRootCleanupText.IndexOf(
+			$campaignDebugFixtureRootCleanupEntry,
+			[StringComparison]::Ordinal) -lt 0) {
+		throw "Campaign Debug fixture-root cleanup guard is incomplete: $campaignDebugFixtureRootCleanupEntry"
+	}
+}
+if ($campaignDebugFixtureRootCleanupText.IndexOf(
+		'-ErrorAction SilentlyContinue',
+		[StringComparison]::Ordinal) -ge 0 -or
+	$campaignDebugFixtureRootCleanupText.IndexOf(
+		'Assert-RegisteredFixtureRootTopology -Record $Record',
+		[StringComparison]::Ordinal) -ge
+	$campaignDebugFixtureRootCleanupText.IndexOf(
+		'Remove-Item -LiteralPath $Record.Path',
+		[StringComparison]::Ordinal)) {
+	throw 'Campaign Debug fixture-root cleanup must validate before exact fail-closed removal.'
+}
+
+$campaignDebugFixtureRootSnapshotText = Get-ScriptMethodBlock `
+	$campaignDebugReleaseIndexSelfTestText `
+	'function Get-FixtureRootResidueSnapshot'
+if ([string]::IsNullOrEmpty($campaignDebugFixtureRootSnapshotText) -or
+	$campaignDebugFixtureRootSnapshotText.IndexOf(
+		'foreach ($kind in @(''fixture'', ''transition'', ''portable''))',
+		[StringComparison]::Ordinal) -lt 0 -or
+	$campaignDebugFixtureRootSnapshotText.IndexOf(
+		'Sort-Object -Unique',
+		[StringComparison]::Ordinal) -lt 0) {
+	throw 'Campaign Debug full-profile release-index self-test is missing its exact residue snapshot.'
+}
+
 $campaignDebugFullProfileFixtureText = Get-ScriptMethodBlock `
 	$campaignDebugReleaseIndexSelfTestText `
 	'function New-Fixture'
@@ -55819,7 +55942,11 @@ foreach ($campaignDebugFullProfileFixtureEntry in @(
 		'''Synthetic recorded validation Phase17 metrics''',
 		'''Synthetic recorded validation Phase24 metrics''',
 		'''Synthetic recorded validation staged-cleanup row''',
-		'''Synthetic recorded validation focused-assertion row'''
+		'''Synthetic recorded validation focused-assertion row''',
+		'$fixtureRootRecord = New-RegisteredFixtureRoot -Kind ''fixture''',
+		'$fixtureParent = [string]$fixtureRootRecord.Path',
+		'Remove-RegisteredFixtureRoot `',
+		'-Record $fixtureRootRecord -BestEffort'
 	)) {
 	if ($campaignDebugFullProfileFixtureText.IndexOf(
 			$campaignDebugFullProfileFixtureEntry,
@@ -55855,13 +55982,35 @@ foreach ($campaignDebugReleaseIndexSelfTestEntry in @(
 		'''diagnostic classifier count contradicts run.json or the retained immutable runner''',
 		'''synthetic diagnostic classifier rejection''',
 		'''semantic-incomplete consumer tamper''',
-		'''run validation Phase17 metrics properties differs from the source inventory'''
+		'''run validation Phase17 metrics properties differs from the source inventory''',
+		'$fixtureCleanupRegistry = New-Object Collections.Generic.List[object]',
+		'$initialFixtureRootSnapshot = @(Get-FixtureRootResidueSnapshot)',
+		'$transitionFixtureRecord = New-RegisteredFixtureRoot -Kind ''transition''',
+		'$portableExternalRecord = New-RegisteredFixtureRoot -Kind ''portable''',
+		'for ($cleanupIndex = $fixtureCleanupRegistry.Count - 1;',
+		'-Record $fixtureCleanupRegistry[$cleanupIndex] -BestEffort',
+		'$finalFixtureRootSnapshot = @(Get-FixtureRootResidueSnapshot)',
+		'''The release-index self-test changed the fixture-root residue snapshot.''',
+		'''Fixture cleanup also failed: '''
 	)) {
 	if ($campaignDebugReleaseIndexSelfTestText.IndexOf(
 			$campaignDebugReleaseIndexSelfTestEntry,
 			[StringComparison]::Ordinal) -lt 0) {
 		throw "Campaign Debug full-profile release-index self-test contract is incomplete: $campaignDebugReleaseIndexSelfTestEntry"
 	}
+}
+$campaignDebugPortableRootRegisterOffset =
+	$campaignDebugReleaseIndexSelfTestText.IndexOf(
+		'$portableExternalRecord = New-RegisteredFixtureRoot -Kind ''portable''',
+		[StringComparison]::Ordinal)
+$campaignDebugPortableRootMoveOffset =
+	$campaignDebugReleaseIndexSelfTestText.IndexOf(
+		'Move-Item -LiteralPath $portableSplit.Bundle',
+		[StringComparison]::Ordinal)
+if ($campaignDebugPortableRootRegisterOffset -lt 0 -or
+	$campaignDebugPortableRootMoveOffset -le
+		$campaignDebugPortableRootRegisterOffset) {
+	throw 'Campaign Debug portable fixture root must register before its bundle move.'
 }
 
 $campaignDebugCorrectedCanarySelfTestText = Get-Content -Raw `
