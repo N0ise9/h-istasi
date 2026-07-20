@@ -55719,7 +55719,10 @@ foreach ($campaignDebugReleaseIndexSelfTestEntry in @(
 		'releaseDocsConsumerGitBlobSha256 = $consumerGitBlobSha',
 		'''state-diff nonzero-delta rejection''',
 		'''retained state diff row 0 is not a zero-delta restoration row''',
-		'''synthetic state-diff-red rejection'''
+		'''synthetic state-diff-red rejection''',
+		'''diagnostic classifier count rejection''',
+		'''diagnostic classifier count contradicts run.json or the retained immutable runner''',
+		'''synthetic diagnostic classifier rejection'''
 	)) {
 	if ($campaignDebugReleaseIndexSelfTestText.IndexOf(
 			$campaignDebugReleaseIndexSelfTestEntry,

@@ -1685,10 +1685,11 @@ try {
     $classifierFixture = New-Fixture 'diagnostic-classifier' 'diagnostic-red' 'classifier'
     [void]$fixtures.Add($classifierFixture)
     $classifierEvidence = Get-EvidenceFromFixture $classifierFixture
-    $classifierResult = Invoke-Consumer `
-        $classifierFixture $classifierEvidence 'synthetic diagnostic classifier rejection'
-    if (-not $classifierResult.Rejected -or $classifierResult.Accepted) {
-        throw 'Synthetic diagnostic classifier-count fixture was not retained as generic red.'
+    Assert-ThrowsLike 'diagnostic classifier count rejection' `
+        'diagnostic classifier count contradicts run.json or the retained immutable runner' {
+        Invoke-Consumer `
+            $classifierFixture $classifierEvidence `
+            'synthetic diagnostic classifier rejection' | Out-Null
     }
 
     $historicalResult = Invoke-Consumer `
