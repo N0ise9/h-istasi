@@ -56191,6 +56191,58 @@ foreach ($correctedCanaryConsumerIntegrityEntry in @(
 	}
 }
 
+$correctedCanaryConsumerSelfTestText = Get-ScriptMethodBlock `
+	$releaseDocsGeneratorText `
+	'function Invoke-PortableCorrectedCanaryEvidenceSelfTest'
+$correctedCanaryConsumerTempLeafLiteral =
+	'''^\.ric-[0-9a-f]{12}\.tmp$'''
+if ([string]::IsNullOrEmpty($correctedCanaryConsumerSelfTestText) -or
+	([regex]::Matches(
+		$correctedCanaryConsumerSelfTestText,
+		[regex]::Escape($correctedCanaryConsumerTempLeafLiteral))).Count -ne 2) {
+	throw 'Release-document corrected-canary consumer must bind the same exact temporary leaf at creation and cleanup.'
+}
+$correctedCanaryConsumerTempRootTokens = @(
+	'$tempLeaf = ".ric-" +',
+	'(Split-Path -Leaf $tempRoot) -cnotmatch',
+	$correctedCanaryConsumerTempLeafLiteral,
+	'git -C $root check-ignore -- $tempRepoRelative',
+	'if (Test-Path -LiteralPath $tempRoot)',
+	'$tempRootCreated = $false',
+	'try {',
+	'New-Item -ItemType Directory -Path $tempRoot | Out-Null',
+	'$tempRootCreated = $true',
+	'$toolsRoot $tempRoot "Portable corrected-canary consumer self-test root"',
+	'$externalRoot = Join-Path $tempRoot "e"',
+	'finally {',
+	'if ($tempRootCreated -and',
+	'(Split-Path -Leaf $tempRoot) -cmatch',
+	$correctedCanaryConsumerTempLeafLiteral,
+	'"Portable corrected-canary consumer self-test cleanup root"',
+	'Remove-Item -LiteralPath $tempRoot -Recurse -Force')
+$correctedCanaryConsumerTempRootIndex = -1
+foreach ($correctedCanaryConsumerTempRootToken in
+	$correctedCanaryConsumerTempRootTokens) {
+	$correctedCanaryConsumerTempRootIndex =
+		$correctedCanaryConsumerSelfTestText.IndexOf(
+			$correctedCanaryConsumerTempRootToken,
+			$correctedCanaryConsumerTempRootIndex + 1,
+			[StringComparison]::Ordinal)
+	if ($correctedCanaryConsumerTempRootIndex -lt 0) {
+		throw "Release-document corrected-canary consumer temporary-root order is incomplete: $correctedCanaryConsumerTempRootToken"
+	}
+}
+foreach ($correctedCanaryConsumerTempRootSingleEntry in @(
+		'New-Item -ItemType Directory -Path $tempRoot | Out-Null',
+		'Remove-Item -LiteralPath $tempRoot -Recurse -Force')) {
+	if (([regex]::Matches(
+			$correctedCanaryConsumerSelfTestText,
+			[regex]::Escape(
+				$correctedCanaryConsumerTempRootSingleEntry))).Count -ne 1) {
+		throw "Release-document corrected-canary consumer temporary-root ownership is ambiguous: $correctedCanaryConsumerTempRootSingleEntry"
+	}
+}
+
 $focusedAutotestAggregateProducerText = Get-Content -Raw `
 	$focusedAutotestAggregateProducerPath
 foreach ($focusedAutotestAggregateEntry in @(
