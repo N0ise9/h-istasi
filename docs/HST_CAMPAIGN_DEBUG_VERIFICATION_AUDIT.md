@@ -43,11 +43,11 @@ cleanup boundaries.
 Rejected orphan-metric evidence now projects typed `-1` whenever the exact
 case-sensitive canonical metric cardinality is not one. This keeps a
 structurally valid red receipt while cleanup remains false; every accepted
-corrected canary still requires count `0`. The focused consumer also reads the
-already-validated
-`UnapprovedHardDiagnosticEvidence` property directly so Windows PowerShell
-preserves canonical `[]` as a zero-length array rather than enumerating it to
-null. Foundation pins both mechanics and rejects their earlier unsafe shapes.
+corrected canary still requires count `0`. The focused consumer also reads
+the already-validated `UnapprovedHardDiagnosticEvidence` property directly so
+Windows PowerShell preserves canonical `[]` as a zero-length array rather than
+enumerating it to null. Foundation pins both mechanics and rejects their earlier
+unsafe shapes.
 
 Checkpoint acceptance requires the release-index, corrected-canary, focused
 aggregate, focused-consumer, general-consumer, generated-document check, and
