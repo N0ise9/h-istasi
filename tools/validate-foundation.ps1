@@ -56045,7 +56045,7 @@ foreach ($campaignDebugReleaseIndexSelfTestEntry in @(
 		'-Record $fixtureCleanupRegistry[$cleanupIndex] -BestEffort',
 		'$finalFixtureRootSnapshot = @(Get-FixtureRootResidueSnapshot)',
 		'''The release-index self-test changed the fixture-root residue snapshot.''',
-		'''Fixture cleanup also failed: '''
+		''' Fixture cleanup also failed: '''
 	)) {
 	if ($campaignDebugReleaseIndexSelfTestText.IndexOf(
 			$campaignDebugReleaseIndexSelfTestEntry,
