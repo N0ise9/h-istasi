@@ -55538,6 +55538,12 @@ if (([regex]::Matches(
 if (([regex]::Matches(
 		$candidateCampaignDebugRunnerText,
 		'\$cleanupMetricMatches\s*=\s*@\(\$cleanupCases\[0\]\.m_aMetrics\s*\|\s*Where-Object\s*\{\s*\[string\]\$_\.m_sMetricId\s*-ceq\s*"cleanup\.orphan_active_groups"')).Count -ne 2 -or
+	([regex]::Matches(
+		$candidateCampaignDebugRunnerText,
+		'\$cleanupMetricMatches\.Count\s*-eq\s*1')).Count -ne 2 -or
+	([regex]::Matches(
+		$candidateCampaignDebugRunnerText,
+		'\$cleanupOrphans\s*=\s*\[string\]\$cleanupMetricMatches\[0\]\.m_sValue')).Count -ne 2 -or
 	[regex]::IsMatch(
 		$candidateCampaignDebugRunnerText,
 		'\$cleanupOrphans\s*=\s*Get-MetricValue\s+-Metrics\s+\$cleanupCases\[0\]\.m_aMetrics')) {
