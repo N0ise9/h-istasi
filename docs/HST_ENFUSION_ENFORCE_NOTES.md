@@ -51,9 +51,15 @@ The embedded implementation stamp is
   availability query used by the runtime audit. They must compile in standard
   and diagnostic mode but must not execute a developer command.
 - A runtime-surface self-test is harness proof, not engine proof. The paired
-  runner currently passes 27 structural checks; the real gate still requires
+  runner currently passes 34 structural checks; the real gate still requires
   standard and diagnostic processes to inspect the same sealed package and
   produce exact, independently rehashed evidence.
+- A diagnostic executable does not implicitly define a custom script symbol.
+  Treat executable provenance and preprocessing mode as separate launch
+  controls: standard server/client vectors must contain no `-scrDefine`, while
+  diagnostic surface and retention-lineage vectors must contain exactly one
+  case-sensitive `-scrDefine ENABLE_DIAG` pair. Reject omission, substitution,
+  duplication, case drift, and any standard-mode symbol injection.
 - Derive the runtime member plan from the exact candidate commit, not the later
   worktree. Probe the loaded package for every one of the 67 forbidden and 91
   production-observability members. Use inert `ScriptModule.CompileScript`
@@ -91,9 +97,11 @@ The embedded implementation stamp is
   dot-sourcing the extracted functions; the producer script's initialization
   does not populate the consumer script's scope under strict mode.
 - Runtime retention proof is deliberately two-phase. Diagnostic launches may
-  create and inspect the five-stage save lineage. Standard server/client
+  create and inspect the five-stage save lineage only with the exact diagnostic
+  symbol pair. Standard server/client
   launches may load, start, log, and compare those same-package artifacts, but
-  their arguments must contain no diagnostic, proof, test, or mutation
+  their arguments must contain no script definition, diagnostic, proof, test,
+  or mutation
   authority. Bind both phases to the same candidate/package and exact launch,
   executable, tool, save, journal, and cleanup inventories.
 - A publisher must be reusable as the semantic validator for its own immutable
@@ -102,8 +110,8 @@ The embedded implementation stamp is
   and returns one typed identity/signature result without writing. A consumer
   that only rehashes a publisher-shaped index can otherwise accept a completely
   fabricated but internally consistent tree.
-- The release-surface publisher self-test passes 37 checks, and the retention
-  publisher self-test passes 53/53. The ledger consumer invokes both exact
+- The release-surface publisher self-test passes 44 checks, and the retention
+  publisher self-test passes 63/63. The ledger consumer invokes both exact
   Git-bound verifier scripts and passes 3 valid/optional plus 44 adversarial
   cases. Coverage includes zero-write verification, scalar confusion, canonical
   byte drift, terminal seals, fail-closed synthetic publication, receipt reuse,
@@ -119,8 +127,11 @@ The embedded implementation stamp is
   failed closed on the obsolete quartet requirement and was not published;
   owned cleanup and harness-residue checks were zero. This was an evidence-
   tooling correction only, did not change the candidate package bytes, and
-  supplies no runtime pass. Commit the correction before retrying the paired
-  audit.
+  supplies no runtime pass. After that correction was committed, the next
+  attempt passed the retail census but the diagnostic executable compiled the
+  probe as retail because the custom symbol was absent. It also failed closed,
+  was not published, and removed the harness with zero residue. Commit the
+  mode-specific launch correction before retrying the paired audit.
 - Do not turn surface inspection into a broader claim. Member-presence probes
   are inert; the audit deliberately invokes production menu generation and
   read-only per-command availability inspection, but executes no command action

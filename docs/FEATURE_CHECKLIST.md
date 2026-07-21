@@ -44,7 +44,7 @@ Gate 1 remains incomplete, and release remains `NO-GO`.
   health/logging, foundation status, and read-only campaign/persistence
   inspection without developer command authority.
 - [x] Pass the release-surface source self-test at 15/15 and the paired runtime
-  audit runner's structural self-test at 27 checks. These are tooling and
+  audit runner's structural self-test at 34 checks. These are tooling and
   contract checks; neither result is engine runtime evidence.
 - [x] Derive the loaded-package member plan from the candidate commit and cover
   all 67 forbidden plus 91 production-observability members. Methods,
@@ -56,6 +56,11 @@ Gate 1 remains incomplete, and release remains `NO-GO`.
   exposure, deliberately generates the production menu, and invokes the
   read-only availability query for every production command ID. It executes no
   command action and performs no gameplay mutation.
+- [x] Separate diagnostic-executable capability from the custom script mode.
+  Standard server/client vectors must contain no `-scrDefine`; diagnostic
+  surface and retention-lineage vectors must contain exactly one case-sensitive
+  `-scrDefine ENABLE_DIAG` pair. The runners and publishers must fail closed on
+  a missing, renamed, duplicated, case-drifted, or standard-injected definition.
 - [x] Rerun Workbench validation from stationary source. Active candidate
   `partisan-rc-5b1f2e98f931-20260721T193941Z` passed all five targets at 5,849
   files/12,022 classes with common CRC `aeddce9b`.
@@ -68,7 +73,7 @@ Gate 1 remains incomplete, and release remains `NO-GO`.
   The seal binds four package files and 50 evidence files; this is not runtime
   acceptance.
 - [x] Harden the release-surface and retention publishers. Their self-tests
-  pass 37 checks and 53/53 respectively, including zero-write published-index
+  pass 44 checks and 63/63 respectively, including zero-write published-index
   verification, canonical byte comparison, strict scalar typing, terminal
   seals, synthetic-publication, receipt-reuse, role-relabel, launch-vector,
   journal, and reparse negatives. The ledger consumer reuses both exact
@@ -82,6 +87,10 @@ Gate 1 remains incomplete, and release remains `NO-GO`.
   on the obsolete quartet check and was not published; owned cleanup and
   harness-residue checks were zero. This changes evidence tooling only, leaves
   the candidate package bytes unchanged, and establishes no runtime pass.
+- [x] Commit the mode-specific launch correction, then retry the unchanged
+  candidate. The second real attempt passed the retail census but the diagnostic
+  executable compiled `mode=retail` because the custom symbol was absent. The
+  attempt was not published and cleanup removed the harness with zero residue.
 - [x] Replace the five aggregate JUnit wrappers with five suite launches that
   validate 91 individually named cases in exact counts 14/13/17/6/41. The
   forward aggregate contract requires JUnit 91/0/0/0, 40 retained files, and
@@ -93,8 +102,9 @@ Gate 1 remains incomplete, and release remains `NO-GO`.
 - [ ] Run and independently consume the paired release-surface audit and
   two-phase retention proof against the same unchanged sealed package. Pair the
   standard/diagnostic member census with diagnostic-only save-lineage capture
-  followed by standard server/client load, start, log, and byte-retention checks
-  with no diagnostic or test authority in the standard launch. Rebind every
+  through exact diagnostic `-scrDefine ENABLE_DIAG` launches, followed by
+  standard server/client load, start, log, and byte-retention checks with no
+  script definition, diagnostic, or test authority. Rebind every
   phase to the candidate, package, tool, launch, save, journal, and cleanup
   identities before publication.
 - [ ] Keep `STATUS-008` open until the same-package retail exclusion and

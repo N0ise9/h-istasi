@@ -625,6 +625,198 @@ public static class Gate1SyntheticSleeper {
         '-hstReleaseCandidateId', $candidateId,
         '-hstReleasePackageSha256', $packageSha,
         '-hstReleaseManifestSha256', [string]$manifestSignature.sha256)
+    $validStandardClientArguments = [string[]]@(
+        '-gproj', 'packed/addon.gproj',
+        '-addonsDir', 'runtime,packed',
+        '-addons', '698532771130111D',
+        '-addonTempDir', 'addon-temp',
+        '-client',
+        '-profile', 'profile',
+        '-logsDir', 'logs',
+        '-logLevel', 'normal',
+        '-logTime', 'datetime',
+        '-window',
+        '-noFocus',
+        '-forceUpdate',
+        '-noSplash',
+        '-noSound',
+        '-noThrow',
+        '-maxFPS', '30',
+        '-hstReleaseCandidateId', $candidateId,
+        '-hstReleasePackageSha256', $packageSha,
+        '-hstReleaseManifestSha256', [string]$manifestSignature.sha256)
+    $diagnosticStageNonce = 'a' * 32
+    $validDiagnosticServerArguments = [string[]]@(
+        '-gproj', 'packed/addon.gproj',
+        '-server', 'Worlds/HST_Everon/HST_Everon.ent',
+        '-MissionHeader', 'Missions/HST_Everon.conf',
+        '-addonsDir', 'runtime,packed',
+        '-addons', '698532771130111D',
+        '-profile', 'profile',
+        '-logLevel', 'normal',
+        '-logTime', 'datetime',
+        '-noThrow',
+        '-maxFPS', '30',
+        '-loadSessionSave',
+        '-hstOrdinaryCampaignPersistenceProof', 'true',
+        '-hstOrdinaryCampaignPersistenceStage', 'autosave_checkpoint',
+        '-hstOrdinaryCampaignPersistenceRunId', $runId,
+        '-hstOrdinaryCampaignPersistenceSessionNonce', $runNonce,
+        '-hstOrdinaryCampaignPersistenceStageNonce', $diagnosticStageNonce,
+        '-logsDir', 'logs',
+        '-addonTempDir', 'addon-temp',
+        '-hstReleaseCandidateId', $candidateId,
+        '-hstReleasePackageSha256', $packageSha,
+        '-hstReleaseManifestSha256', [string]$manifestSignature.sha256,
+        '-scrDefine', 'ENABLE_DIAG')
+    $validDiagnosticClientArguments = [string[]]@(
+        $validStandardClientArguments + @('-scrDefine', 'ENABLE_DIAG'))
+    foreach ($binding in @(
+            [pscustomobject]@{
+                Role = 'server'
+                Stage = 'autosave_checkpoint'
+                Arguments = $validDiagnosticServerArguments
+            },
+            [pscustomobject]@{
+                Role = 'client'
+                Stage = 'shutdown_checkpoint'
+                Arguments = $validDiagnosticClientArguments
+            })) {
+        Assert-GateScriptSymbolTopology `
+            -Arguments ([string[]]$binding.Arguments) `
+            -Phase diagnostic-lineage `
+            -Role ([string]$binding.Role)
+        Assert-RetentionScriptSymbolTopology `
+            -Arguments ([string[]]$binding.Arguments) `
+            -Phase diagnostic-lineage `
+            -Role ([string]$binding.Role) `
+            -Stage ([string]$binding.Stage)
+    }
+    Assert-EngineLaunchTopology `
+        -Stage autosave_checkpoint `
+        -Role server `
+        -Arguments $validDiagnosticServerArguments `
+        -CandidateId $candidateId `
+        -PackageSha256 $packageSha `
+        -ManifestSha256 ([string]$manifestSignature.sha256) `
+        -AddonGuid '698532771130111D' `
+        -WorldResource 'Worlds/HST_Everon/HST_Everon.ent' `
+        -MissionHeader 'Missions/HST_Everon.conf' `
+        -RunId $runId `
+        -SessionNonce $runNonce `
+        -StageNonce $diagnosticStageNonce `
+        -Phase diagnostic-lineage
+    Assert-EngineLaunchTopology `
+        -Stage shutdown_checkpoint `
+        -Role client `
+        -Arguments $validDiagnosticClientArguments `
+        -CandidateId $candidateId `
+        -PackageSha256 $packageSha `
+        -ManifestSha256 ([string]$manifestSignature.sha256) `
+        -AddonGuid '698532771130111D' `
+        -WorldResource 'Worlds/HST_Everon/HST_Everon.ent' `
+        -MissionHeader 'Missions/HST_Everon.conf' `
+        -RunId $runId `
+        -SessionNonce $runNonce `
+        -StageNonce $diagnosticStageNonce `
+        -Phase diagnostic-lineage
+    [void]$checks.Add('diagnostic-script-symbol-pairs-accepted')
+
+    $diagnosticMutations = @(
+        [pscustomobject]@{
+            Label = 'missing'
+            Arguments = [string[]]$validDiagnosticServerArguments[
+                0..($validDiagnosticServerArguments.Count - 3)]
+        },
+        [pscustomobject]@{
+            Label = 'wrong-symbol'
+            Arguments = [string[]]@(
+                $validDiagnosticServerArguments[0..(
+                    $validDiagnosticServerArguments.Count - 2)] + @('WRONG_SYMBOL'))
+        },
+        [pscustomobject]@{
+            Label = 'duplicate'
+            Arguments = [string[]]@(
+                $validDiagnosticServerArguments + @('-scrDefine', 'ENABLE_DIAG'))
+        },
+        [pscustomobject]@{
+            Label = 'option-case'
+            Arguments = [string[]]@(
+                $validDiagnosticServerArguments[0..(
+                    $validDiagnosticServerArguments.Count - 3)] +
+                @('-SCRDEFINE', 'ENABLE_DIAG'))
+        },
+        [pscustomobject]@{
+            Label = 'symbol-case'
+            Arguments = [string[]]@(
+                $validDiagnosticServerArguments[0..(
+                    $validDiagnosticServerArguments.Count - 2)] + @('enable_diag'))
+        },
+        [pscustomobject]@{
+            Label = 'inline'
+            Arguments = [string[]]@(
+                $validDiagnosticServerArguments[0..(
+                    $validDiagnosticServerArguments.Count - 3)] +
+                @('-scrDefine=ENABLE_DIAG'))
+        })
+    foreach ($mutation in $diagnosticMutations) {
+        Assert-TestRejected "runner diagnostic symbol $($mutation.Label)" {
+            Assert-GateScriptSymbolTopology `
+                -Arguments ([string[]]$mutation.Arguments) `
+                -Phase diagnostic-lineage `
+                -Role server
+        } 'script-symbol'
+        Assert-TestRejected "index diagnostic symbol $($mutation.Label)" {
+            Assert-RetentionScriptSymbolTopology `
+                -Arguments ([string[]]$mutation.Arguments) `
+                -Phase diagnostic-lineage `
+                -Role server `
+                -Stage autosave_checkpoint
+        } 'script-symbol'
+        [void]$checks.Add(
+            'diagnostic-script-symbol-' + [string]$mutation.Label + '-rejected')
+    }
+
+    foreach ($phaseBinding in @(
+            [pscustomobject]@{
+                Role = 'server'
+                Stage = 'autosave_checkpoint'
+                Arguments = $validStandardServerArguments
+            },
+            [pscustomobject]@{
+                Role = 'client'
+                Stage = 'shutdown_checkpoint'
+                Arguments = $validStandardClientArguments
+            })) {
+        foreach ($injection in @(
+                [string[]]@('-scrDefine', 'ENABLE_DIAG'),
+                [string[]]@('-scrDefine', 'OTHER_SYMBOL'),
+                [string[]]@('-SCRDEFINE', 'ENABLE_DIAG'),
+                [string[]]@('-scrDefine=ENABLE_DIAG'),
+                [string[]]@('ENABLE_DIAG'),
+                [string[]]@('enable_diag'))) {
+            $injected = [string[]]@(
+                [string[]]$phaseBinding.Arguments + [string[]]$injection)
+            Assert-TestRejected `
+                "runner standard $($phaseBinding.Role) script-symbol injection" {
+                Assert-GateScriptSymbolTopology `
+                    -Arguments $injected `
+                    -Phase standard-retention `
+                    -Role ([string]$phaseBinding.Role)
+            } 'script-symbol'
+            Assert-TestRejected `
+                "index standard $($phaseBinding.Role) script-symbol injection" {
+                Assert-RetentionScriptSymbolTopology `
+                    -Arguments $injected `
+                    -Phase standard-retention `
+                    -Role ([string]$phaseBinding.Role) `
+                    -Stage ([string]$phaseBinding.Stage)
+            } 'script-symbol'
+        }
+        [void]$checks.Add(
+            'standard-' + [string]$phaseBinding.Role +
+            '-all-script-symbols-rejected')
+    }
     $badAddon = [string[]]$validStandardServerArguments.Clone()
     $badAddon[[Array]::IndexOf($badAddon, '-addons') + 1] =
         '0000000000000000'
@@ -1057,7 +1249,8 @@ public static class Gate1SyntheticSleeper {
             '-hstReleaseCandidateId', $candidateId,
             '-hstReleasePackageSha256', $packageSha,
             '-hstReleaseManifestSha256',
-                [string]$manifestSignature.sha256)
+                [string]$manifestSignature.sha256,
+            '-scrDefine', 'ENABLE_DIAG')
         $serverLaunch = Start-PartisanGuardedServer `
             -Context $context `
             -Executable $sleeperPath `
@@ -1088,7 +1281,8 @@ public static class Gate1SyntheticSleeper {
                 '-hstReleaseCandidateId', $candidateId,
                 '-hstReleasePackageSha256', $packageSha,
                 '-hstReleaseManifestSha256',
-                    [string]$manifestSignature.sha256)
+                    [string]$manifestSignature.sha256,
+                '-scrDefine', 'ENABLE_DIAG')
             $null = Start-PartisanGuardedClient `
                 -Context $context `
                 -Executable $sleeperPath `
@@ -1325,6 +1519,15 @@ public static class Gate1SyntheticSleeper {
         worldResource = 'Worlds/HST_Everon/HST_Everon.ent'
         missionHeader = 'Missions/HST_Everon.conf'
         projectId = '698532771130111D'
+        scriptSymbolTopology = [ordered]@{
+            diagnosticOption = '-scrDefine'
+            diagnosticSymbol = 'ENABLE_DIAG'
+            diagnosticServerLaunchCount = 5
+            diagnosticClientLaunchCount = 1
+            standardPolicy = 'reject-all-script-symbols'
+            standardServerLaunchCount = 5
+            standardClientLaunchCount = 1
+        }
         stages = [object[]]@($persistenceRows.ToArray() | ForEach-Object {
             [ordered]@{
                 ordinal = $_.ordinal
@@ -1518,6 +1721,16 @@ public static class Gate1SyntheticSleeper {
             -Run ([pscustomobject]$run)
     } 'not cross-bound to candidate and scenario'
     [void]$checks.Add('launch-contract-run-binding-rejected')
+
+    $badLaunchSymbolBinding = $launchContractValue |
+        ConvertTo-Json -Depth 32 | ConvertFrom-Json
+    $badLaunchSymbolBinding.scriptSymbolTopology.diagnosticSymbol = 'enable_diag'
+    Assert-TestRejected 'launch contract diagnostic script symbol' {
+        Assert-LaunchContractRunBinding `
+            -Contract $badLaunchSymbolBinding `
+            -Run ([pscustomobject]$run)
+    } 'script-symbol topology is invalid'
+    [void]$checks.Add('launch-contract-script-symbol-binding-rejected')
 
     $badLaunchPersistenceBinding = $launchContractValue |
         ConvertTo-Json -Depth 32 | ConvertFrom-Json

@@ -448,6 +448,36 @@ function Sync-TestBundleSeals {
     $null = Write-TestJson $runPath $run
 }
 
+function Sync-TestModeArgumentMutation {
+    param(
+        [string]$RunRoot,
+        [ValidateSet('retail', 'diagnostic')][string]$Mode,
+        $RawArguments,
+        $PortableArguments
+    )
+
+    $rawPath = Join-Path $RunRoot ('raw\' + $Mode + '\arguments.raw.json')
+    $portablePath = Join-Path $RunRoot `
+        ('raw\' + $Mode + '\arguments.portable.json')
+    $rawSignature = Write-TestJson $rawPath $RawArguments
+    $PortableArguments.rawArgumentsSha256 = [string]$rawSignature.sha256
+    $null = Write-TestJson $portablePath $PortableArguments
+    Sync-TestBundleSeals $RunRoot
+}
+
+function Get-TestExactArgumentPosition {
+    param([object[]]$Arguments, [string]$Value)
+
+    $positions = @()
+    for ($index = 0; $index -lt $Arguments.Count; $index++) {
+        if ([string]$Arguments[$index] -ceq $Value) { $positions += $index }
+    }
+    if ($positions.Count -ne 1) {
+        throw "Synthetic arguments do not contain one exact $Value token."
+    }
+    return [int]$positions[0]
+}
+
 function Get-TestBaseline {
     param([string]$RunRoot)
 
@@ -719,7 +749,11 @@ function New-TestModeEvidence {
         '-logLevel', 'normal',
         '-logTime', 'datetime',
         '-noThrow',
-        '-maxFPS', '30',
+        '-maxFPS', '30')
+    if ($Mode -ceq 'diagnostic') {
+        $arguments += @('-scrDefine', 'ENABLE_DIAG')
+    }
+    $arguments += @(
         '-releaseSurfaceRunNonce', $RunNonce,
         '-releaseSurfaceExpectedMode', $Mode,
         '-hstReleaseCandidateId', [string]$CandidatePublicIdentity.candidateId,
@@ -746,7 +780,11 @@ function New-TestModeEvidence {
         '-logLevel', 'normal',
         '-logTime', 'datetime',
         '-noThrow',
-        '-maxFPS', '30',
+        '-maxFPS', '30')
+    if ($Mode -ceq 'diagnostic') {
+        $portableArguments += @('-scrDefine', 'ENABLE_DIAG')
+    }
+    $portableArguments += @(
         '-releaseSurfaceRunNonce', $RunNonce,
         '-releaseSurfaceExpectedMode', $Mode,
         '-hstReleaseCandidateId', [string]$CandidatePublicIdentity.candidateId,
@@ -1693,6 +1731,122 @@ public static class SyntheticReleaseSurfaceHost {
         Invoke-TestFixtureValidation $runPath
     } 'machine-local path'
     [void]$checks.Add('portable-argument-path-rejected')
+
+    Restore-TestBaseline $runRoot $baseline
+    $retailRawPath = Join-Path $runRoot 'raw\retail\arguments.raw.json'
+    $retailPortablePath = Join-Path $runRoot `
+        'raw\retail\arguments.portable.json'
+    $retailRaw = Read-TestJson $retailRawPath
+    $retailPortable = Read-TestJson $retailPortablePath
+    $retailRaw.arguments = [object[]]@(
+        $retailRaw.arguments + @('-scrDefine', 'ENABLE_DIAG'))
+    $retailPortable.arguments = [object[]]@(
+        $retailPortable.arguments + @('-scrDefine', 'ENABLE_DIAG'))
+    Sync-TestModeArgumentMutation $runRoot retail $retailRaw $retailPortable
+    Assert-TestRejected 'retail script-symbol injection' {
+        Invoke-TestFixtureValidation $runPath
+    } 'fixed launch contract|script-symbol authority'
+    [void]$checks.Add('retail-script-symbol-injection-rejected')
+
+    Restore-TestBaseline $runRoot $baseline
+    $diagnosticRawPath = Join-Path $runRoot `
+        'raw\diagnostic\arguments.raw.json'
+    $diagnosticPortablePath = Join-Path $runRoot `
+        'raw\diagnostic\arguments.portable.json'
+    $diagnosticRaw = Read-TestJson $diagnosticRawPath
+    $diagnosticPortable = Read-TestJson $diagnosticPortablePath
+    $diagnosticRaw.arguments = [object[]]@(
+        $diagnosticRaw.arguments | Where-Object {
+            [string]$_ -cne '-scrDefine' -and
+            [string]$_ -cne 'ENABLE_DIAG'
+        })
+    $diagnosticPortable.arguments = [object[]]@(
+        $diagnosticPortable.arguments | Where-Object {
+            [string]$_ -cne '-scrDefine' -and
+            [string]$_ -cne 'ENABLE_DIAG'
+        })
+    Sync-TestModeArgumentMutation `
+        $runRoot diagnostic $diagnosticRaw $diagnosticPortable
+    Assert-TestRejected 'missing diagnostic script symbol' {
+        Invoke-TestFixtureValidation $runPath
+    } 'fixed launch contract'
+    [void]$checks.Add('missing-diagnostic-script-symbol-rejected')
+
+    Restore-TestBaseline $runRoot $baseline
+    $diagnosticRaw = Read-TestJson $diagnosticRawPath
+    $diagnosticPortable = Read-TestJson $diagnosticPortablePath
+    $rawDefineIndex = Get-TestExactArgumentPosition `
+        $diagnosticRaw.arguments '-scrDefine'
+    $portableDefineIndex = Get-TestExactArgumentPosition `
+        $diagnosticPortable.arguments '-scrDefine'
+    $diagnosticRaw.arguments[$rawDefineIndex + 1] = 'OTHER_DIAG'
+    $diagnosticPortable.arguments[$portableDefineIndex + 1] = 'OTHER_DIAG'
+    Sync-TestModeArgumentMutation `
+        $runRoot diagnostic $diagnosticRaw $diagnosticPortable
+    Assert-TestRejected 'wrong diagnostic script symbol' {
+        Invoke-TestFixtureValidation $runPath
+    } 'fixed launch contract'
+    [void]$checks.Add('wrong-diagnostic-script-symbol-rejected')
+
+    Restore-TestBaseline $runRoot $baseline
+    $diagnosticRaw = Read-TestJson $diagnosticRawPath
+    $diagnosticPortable = Read-TestJson $diagnosticPortablePath
+    $diagnosticRaw.arguments = [object[]]@(
+        $diagnosticRaw.arguments + @('-scrDefine', 'ENABLE_DIAG'))
+    $diagnosticPortable.arguments = [object[]]@(
+        $diagnosticPortable.arguments + @('-scrDefine', 'ENABLE_DIAG'))
+    Sync-TestModeArgumentMutation `
+        $runRoot diagnostic $diagnosticRaw $diagnosticPortable
+    Assert-TestRejected 'duplicate diagnostic script symbol' {
+        Invoke-TestFixtureValidation $runPath
+    } 'fixed launch contract'
+    [void]$checks.Add('duplicate-diagnostic-script-symbol-rejected')
+
+    Restore-TestBaseline $runRoot $baseline
+    $diagnosticRaw = Read-TestJson $diagnosticRawPath
+    $diagnosticPortable = Read-TestJson $diagnosticPortablePath
+    $rawDefineIndex = Get-TestExactArgumentPosition `
+        $diagnosticRaw.arguments '-scrDefine'
+    $diagnosticRaw.arguments[$rawDefineIndex] = '-SCRDEFINE'
+    Sync-TestModeArgumentMutation `
+        $runRoot diagnostic $diagnosticRaw $diagnosticPortable
+    Assert-TestRejected 'case-variant diagnostic script option' {
+        Invoke-TestFixtureValidation $runPath
+    } 'Diagnostic raw arguments'
+    [void]$checks.Add('case-variant-diagnostic-option-rejected')
+
+    Restore-TestBaseline $runRoot $baseline
+    $diagnosticRaw = Read-TestJson $diagnosticRawPath
+    $diagnosticPortable = Read-TestJson $diagnosticPortablePath
+    $rawDefineIndex = Get-TestExactArgumentPosition `
+        $diagnosticRaw.arguments '-scrDefine'
+    $diagnosticRaw.arguments[$rawDefineIndex + 1] = 'enable_diag'
+    Sync-TestModeArgumentMutation `
+        $runRoot diagnostic $diagnosticRaw $diagnosticPortable
+    Assert-TestRejected 'case-variant diagnostic script symbol' {
+        Invoke-TestFixtureValidation $runPath
+    } 'Diagnostic raw arguments'
+    [void]$checks.Add('case-variant-diagnostic-symbol-rejected')
+
+    Restore-TestBaseline $runRoot $baseline
+    $diagnosticRaw = Read-TestJson $diagnosticRawPath
+    $diagnosticPortable = Read-TestJson $diagnosticPortablePath
+    $diagnosticRaw.arguments = [object[]]@(
+        @($diagnosticRaw.arguments | Where-Object {
+            [string]$_ -cne '-scrDefine' -and
+            [string]$_ -cne 'ENABLE_DIAG'
+        }) + '-scrDefine=ENABLE_DIAG')
+    $diagnosticPortable.arguments = [object[]]@(
+        @($diagnosticPortable.arguments | Where-Object {
+            [string]$_ -cne '-scrDefine' -and
+            [string]$_ -cne 'ENABLE_DIAG'
+        }) + '-scrDefine=ENABLE_DIAG')
+    Sync-TestModeArgumentMutation `
+        $runRoot diagnostic $diagnosticRaw $diagnosticPortable
+    Assert-TestRejected 'joined diagnostic script option' {
+        Invoke-TestFixtureValidation $runPath
+    } 'fixed launch contract'
+    [void]$checks.Add('joined-diagnostic-script-option-rejected')
 
     Restore-TestBaseline $runRoot $baseline
     $crashPath = Join-Path $runRoot `

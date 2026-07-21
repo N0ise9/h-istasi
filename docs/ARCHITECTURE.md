@@ -53,6 +53,14 @@ unsupported fails closed instead of being reported as absence. The 9 forbidden
 literal surfaces remain candidate-bound source-guard evidence; the audit makes
 no package-byte string-absence claim.
 
+Executable capability and script-preprocessor mode are separate engine
+contracts. The standard half therefore uses `ArmaReforgerServer.exe` with no
+script definition, while the diagnostic half uses `ArmaReforgerServerDiag.exe`
+with the exact argument pair `-scrDefine ENABLE_DIAG`. A diagnostic executable
+does not implicitly define that project symbol. The runner and publisher reject
+any standard-mode definition and reject a missing, renamed, duplicated, or
+case-drifted diagnostic definition.
+
 The same loaded-package census resolves the forbidden and production-control
 types, deliberately generates the production command menu, and invokes the
 read-only availability query for every production command ID. Standard mode
@@ -61,8 +69,8 @@ the production controls; diagnostic mode must expose the exact inventoried
 diagnostic surfaces. No command action executes and no campaign gameplay state
 is mutated.
 
-The paired runner's structural self-test passes 27 checks. The release-surface
-publisher passes 37 checks, and the release-ledger consumer passes 3
+The paired runner's structural self-test passes 34 checks. The release-surface
+publisher passes 44 checks, and the release-ledger consumer passes 3
 valid/optional plus 44 adversarial cases. These results prove source and tool
 contracts only. Runtime member-presence probes are inert; the package census
 deliberately performs production menu generation and read-only per-ID
@@ -80,21 +88,26 @@ bound runtime behavior.
 
 The first real retail probe against the active candidate emitted exactly the
 three required logs and no `crash.log`. The surrounding attempt then failed
-closed on the obsolete four-log expectation and was not published; owned
-cleanup and harness-residue checks were both zero. The correction changes only
-the evidence tooling, not the candidate package bytes. It must be committed
-before the unchanged-package paired audit is retried, so no runtime pass or
+closed on the obsolete four-log expectation and was not published. After that
+correction was committed, a second attempt passed the retail census but exposed
+that the diagnostic executable alone still compiled the harness in retail mode.
+That attempt also failed closed and was not published. Both attempts completed
+owned cleanup with zero harness residue. The mode-specific launch correction
+changes only evidence tooling, not the candidate package bytes. It must be
+committed before the unchanged-package pair is retried, so no runtime pass or
 paired completion is claimed.
 
 Gate 1 retention evidence follows two ordered phases against that same sealed
 package. Diagnostic-only contexts establish the five-stage native and fallback
-save lineage. Standard server/client contexts then load or start from the
-corresponding artifacts, retain log/readiness evidence, and compare input and
-output bytes without receiving diagnostic, proof, test, or mutation authority.
+save lineage through diagnostic executables with the exact
+`-scrDefine ENABLE_DIAG` pair. Standard server/client contexts then load or
+start from the corresponding artifacts, retain log/readiness evidence, and
+compare input and output bytes without any script definition or diagnostic,
+proof, test, or mutation authority.
 Both phases must bind candidate and package seals, executable and launch
 identity, committed tool blobs, exact save/journal inventories, and cleanup.
-The release-surface index publisher passes 37 checks, and the retention
-publisher passes 53/53, including read-only republishing verification, strict
+The release-surface index publisher passes 44 checks, and the retention
+publisher passes 63/63, including read-only republishing verification, strict
 JSON scalar typing, canonical index-byte comparison, terminal-seal validation,
 synthetic-publication rejection, receipt reuse, role relabeling, launch-vector,
 journal, and reparse negatives. The release-ledger consumer invokes both exact
@@ -429,8 +442,9 @@ the exact top-level layout, all four package files, the complete retained
 evidence inventory, canonical package digest, active release-status identity,
 base-game packed roots, and the standard executable recorded for the selected
 client/server role. An active runtime candidate also seals the exact adjacent
-diagnostic client and server identities because those binaries, not the standard
-runtime files, execute the diagnostic gates.
+diagnostic client and server identities. Diagnostic gates must use those binaries
+and separately bind any required script-preprocessor definition; executable
+identity alone does not establish the script mode.
 
 The engine never mounts the sealed bundle directly. Each runner copies only the
 four verified package files into its nonce-owned guard, recomputes the package

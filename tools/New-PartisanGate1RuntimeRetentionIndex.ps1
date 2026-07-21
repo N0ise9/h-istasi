@@ -21,6 +21,8 @@ $script:EvidenceKind = 'packaged-gate1-runtime-retention'
 $script:WorldResource = 'Worlds/HST_Everon/HST_Everon.ent'
 $script:MissionHeader = 'Missions/HST_Everon.conf'
 $script:ProjectId = '698532771130111D'
+$script:DiagnosticDefineOption = '-scrDefine'
+$script:DiagnosticDefineSymbol = 'ENABLE_DIAG'
 $script:Stages = @(
     'autosave_checkpoint',
     'manual_checkpoint',
@@ -431,6 +433,46 @@ function Get-RequiredOptionValue {
     return [string]$Arguments[$positions[0] + 1]
 }
 
+function Assert-RetentionScriptSymbolTopology {
+    param(
+        [Parameter(Mandatory = $true)][string[]]$Arguments,
+        [Parameter(Mandatory = $true)]
+        [ValidateSet('diagnostic-lineage', 'standard-retention')]
+        [string]$Phase,
+        [Parameter(Mandatory = $true)]
+        [ValidateSet('server', 'client')][string]$Role,
+        [Parameter(Mandatory = $true)][string]$Stage
+    )
+
+    $definePositions = New-Object Collections.Generic.List[int]
+    for ($index = 0; $index -lt $Arguments.Count; $index++) {
+        if ([string]$Arguments[$index] -imatch '^-scrDefine(?:$|=)') {
+            [void]$definePositions.Add($index)
+        }
+    }
+    $symbolOccurrences = @($Arguments | Where-Object {
+            [string]$_ -ieq $script:DiagnosticDefineSymbol
+        }).Count
+    if ($Phase -ceq 'standard-retention') {
+        if ($definePositions.Count -ne 0 -or $symbolOccurrences -ne 0) {
+            throw "$Stage/$Role standard context contains a script-symbol definition."
+        }
+        return
+    }
+
+    if ($definePositions.Count -ne 1) {
+        throw "$Stage/$Role diagnostic lineage requires one script-symbol pair."
+    }
+    $position = $definePositions[0]
+    if ([string]$Arguments[$position] -cne $script:DiagnosticDefineOption -or
+        $position + 1 -ge $Arguments.Count -or
+        [string]$Arguments[$position + 1] -cne
+            $script:DiagnosticDefineSymbol -or
+        $symbolOccurrences -ne 1) {
+        throw "$Stage/$Role diagnostic lineage requires the exact script-symbol pair."
+    }
+}
+
 function Assert-ExactLaunchOptionVector {
     param(
         [string]$Stage,
@@ -441,12 +483,19 @@ function Assert-ExactLaunchOptionVector {
     )
 
     if ($Role -ceq 'client') {
-        $expectedOptions = [string[]]@(
+        $expected = New-Object Collections.Generic.List[string]
+        foreach ($option in @(
             '-gproj', '-addonsDir', '-addons', '-addonTempDir', '-client',
             '-profile', '-logsDir', '-logLevel', '-logTime', '-window',
             '-noFocus', '-forceUpdate', '-noSplash', '-noSound', '-noThrow',
             '-maxFPS', '-hstReleaseCandidateId', '-hstReleasePackageSha256',
-            '-hstReleaseManifestSha256')
+            '-hstReleaseManifestSha256')) {
+            [void]$expected.Add($option)
+        }
+        if ($Phase -ceq 'diagnostic-lineage') {
+            [void]$expected.Add($script:DiagnosticDefineOption)
+        }
+        $expectedOptions = [string[]]$expected.ToArray()
     }
     elseif ($Phase -ceq 'diagnostic-lineage') {
         $expected = New-Object Collections.Generic.List[string]
@@ -471,6 +520,7 @@ function Assert-ExactLaunchOptionVector {
                 '-hstReleasePackageSha256', '-hstReleaseManifestSha256')) {
             [void]$expected.Add($option)
         }
+        [void]$expected.Add($script:DiagnosticDefineOption)
         $expectedOptions = [string[]]$expected.ToArray()
     }
     else {
@@ -577,6 +627,12 @@ function Assert-EngineLaunchTopology {
             throw "$Stage/$Role standard context contains test or diagnostic authority."
         }
     }
+
+    Assert-RetentionScriptSymbolTopology `
+        -Arguments $Arguments `
+        -Phase $Phase `
+        -Role $Role `
+        -Stage $Stage
 
     Assert-ExactLaunchOptionVector `
         -Stage $Stage `
@@ -814,6 +870,39 @@ function Assert-CandidateManifestBinding {
 
 function Assert-LaunchContractRunBinding {
     param($Contract, $Run)
+
+    Assert-ExactProperties $Contract.scriptSymbolTopology @(
+        'diagnosticOption', 'diagnosticSymbol',
+        'diagnosticServerLaunchCount', 'diagnosticClientLaunchCount',
+        'standardPolicy', 'standardServerLaunchCount',
+        'standardClientLaunchCount') 'Launch contract script-symbol topology'
+    Assert-JsonStringProperties $Contract.scriptSymbolTopology @(
+        'diagnosticOption', 'diagnosticSymbol', 'standardPolicy') `
+        'Launch contract script-symbol topology'
+    Assert-JsonIntegerProperties $Contract.scriptSymbolTopology @(
+        'diagnosticServerLaunchCount', 'diagnosticClientLaunchCount',
+        'standardServerLaunchCount', 'standardClientLaunchCount') `
+        'Launch contract script-symbol topology'
+    if ([string]$Contract.scriptSymbolTopology.diagnosticOption -cne
+            $script:DiagnosticDefineOption -or
+        [string]$Contract.scriptSymbolTopology.diagnosticSymbol -cne
+            $script:DiagnosticDefineSymbol -or
+        [string]$Contract.scriptSymbolTopology.standardPolicy -cne
+            'reject-all-script-symbols' -or
+        [int]$Contract.scriptSymbolTopology.diagnosticServerLaunchCount -ne 5 -or
+        [int]$Contract.scriptSymbolTopology.diagnosticClientLaunchCount -ne 1 -or
+        [int]$Contract.scriptSymbolTopology.standardServerLaunchCount -ne 5 -or
+        [int]$Contract.scriptSymbolTopology.standardClientLaunchCount -ne 1 -or
+        [int]$Contract.scriptSymbolTopology.diagnosticServerLaunchCount -ne
+            [int]$Run.outcome.diagnosticServerLaunchCount -or
+        [int]$Contract.scriptSymbolTopology.diagnosticClientLaunchCount -ne
+            [int]$Run.outcome.diagnosticClientLaunchCount -or
+        [int]$Contract.scriptSymbolTopology.standardServerLaunchCount -ne
+            [int]$Run.outcome.standardServerLaunchCount -or
+        [int]$Contract.scriptSymbolTopology.standardClientLaunchCount -ne
+            [int]$Run.outcome.standardClientLaunchCount) {
+        throw 'The launch contract script-symbol topology is invalid.'
+    }
 
     Assert-ExactProperties $Contract.buildIdentity @(
         'BuildSha', 'BuildUtc', 'BuildLabel', 'CampaignSchemaVersion',
@@ -1845,7 +1934,8 @@ if ($contractParsed.Artifact.Sha256 -cne
 }
 Assert-ExactProperties $contract @(
     'schemaVersion', 'contractId', 'runId', 'sessionNonce', 'payloadNonce',
-    'buildIdentity', 'worldResource', 'missionHeader', 'projectId', 'stages') `
+    'buildIdentity', 'worldResource', 'missionHeader', 'projectId',
+    'scriptSymbolTopology', 'stages') `
     'Launch contract'
 Assert-JsonIntegerValue $contract.schemaVersion 'Launch contract.schemaVersion'
 Assert-JsonStringProperties $contract @(

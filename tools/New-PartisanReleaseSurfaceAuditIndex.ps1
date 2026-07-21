@@ -1499,7 +1499,11 @@ function Assert-ReleaseSurfaceIndexArguments {
         '-logLevel', 'normal',
         '-logTime', 'datetime',
         '-noThrow',
-        '-maxFPS', '30',
+        '-maxFPS', '30')
+    if ($Mode -ceq 'diagnostic') {
+        $expected += @('-scrDefine', 'ENABLE_DIAG')
+    }
+    $expected += @(
         '-releaseSurfaceRunNonce', [string]$Run.runNonce,
         '-releaseSurfaceExpectedMode', $Mode,
         '-hstReleaseCandidateId', [string]$Run.candidate.candidateId,
@@ -1510,9 +1514,33 @@ function Assert-ReleaseSurfaceIndexArguments {
         throw "$Mode portable arguments differ from the fixed launch contract."
     }
     $raw = [string[]]$RawArgumentsParsed.Value.arguments
-    if ($raw.Count -ne $portable.Count -or
-        @($raw | Where-Object { [string]$_ -match '(?i)scrDefine' }).Count -ne 0) {
-        throw "$Mode raw arguments have invalid cardinality or symbol mutation."
+    if ($raw.Count -ne $portable.Count) {
+        throw "$Mode raw arguments have invalid cardinality."
+    }
+    $rawDefinePositions = @()
+    $rawSymbolPositions = @()
+    for ($index = 0; $index -lt $raw.Count; $index++) {
+        if ([string]$raw[$index] -match '(?i)scrDefine') {
+            $rawDefinePositions += $index
+        }
+        if ([string]$raw[$index] -match '(?i)^ENABLE_DIAG$') {
+            $rawSymbolPositions += $index
+        }
+    }
+    if ($Mode -ceq 'retail' -and
+        ($rawDefinePositions.Count -ne 0 -or
+            $rawSymbolPositions.Count -ne 0)) {
+        throw 'Retail raw arguments contain script-symbol authority.'
+    }
+    if ($Mode -ceq 'diagnostic' -and
+        ($rawDefinePositions.Count -ne 1 -or
+            $rawSymbolPositions.Count -ne 1 -or
+            [string]$raw[$rawDefinePositions[0]] -cne '-scrDefine' -or
+            $rawDefinePositions[0] + 1 -ge $raw.Count -or
+            $rawSymbolPositions[0] -ne $rawDefinePositions[0] + 1 -or
+            [string]$raw[$rawSymbolPositions[0]] -cne 'ENABLE_DIAG')) {
+        throw ('Diagnostic raw arguments must contain exactly one ' +
+            "'-scrDefine', 'ENABLE_DIAG' pair.")
     }
     foreach ($forbidden in @(
             '-world', '-config', '-backendLocalStorage', '-backendDisableStorage',

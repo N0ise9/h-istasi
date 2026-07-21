@@ -3430,7 +3430,8 @@ Consequences:
   never mutated to append runtime evidence.
 - Runtime evidence identifies both the standard manifest-pinned executable and
   the distinct, exact manifest-pinned diagnostic executable actually used by
-  diagnostic gates.
+  diagnostic gates, plus any exact script-preprocessor definition required by
+  that gate. Executable identity alone does not establish script mode.
 - Release status is an execution control: a superseded candidate is eligible
   only for archive validation and consumer preflight, while a real launch
   requires `active-runtime-candidate`.
@@ -4412,10 +4413,16 @@ candidate-bound source evidence, with no package-byte string-absence claim.
 The same census resolves type surfaces, deliberately generates the production
 command menu, and invokes the read-only availability query for every production
 command ID. It executes no command action and performs no gameplay mutation.
+Use `ArmaReforgerServer.exe` without script definitions for the standard half.
+Use `ArmaReforgerServerDiag.exe` with exactly `-scrDefine ENABLE_DIAG` for the
+diagnostic half; the diagnostic executable does not implicitly define a custom
+project symbol. Reject any standard-mode symbol definition and any missing,
+renamed, duplicated, or case-drifted diagnostic definition.
 Require the retention evidence to use the same-package two-phase boundary: diagnostic
-contexts create and inspect the five-stage save lineage, then standard
+contexts use the corresponding diagnostic server/client executables plus that
+same exact symbol pair to create and inspect the five-stage save lineage, then standard
 server/client contexts load, start, log, and byte-compare those artifacts with
-no diagnostic, proof, test, or mutation authority. Bind both phases to exact
+no script definition or diagnostic, proof, test, or mutation authority. Bind both phases to exact
 candidate/package seals, executable and launch vectors, committed tool blobs,
 save/journal inventories, and cleanup evidence.
 
@@ -4426,7 +4433,7 @@ build root.
 Consequences:
 
 - The source audit self-test passes 15/15 and the paired runtime runner's
-  structural self-test passes 27 checks. Earlier unsealed compile snapshots are
+  structural self-test passes 34 checks. Earlier unsealed compile snapshots are
   superseded by current source changes; all-target Workbench validation must be
   rerun before publishing a new candidate CRC.
 - Those results prove source shape and harness structure only. Member-presence
@@ -4438,8 +4445,8 @@ Consequences:
   authoritative. Require `console.log`, `script.log`, and `error.log`; permit
   zero or one `crash.log`, retain and classify it when present, and never
   synthesize it when absent.
-- The release-surface publisher passes 37 structural and fail-closed checks,
-  and the retention publisher passes 53/53, including zero-write verification
+- The release-surface publisher passes 44 structural and fail-closed checks,
+  and the retention publisher passes 63/63, including zero-write verification
   of already-published indexes, canonical byte comparison, strict scalar types,
   terminal seals, synthetic-publication, receipt-reuse, role-relabel,
   launch-vector, journal, and reparse negatives. The exact Git-bound publishers
@@ -4526,3 +4533,33 @@ Consequences:
   bytes are unchanged, and the failed attempt supplies no runtime acceptance.
 - Commit the corrected tooling before retrying the same-package paired audit.
   No release-surface pass or paired completion is claimed here.
+
+## CRI-084 - Define Diagnostic Script Mode Explicitly
+
+- Status: Accepted as an evidence-tooling correction; paired package proof
+  remains pending
+- Date: 2026-07-21
+
+Context: The next real paired attempt passed the active package's retail census,
+then the diagnostic probe reported `mode=retail` with
+`expectedMode=diagnostic`. Its production inventory remained green, while all
+diagnostic-only types, members, and commands remained absent. The engine's
+diagnostic executable enables diagnostic capabilities but does not implicitly
+define a custom script-preprocessor symbol.
+
+Decision: Preserve executable identity as one launch control and make the
+preprocessor contract explicit as another. Standard server/client launches
+must contain no `-scrDefine`. Diagnostic release-surface and retention-lineage
+launches must contain exactly one case-sensitive argument pair,
+`-scrDefine ENABLE_DIAG`. Publishers must bind and independently revalidate
+that mode-specific topology and reject omission, substitution, duplication,
+case drift, or standard-mode injection.
+
+Consequences:
+
+- Do not weaken the runtime census. The failed diagnostic result correctly
+  proved a complete retail compilation and supplied no diagnostic-mode evidence.
+- The attempt was not published. Owned cleanup removed the harness with zero
+  residue, and the candidate package bytes remain unchanged.
+- Commit and self-test the corrected launch contracts before retrying the paired
+  audit. No release-surface, retention, or paired completion is claimed here.

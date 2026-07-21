@@ -330,13 +330,32 @@ function Assert-ReleaseSurfaceExecutableIdentity {
 }
 
 function Assert-ReleaseSurfaceArguments {
-    param([Parameter(Mandatory = $true)][string[]]$Arguments)
+    param(
+        [Parameter(Mandatory = $true)][ValidateSet('retail', 'diagnostic')]
+        [string]$Mode,
+        [Parameter(Mandatory = $true)][string[]]$Arguments
+    )
 
+    $definePositions = @()
+    $symbolPositions = @()
     for ($index = 0; $index -lt $Arguments.Count; $index++) {
         $argument = [string]$Arguments[$index]
-        if ($argument -match '(?i)scrDefine') {
-            throw 'Release-surface runtime arguments must never define script symbols.'
+        if ($argument -match '(?i)scrDefine') { $definePositions += $index }
+        if ($argument -match '(?i)^ENABLE_DIAG$') { $symbolPositions += $index }
+    }
+    if ($Mode -ceq 'retail') {
+        if ($definePositions.Count -ne 0 -or $symbolPositions.Count -ne 0) {
+            throw 'Retail release-surface arguments must not define script symbols.'
         }
+    }
+    elseif ($definePositions.Count -ne 1 -or
+        $symbolPositions.Count -ne 1 -or
+        [string]$Arguments[$definePositions[0]] -cne '-scrDefine' -or
+        $definePositions[0] + 1 -ge $Arguments.Count -or
+        $symbolPositions[0] -ne $definePositions[0] + 1 -or
+        [string]$Arguments[$symbolPositions[0]] -cne 'ENABLE_DIAG') {
+        throw ('Diagnostic release-surface arguments must contain exactly one ' +
+            "'-scrDefine', 'ENABLE_DIAG' pair.")
     }
     foreach ($flag in @(
             '-addonsDir',
@@ -1423,13 +1442,17 @@ function Invoke-ReleaseSurfaceMode {
             '-logLevel', 'normal',
             '-logTime', 'datetime',
             '-noThrow',
-            '-maxFPS', '30',
+            '-maxFPS', '30')
+        if ($Mode -ceq 'diagnostic') {
+            $arguments += @('-scrDefine', 'ENABLE_DIAG')
+        }
+        $arguments += @(
             '-releaseSurfaceRunNonce', $RunNonce,
             '-releaseSurfaceExpectedMode', $Mode,
             '-hstReleaseCandidateId', [string]$Candidate.CandidateId,
             '-hstReleasePackageSha256', [string]$Candidate.PackageSha256,
             '-hstReleaseManifestSha256', [string]$Candidate.ManifestSha256)
-        Assert-ReleaseSurfaceArguments -Arguments $arguments
+        Assert-ReleaseSurfaceArguments -Mode $Mode -Arguments $arguments
         $rawArgumentSignature = Write-ReleaseSurfaceJson `
             -Path (Join-Path $modeRoot 'arguments.raw.json') `
             -Value ([ordered]@{
@@ -2063,30 +2086,88 @@ function Invoke-ReleaseSurfaceSelfTest {
                 throw "Runtime member-probe $fault self-test was not rejected."
             }
         }
-        foreach ($badArgument in @('-scrDefine', '-SCRDEFINE=ENABLE_DIAG')) {
+        $retailArguments = [string[]]@(
+            '-addonsDir', 'runtime,stage',
+            '-gproj', 'stage/addon.gproj',
+            '-server', 'Worlds/HST_Dev/HST_Dev.ent',
+            '-MissionHeader', 'Missions/HST_Dev.conf',
+            '-addons', 'FEDCBA9876543210,0123456789ABCDEF',
+            '-profile', 'profile',
+            '-logsDir', 'logs',
+            '-addonTempDir', 'addon-temp',
+            '-hstReleaseCandidateId', 'candidate',
+            '-hstReleasePackageSha256', ('1' * 64),
+            '-hstReleaseManifestSha256', ('2' * 64),
+            '-releaseSurfaceRunNonce', $nonce,
+            '-releaseSurfaceExpectedMode', 'retail')
+        Assert-ReleaseSurfaceArguments `
+            -Mode retail `
+            -Arguments $retailArguments
+        $diagnosticBaseArguments = [string[]]$retailArguments.Clone()
+        $expectedModeIndex = [Array]::IndexOf(
+            $diagnosticBaseArguments,
+            '-releaseSurfaceExpectedMode')
+        $diagnosticBaseArguments[$expectedModeIndex + 1] = 'diagnostic'
+        $diagnosticArguments = [string[]]@(
+            $diagnosticBaseArguments + @('-scrDefine', 'ENABLE_DIAG'))
+        Assert-ReleaseSurfaceArguments `
+            -Mode diagnostic `
+            -Arguments $diagnosticArguments
+
+        $argumentFaults = @(
+            [pscustomobject]@{
+                label = 'retail symbol injection'
+                mode = 'retail'
+                arguments = [string[]]@(
+                    $retailArguments + @('-scrDefine', 'ENABLE_DIAG'))
+            },
+            [pscustomobject]@{
+                label = 'missing diagnostic symbol'
+                mode = 'diagnostic'
+                arguments = $diagnosticBaseArguments
+            },
+            [pscustomobject]@{
+                label = 'wrong diagnostic symbol'
+                mode = 'diagnostic'
+                arguments = [string[]]@(
+                    $diagnosticBaseArguments + @('-scrDefine', 'OTHER_DIAG'))
+            },
+            [pscustomobject]@{
+                label = 'duplicate diagnostic symbol'
+                mode = 'diagnostic'
+                arguments = [string[]]@(
+                    $diagnosticArguments + @('-scrDefine', 'ENABLE_DIAG'))
+            },
+            [pscustomobject]@{
+                label = 'case-variant diagnostic option'
+                mode = 'diagnostic'
+                arguments = [string[]]@(
+                    $diagnosticBaseArguments + @('-SCRDEFINE', 'ENABLE_DIAG'))
+            },
+            [pscustomobject]@{
+                label = 'case-variant diagnostic symbol'
+                mode = 'diagnostic'
+                arguments = [string[]]@(
+                    $diagnosticBaseArguments + @('-scrDefine', 'enable_diag'))
+            },
+            [pscustomobject]@{
+                label = 'joined diagnostic symbol option'
+                mode = 'diagnostic'
+                arguments = [string[]]@(
+                    $diagnosticBaseArguments + @('-scrDefine=ENABLE_DIAG'))
+            })
+        foreach ($fault in $argumentFaults) {
             $rejected = $false
             try {
-                Assert-ReleaseSurfaceArguments -Arguments @(
-                    '-addonsDir', 'runtime,stage',
-                    '-gproj', 'stage/addon.gproj',
-                    '-server', 'Worlds/HST_Dev/HST_Dev.ent',
-                    '-MissionHeader', 'Missions/HST_Dev.conf',
-                    '-addons', 'FEDCBA9876543210,0123456789ABCDEF',
-                    '-profile', 'profile',
-                    '-logsDir', 'logs',
-                    '-addonTempDir', 'addon-temp',
-                    '-hstReleaseCandidateId', 'candidate',
-                    '-hstReleasePackageSha256', ('1' * 64),
-                    '-hstReleaseManifestSha256', ('2' * 64),
-                    '-releaseSurfaceRunNonce', $nonce,
-                    '-releaseSurfaceExpectedMode', 'retail',
-                    $badArgument)
+                Assert-ReleaseSurfaceArguments `
+                    -Mode ([string]$fault.mode) `
+                    -Arguments ([string[]]$fault.arguments)
             }
             catch {
                 $rejected = $true
             }
             if (-not $rejected) {
-                throw 'Script-symbol argument self-test was not rejected.'
+                throw "Script-symbol argument self-test was not rejected: $($fault.label)."
             }
         }
         $portable = ConvertTo-ReleaseSurfacePortableArguments `
@@ -2218,7 +2299,7 @@ function Invoke-ReleaseSurfaceSelfTest {
             forbiddenMemberCount = @($MemberProbePlan.forbidden).Count
             productionMemberCount = @($MemberProbePlan.production).Count
             harnessFileCount = @($binding.files).Count
-            checks = 27
+            checks = 34
         } | ConvertTo-Json -Compress))
     }
     finally {

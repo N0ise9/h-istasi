@@ -22,6 +22,8 @@ $ErrorActionPreference = 'Stop'
 
 $script:GateContractId = 'partisan.gate1-runtime-retention.v1'
 $script:GateEvidenceKind = 'packaged-gate1-runtime-retention'
+$script:GateDiagnosticDefineOption = '-scrDefine'
+$script:GateDiagnosticDefineSymbol = 'ENABLE_DIAG'
 $script:GateStages = @(
     'autosave_checkpoint',
     'manual_checkpoint',
@@ -237,6 +239,46 @@ function Get-GateArgumentVectorDigest {
     param([Parameter(Mandatory = $true)][string[]]$Arguments)
     return Get-GateSha256Text ((
         [string[]]$Arguments | ConvertTo-Json -Compress) + "`n")
+}
+
+function Assert-GateScriptSymbolTopology {
+    param(
+        [Parameter(Mandatory = $true)][string[]]$Arguments,
+        [Parameter(Mandatory = $true)]
+        [ValidateSet('diagnostic-lineage', 'standard-retention')]
+        [string]$Phase,
+        [Parameter(Mandatory = $true)]
+        [ValidateSet('server', 'client')][string]$Role
+    )
+
+    $definePositions = New-Object Collections.Generic.List[int]
+    for ($index = 0; $index -lt $Arguments.Count; $index++) {
+        if ([string]$Arguments[$index] -imatch '^-scrDefine(?:$|=)') {
+            [void]$definePositions.Add($index)
+        }
+    }
+    $symbolOccurrences = @($Arguments | Where-Object {
+            [string]$_ -ieq $script:GateDiagnosticDefineSymbol
+        }).Count
+    if ($Phase -ceq 'standard-retention') {
+        if ($definePositions.Count -ne 0 -or $symbolOccurrences -ne 0) {
+            throw "Standard $Role launch must reject every script-symbol definition."
+        }
+        return
+    }
+
+    if ($definePositions.Count -ne 1) {
+        throw "Diagnostic-lineage $Role launch requires one script-symbol pair."
+    }
+    $position = $definePositions[0]
+    if ([string]$Arguments[$position] -cne
+            $script:GateDiagnosticDefineOption -or
+        $position + 1 -ge $Arguments.Count -or
+        [string]$Arguments[$position + 1] -cne
+            $script:GateDiagnosticDefineSymbol -or
+        $symbolOccurrences -ne 1) {
+        throw "Diagnostic-lineage $Role launch requires the exact script-symbol pair."
+    }
 }
 
 function Assert-GateCandidatePeer {
@@ -622,7 +664,13 @@ function Invoke-GateRuntimeStage {
             '-addonTempDir', $addonTemp,
             '-hstReleaseCandidateId', [string]$Candidate.CandidateId,
             '-hstReleasePackageSha256', [string]$Candidate.PackageSha256,
-            '-hstReleaseManifestSha256', [string]$Candidate.ManifestSha256)
+            '-hstReleaseManifestSha256', [string]$Candidate.ManifestSha256,
+            $script:GateDiagnosticDefineOption,
+            $script:GateDiagnosticDefineSymbol)
+        Assert-GateScriptSymbolTopology `
+            -Arguments $serverArguments `
+            -Phase diagnostic-lineage `
+            -Role server
         $serverLaunch = Start-GateGuardedRole `
             -Role server `
             -Context $context `
@@ -653,7 +701,13 @@ function Invoke-GateRuntimeStage {
             $clientArguments += @(
                 '-hstReleaseCandidateId', [string]$Candidate.CandidateId,
                 '-hstReleasePackageSha256', [string]$Candidate.PackageSha256,
-                '-hstReleaseManifestSha256', [string]$Candidate.ManifestSha256)
+                '-hstReleaseManifestSha256', [string]$Candidate.ManifestSha256,
+                $script:GateDiagnosticDefineOption,
+                $script:GateDiagnosticDefineSymbol)
+            Assert-GateScriptSymbolTopology `
+                -Arguments $clientArguments `
+                -Phase diagnostic-lineage `
+                -Role client
             $null = Start-GateGuardedRole `
                 -Role client `
                 -Context $context `
@@ -994,6 +1048,10 @@ function Invoke-GateStandardRetentionContext {
             '-hstReleaseCandidateId', [string]$Candidate.CandidateId,
             '-hstReleasePackageSha256', [string]$Candidate.PackageSha256,
             '-hstReleaseManifestSha256', [string]$Candidate.ManifestSha256)
+        Assert-GateScriptSymbolTopology `
+            -Arguments $serverArguments `
+            -Phase standard-retention `
+            -Role server
         if ($serverArguments -icontains '-hstOrdinaryCampaignPersistenceProof' -or
             $serverArguments -icontains '-autoshutdown' -or
             $serverArguments -icontains '-keepSessionSave' -or
@@ -1024,6 +1082,10 @@ function Invoke-GateStandardRetentionContext {
                 '-hstReleaseCandidateId', [string]$Candidate.CandidateId,
                 '-hstReleasePackageSha256', [string]$Candidate.PackageSha256,
                 '-hstReleaseManifestSha256', [string]$Candidate.ManifestSha256)
+            Assert-GateScriptSymbolTopology `
+                -Arguments $clientArguments `
+                -Phase standard-retention `
+                -Role client
             if ($clientArguments -icontains '-autoshutdown' -or
                 $clientArguments -icontains '-keepSessionSave' -or
                 @($clientArguments | Where-Object {
@@ -1496,6 +1558,15 @@ $launchContract = [ordered]@{
     worldResource = $worldResource
     missionHeader = $script:MissionHeader
     projectId = $script:ProjectId
+    scriptSymbolTopology = [ordered]@{
+        diagnosticOption = $script:GateDiagnosticDefineOption
+        diagnosticSymbol = $script:GateDiagnosticDefineSymbol
+        diagnosticServerLaunchCount = 5
+        diagnosticClientLaunchCount = 1
+        standardPolicy = 'reject-all-script-symbols'
+        standardServerLaunchCount = 5
+        standardClientLaunchCount = 1
+    }
     stages = [object[]]@($persistenceRows.ToArray() | ForEach-Object {
         [ordered]@{
             ordinal = [int]$_.ordinal

@@ -88,6 +88,10 @@ closed and cannot be reported as absence. Standard mode must report all
 forbidden members absent and all production members present; diagnostic mode
 must report all 158 present. The 9 forbidden literals remain candidate-bound
 source-guard evidence; the audit makes no package-byte string-absence claim. A
+standard launch uses `ArmaReforgerServer.exe` without any script definition;
+the diagnostic launch uses `ArmaReforgerServerDiag.exe` plus exactly
+`-scrDefine ENABLE_DIAG`. Executable provenance and preprocessing mode are
+independently bound, and the publisher rejects any other topology. A
 passing audit also resolves the type surfaces, deliberately generates the
 production command menu, and invokes the read-only availability query for every
 production command ID without executing a command action. It reports
@@ -99,8 +103,9 @@ campaign gameplay state. It does not certify gameplay, multiplayer,
 persistence, restart, soak, or performance. The guarded child inherits no
 standard streams, so its three required engine logs and any engine-emitted
 `crash.log` are authoritative; an absent crash log is never synthesized. The
-runtime-retention bundle preserves diagnostic save-lineage evidence and then
-observes the exact bytes through standard server/client load-start-log runs. It
+runtime-retention bundle preserves diagnostic save-lineage evidence with the
+same exact symbol pair and then observes the exact bytes through standard
+server/client load-start-log runs that contain no script definition. It
 reports `passed-noncertifying-retention`, keeps `certificationClaim: none`, and
 keeps `standardSaveRestorationCertified: false`. Neither record promotes
 release certification or substitutes for later multiplayer, restart, soak,
@@ -109,8 +114,8 @@ performance, or canary proof.
 The source contract covers 55 wholly guarded carriers, 39 mixed files, 321
 forbidden types, 71 forbidden commands, 67 forbidden members, and 9 forbidden
 literals. Its production controls are four types, three commands, and 91
-members. The source guard passes 15/15, the paired runner self-test passes 27
-checks, the surface and retention publisher suites pass 37 and 53/53 checks,
+members. The source guard passes 15/15, the paired runner self-test passes 34
+checks, the surface and retention publisher suites pass 44 and 63/63 checks,
 and the consumer passes 3 valid/optional plus 44 adversarial cases. These source
 and publisher checkpoints do not constitute a runtime audit. Active immutable
 candidate `partisan-rc-5b1f2e98f931-20260721T193941Z` is sealed, but it has no

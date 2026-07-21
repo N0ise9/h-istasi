@@ -42,7 +42,7 @@ both modes. Together they retain build identity, runtime health/logging,
 foundation status, and read-only campaign/persistence inspection. The source
 audit self-test passes 15/15.
 
-The paired release-surface runner's 22-check structural self-test also passes.
+The paired release-surface runner's 34-check structural self-test also passes.
 Its future package-bound run must compare standard and diagnostic processes
 against one exact candidate. The member plan is rederived from that candidate
 commit, then the loaded package is probed for all 67 forbidden and 91
@@ -53,6 +53,13 @@ the production set present; diagnostic mode must report all 158 present.
 Unavailable compiler or metadata inspection fails closed rather than being
 reported as absence. The 9 forbidden literal surfaces stay bound to source
 guard analysis, with no package-byte string-absence claim.
+
+The two processes require distinct, exact launch contracts. Standard mode uses
+the standard server executable and no script definition. Diagnostic mode uses
+the diagnostic server executable plus exactly `-scrDefine ENABLE_DIAG`; the
+diagnostic executable alone does not define that custom project symbol. The
+publisher must reject omission, substitution, duplication, case drift, or any
+standard-mode symbol injection.
 
 The same runtime census resolves the forbidden and production-control types,
 deliberately generates the production command menu, and invokes the read-only
@@ -77,12 +84,15 @@ The first real retail probe against the active package produced exactly the
 three required logs and no crash log. The overall attempt failed closed on the
 obsolete quartet requirement and was not published; owned cleanup and harness-
 residue checks were zero. Correcting that requirement changes evidence tooling
-only, leaves the candidate package bytes unchanged, and requires a fresh retry
-after the correction is committed. No release-surface pass or paired completion
-is recorded.
+only and left the candidate package bytes unchanged. The next attempt passed the
+retail census, then failed closed because the diagnostic executable compiled the
+probe as retail without the explicit custom symbol. It too was not published
+and removed its harness with zero residue. The corrected mode-specific launch
+contract must be committed before another fresh retry. No release-surface pass
+or paired completion is recorded.
 
-The release-surface publisher passes 37 self-test checks, and the retention
-publisher passes 53/53, including zero-write verification of an existing
+The release-surface publisher passes 44 self-test checks, and the retention
+publisher passes 63/63, including zero-write verification of an existing
 publication, canonical index-byte comparison, strict scalar typing, terminal
 seals, fail-closed synthetic publication, receipt reuse, role relabeling,
 launch-vector, journal, and reparse negatives. The ledger consumer invokes both
@@ -90,10 +100,11 @@ exact Git-bound publisher validators and passes 3 valid/optional plus 44
 adversarial cases. These tooling tests start no engine process. The retention
 proof's intended first phase uses diagnostic-only authority to capture the
 autosave, manual-save, controlled-shutdown, native-shutdown-verification, and
-profile-fallback lineage. Its second phase reopens those same-package artifacts
+profile-fallback lineage, with each diagnostic server/client vector carrying
+exactly `-scrDefine ENABLE_DIAG`. Its second phase reopens those same-package artifacts
 through standard server/client contexts that may load, start, log, and compare
 retained bytes but may not receive diagnostic, test, proof, or mutation
-authority. Every phase must bind the exact sealed candidate, package, launch
+authority or any script definition. Every phase must bind the exact sealed candidate, package, launch
 vector, executable, tool blob, save/journal inventory, and cleanup boundary.
 
 The active focused evidence contract now uses five serial suite launches with
@@ -677,9 +688,9 @@ cleanup. The seventeen-check consumer test admits all three dispositions for
 verification, admits only `active-runtime-candidate` for runtime use, rejects
 superseded and rejected runtime use, and rejects every exercised tamper or
 layout ambiguity, including an unexpected package directory.
-Real runners additionally bind the exact diagnostic executable, clean harness,
-guarded settings bytes where applicable, and engine-owned packed-project mount
-record.
+Real runners must additionally bind the exact diagnostic executable and required
+script-preprocessor mode, clean harness, guarded settings bytes where
+applicable, and engine-owned packed-project mount record.
 
 ## Retained `e11e7ea88a44` Rejected Corrected-Canary Boundary
 
