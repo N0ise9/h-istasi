@@ -47,8 +47,8 @@ diagnostic parity both fail independently. The candidate/package remains
 immutable, source fixes require a new candidate, and release remains `NO-GO`.
 Separately, the sealed
 embedded implementation identity remains
-`36f7b1b17bdcd7fa01d9898c2c5864dc7e7c9e21`,
-UTC `2026-07-21T18:33:11Z`, label
+`7fdf3988797edeb747f5d6a6951ad0382bd93db3`,
+UTC `2026-07-21T19:36:22Z`, label
 `schema71-settings24-gate1-release-surface`; its non-package proof remains
 historical evidence.
 
@@ -1951,8 +1951,8 @@ Debug and packaged-runtime gates remain open.
 ## Current Verification Boundary
 
 - Campaign Schema 71/runtime-settings 24 is the current contract. The sealed
-  implementation/source is `36f7b1b17bdcd7fa01d9898c2c5864dc7e7c9e21`, UTC
-  `2026-07-21T18:33:11Z`, label
+  implementation/source is `7fdf3988797edeb747f5d6a6951ad0382bd93db3`, UTC
+  `2026-07-21T19:36:22Z`, label
   `schema71-settings24-gate1-release-surface`. It adds the dedicated focused
   combat-presence/ownership-transition/town-influence engine case and retains
   the two-generation recovery journal, controlled-shutdown native fence, exact

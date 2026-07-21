@@ -12,10 +12,10 @@ The retained candidate identity below binds its exact source HEAD, manifest, can
 
 | Field | Current value |
 | --- | --- |
-| Status data as of | `2026-07-21T18:33:11Z` |
+| Status data as of | `2026-07-21T19:36:22Z` |
 | Audited gameplay Git HEAD | `25dedb3e82ad516c28826830bc1e06a2d3940f53` |
-| Embedded implementation identity | `36f7b1b17bdcd7fa01d9898c2c5864dc7e7c9e21` |
-| Embedded build UTC / label | `2026-07-21T18:33:11Z` / `schema71-settings24-gate1-release-surface` |
+| Embedded implementation identity | `7fdf3988797edeb747f5d6a6951ad0382bd93db3` |
+| Embedded build UTC / label | `2026-07-21T19:36:22Z` / `schema71-settings24-gate1-release-surface` |
 | Campaign / runtime-settings schema | `71` / `24` |
 | Workbench CRC | `f64e0868` |
 | Release candidate / source HEAD | `partisan-rc-ee0e8add2a29-20260719T063815Z` / `ee0e8add2a298e83fd304b7660c4fc480dc6383f` |
