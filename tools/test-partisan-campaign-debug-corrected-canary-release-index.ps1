@@ -1035,15 +1035,21 @@ function ConvertTo-RecordedValidationSummary {
         FocusedCaseId = [string]$Validation.FocusedCaseId
         FocusedCaseStatus = [string]$Validation.FocusedCaseStatus
         FocusedAssertions = @($Validation.FocusedAssertions)
-        CorrectedCanaryAssertionManifestExact =
-            [bool]$Validation.CorrectedCanaryAssertionManifestExact
-        CorrectedCanaryCaseSetExact = [bool]$Validation.CorrectedCanaryCaseSetExact
-        CorrectedCanaryWarningContractExact =
-            [bool]$Validation.CorrectedCanaryWarningContractExact
-        CorrectedCanaryBlockedContractExact =
-            [bool]$Validation.CorrectedCanaryBlockedContractExact
-        CorrectedCanaryOrphanContractExact =
-            [bool]$Validation.CorrectedCanaryOrphanContractExact
+        CorrectedCanaryAssertionManifestExact = [bool](
+            $Validation.PSObject.Properties['CorrectedCanaryAssertionManifestExact'] -and
+            $Validation.CorrectedCanaryAssertionManifestExact)
+        CorrectedCanaryCaseSetExact = [bool](
+            $Validation.PSObject.Properties['CorrectedCanaryCaseSetExact'] -and
+            $Validation.CorrectedCanaryCaseSetExact)
+        CorrectedCanaryWarningContractExact = [bool](
+            $Validation.PSObject.Properties['CorrectedCanaryWarningContractExact'] -and
+            $Validation.CorrectedCanaryWarningContractExact)
+        CorrectedCanaryBlockedContractExact = [bool](
+            $Validation.PSObject.Properties['CorrectedCanaryBlockedContractExact'] -and
+            $Validation.CorrectedCanaryBlockedContractExact)
+        CorrectedCanaryOrphanContractExact = [bool](
+            $Validation.PSObject.Properties['CorrectedCanaryOrphanContractExact'] -and
+            $Validation.CorrectedCanaryOrphanContractExact)
         IntentionalMissionConvoyAdmissionDiagnosticsProven = $false
         IntentionalMissionConvoySettlementDiagnosticProven = $false
         IntentionalMissionConvoyCorruptionDiagnosticsProven = $false

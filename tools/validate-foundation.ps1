@@ -55840,7 +55840,12 @@ foreach ($campaignDebugRecordedValidationProjectionEntry in @(
 		'Phase24 = $recordedPhase24',
 		'Phase24Metrics = $recordedPhase24Metrics',
 		'StagedCleanup = $recordedStagedCleanup',
-		'FocusedAssertions = $recordedFocusedAssertions'
+		'FocusedAssertions = $recordedFocusedAssertions',
+		"`$Validation.PSObject.Properties['CorrectedCanaryAssertionManifestExact']",
+		"`$Validation.PSObject.Properties['CorrectedCanaryCaseSetExact']",
+		"`$Validation.PSObject.Properties['CorrectedCanaryWarningContractExact']",
+		"`$Validation.PSObject.Properties['CorrectedCanaryBlockedContractExact']",
+		"`$Validation.PSObject.Properties['CorrectedCanaryOrphanContractExact']"
 	)) {
 	if ($campaignDebugRecordedValidationProjectionText.IndexOf(
 			$campaignDebugRecordedValidationProjectionEntry,

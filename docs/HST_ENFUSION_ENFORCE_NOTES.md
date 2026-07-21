@@ -74,6 +74,11 @@ The embedded implementation stamp is
   collections, handle `$null` explicitly before reading `Count`; a zero-argument
   `InvokeMemberExpressionAst.Arguments` value is null and otherwise passes
   standalone validation but throws in the real candidate-build context.
+- Apply the same rule to optional projected properties. Full-profile synthetic
+  validation objects do not need corrected-canary-only exactness fields; test
+  projections must inspect `PSObject.Properties[...]` and record an absent
+  field as fail-closed `false`, matching the guarded runtime projection, rather
+  than dereferencing the absent property under strict mode.
 - Runtime retention proof is deliberately two-phase. Diagnostic launches may
   create and inspect the five-stage save lineage. Standard server/client
   launches may load, start, log, and compare those same-package artifacts, but
