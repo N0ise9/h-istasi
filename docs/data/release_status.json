@@ -1,14 +1,14 @@
 {
   "schemaVersion": 3,
-  "statusAsOfUtc": "2026-07-21T18:06:57Z",
+  "statusAsOfUtc": "2026-07-21T18:33:11Z",
   "releaseStage": "development alpha",
   "releaseDecision": "NO-GO",
   "auditedRevision": "25dedb3e82ad516c28826830bc1e06a2d3940f53",
   "baseline": {
     "campaignSchema": 71,
     "runtimeSettingsSchema": 24,
-    "embeddedImplementationSha": "8281b41bd39a7d4cebcdf78d7e163fb6f12e7eef",
-    "embeddedBuildUtc": "2026-07-21T18:06:57Z",
+    "embeddedImplementationSha": "36f7b1b17bdcd7fa01d9898c2c5864dc7e7c9e21",
+    "embeddedBuildUtc": "2026-07-21T18:33:11Z",
     "embeddedBuildLabel": "schema71-settings24-gate1-release-surface"
   },
   "artifact": {
