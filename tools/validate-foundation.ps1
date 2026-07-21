@@ -56877,7 +56877,7 @@ $focusedWritableCopyRefreshCalls = @(
 		-not $node.Static -and
 		$node.Expression.Extent.Text -ceq '$destinationItem' -and
 		$node.Member.Extent.Text -ceq 'Refresh' -and
-		$node.Arguments.Count -eq 0
+		$null -eq $node.Arguments
 	}, $true))
 $focusedWritableCopyAlternateCalls = @(
 	$focusedWritableCopyFunctionAst.FindAll({

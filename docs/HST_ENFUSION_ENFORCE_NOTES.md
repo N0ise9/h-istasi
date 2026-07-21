@@ -69,6 +69,11 @@ The embedded implementation stamp is
   runtime add-on root and treat unpacked sources as reference material only.
   Earlier unsealed compile snapshots are superseded after source changes; rerun
   all targets before publishing a candidate CRC or package identity.
+- The release-candidate builder invokes Foundation while `Set-StrictMode
+  -Version Latest` is active. When Foundation inspects PowerShell AST optional
+  collections, handle `$null` explicitly before reading `Count`; a zero-argument
+  `InvokeMemberExpressionAst.Arguments` value is null and otherwise passes
+  standalone validation but throws in the real candidate-build context.
 - Runtime retention proof is deliberately two-phase. Diagnostic launches may
   create and inspect the five-stage save lineage. Standard server/client
   launches may load, start, log, and compare those same-package artifacts, but
