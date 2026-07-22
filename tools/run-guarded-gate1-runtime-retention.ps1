@@ -71,6 +71,100 @@ function Get-GateSha256Text {
     finally { $algorithm.Dispose() }
 }
 
+function Get-GateSha256Bytes {
+    param([Parameter(Mandatory = $true)][byte[]]$Bytes)
+    $algorithm = [Security.Cryptography.SHA256]::Create()
+    try {
+        return ([BitConverter]::ToString(
+            $algorithm.ComputeHash($Bytes))).Replace('-', '').ToLowerInvariant()
+    }
+    finally { $algorithm.Dispose() }
+}
+
+function Read-GateLiveUtf8Snapshot {
+    param(
+        [Parameter(Mandatory = $true)][string]$Path,
+        [ValidateRange(1, 16777216)][int]$MaximumBytes = 16777216
+    )
+    $full = [IO.Path]::GetFullPath($Path)
+    if (-not (Test-Path -LiteralPath $full -PathType Leaf)) {
+        return [pscustomobject][ordered]@{
+            status = 'transient'
+            reason = 'missing'
+        }
+    }
+    Assert-PartisanNoReparseAncestry -Path $full
+    $stream = $null
+    try {
+        try {
+            $stream = [IO.FileStream]::new(
+                $full,
+                [IO.FileMode]::Open,
+                [IO.FileAccess]::Read,
+                ([IO.FileShare]::ReadWrite -bor [IO.FileShare]::Delete),
+                4096,
+                [IO.FileOptions]::SequentialScan)
+        }
+        catch [IO.IOException] {
+            return [pscustomobject][ordered]@{
+                status = 'transient'
+                reason = 'open-race'
+            }
+        }
+        $length = [long]$stream.Length
+        if ($length -lt 1) {
+            return [pscustomobject][ordered]@{
+                status = 'transient'
+                reason = 'empty'
+            }
+        }
+        if ($length -gt $MaximumBytes) {
+            throw 'A live console log exceeds the bounded readiness limit.'
+        }
+        $bytes = [byte[]]::new([int]$length)
+        $offset = 0
+        try {
+            while ($offset -lt $bytes.Length) {
+                $read = $stream.Read($bytes, $offset, $bytes.Length - $offset)
+                if ($read -lt 1) { break }
+                $offset += $read
+            }
+        }
+        catch [IO.IOException] {
+            return [pscustomobject][ordered]@{
+                status = 'transient'
+                reason = 'read-race'
+            }
+        }
+        if ($offset -ne $bytes.Length) {
+            return [pscustomobject][ordered]@{
+                status = 'transient'
+                reason = 'short-read'
+            }
+        }
+        try {
+            $text = (New-Object Text.UTF8Encoding($false, $true)).GetString($bytes)
+        }
+        catch [Text.DecoderFallbackException] {
+            return [pscustomobject][ordered]@{
+                status = 'transient'
+                reason = 'utf8-boundary'
+            }
+        }
+        return [pscustomobject][ordered]@{
+            status = 'exact'
+            reason = ''
+            length = [long]$bytes.Length
+            sha256 = Get-GateSha256Bytes $bytes
+            bytes = $bytes
+            text = $text
+        }
+    }
+    finally {
+        if ($stream) { $stream.Dispose() }
+    }
+}
+
 function Write-GateJson {
     param(
         [Parameter(Mandatory = $true)][string]$Path,
@@ -1209,6 +1303,8 @@ function Stop-GateStandardLogReadiness {
         consoleLogCount = [int]$State.consoleLogCount
         qualifyingConsecutiveCount = [int]$State.qualifyingConsecutiveCount
         distinctSignatureCount = [int]$State.distinctSignatureCount
+        transientReadCount = [int]$State.transientReadCount
+        lastTransientReadReason = [string]$State.lastTransientReadReason
         lastLength = [long]$State.lastLength
         lastSha256 = [string]$State.lastSha256
         markers = [ordered]@{
@@ -1283,6 +1379,8 @@ function Wait-GateStandardLogReadiness {
         consoleLogCount = 0
         qualifyingConsecutiveCount = 0
         distinctSignatureCount = 0
+        transientReadCount = 0
+        lastTransientReadReason = ''
         lastLength = 0
         lastSha256 = ''
         cli = $false
@@ -1294,6 +1392,7 @@ function Wait-GateStandardLogReadiness {
         rejectedLoad = $false
         wrongStartupSource = $false
     }
+    [byte[]]$previousBytes = $null
     while ([DateTime]::UtcNow -lt $DeadlineUtc) {
         $pollCount++
         $statusBefore = Get-PartisanProcessIdentityStatus `
@@ -1329,15 +1428,43 @@ function Wait-GateStandardLogReadiness {
                 -LoadRequested (-not [string]::IsNullOrWhiteSpace(
                     $ExpectedLoadSavePointId))
         }
-        if ($consoleRows.Count -eq 1 -and $consoleRows[0].Length -gt 0) {
-            $text = $null
-            try { $text = [IO.File]::ReadAllText($consoleRows[0].FullName) }
-            catch { $text = $null }
-            if ($null -ne $text) {
-                $bytes = (New-Object Text.UTF8Encoding($false)).GetBytes($text)
+        if ($consoleRows.Count -eq 1) {
+            $snapshot = Read-GateLiveUtf8Snapshot $consoleRows[0].FullName
+            if ([string]$snapshot.status -ceq 'exact') {
+                [byte[]]$bytes = $snapshot.bytes
+                if ($previousBytes) {
+                    if ($bytes.Length -lt $previousBytes.Length) {
+                        Stop-GateStandardLogReadiness `
+                            -FailureEvidencePath $FailureEvidencePath `
+                            -Stage $Stage `
+                            -Role $Role `
+                            -Reason 'console-history-regressed' `
+                            -State $lastState `
+                            -ExpectedStartupSource $ExpectedStartupSource `
+                            -LoadRequested (-not [string]::IsNullOrWhiteSpace(
+                                $ExpectedLoadSavePointId))
+                    }
+                    for ($byteIndex = 0;
+                        $byteIndex -lt $previousBytes.Length;
+                        $byteIndex++) {
+                        if ($bytes[$byteIndex] -ne $previousBytes[$byteIndex]) {
+                            Stop-GateStandardLogReadiness `
+                                -FailureEvidencePath $FailureEvidencePath `
+                                -Stage $Stage `
+                                -Role $Role `
+                                -Reason 'console-history-rewritten' `
+                                -State $lastState `
+                                -ExpectedStartupSource $ExpectedStartupSource `
+                                -LoadRequested (-not [string]::IsNullOrWhiteSpace(
+                                    $ExpectedLoadSavePointId))
+                        }
+                    }
+                }
+                $previousBytes = $bytes
+                $text = [string]$snapshot.text
                 $signature = [pscustomobject][ordered]@{
-                    length = [long]$bytes.Length
-                    sha256 = Get-GateSha256Text $text
+                    length = [long]$snapshot.length
+                    sha256 = [string]$snapshot.sha256
                 }
                 $key = [string]$signature.length + ':' +
                     [string]$signature.sha256
@@ -1427,6 +1554,9 @@ function Wait-GateStandardLogReadiness {
                 }
             }
             else {
+                $lastState.transientReadCount =
+                    [int]$lastState.transientReadCount + 1
+                $lastState.lastTransientReadReason = [string]$snapshot.reason
                 $qualifying = Get-GateNextReadinessConsecutiveCount `
                     -CurrentCount $qualifying `
                     -Qualified $false

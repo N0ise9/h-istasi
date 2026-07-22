@@ -465,35 +465,37 @@ try {
         @(Compare-Object $consecutiveSequence @($consecutiveActual) `
                 -CaseSensitive).Count -eq 0) `
         'readiness observation gaps reset the consecutive counter'
-    $writerScript = Join-Path $tempRoot 'append-growing-log.ps1'
-    $writerBody = @'
-param([string]$Path)
-$deadline = [DateTime]::UtcNow.AddSeconds(4)
-$index = 0
-while ([DateTime]::UtcNow -lt $deadline) {
-    [IO.File]::AppendAllText($Path, "growth-$index`n")
-    $index++
-    Start-Sleep -Milliseconds 5
-}
-'@
-    $null = Write-TestText $writerScript $writerBody
-    $hostExecutable = (Get-Process -Id $PID -ErrorAction Stop).Path
-    $writer = Start-Process `
-        -FilePath $hostExecutable `
-        -ArgumentList @(
-            '-NoProfile', '-NonInteractive', '-File',
-            ('"' + $writerScript + '"'), ('"' + $readinessConsole + '"')) `
-        -WindowStyle Hidden `
-        -PassThru
+    $writer = [IO.FileStream]::new(
+        $readinessConsole,
+        [IO.FileMode]::Open,
+        [IO.FileAccess]::Write,
+        [IO.FileShare]::Read)
     try {
-        $writerDeadline = [DateTime]::UtcNow.AddSeconds(5)
-        do {
-            Start-Sleep -Milliseconds 25
-            $writerStarted = (Get-Content -LiteralPath $readinessConsole -Raw).
-                Contains('growth-')
-        } while (-not $writerStarted -and
-            [DateTime]::UtcNow -lt $writerDeadline -and -not $writer.HasExited)
-        Assert-TestCondition $writerStarted 'growing log writer started'
+        $null = $writer.Seek(0, [IO.SeekOrigin]::End)
+        $legacyReadRejected = $false
+        try { $null = [IO.File]::ReadAllText($readinessConsole) }
+        catch [IO.IOException] { $legacyReadRejected = $true }
+        Assert-TestCondition $legacyReadRejected `
+            'legacy live-log reader conflicts with a held engine-style writer'
+        $lockedSnapshot = Read-GateLiveUtf8Snapshot $readinessConsole
+        Assert-TestCondition (
+            [string]$lockedSnapshot.status -ceq 'exact' -and
+            [string]$lockedSnapshot.text -ceq ($readinessText + "`n") -and
+            [bool]$writer.CanWrite) `
+            'bounded live-log reader reads exact bytes while the writer is held'
+        $growthBytes = (New-Object Text.UTF8Encoding($false)).GetBytes(
+            "growth-under-held-writer`n")
+        $writer.Write($growthBytes, 0, $growthBytes.Length)
+        $writer.Flush($true)
+        $grownSnapshot = Read-GateLiveUtf8Snapshot $readinessConsole
+        Assert-TestCondition (
+            [string]$grownSnapshot.status -ceq 'exact' -and
+            [long]$grownSnapshot.length -gt [long]$lockedSnapshot.length -and
+            ([string]$grownSnapshot.text).StartsWith(
+                [string]$lockedSnapshot.text,
+                [StringComparison]::Ordinal) -and
+            [bool]$writer.CanWrite) `
+            'bounded live-log snapshots preserve append-only history'
         $launch = [pscustomobject]@{
             RootIdentity = Get-PartisanProcessIdentity -ProcessId $PID
         }
@@ -516,10 +518,6 @@ while ([DateTime]::UtcNow -lt $deadline) {
             'growing marker-positive log reaches semantic readiness'
     }
     finally {
-        if ($writer -and -not $writer.HasExited) {
-            Stop-Process -Id $writer.Id -Force -ErrorAction Stop
-            Wait-Process -Id $writer.Id -ErrorAction SilentlyContinue
-        }
         if ($writer) { $writer.Dispose() }
     }
     $rejectedReadinessRoot = Join-Path $tempRoot 'runner-readiness-rejected'
