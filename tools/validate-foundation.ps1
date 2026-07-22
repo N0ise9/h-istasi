@@ -55907,6 +55907,7 @@ foreach ($candidateCampaignDebugRunnerEntry in @(
 		'evidenceKind = ''packaged-campaign-debug''',
 		'A real candidate run requires a clean, committed harness checkout.',
 		'function Get-CampaignDebugHardDiagnosticCensus',
+		'function Get-ShutdownCatalogDiagnosticRows',
 		'function Test-CampaignDebugHardDiagnosticCensus',
 		'function Get-GuardErrorCensus',
 		'-Filter ''script.log''',
@@ -55916,6 +55917,9 @@ foreach ($candidateCampaignDebugRunnerEntry in @(
 		'CanonicalLogPairSameDirectory',
 		'HardDiagnosticFree',
 		'ApprovedStockDiagnosticCount',
+		'ApprovedShutdownCatalogDiagnosticCount',
+		'ShutdownCatalogPairValid',
+		'$shutdownCatalogPairValid -and',
 		'ApprovedIntentionalDiagnosticCount',
 		'UnapprovedHardDiagnosticCount',
 		'MalformedHardDiagnosticCount',
@@ -55928,6 +55932,20 @@ foreach ($candidateCampaignDebugRunnerEntry in @(
 		'IntentionalMissionConvoySettlementDiagnosticProven',
 		'mission_convoy.settlement',
 		'Campaign Debug timestamped stock-diagnostic classification self-test failed.',
+		'Campaign Debug shutdown catalog pair classification self-test failed.',
+		'Campaign Debug single shutdown catalog diagnostic rejection self-test failed.',
+		'Campaign Debug triple shutdown catalog diagnostic rejection self-test failed.',
+		'Campaign Debug shutdown catalog message-mutation self-test failed.',
+		'Campaign Debug shutdown catalog body-mutation self-test failed.',
+		'Campaign Debug shutdown catalog channel-mutation self-test failed.',
+		'Campaign Debug shutdown catalog source-boundary self-test failed.',
+		'Campaign Debug shutdown catalog timestamp-mirror self-test failed.',
+		'Campaign Debug pre-DONE shutdown catalog rejection self-test failed.',
+		'Campaign Debug post-destroy shutdown catalog rejection self-test failed.',
+		'Campaign Debug shutdown catalog exact-DONE self-test failed.',
+		'Campaign Debug non-error shutdown catalog signal rejection self-test failed.',
+		'Campaign Debug auxiliary shutdown catalog projection self-test failed.',
+		'Campaign Debug compact auxiliary shutdown diagnostic rejection self-test failed.',
 		'Campaign Debug malformed hard-diagnostic rejection self-test failed.',
 		'Campaign Debug spaced-colon hard-diagnostic rejection self-test failed.',
 		'Campaign Debug compact-channel hard-diagnostic rejection self-test failed.',
@@ -55951,7 +55969,7 @@ foreach ($candidateCampaignDebugRunnerEntry in @(
 		'Campaign Debug duplicate same-source ENGINE-diagnostic self-test failed.',
 		'Campaign Debug split canonical log-pair self-test failed.',
 		'Campaign Debug duplicate canonical log self-test failed.',
-		'return 38',
+		'return 55',
 		'if (-not $errorCensus.Valid)',
 		'HardDiagnosticClassifierChecks'
 	)) {
@@ -55969,9 +55987,13 @@ if ([string]::IsNullOrEmpty($campaignDebugAuxiliaryProjectionText)) {
 	throw 'Candidate-aware Campaign Debug runner is missing its auxiliary diagnostic projection.'
 }
 foreach ($campaignDebugAuxiliaryProjectionEntry in @(
+		'[string[]]$ExpectedShutdownCatalogTimestamps = @()',
+		'[switch]$AllowShutdownCatalogPair',
+		'$shutdownRows = @(Get-ShutdownCatalogDiagnosticRows',
+		'ShutdownCatalogDiagnosticCount = $approvedShutdownCatalogCount',
 		'$nonVmHardHeaders = @([regex]::Matches(',
 		'''(?im)^[ \t]*(?:\d{2}:\d{2}:\d{2}\.\d+[ \t]+)?'' +',
-		'''(?:SCRIPT|ENGINE)[ \t]+\(E\):'' +',
+		'''(?:SCRIPT|ENGINE)[ \t]*\(E\):'' +',
 		'''(?![ \t]*Virtual Machine Exception[ \t]*\r?$)[ \t]*.+$''))'
 	)) {
 	if ($campaignDebugAuxiliaryProjectionText.IndexOf(
@@ -57750,6 +57772,8 @@ foreach ($sourceCanaryRunnerEntry in @(
 		'SourceCanaryWarningContractExact',
 		'SourceCanaryNoBlockedAssertions',
 		'SourceCanaryOrphanContractExact',
+		'ApprovedShutdownCatalogDiagnosticCount',
+		'ShutdownCatalogPairValid',
 		'Synthetic current-source canary validator self-test failed.',
 		'Synthetic source-artifact/historical canary contract conflict was accepted.',
 		'Synthetic source-canary validation without source-artifact validation was accepted.'
@@ -57758,6 +57782,28 @@ foreach ($sourceCanaryRunnerEntry in @(
 			$sourceCanaryRunnerEntry,
 			[StringComparison]::Ordinal) -lt 0) {
 		throw "Campaign Debug runner source-canary assertion contract is incomplete: $sourceCanaryRunnerEntry"
+	}
+}
+
+$sourceCampaignDebugRunnerText = Get-Content -Raw `
+	$sourceCampaignDebugRunnerPath
+foreach ($sourceCampaignDebugRunnerEntry in @(
+		'function New-SourceCampaignProcessCensus',
+		'emptyProcessArrayChecks = 4',
+		'Test-SourceCampaignExactMultiset',
+		'ApprovedShutdownCatalogDiagnosticCount',
+		'ShutdownCatalogPairValid',
+		'$ClassifierChecks -eq 55',
+		'The optional shutdown catalog pair canary self-test failed.',
+		'The optional shutdown catalog pair full self-test failed.',
+		'The partial shutdown catalog pair rejection self-test failed.',
+		'The reordered teardown-resource multiset self-test failed.',
+		'The empty process-census JSON array self-test failed.'
+	)) {
+	if ($sourceCampaignDebugRunnerText.IndexOf(
+		$sourceCampaignDebugRunnerEntry,
+		[StringComparison]::Ordinal) -lt 0) {
+		throw "Source Campaign Debug runner contract is incomplete: $sourceCampaignDebugRunnerEntry"
 	}
 }
 

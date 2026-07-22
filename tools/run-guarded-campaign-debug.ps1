@@ -3933,6 +3933,48 @@ function Invoke-ArtifactValidatorSelfTest {
     return $result
 }
 
+function Get-ShutdownCatalogDiagnosticRows {
+    param(
+        [AllowEmptyString()]
+        [Parameter(Mandatory = $true)][string]$Text,
+        [Parameter(Mandatory = $true)][string]$Source
+    )
+
+    $message = "'SCR_BaseResupplySupportStationComponent' needs a entity catalog manager!"
+    $headerPattern =
+        '^\s*(?<timestamp>\d{2}:\d{2}:\d{2}\.\d{3})\s+' +
+        'SCRIPT\s+\(E\):\s*' + [Regex]::Escape($message) + '\s*$'
+    $timestampPattern = '^\s*\d{2}:\d{2}:\d{2}\.\d+\s+'
+    $lines = @($Text -split "`r?`n")
+    $rows = New-Object Collections.Generic.List[object]
+    for ($index = 0; $index -lt $lines.Count; $index++) {
+        $match = [Regex]::Match([string]$lines[$index], $headerPattern)
+        if (-not $match.Success) {
+            continue
+        }
+        $body = New-Object Collections.Generic.List[string]
+        for ($bodyIndex = $index + 1; $bodyIndex -lt $lines.Count; $bodyIndex++) {
+            $bodyLine = [string]$lines[$bodyIndex]
+            if ($bodyLine -match $timestampPattern) {
+                break
+            }
+            $normalizedBodyLine = (($bodyLine -replace '\s+', ' ').Trim())
+            if (-not [string]::IsNullOrEmpty($normalizedBodyLine)) {
+                [void]$body.Add($normalizedBodyLine)
+            }
+        }
+        [void]$rows.Add([pscustomobject][ordered]@{
+            Index = $index
+            Timestamp = $match.Groups['timestamp'].Value
+            Channel = 'SCRIPT'
+            Message = $message
+            Body = $body.ToArray()
+            Source = $Source
+        })
+    }
+    return $rows.ToArray()
+}
+
 function Get-CampaignDebugHardDiagnosticCensus {
     param(
         [AllowEmptyString()]
@@ -4153,6 +4195,15 @@ function Get-CampaignDebugHardDiagnosticCensus {
         }
     }
 
+    $shutdownCatalogMessage =
+        "'SCR_BaseResupplySupportStationComponent' needs a entity catalog manager!"
+    foreach ($diagnostic in $diagnostics) {
+        if ($diagnostic.Channel -ceq 'SCRIPT' -and
+            $diagnostic.Message -ceq $shutdownCatalogMessage) {
+            $diagnostic.CandidateKind = 'stock-shutdown-catalog'
+        }
+    }
+
     $lifecyclePrefix = '^\s*\d{2}:\d{2}:\d{2}\.\d+\s+SCRIPT\s+:\s*'
     $armMessage = if ($Profile -ceq 'full_certification') {
         'Partisan campaign debug CLI | armed exact HST_Dev full certification run'
@@ -4203,6 +4254,103 @@ function Get-CampaignDebugHardDiagnosticCensus {
     if ($identityPairExact) {
         $identityCandidates[0].Approved = $true
         $identityCandidates[1].Approved = $true
+    }
+
+    $donePattern =
+        '^\s*(?<timestamp>\d{2}:\d{2}:\d{2}\.\d{3})\s+SCRIPT\s+:\s*' +
+        '(?<message>Partisan campaign debug \| DONE \| complete \| complete \| ' +
+        'run [^\s|]+ \| pass \d+ \| warn \d+ \| fail \d+ \| blocked \d+ \| ' +
+        'skipped \d+)\s*$'
+    $destroyPattern =
+        '^\s*(?<timestamp>\d{2}:\d{2}:\d{2}\.\d{3})\s+ENGINE\s+:\s*' +
+        '(?<message>Game destroyed\.)\s*$'
+    $scriptDoneRows = New-Object Collections.Generic.List[object]
+    $consoleDoneRows = New-Object Collections.Generic.List[object]
+    $consoleDestroyRows = New-Object Collections.Generic.List[object]
+    for ($index = 0; $index -lt $lines.Count; $index++) {
+        $match = [Regex]::Match([string]$lines[$index], $donePattern)
+        if ($match.Success) {
+            [void]$scriptDoneRows.Add([pscustomobject][ordered]@{
+                Index = $index
+                Timestamp = $match.Groups['timestamp'].Value
+                Message = $match.Groups['message'].Value
+            })
+        }
+    }
+    for ($index = 0; $index -lt $consoleLines.Count; $index++) {
+        $doneMatch = [Regex]::Match([string]$consoleLines[$index], $donePattern)
+        if ($doneMatch.Success) {
+            [void]$consoleDoneRows.Add([pscustomobject][ordered]@{
+                Index = $index
+                Timestamp = $doneMatch.Groups['timestamp'].Value
+                Message = $doneMatch.Groups['message'].Value
+            })
+        }
+        $destroyMatch = [Regex]::Match(
+            [string]$consoleLines[$index],
+            $destroyPattern)
+        if ($destroyMatch.Success) {
+            [void]$consoleDestroyRows.Add([pscustomobject][ordered]@{
+                Index = $index
+                Timestamp = $destroyMatch.Groups['timestamp'].Value
+                Message = $destroyMatch.Groups['message'].Value
+            })
+        }
+    }
+    $scriptShutdownRows = @(Get-ShutdownCatalogDiagnosticRows `
+        -Text $ScriptText `
+        -Source 'script.log')
+    $consoleShutdownRows = @(Get-ShutdownCatalogDiagnosticRows `
+        -Text $ConsoleText `
+        -Source 'console.log')
+    $shutdownCatalogNeedle = [Regex]::Escape(
+        "'SCR_BaseResupplySupportStationComponent'")
+    $scriptShutdownSignalCount = @([Regex]::Matches(
+        $ScriptText,
+        $shutdownCatalogNeedle)).Count
+    $consoleShutdownSignalCount = @([Regex]::Matches(
+        $ConsoleText,
+        $shutdownCatalogNeedle)).Count
+    $shutdownMergedCandidates = @($diagnostics | Where-Object {
+        $_.CandidateKind -ceq 'stock-shutdown-catalog'
+    })
+    $shutdownCatalogPairAbsent =
+        $scriptShutdownSignalCount -eq 0 -and
+        $consoleShutdownSignalCount -eq 0
+    $shutdownCatalogPairValid = $shutdownCatalogPairAbsent
+    if (-not $shutdownCatalogPairAbsent) {
+        $shutdownCatalogPairValid =
+            $lifecycleMarkersValid -and
+            $scriptShutdownSignalCount -eq 2 -and
+            $consoleShutdownSignalCount -eq 2 -and
+            $scriptShutdownRows.Count -eq 2 -and
+            $consoleShutdownRows.Count -eq 2 -and
+            @($scriptShutdownRows[0].Body).Count -eq 0 -and
+            @($scriptShutdownRows[1].Body).Count -eq 0 -and
+            @($consoleShutdownRows[0].Body).Count -eq 0 -and
+            @($consoleShutdownRows[1].Body).Count -eq 0 -and
+            $scriptDoneRows.Count -eq 1 -and
+            $consoleDoneRows.Count -eq 1 -and
+            $consoleDestroyRows.Count -eq 1 -and
+            $scriptDoneRows[0].Timestamp -ceq $consoleDoneRows[0].Timestamp -and
+            $scriptDoneRows[0].Message -ceq $consoleDoneRows[0].Message -and
+            $scriptDoneRows[0].Index -gt $forceResultIndices[0] -and
+            $scriptShutdownRows[0].Index -gt $scriptDoneRows[0].Index -and
+            $scriptShutdownRows[1].Index -gt $scriptShutdownRows[0].Index -and
+            $consoleShutdownRows[0].Index -gt $consoleDoneRows[0].Index -and
+            $consoleShutdownRows[1].Index -gt $consoleShutdownRows[0].Index -and
+            $consoleDestroyRows[0].Index -gt $consoleShutdownRows[1].Index -and
+            $scriptShutdownRows[0].Timestamp -ceq
+                $consoleShutdownRows[0].Timestamp -and
+            $scriptShutdownRows[1].Timestamp -ceq
+                $consoleShutdownRows[1].Timestamp -and
+            $shutdownMergedCandidates.Count -eq 2 -and
+            $shutdownMergedCandidates[0].Source -ceq 'script.log' -and
+            $shutdownMergedCandidates[1].Source -ceq 'script.log'
+    }
+    if ($shutdownCatalogPairValid -and -not $shutdownCatalogPairAbsent) {
+        $shutdownMergedCandidates[0].Approved = $true
+        $shutdownMergedCandidates[1].Approved = $true
     }
 
     $intentionalMessages = @(
@@ -4368,9 +4516,14 @@ function Get-CampaignDebugHardDiagnosticCensus {
     $partisanErrors = @($diagnostics | Where-Object {
         $_.Message -cmatch '^(?:Partisan|HST(?:_|\b))'
     }).Count
-    $approvedStockCount = @($diagnostics | Where-Object {
+    $approvedStartupStockCount = @($diagnostics | Where-Object {
         $_.Approved -and $_.CandidateKind -like 'stock-startup-*-identity'
     }).Count
+    $approvedShutdownCatalogCount = @($diagnostics | Where-Object {
+        $_.Approved -and $_.CandidateKind -ceq 'stock-shutdown-catalog'
+    }).Count
+    $approvedStockCount = $approvedStartupStockCount +
+        $approvedShutdownCatalogCount
     $approvedIntentionalCount = @($diagnostics | Where-Object {
         $_.Approved -and $_.CandidateKind -like 'intentional-mission-convoy-*'
     }).Count
@@ -4396,6 +4549,7 @@ function Get-CampaignDebugHardDiagnosticCensus {
         Valid = $lifecycleMarkersValid -and
             $channelArithmeticValid -and
             $categoryArithmeticValid -and
+            $shutdownCatalogPairValid -and
             $intentionalFixtureSetValid -and
             $unapproved.Count -eq 0 -and
             $crashMarkers -eq 0 -and
@@ -4410,6 +4564,8 @@ function Get-CampaignDebugHardDiagnosticCensus {
         CrashMarkers = $crashMarkers
         PartisanSeverityLineCount = $partisanSeverityLineCount
         ApprovedStockDiagnosticCount = $approvedStockCount
+        ApprovedShutdownCatalogDiagnosticCount =
+            $approvedShutdownCatalogCount
         ApprovedIntentionalDiagnosticCount = $approvedIntentionalCount
         ChannelArithmeticValid = $channelArithmeticValid
         CategoryArithmeticValid = $categoryArithmeticValid
@@ -4421,6 +4577,7 @@ function Get-CampaignDebugHardDiagnosticCensus {
         LifecycleMarkersValid = $lifecycleMarkersValid
         IdentityBaselinePairValid = $identityCandidates.Count -eq 0 -or
             $identityPairExact
+        ShutdownCatalogPairValid = $shutdownCatalogPairValid
         IntentionalFixtureStructureExact = $intentionalFixtureStructureValid
         IntentionalFixtureSetValid = $intentionalFixtureSetValid
         IntentionalMissionConvoyAdmissionDiagnosticsProven =
@@ -4506,8 +4663,195 @@ function Test-CampaignDebugHardDiagnosticCensus {
         -IntentionalMissionConvoySettlementDiagnosticProven $false `
         -IntentionalMissionConvoyCorruptionDiagnosticsProven $false `
         -IntentionalMissionConvoyWatchdogDiagnosticProven $false
-    if (-not $clean.Valid -or -not $clean.HardDiagnosticFree) {
+    if (-not $clean.Valid -or
+        -not $clean.HardDiagnosticFree -or
+        $clean.ApprovedShutdownCatalogDiagnosticCount -ne 0 -or
+        -not $clean.ShutdownCatalogPairValid) {
         throw 'Campaign Debug clean hard-diagnostic self-test failed.'
+    }
+
+    $forceDoneLine =
+        '17:00:03.100 SCRIPT : Partisan campaign debug | DONE | complete | complete | run synthetic_force | pass 9 | warn 2 | fail 0 | blocked 0 | skipped 0'
+    $shutdownCatalogLine1 =
+        "17:00:03.200 SCRIPT (E): 'SCR_BaseResupplySupportStationComponent' needs a entity catalog manager!"
+    $shutdownCatalogLine2 =
+        "17:00:03.300 SCRIPT (E): 'SCR_BaseResupplySupportStationComponent' needs a entity catalog manager!"
+    $destroyLine = '17:00:03.400 ENGINE : Game destroyed.'
+    $shutdownScriptLines = @(
+        $forceArmLine,
+        $forceStartLine,
+        $forceResultLine,
+        $forceDoneLine,
+        $shutdownCatalogLine1,
+        $shutdownCatalogLine2)
+    $shutdownConsoleLines = $shutdownScriptLines + @($destroyLine)
+    $getForceCensus = {
+        param(
+            [Parameter(Mandatory = $true)][string[]]$ScriptLines,
+            [Parameter(Mandatory = $true)][string[]]$ConsoleLines
+        )
+        return Get-CampaignDebugHardDiagnosticCensus `
+            -ScriptText ($ScriptLines -join "`n") `
+            -ConsoleText ($ConsoleLines -join "`n") `
+            -Profile force_authority `
+            -IntentionalMissionConvoyAdmissionDiagnosticsProven $false `
+            -IntentionalMissionConvoySettlementDiagnosticProven $false `
+            -IntentionalMissionConvoyCorruptionDiagnosticsProven $false `
+            -IntentionalMissionConvoyWatchdogDiagnosticProven $false
+    }
+
+    $shutdownPair = & $getForceCensus `
+        -ScriptLines $shutdownScriptLines `
+        -ConsoleLines $shutdownConsoleLines
+    if (-not $shutdownPair.Valid -or
+        -not $shutdownPair.ShutdownCatalogPairValid -or
+        $shutdownPair.HardDiagnosticCount -ne 2 -or
+        $shutdownPair.ApprovedStockDiagnosticCount -ne 2 -or
+        $shutdownPair.ApprovedShutdownCatalogDiagnosticCount -ne 2 -or
+        $shutdownPair.UnapprovedHardDiagnosticCount -ne 0) {
+        throw 'Campaign Debug shutdown catalog pair classification self-test failed.'
+    }
+
+    $singleShutdownLines = $shutdownScriptLines[0..4]
+    $singleShutdown = & $getForceCensus `
+        -ScriptLines $singleShutdownLines `
+        -ConsoleLines ($singleShutdownLines + @($destroyLine))
+    if ($singleShutdown.Valid -or
+        $singleShutdown.ShutdownCatalogPairValid -or
+        $singleShutdown.ApprovedShutdownCatalogDiagnosticCount -ne 0 -or
+        $singleShutdown.UnapprovedHardDiagnosticCount -ne 1) {
+        throw 'Campaign Debug single shutdown catalog diagnostic rejection self-test failed.'
+    }
+
+    $thirdShutdownLine = $shutdownCatalogLine2.Replace('.300 ', '.350 ')
+    $tripleShutdownLines = $shutdownScriptLines + @($thirdShutdownLine)
+    $tripleShutdown = & $getForceCensus `
+        -ScriptLines $tripleShutdownLines `
+        -ConsoleLines ($tripleShutdownLines + @($destroyLine))
+    if ($tripleShutdown.Valid -or
+        $tripleShutdown.ShutdownCatalogPairValid -or
+        $tripleShutdown.ApprovedShutdownCatalogDiagnosticCount -ne 0 -or
+        $tripleShutdown.UnapprovedHardDiagnosticCount -ne 3) {
+        throw 'Campaign Debug triple shutdown catalog diagnostic rejection self-test failed.'
+    }
+
+    $mutatedShutdownLine = $shutdownCatalogLine2.Replace(
+        'entity catalog manager!',
+        'entity catalog manager?')
+    $mutatedShutdownLines = $shutdownScriptLines[0..4] + @($mutatedShutdownLine)
+    $mutatedShutdown = & $getForceCensus `
+        -ScriptLines $mutatedShutdownLines `
+        -ConsoleLines ($mutatedShutdownLines + @($destroyLine))
+    if ($mutatedShutdown.Valid -or
+        $mutatedShutdown.ShutdownCatalogPairValid -or
+        $mutatedShutdown.ApprovedShutdownCatalogDiagnosticCount -ne 0 -or
+        $mutatedShutdown.UnapprovedHardDiagnosticCount -ne 2) {
+        throw 'Campaign Debug shutdown catalog message-mutation self-test failed.'
+    }
+
+    $bodyShutdownLines = $shutdownScriptLines[0..4] +
+        @('synthetic continuation body', $shutdownCatalogLine2)
+    $bodyShutdown = & $getForceCensus `
+        -ScriptLines $bodyShutdownLines `
+        -ConsoleLines ($bodyShutdownLines + @($destroyLine))
+    if ($bodyShutdown.Valid -or
+        $bodyShutdown.ShutdownCatalogPairValid -or
+        $bodyShutdown.ApprovedShutdownCatalogDiagnosticCount -ne 0 -or
+        $bodyShutdown.UnapprovedHardDiagnosticCount -ne 2) {
+        throw 'Campaign Debug shutdown catalog body-mutation self-test failed.'
+    }
+
+    $engineShutdownLine = $shutdownCatalogLine1.Replace(
+        'SCRIPT (E):',
+        'ENGINE (E):')
+    $channelShutdownLines = $shutdownScriptLines[0..3] +
+        @($engineShutdownLine, $shutdownCatalogLine2)
+    $channelShutdown = & $getForceCensus `
+        -ScriptLines $channelShutdownLines `
+        -ConsoleLines ($channelShutdownLines + @($destroyLine))
+    if ($channelShutdown.Valid -or
+        $channelShutdown.ShutdownCatalogPairValid -or
+        $channelShutdown.ApprovedShutdownCatalogDiagnosticCount -ne 0 -or
+        $channelShutdown.UnapprovedHardDiagnosticCount -ne 2) {
+        throw 'Campaign Debug shutdown catalog channel-mutation self-test failed.'
+    }
+
+    $sourceShutdown = & $getForceCensus `
+        -ScriptLines $shutdownScriptLines[0..3] `
+        -ConsoleLines $shutdownConsoleLines
+    if ($sourceShutdown.Valid -or
+        $sourceShutdown.ShutdownCatalogPairValid -or
+        $sourceShutdown.ApprovedShutdownCatalogDiagnosticCount -ne 0 -or
+        $sourceShutdown.UnapprovedHardDiagnosticCount -ne 2) {
+        throw 'Campaign Debug shutdown catalog source-boundary self-test failed.'
+    }
+
+    $timestampConsoleLines = $shutdownConsoleLines.Clone()
+    $timestampConsoleLines[4] = $shutdownCatalogLine1.Replace('.200 ', '.201 ')
+    $timestampShutdown = & $getForceCensus `
+        -ScriptLines $shutdownScriptLines `
+        -ConsoleLines $timestampConsoleLines
+    if ($timestampShutdown.Valid -or
+        $timestampShutdown.ShutdownCatalogPairValid -or
+        $timestampShutdown.ApprovedShutdownCatalogDiagnosticCount -ne 0) {
+        throw 'Campaign Debug shutdown catalog timestamp-mirror self-test failed.'
+    }
+
+    $preDoneShutdownLines = @(
+        $forceArmLine,
+        $forceStartLine,
+        $forceResultLine,
+        $shutdownCatalogLine1,
+        $shutdownCatalogLine2,
+        $forceDoneLine)
+    $preDoneShutdown = & $getForceCensus `
+        -ScriptLines $preDoneShutdownLines `
+        -ConsoleLines ($preDoneShutdownLines + @($destroyLine))
+    if ($preDoneShutdown.Valid -or
+        $preDoneShutdown.ShutdownCatalogPairValid -or
+        $preDoneShutdown.ApprovedShutdownCatalogDiagnosticCount -ne 0) {
+        throw 'Campaign Debug pre-DONE shutdown catalog rejection self-test failed.'
+    }
+
+    $postDestroyConsoleLines = $shutdownScriptLines[0..3] +
+        @($destroyLine, $shutdownCatalogLine1, $shutdownCatalogLine2)
+    $postDestroyShutdown = & $getForceCensus `
+        -ScriptLines $shutdownScriptLines `
+        -ConsoleLines $postDestroyConsoleLines
+    if ($postDestroyShutdown.Valid -or
+        $postDestroyShutdown.ShutdownCatalogPairValid -or
+        $postDestroyShutdown.ApprovedShutdownCatalogDiagnosticCount -ne 0) {
+        throw 'Campaign Debug post-destroy shutdown catalog rejection self-test failed.'
+    }
+
+    $mutatedDoneLine = $forceDoneLine.Replace(
+        'DONE | complete | complete',
+        'DONE | synthetic | complete')
+    $mutatedDoneScriptLines = $shutdownScriptLines.Clone()
+    $mutatedDoneScriptLines[3] = $mutatedDoneLine
+    $mutatedDoneConsoleLines = $mutatedDoneScriptLines + @($destroyLine)
+    $mutatedDoneShutdown = & $getForceCensus `
+        -ScriptLines $mutatedDoneScriptLines `
+        -ConsoleLines $mutatedDoneConsoleLines
+    if ($mutatedDoneShutdown.Valid -or
+        $mutatedDoneShutdown.ShutdownCatalogPairValid -or
+        $mutatedDoneShutdown.ApprovedShutdownCatalogDiagnosticCount -ne 0) {
+        throw 'Campaign Debug shutdown catalog exact-DONE self-test failed.'
+    }
+
+    $normalShutdownLine = $shutdownCatalogLine1.Replace(
+        'SCRIPT (E):',
+        'SCRIPT :')
+    $normalShutdownScriptLines = $shutdownScriptLines[0..3] +
+        @($normalShutdownLine)
+    $normalShutdown = & $getForceCensus `
+        -ScriptLines $normalShutdownScriptLines `
+        -ConsoleLines ($normalShutdownScriptLines + @($destroyLine))
+    if ($normalShutdown.Valid -or
+        $normalShutdown.ShutdownCatalogPairValid -or
+        $normalShutdown.HardDiagnosticCount -ne 0 -or
+        $normalShutdown.ApprovedShutdownCatalogDiagnosticCount -ne 0) {
+        throw 'Campaign Debug non-error shutdown catalog signal rejection self-test failed.'
     }
 
     $unknown = Get-CampaignDebugHardDiagnosticCensus `
@@ -4981,6 +5325,131 @@ function Test-CampaignDebugHardDiagnosticCensus {
             (New-Object Text.UTF8Encoding($false)))
 
         [IO.File]::WriteAllText(
+            $canonicalPath,
+            ($shutdownScriptLines -join "`n"),
+            (New-Object Text.UTF8Encoding($false)))
+        [IO.File]::WriteAllText(
+            (Join-Path $logDirectory 'console.log'),
+            ($shutdownConsoleLines -join "`n"),
+            (New-Object Text.UTF8Encoding($false)))
+        [IO.File]::WriteAllText(
+            $errorPath,
+            (@($shutdownCatalogLine1, $shutdownCatalogLine2) -join "`r`n"),
+            (New-Object Text.UTF8Encoding($false)))
+        $auxiliaryShutdownPair = Get-GuardErrorCensus `
+            -GuardRoot $tempRoot `
+            -Profile force_authority `
+            -IntentionalMissionConvoyAdmissionDiagnosticsProven $false `
+            -IntentionalMissionConvoySettlementDiagnosticProven $false `
+            -IntentionalMissionConvoyCorruptionDiagnosticsProven $false `
+            -IntentionalMissionConvoyWatchdogDiagnosticProven $false
+        if (-not $auxiliaryShutdownPair.Valid -or
+            -not $auxiliaryShutdownPair.ErrorLogProjectionExact -or
+            -not $auxiliaryShutdownPair.CrashLogProjectionExact -or
+            $auxiliaryShutdownPair.ApprovedStockDiagnosticCount -ne 2 -or
+            $auxiliaryShutdownPair.ApprovedShutdownCatalogDiagnosticCount -ne 2 -or
+            $auxiliaryShutdownPair.AuxiliaryUnapprovedEventCount -ne 0) {
+            throw 'Campaign Debug auxiliary shutdown catalog projection self-test failed.'
+        }
+
+        [IO.File]::WriteAllText(
+            $errorPath,
+            $shutdownCatalogLine1,
+            (New-Object Text.UTF8Encoding($false)))
+        $partialAuxiliaryShutdown = Get-GuardErrorCensus `
+            -GuardRoot $tempRoot `
+            -Profile force_authority `
+            -IntentionalMissionConvoyAdmissionDiagnosticsProven $false `
+            -IntentionalMissionConvoySettlementDiagnosticProven $false `
+            -IntentionalMissionConvoyCorruptionDiagnosticsProven $false `
+            -IntentionalMissionConvoyWatchdogDiagnosticProven $false
+        if ($partialAuxiliaryShutdown.Valid -or
+            $partialAuxiliaryShutdown.ErrorLogProjectionExact -or
+            $partialAuxiliaryShutdown.AuxiliaryUnapprovedEventCount -ne 1) {
+            throw 'Campaign Debug partial auxiliary shutdown catalog rejection self-test failed.'
+        }
+
+        [IO.File]::WriteAllText(
+            $errorPath,
+            (@(
+                    $shutdownCatalogLine1,
+                    $shutdownCatalogLine2,
+                    '17:00:03.350 SCRIPT (E): unknown auxiliary shutdown error') -join "`n"),
+            (New-Object Text.UTF8Encoding($false)))
+        $unknownAuxiliaryShutdown = Get-GuardErrorCensus `
+            -GuardRoot $tempRoot `
+            -Profile force_authority `
+            -IntentionalMissionConvoyAdmissionDiagnosticsProven $false `
+            -IntentionalMissionConvoySettlementDiagnosticProven $false `
+            -IntentionalMissionConvoyCorruptionDiagnosticsProven $false `
+            -IntentionalMissionConvoyWatchdogDiagnosticProven $false
+        if ($unknownAuxiliaryShutdown.Valid -or
+            $unknownAuxiliaryShutdown.ErrorLogProjectionExact -or
+            $unknownAuxiliaryShutdown.AuxiliaryUnapprovedEventCount -ne 1) {
+            throw 'Campaign Debug unknown auxiliary shutdown diagnostic rejection self-test failed.'
+        }
+
+        $compactShutdownLine = $shutdownCatalogLine2.Replace(
+            'SCRIPT (E):',
+            'SCRIPT(E):')
+        [IO.File]::WriteAllText(
+            $errorPath,
+            (@(
+                    $shutdownCatalogLine1,
+                    $shutdownCatalogLine2,
+                    $compactShutdownLine) -join "`n"),
+            (New-Object Text.UTF8Encoding($false)))
+        $compactAuxiliaryShutdown = Get-GuardErrorCensus `
+            -GuardRoot $tempRoot `
+            -Profile force_authority `
+            -IntentionalMissionConvoyAdmissionDiagnosticsProven $false `
+            -IntentionalMissionConvoySettlementDiagnosticProven $false `
+            -IntentionalMissionConvoyCorruptionDiagnosticsProven $false `
+            -IntentionalMissionConvoyWatchdogDiagnosticProven $false
+        if ($compactAuxiliaryShutdown.Valid -or
+            $compactAuxiliaryShutdown.ErrorLogProjectionExact -or
+            $compactAuxiliaryShutdown.AuxiliaryUnapprovedEventCount -ne 1) {
+            throw 'Campaign Debug compact auxiliary shutdown diagnostic rejection self-test failed.'
+        }
+
+        [IO.File]::WriteAllText(
+            $errorPath,
+            (@($shutdownCatalogLine1, $shutdownCatalogLine2) -join "`n"),
+            (New-Object Text.UTF8Encoding($false)))
+        [IO.File]::WriteAllText(
+            $crashPath,
+            (@($shutdownCatalogLine1, $shutdownCatalogLine2) -join "`n"),
+            (New-Object Text.UTF8Encoding($false)))
+        $crashShutdownPair = Get-GuardErrorCensus `
+            -GuardRoot $tempRoot `
+            -Profile force_authority `
+            -IntentionalMissionConvoyAdmissionDiagnosticsProven $false `
+            -IntentionalMissionConvoySettlementDiagnosticProven $false `
+            -IntentionalMissionConvoyCorruptionDiagnosticsProven $false `
+            -IntentionalMissionConvoyWatchdogDiagnosticProven $false
+        if ($crashShutdownPair.Valid -or
+            $crashShutdownPair.CrashLogProjectionExact -or
+            $crashShutdownPair.AuxiliaryUnapprovedEventCount -ne 2) {
+            throw 'Campaign Debug crash-log shutdown catalog rejection self-test failed.'
+        }
+        [IO.File]::WriteAllText(
+            $canonicalPath,
+            $forceLifecycleText,
+            (New-Object Text.UTF8Encoding($false)))
+        [IO.File]::WriteAllText(
+            (Join-Path $logDirectory 'console.log'),
+            'no hard diagnostics',
+            (New-Object Text.UTF8Encoding($false)))
+        [IO.File]::WriteAllText(
+            $errorPath,
+            $safeAuxiliaryText,
+            (New-Object Text.UTF8Encoding($false)))
+        [IO.File]::WriteAllText(
+            $crashPath,
+            $safeAuxiliaryText,
+            (New-Object Text.UTF8Encoding($false)))
+
+        [IO.File]::WriteAllText(
             (Join-Path $logDirectory 'console.log'),
             '17:00:04.000 SCRIPT (E): unique console script error',
             (New-Object Text.UTF8Encoding($false)))
@@ -5127,14 +5596,16 @@ function Test-CampaignDebugHardDiagnosticCensus {
         }
     }
 
-    return 38
+    return 55
 }
 
 function Get-AuxiliaryDiagnosticProjection {
     param(
         [AllowEmptyString()]
         [Parameter(Mandatory = $true)][string]$Text,
-        [Parameter(Mandatory = $true)][int]$ExpectedStockDiagnosticCount
+        [Parameter(Mandatory = $true)][int]$ExpectedStockDiagnosticCount,
+        [string[]]$ExpectedShutdownCatalogTimestamps = @(),
+        [switch]$AllowShutdownCatalogPair
     )
 
     $eventHeaderPattern =
@@ -5173,38 +5644,74 @@ function Get-AuxiliaryDiagnosticProjection {
         }
     }
 
+    $shutdownRows = @(Get-ShutdownCatalogDiagnosticRows `
+        -Text $Text `
+        -Source 'auxiliary.log')
+    $shutdownProjectionExact =
+        $shutdownRows.Count -eq $ExpectedShutdownCatalogTimestamps.Count
+    if ($shutdownProjectionExact -and $shutdownRows.Count -gt 0) {
+        $shutdownProjectionExact = $AllowShutdownCatalogPair -and
+            $shutdownRows.Count -eq 2
+        for ($index = 0;
+            $shutdownProjectionExact -and $index -lt $shutdownRows.Count;
+            $index++) {
+            if (@($shutdownRows[$index].Body).Count -ne 0 -or
+                $shutdownRows[$index].Timestamp -cne
+                    $ExpectedShutdownCatalogTimestamps[$index]) {
+                $shutdownProjectionExact = $false
+            }
+        }
+    }
+    $approvedShutdownCatalogCount = if ($shutdownProjectionExact) {
+        $shutdownRows.Count
+    }
+    else {
+        0
+    }
+
     $nonVmHardHeaders = @([regex]::Matches(
         $Text,
         '(?im)^[ \t]*(?:\d{2}:\d{2}:\d{2}\.\d+[ \t]+)?' +
-            '(?:SCRIPT|ENGINE)[ \t]+\(E\):' +
+            '(?:SCRIPT|ENGINE)[ \t]*\(E\):' +
             '(?![ \t]*Virtual Machine Exception[ \t]*\r?$)[ \t]*.+$')).Count
     $strongFatalMarkers = @([regex]::Matches(
         $Text,
         '(?im)\b(?:access violation|unhandled exception|fatal error|' +
             'assertion failed|segmentation fault|stack overflow|' +
             'out of memory|engine crash|minidump)\b')).Count
-    $unapprovedEventCount += $nonVmHardHeaders + $strongFatalMarkers
+    $unapprovedEventCount +=
+        ($nonVmHardHeaders - $approvedShutdownCatalogCount) +
+        $strongFatalMarkers
 
-    $projectionExact = $false
+    $startupProjectionExact = $false
     if ($ExpectedStockDiagnosticCount -eq 0) {
-        $projectionExact = $eventHeaders.Count -eq 0 -and
-            $unapprovedEventCount -eq 0
+        $startupProjectionExact = $eventHeaders.Count -eq 0
     }
     elseif ($ExpectedStockDiagnosticCount -eq 2) {
-        $projectionExact =
+        $startupProjectionExact =
             $eventHeaders.Count -eq 2 -and
             $kinds.Count -eq 2 -and
             $kinds[0] -ceq 'stock-startup-editable-identity' -and
-            $kinds[1] -ceq 'stock-startup-reconnect-identity' -and
-            $unapprovedEventCount -eq 0
+            $kinds[1] -ceq 'stock-startup-reconnect-identity'
+    }
+    $projectionExact = $startupProjectionExact -and
+        $shutdownProjectionExact -and
+        $unapprovedEventCount -eq 0
+
+    $eventKinds = New-Object Collections.Generic.List[string]
+    $eventKinds.AddRange($kinds.ToArray())
+    for ($index = 0; $index -lt $approvedShutdownCatalogCount; $index++) {
+        [void]$eventKinds.Add('stock-shutdown-catalog')
     }
 
     return [pscustomobject][ordered]@{
         Valid = $projectionExact
         ProjectionExact = $projectionExact
-        StockDiagnosticCount = $kinds.Count
+        StockDiagnosticCount = $kinds.Count + $approvedShutdownCatalogCount
+        ShutdownCatalogDiagnosticCount = $approvedShutdownCatalogCount
+        ShutdownCatalogPairValid = $shutdownProjectionExact
         UnapprovedEventCount = $unapprovedEventCount
-        EventKinds = $kinds.ToArray()
+        EventKinds = $eventKinds.ToArray()
     }
 }
 
@@ -5311,6 +5818,7 @@ function Get-GuardErrorCensus {
             CrashMarkers = 0
             PartisanSeverityLineCount = 0
             ApprovedStockDiagnosticCount = 0
+            ApprovedShutdownCatalogDiagnosticCount = 0
             ApprovedIntentionalDiagnosticCount = 0
             ChannelArithmeticValid = $false
             CategoryArithmeticValid = $false
@@ -5319,6 +5827,7 @@ function Get-GuardErrorCensus {
             UnapprovedHardDiagnosticKinds = @()
             LifecycleMarkersValid = $false
             IdentityBaselinePairValid = $false
+            ShutdownCatalogPairValid = $false
             IntentionalFixtureStructureExact = $false
             IntentionalFixtureSetValid = $false
             IntentionalMissionConvoyAdmissionDiagnosticsProven =
@@ -5343,9 +5852,11 @@ function Get-GuardErrorCensus {
     if (($crashLogs[0].Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
         throw 'The canonical Campaign Debug crash log must not be a reparse point.'
     }
+    $scriptText = Read-SharedFileText -Path $scriptLogs[0].FullName
+    $consoleText = Read-SharedFileText -Path $consoleLogs[0].FullName
     $census = Get-CampaignDebugHardDiagnosticCensus `
-        -ScriptText (Read-SharedFileText -Path $scriptLogs[0].FullName) `
-        -ConsoleText (Read-SharedFileText -Path $consoleLogs[0].FullName) `
+        -ScriptText $scriptText `
+        -ConsoleText $consoleText `
         -Profile $Profile `
         -IntentionalMissionConvoyAdmissionDiagnosticsProven `
             $IntentionalMissionConvoyAdmissionDiagnosticsProven `
@@ -5373,12 +5884,25 @@ function Get-GuardErrorCensus {
     $census | Add-Member `
         -NotePropertyName AuxiliaryLogPairSameDirectory `
         -NotePropertyValue $true
+    $expectedStartupStockDiagnosticCount =
+        [int]$census.ApprovedStockDiagnosticCount -
+        [int]$census.ApprovedShutdownCatalogDiagnosticCount
+    $expectedShutdownCatalogTimestamps = @()
+    if ($census.ApprovedShutdownCatalogDiagnosticCount -eq 2) {
+        $expectedShutdownCatalogTimestamps = @(
+            Get-ShutdownCatalogDiagnosticRows `
+                -Text $scriptText `
+                -Source 'script.log' |
+                ForEach-Object { [string]$_.Timestamp })
+    }
     $errorProjection = Get-AuxiliaryDiagnosticProjection `
         -Text (Read-SharedFileText -Path $errorLogs[0].FullName) `
-        -ExpectedStockDiagnosticCount $census.ApprovedStockDiagnosticCount
+        -ExpectedStockDiagnosticCount $expectedStartupStockDiagnosticCount `
+        -ExpectedShutdownCatalogTimestamps $expectedShutdownCatalogTimestamps `
+        -AllowShutdownCatalogPair
     $crashProjection = Get-AuxiliaryDiagnosticProjection `
         -Text (Read-SharedFileText -Path $crashLogs[0].FullName) `
-        -ExpectedStockDiagnosticCount $census.ApprovedStockDiagnosticCount
+        -ExpectedStockDiagnosticCount $expectedStartupStockDiagnosticCount
     $auxiliaryUnapprovedEventCount =
         [int]$errorProjection.UnapprovedEventCount +
         [int]$crashProjection.UnapprovedEventCount

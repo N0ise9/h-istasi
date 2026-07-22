@@ -33,15 +33,33 @@ admits the full profile's eight intentional
 resource errors only as four exact raw triples bracketed by their originating
 proof markers. A bare signature sequence is rejected. Optional teardown rows
 contribute zero to the expected census when absent and the exact family size
-when present; synthetic adversarial coverage is 30 checks, and all three
-retained full logs still satisfy the tightened classifier after removal of only
-the now-fixed obsolete world-field diagnostic.
+when present; all three retained full logs still satisfy the tightened
+classifier after removal of only the now-fixed obsolete world-field diagnostic.
 
-The portable result contract treats process-census `before` and `after` values
-as JSON arrays even when no engine process exists. PowerShell callers must
-array-wrap the process-row function output at the property assignment; an empty
-pipeline result must not be allowed to serialize as an object. Runner self-test
-and the independent source-evidence consumer both enforce this shape.
+A later completed source-native capture reached the exact Campaign Debug
+`DONE` marker with the gameplay artifact still green at 9 PASS/2 WARN/0 FAIL,
+35/35 focused assertions, 87/87 counted conditions, 18 ordered zero state
+deltas, and zero final orphans. Before normal game destruction it then emitted
+exactly two identical stock support-station catalog-manager diagnostics. The
+capture was rejected by the then-current harness, but it establishes the
+previously required post-`DONE` reproduction. The classifier may therefore
+admit only exact zero-or-two absence/presence, with the two-event
+message/channel/source/lifecycle shape bound after `DONE` and before game
+destruction. One, three, mutated, continued, or out-of-window events remain
+red; this does not authorize any other stock diagnostic.
+
+That same capture retained the exact expected 53-row teardown resource
+multiset with no missing or extra signature, but five rows appeared in a
+different order. The source wrapper now treats the post-destruction batch as an
+exact multiset while preserving exact count, channel, contiguity, timing, and
+lifecycle checks. Missing, extra, or duplicate signatures still fail closed.
+
+The portable result contract treats process-census `before`,
+`unclaimedEngineProcessesObserved`, `after`, and `cleanupErrors` values as JSON
+arrays even when empty. Production and self-test use the same census
+constructor, whose collection assignments are array-wrapped so an empty
+pipeline result cannot serialize as an object. The independent source-evidence
+consumer also enforces this shape.
 
 The manually assembled local candidate/package runs audited below are retained
 historical QA only. They may support optional regression investigation, but they

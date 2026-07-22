@@ -27,6 +27,17 @@
   ordered zero-delta rows, the current orphan text, and the exact source
   case/assertion manifests. Keep the historical corrected-canary contract
   available only for immutable historical evidence.
+- A completed post-`DONE` source-native capture reproduced exactly two stock
+  support-station catalog-manager diagnostics before normal game destruction.
+  Treat that family as optional but indivisible: admit exactly zero events or
+  the exact two-event message/channel/source/lifecycle shape, and reject one,
+  three, mutated, continued, or out-of-window events. This is not a broad stock
+  diagnostic allowlist.
+- Engine teardown can emit the exact 53 expected resource diagnostics in a
+  different order across otherwise identical runs. Validate that batch as an
+  exact multiset while retaining its exact count, channels, contiguity, timing,
+  and post-destruction lifecycle boundary. Missing, extra, or duplicated rows
+  still fail closed.
 - Never add a `.pak` file to source. It is neither an authored repository input
   nor a Gate 1 artifact; Workbench/Workshop publication owns any generated
   archive outside the source tree.
@@ -66,11 +77,12 @@
   and addon-temp roots and proves exact process cleanup. It does not claim a
   snapshot of every ordinary external log/profile root; add explicit watched
   roots before using it for a stronger no-spill claim.
-- Portable JSON collection fields must remain arrays even when empty. Wrap
-  PowerShell function output at the assignment site with `@(...)`; otherwise
-  an empty returned collection can collapse during pipeline enumeration and
-  serialize as `{}`. The source-evidence consumer requires `processCensus`
-  `before` and `after` to round-trip as zero-or-more row arrays.
+- Portable JSON collection fields must remain arrays even when empty. Use one
+  production process-census constructor and wrap its collection assignments
+  with `@(...)`; otherwise an empty returned collection can collapse during
+  pipeline enumeration and serialize as `{}`. The source-evidence consumer
+  requires `processCensus.before`, `unclaimedEngineProcessesObserved`, `after`,
+  and `cleanupErrors` to round-trip as zero-or-more row arrays.
 - Bind the full profile's eight intentional `RESOURCES` errors as four ordered
   raw triples (`Wrong GUID`, matching `GetResourceObject`, `Failed to open`) to
   their exact surrounding force-composition, convoy, and spawn-adapter proof

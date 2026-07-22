@@ -1284,6 +1284,14 @@ function Assert-SourceGate1CampaignCommon {
         "$EvidenceKey artifact.FinalOrphanActiveGroups"
     $census = $Summary.result.hardDiagnosticCensus
     Assert-SourceGate1Boolean $census.Valid $true "$EvidenceKey census.Valid"
+    Assert-SourceGate1Boolean `
+        $census.ShutdownCatalogPairValid $true `
+        "$EvidenceKey census.ShutdownCatalogPairValid"
+    if (-not (Test-SourceGate1Integer `
+                $census.ApprovedShutdownCatalogDiagnosticCount) -or
+        [long]$census.ApprovedShutdownCatalogDiagnosticCount -notin @(0, 2)) {
+        throw "$EvidenceKey census.ApprovedShutdownCatalogDiagnosticCount must be the exact integer 0 or 2."
+    }
     Assert-SourceGate1Integer `
         $census.UnapprovedHardDiagnosticCount 0 `
         "$EvidenceKey census.UnapprovedHardDiagnosticCount"
@@ -1326,6 +1334,9 @@ function Assert-SourceGate1CampaignResult {
         throw "$EvidenceKey has the wrong Campaign Debug profile."
     }
     $resourceIdentity = Assert-SourceGate1CampaignCommon $Summary $EvidenceKey
+    $shutdownCatalogCount =
+        [long]$result.hardDiagnosticCensus.ApprovedShutdownCatalogDiagnosticCount
+    $expectedStockDiagnosticCount = 2 + $shutdownCatalogCount
     $acceptance = $result.acceptance
     Assert-SourceGate1Boolean `
         $acceptance.accepted $true "$EvidenceKey acceptance.accepted"
@@ -1380,10 +1391,12 @@ function Assert-SourceGate1CampaignResult {
             throw 'The canary does not contain 35/35 focused assertions.'
         }
         Assert-SourceGate1Integer `
-            $result.hardDiagnosticCensus.HardDiagnosticCount 2 `
+            $result.hardDiagnosticCensus.HardDiagnosticCount `
+            (2 + $shutdownCatalogCount) `
             'canary hard diagnostic count'
         Assert-SourceGate1Integer `
-            $result.hardDiagnosticCensus.ApprovedStockDiagnosticCount 2 `
+            $result.hardDiagnosticCensus.ApprovedStockDiagnosticCount `
+            $expectedStockDiagnosticCount `
             'canary approved stock diagnostic count'
         Assert-SourceGate1Integer `
             $result.hardDiagnosticCensus.ApprovedIntentionalDiagnosticCount 0 `
@@ -1456,10 +1469,12 @@ function Assert-SourceGate1CampaignResult {
             }
         }
         Assert-SourceGate1Integer `
-            $result.hardDiagnosticCensus.HardDiagnosticCount 15 `
+            $result.hardDiagnosticCensus.HardDiagnosticCount `
+            (15 + $shutdownCatalogCount) `
             'full hard diagnostic count'
         Assert-SourceGate1Integer `
-            $result.hardDiagnosticCensus.ApprovedStockDiagnosticCount 2 `
+            $result.hardDiagnosticCensus.ApprovedStockDiagnosticCount `
+            $expectedStockDiagnosticCount `
             'full approved stock diagnostic count'
         Assert-SourceGate1Integer `
             $result.hardDiagnosticCensus.ApprovedIntentionalDiagnosticCount 13 `
@@ -1979,8 +1994,10 @@ function New-SourceGate1SelfTestCampaignResult {
             Valid = $true
             HardDiagnosticCount = if ($canary) { 2 } else { 15 }
             ApprovedStockDiagnosticCount = 2
+            ApprovedShutdownCatalogDiagnosticCount = 0
             ApprovedIntentionalDiagnosticCount = if ($canary) { 0 } else { 13 }
             UnapprovedHardDiagnosticCount = 0
+            ShutdownCatalogPairValid = $true
         }
         acceptance = $acceptance
         mountAttestation = [pscustomobject][ordered]@{
@@ -2375,6 +2392,36 @@ function Invoke-SourceGate1EvidenceSelfTest {
         $rejected++
         Reset-SourceGate1SelfTestFixture $fixture
 
+        $canaryPath = Join-Path $fixture.Root `
+            ([string]$fixture.SummaryPaths.forceAuthorityCanary).Replace('/', '\')
+        $canary = $fixture.SummaryTexts.forceAuthorityCanary | ConvertFrom-Json
+        $canaryCensus = $canary.result.hardDiagnosticCensus
+        $canaryCensus.ApprovedShutdownCatalogDiagnosticCount = 1
+        $canaryWritten = Write-SourceGate1SelfTestJson $canaryPath $canary
+        $status = $fixture.StatusText | ConvertFrom-Json
+        $status.gate1Source.evidence.forceAuthorityCanary.summarySha256 =
+            $canaryWritten.Sha256
+        [void](Write-SourceGate1SelfTestJson $fixture.StatusPath $status)
+        Assert-SourceGate1SelfTestThrows {
+            Assert-PartisanSourceGate1Evidence -RepositoryRoot $fixture.Root
+        } 'a partial shutdown catalog diagnostic pair was accepted'
+        $rejected++
+        Reset-SourceGate1SelfTestFixture $fixture
+
+        $canary = $fixture.SummaryTexts.forceAuthorityCanary | ConvertFrom-Json
+        $canary.result.hardDiagnosticCensus.PSObject.Properties.Remove(
+            'ShutdownCatalogPairValid')
+        $canaryWritten = Write-SourceGate1SelfTestJson $canaryPath $canary
+        $status = $fixture.StatusText | ConvertFrom-Json
+        $status.gate1Source.evidence.forceAuthorityCanary.summarySha256 =
+            $canaryWritten.Sha256
+        [void](Write-SourceGate1SelfTestJson $fixture.StatusPath $status)
+        Assert-SourceGate1SelfTestThrows {
+            Assert-PartisanSourceGate1Evidence -RepositoryRoot $fixture.Root
+        } 'a missing shutdown catalog pair verdict was accepted'
+        $rejected++
+        Reset-SourceGate1SelfTestFixture $fixture
+
         $fullPath = Join-Path $fixture.Root `
             ([string]$fixture.SummaryPaths.fullCampaignDebug).Replace('/', '\')
         $full = $fixture.SummaryTexts.fullCampaignDebug | ConvertFrom-Json
@@ -2444,6 +2491,7 @@ function Invoke-SourceGate1EvidenceSelfTest {
             stateMachineChecks = 2
             committedRunnerChecks = 1
             integrityChecks = 1
+            shutdownDiagnosticContractChecks = 2
             resourceDatabaseChecks = 1
             chronologyChecks = 1
             publishWorktreeChecks = 2

@@ -1482,6 +1482,40 @@ function ConvertTo-ProcessEvidenceRows {
     return $rows.ToArray()
 }
 
+function New-SourceCampaignProcessCensus {
+    param(
+        [Parameter(Mandatory = $true)]
+        [AllowEmptyCollection()]
+        [object[]]$BeforeProcesses,
+        [Parameter(Mandatory = $true)][int]$RootProcessId,
+        [Parameter(Mandatory = $true)][datetime]$RootStartUtc,
+        [Parameter(Mandatory = $true)][int]$MaximumOwnedProcesses,
+        [Parameter(Mandatory = $true)][int]$OwnedProcessesRemaining,
+        [Parameter(Mandatory = $true)]
+        [AllowEmptyCollection()]
+        [string[]]$UnclaimedEngineProcessesObserved,
+        [Parameter(Mandatory = $true)]
+        [AllowEmptyCollection()]
+        [object[]]$AfterProcesses,
+        [Parameter(Mandatory = $true)]
+        [AllowEmptyCollection()]
+        [string[]]$CleanupErrors
+    )
+
+    return [pscustomobject][ordered]@{
+        before = @(ConvertTo-ProcessEvidenceRows -Processes $BeforeProcesses)
+        rootProcessId = $RootProcessId
+        rootStartUtc = if ($RootStartUtc -ne [DateTime]::MinValue) {
+            $RootStartUtc.ToString('o', [Globalization.CultureInfo]::InvariantCulture)
+        } else { '' }
+        maximumOwnedProcesses = $MaximumOwnedProcesses
+        ownedProcessesRemaining = $OwnedProcessesRemaining
+        unclaimedEngineProcessesObserved = @($UnclaimedEngineProcessesObserved)
+        after = @(ConvertTo-ProcessEvidenceRows -Processes $AfterProcesses)
+        cleanupErrors = @($CleanupErrors)
+    }
+}
+
 function Test-ProcessIdentityAlive {
     param(
         [Parameter(Mandatory = $true)][int]$ProcessId,
@@ -2156,7 +2190,7 @@ function Get-SourceCampaignAmbientErrorCensusFromText {
     }
     $teardownExact = $teardownRows.Count -eq 0
     if ($teardownRows.Count -eq $expectedTeardownRows.Count) {
-        $teardownExact = Test-SourceCampaignExactSequence `
+        $teardownExact = Test-SourceCampaignExactMultiset `
             -Expected $expectedTeardownRows `
             -Actual @($teardownRows | ForEach-Object signature)
         if ($teardownExact) {
@@ -2814,6 +2848,7 @@ function Get-SourceCampaignDebugAcceptance {
     foreach ($field in @(
             'HardDiagnosticCount', 'ScriptErrors', 'EngineErrors', 'PartisanErrors',
             'CrashMarkers', 'PartisanSeverityLineCount', 'ApprovedStockDiagnosticCount',
+            'ApprovedShutdownCatalogDiagnosticCount',
             'ApprovedIntentionalDiagnosticCount', 'MalformedHardDiagnosticCount',
             'UnapprovedHardDiagnosticCount', 'CanonicalScriptLogCount',
             'CanonicalConsoleLogCount', 'CanonicalErrorLogCount',
@@ -2827,7 +2862,8 @@ function Get-SourceCampaignDebugAcceptance {
     foreach ($field in @(
             'Valid', 'HardDiagnosticFree', 'ChannelArithmeticValid',
             'CategoryArithmeticValid', 'LifecycleMarkersValid',
-            'IdentityBaselinePairValid', 'IntentionalFixtureStructureExact',
+            'IdentityBaselinePairValid', 'ShutdownCatalogPairValid',
+            'IntentionalFixtureStructureExact',
             'IntentionalFixtureSetValid', 'CanonicalLogPairSameDirectory',
             'AuxiliaryLogPairSameDirectory', 'AuxiliaryDiagnosticsValid',
             'ErrorLogProjectionExact', 'CrashLogProjectionExact',
@@ -2864,6 +2900,8 @@ function Get-SourceCampaignDebugAcceptance {
             ($diagnosticIntegers.HardDiagnosticCount -eq 0) -and
         $diagnosticBooleans.LifecycleMarkersValid -and
         $diagnosticBooleans.IdentityBaselinePairValid -and
+        $diagnosticBooleans.ShutdownCatalogPairValid -and
+        $diagnosticIntegers.ApprovedShutdownCatalogDiagnosticCount -in @(0, 2) -and
         $diagnosticBooleans.IntentionalFixtureStructureExact -and
         $diagnosticBooleans.IntentionalFixtureSetValid -and
         $diagnosticBooleans.CanonicalLogPairSameDirectory -and
@@ -2880,7 +2918,7 @@ function Get-SourceCampaignDebugAcceptance {
         $diagnosticIntegers.CanonicalCrashLogCount -eq 1 -and
         $diagnosticIntegers.AuxiliaryUnapprovedEventCount -eq 0 -and
         $diagnosticIntegers.UnapprovedHardDiagnosticCount -eq 0 -and
-        $ClassifierChecks -eq 38
+        $ClassifierChecks -eq 55
     if (-not $diagnosticCommon) {
         [void]$redAxes.Add('diagnostic-common')
     }
@@ -2895,22 +2933,29 @@ function Get-SourceCampaignDebugAcceptance {
         $diagnosticBooleans.IntentionalMissionConvoyCorruptionDiagnosticsProven,
         $diagnosticBooleans.IntentionalMissionConvoyWatchdogDiagnosticProven)
     $diagnosticProfileExact = $false
+    $shutdownCatalogCount =
+        $diagnosticIntegers.ApprovedShutdownCatalogDiagnosticCount
+    $expectedStockDiagnosticCount = 2 + $shutdownCatalogCount
     if ($Profile -ceq 'force_authority') {
-        $diagnosticProfileExact = $diagnosticIntegers.HardDiagnosticCount -eq 2 -and
-            $diagnosticIntegers.ScriptErrors -eq 2 -and
+        $diagnosticProfileExact = $diagnosticIntegers.HardDiagnosticCount -eq
+                (2 + $shutdownCatalogCount) -and
+            $diagnosticIntegers.ScriptErrors -eq (2 + $shutdownCatalogCount) -and
             $diagnosticIntegers.EngineErrors -eq 0 -and
             $diagnosticIntegers.PartisanErrors -eq 0 -and
-            $diagnosticIntegers.ApprovedStockDiagnosticCount -eq 2 -and
+            $diagnosticIntegers.ApprovedStockDiagnosticCount -eq
+                $expectedStockDiagnosticCount -and
             $diagnosticIntegers.ApprovedIntentionalDiagnosticCount -eq 0 -and
             @($intentionalCensusFlags | Where-Object { $_ }).Count -eq 0 -and
             @($intentionalValidationFlags | Where-Object { $_ }).Count -eq 0
     }
     else {
-        $diagnosticProfileExact = $diagnosticIntegers.HardDiagnosticCount -eq 15 -and
-            $diagnosticIntegers.ScriptErrors -eq 15 -and
+        $diagnosticProfileExact = $diagnosticIntegers.HardDiagnosticCount -eq
+                (15 + $shutdownCatalogCount) -and
+            $diagnosticIntegers.ScriptErrors -eq (15 + $shutdownCatalogCount) -and
             $diagnosticIntegers.EngineErrors -eq 0 -and
             $diagnosticIntegers.PartisanErrors -eq 13 -and
-            $diagnosticIntegers.ApprovedStockDiagnosticCount -eq 2 -and
+            $diagnosticIntegers.ApprovedStockDiagnosticCount -eq
+                $expectedStockDiagnosticCount -and
             $diagnosticIntegers.ApprovedIntentionalDiagnosticCount -eq 13 -and
             @($intentionalCensusFlags | Where-Object { -not $_ }).Count -eq 0 -and
             @($intentionalValidationFlags | Where-Object { -not $_ }).Count -eq 0
@@ -3187,23 +3232,33 @@ function Invoke-SourceRunnerSelfTest {
         }
     }
 
-    $emptyProcessRows = @(ConvertTo-ProcessEvidenceRows -Processes @())
-    $emptyProcessEnvelope = ([pscustomobject][ordered]@{
-            before = $emptyProcessRows
-            after = @(ConvertTo-ProcessEvidenceRows -Processes @())
-        } | ConvertTo-Json -Compress | ConvertFrom-Json)
-    if ($emptyProcessEnvelope.before -isnot [Array] -or
-        $emptyProcessEnvelope.after -isnot [Array] -or
-        @($emptyProcessEnvelope.before).Count -ne 0 -or
-        @($emptyProcessEnvelope.after).Count -ne 0) {
-        throw 'The empty process-evidence JSON array self-test failed.'
+    $emptyProcessCensus = (New-SourceCampaignProcessCensus `
+            -BeforeProcesses @() `
+            -RootProcessId 0 `
+            -RootStartUtc ([DateTime]::MinValue) `
+            -MaximumOwnedProcesses 0 `
+            -OwnedProcessesRemaining 0 `
+            -UnclaimedEngineProcessesObserved @() `
+            -AfterProcesses @() `
+            -CleanupErrors @() |
+        ConvertTo-Json -Compress |
+        ConvertFrom-Json)
+    if ($emptyProcessCensus.before -isnot [Array] -or
+        $emptyProcessCensus.unclaimedEngineProcessesObserved -isnot [Array] -or
+        $emptyProcessCensus.after -isnot [Array] -or
+        $emptyProcessCensus.cleanupErrors -isnot [Array] -or
+        @($emptyProcessCensus.before).Count -ne 0 -or
+        @($emptyProcessCensus.unclaimedEngineProcessesObserved).Count -ne 0 -or
+        @($emptyProcessCensus.after).Count -ne 0 -or
+        @($emptyProcessCensus.cleanupErrors).Count -ne 0) {
+        throw 'The empty process-census JSON array self-test failed.'
     }
 
     $library = Import-CampaignDebugClassifierLibrary `
         -ClassifierPath $ClassifierPath `
         -IncludeSelfTests
     $classifierChecks = Test-CampaignDebugHardDiagnosticCensus
-    if ([int]$classifierChecks -ne 38) {
+    if ([int]$classifierChecks -ne 55) {
         throw 'The Campaign Debug diagnostic-classifier self-test count drifted.'
     }
     $tempRoot = Join-Path `
@@ -3341,6 +3396,7 @@ function Invoke-SourceRunnerSelfTest {
                 CrashMarkers = 0
                 PartisanSeverityLineCount = 0
                 ApprovedStockDiagnosticCount = 2
+                ApprovedShutdownCatalogDiagnosticCount = 0
                 ApprovedIntentionalDiagnosticCount = if ($full) { 13 } else { 0 }
                 MalformedHardDiagnosticCount = 0
                 UnapprovedHardDiagnosticCount = 0
@@ -3349,6 +3405,7 @@ function Invoke-SourceRunnerSelfTest {
                 CategoryArithmeticValid = $true
                 LifecycleMarkersValid = $true
                 IdentityBaselinePairValid = $true
+                ShutdownCatalogPairValid = $true
                 IntentionalFixtureStructureExact = $true
                 IntentionalFixtureSetValid = $true
                 CanonicalScriptLogCount = 1
@@ -3382,7 +3439,7 @@ function Invoke-SourceRunnerSelfTest {
                 -Profile $Profile `
                 -ArtifactValidation $Validation `
                 -ErrorCensus $Census `
-                -ClassifierChecks 38 `
+                -ClassifierChecks 55 `
                 -CaptureAxesPassed $true
         }
 
@@ -3504,6 +3561,57 @@ function Invoke-SourceRunnerSelfTest {
             throw 'The corrected-canary acceptance self-test failed.'
         }
 
+        $shutdownCanaryCensus = & $newCensus 'force_authority'
+        $shutdownCanaryCensus.ApprovedShutdownCatalogDiagnosticCount = 2
+        $shutdownCanaryCensus.ApprovedStockDiagnosticCount = 4
+        $shutdownCanaryCensus.HardDiagnosticCount = 4
+        $shutdownCanaryCensus.ScriptErrors = 4
+        $shutdownCanaryAcceptance = & $invokeAcceptance `
+            -Name 'accepted-canary-with-shutdown-catalog-pair' `
+            -Profile 'force_authority' `
+            -Raw $canaryRaw `
+            -Validation (& $newValidation 'force_authority') `
+            -Census $shutdownCanaryCensus
+        if (-not $shutdownCanaryAcceptance.correctedCanaryAccepted -or
+            $shutdownCanaryAcceptance.disposition -cne
+                'accepted-corrected-canary') {
+            throw 'The optional shutdown catalog pair canary self-test failed.'
+        }
+
+        $shutdownFullCensus = & $newCensus 'full_certification'
+        $shutdownFullCensus.ApprovedShutdownCatalogDiagnosticCount = 2
+        $shutdownFullCensus.ApprovedStockDiagnosticCount = 4
+        $shutdownFullCensus.HardDiagnosticCount = 17
+        $shutdownFullCensus.ScriptErrors = 17
+        $shutdownFullAcceptance = & $invokeAcceptance `
+            -Name 'accepted-full-with-shutdown-catalog-pair' `
+            -Profile 'full_certification' `
+            -Raw $fullRaw `
+            -Validation (& $newValidation 'full_certification') `
+            -Census $shutdownFullCensus
+        if (-not $shutdownFullAcceptance.acceptedFull -or
+            $shutdownFullAcceptance.disposition -cne 'accepted-full') {
+            throw 'The optional shutdown catalog pair full self-test failed.'
+        }
+
+        $partialShutdownCensus = & $newCensus 'force_authority'
+        $partialShutdownCensus.ApprovedShutdownCatalogDiagnosticCount = 1
+        $partialShutdownCensus.ApprovedStockDiagnosticCount = 3
+        $partialShutdownCensus.HardDiagnosticCount = 3
+        $partialShutdownCensus.ScriptErrors = 3
+        $partialShutdownCensus.ShutdownCatalogPairValid = $false
+        $partialShutdownAcceptance = & $invokeAcceptance `
+            -Name 'rejected-partial-shutdown-catalog-pair' `
+            -Profile 'force_authority' `
+            -Raw $canaryRaw `
+            -Validation (& $newValidation 'force_authority') `
+            -Census $partialShutdownCensus
+        if ($partialShutdownAcceptance.accepted -or
+            @($partialShutdownAcceptance.redAxes) -cnotcontains
+                'diagnostic-common') {
+            throw 'The partial shutdown catalog pair rejection self-test failed.'
+        }
+
         $sourceCanaryAcceptance = & $invokeAcceptance `
             -Name 'accepted-production-shaped-source-canary' `
             -Profile 'force_authority' `
@@ -3584,7 +3692,7 @@ function Invoke-SourceRunnerSelfTest {
                 'external-advisory-linkage') {
             throw 'The external-advisory exact-linkage rejection self-test failed.'
         }
-        $acceptanceChecks = 9
+        $acceptanceChecks = 12
 
         $appendAmbientRows = {
             param(
@@ -3920,6 +4028,32 @@ function Invoke-SourceRunnerSelfTest {
             -Lines $partialTeardown.ToArray() `
             -Profile 'force_authority'
 
+        $reorderedTeardown = & $copyAmbientLines $forceAmbientLines.ToArray()
+        $firstTeardownIndex = $reorderedTeardown.IndexOf($forceDestroyLine) + 1
+        $lastTeardownIndex = $reorderedTeardown.Count - 1
+        $firstTeardownRow = $reorderedTeardown[$firstTeardownIndex]
+        $reorderedTeardown[$firstTeardownIndex] =
+            $reorderedTeardown[$lastTeardownIndex]
+        $reorderedTeardown[$lastTeardownIndex] = $firstTeardownRow
+        $reorderedTeardownCensus = Get-SourceCampaignAmbientErrorCensusFromText `
+            -ConsoleText ($reorderedTeardown.ToArray() -join "`n") `
+            -Profile 'force_authority'
+        if (-not $reorderedTeardownCensus.valid -or
+            -not $reorderedTeardownCensus.lifecycleExact -or
+            $reorderedTeardownCensus.teardownResourceCount -ne
+                $script:SourceCampaignFocusedTeardownResourceErrors.Count) {
+            throw 'The reordered teardown-resource multiset self-test failed.'
+        }
+
+        $duplicateTeardown = & $copyAmbientLines $forceAmbientLines.ToArray()
+        $firstTeardownIndex = $duplicateTeardown.IndexOf($forceDestroyLine) + 1
+        $duplicateTeardown[$duplicateTeardown.Count - 1] =
+            $duplicateTeardown[$firstTeardownIndex]
+        & $assertAmbientRejected `
+            -Name 'duplicate-teardown-resource' `
+            -Lines $duplicateTeardown.ToArray() `
+            -Profile 'force_authority'
+
         $missingStart = & $copyAmbientLines $forceAmbientLines.ToArray()
         [void]$missingStart.Remove($forceStartLine)
         & $assertAmbientRejected `
@@ -4128,6 +4262,7 @@ function Invoke-SourceRunnerSelfTest {
 
         $wrongProfileTeardown = New-Object Collections.Generic.List[string]
         [void]$wrongProfileTeardown.Add($forceArmLine)
+        [void]$wrongProfileTeardown.Add($forceStartLine)
         [void]$wrongProfileTeardown.Add($forceDoneLine)
         [void]$wrongProfileTeardown.Add($forceDestroyLine)
         & $appendAmbientRows `
@@ -4184,7 +4319,7 @@ function Invoke-SourceRunnerSelfTest {
             -Name 'duplicate-runtime-family-binding' `
             -Lines $duplicateRuntimeFamily.ToArray() `
             -Profile 'full_certification'
-        $ambientChecks = 30
+        $ambientChecks = 32
 
         $resourceDatabaseIdentity = Get-SourceResourceDatabaseIdentity `
             -CheckoutRoot $CheckoutRoot
@@ -4431,7 +4566,7 @@ function Invoke-SourceRunnerSelfTest {
         sourceResourceDatabaseBytes = [long]$resourceDatabaseIdentity.bytes
         sourceResourceDatabaseSha256 = [string]$resourceDatabaseIdentity.sha256
         portableSummaryChecks = $portableSummaryChecks
-        emptyProcessArrayChecks = 2
+        emptyProcessArrayChecks = 4
         argumentRoundTrip = $true
         publishInputRows = $publish.rowCount
         publishInputSha256 = $publish.sha256
@@ -4490,7 +4625,7 @@ $libraryBinding = Import-CampaignDebugClassifierLibrary `
     -ClassifierPath $classifierPath `
     -IncludeSelfTests
 $classifierChecks = Test-CampaignDebugHardDiagnosticCensus
-if ([int]$classifierChecks -ne 38) {
+if ([int]$classifierChecks -ne 55) {
     throw 'The Campaign Debug diagnostic classifier failed its preflight self-tests.'
 }
 $sourceBinding = Get-SourceBinding `
@@ -5416,18 +5551,15 @@ $result = [pscustomobject][ordered]@{
         ambientDiagnosticCensus = $ambientErrorCensus
         acceptance = $acceptance
         mountAttestation = $mountAttestation
-        processCensus = [pscustomobject][ordered]@{
-            before = @(ConvertTo-ProcessEvidenceRows -Processes $engineBefore)
-            rootProcessId = $rootProcessId
-            rootStartUtc = if ($rootStartUtc -ne [DateTime]::MinValue) {
-                $rootStartUtc.ToString('o', [Globalization.CultureInfo]::InvariantCulture)
-            } else { '' }
-            maximumOwnedProcesses = $maximumOwnedProcesses
-            ownedProcessesRemaining = $ownedRemaining
-            unclaimedEngineProcessesObserved = @($unclaimedObserved)
-            after = @(ConvertTo-ProcessEvidenceRows -Processes $engineAfter)
-            cleanupErrors = $cleanupErrors.ToArray()
-        }
+        processCensus = New-SourceCampaignProcessCensus `
+            -BeforeProcesses $engineBefore `
+            -RootProcessId $rootProcessId `
+            -RootStartUtc $rootStartUtc `
+            -MaximumOwnedProcesses $maximumOwnedProcesses `
+            -OwnedProcessesRemaining $ownedRemaining `
+            -UnclaimedEngineProcessesObserved @($unclaimedObserved) `
+            -AfterProcesses $engineAfter `
+            -CleanupErrors $cleanupErrors.ToArray()
         retainedArtifactPaths = @($artifactPaths | ForEach-Object {
                 $full = [IO.Path]::GetFullPath($_)
                 $prefix = [IO.Path]::GetFullPath($runRoot).TrimEnd('\', '/') +
