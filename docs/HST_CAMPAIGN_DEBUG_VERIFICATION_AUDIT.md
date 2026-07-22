@@ -238,17 +238,23 @@ output, and left no engine, port listener, candidate mount, guard directory, or
 runtime-addon residue. This is permanent failed noncertifying harness evidence,
 not a package pass or demonstrated package failure.
 
-Native capture now roots at the actual profile subtree while preserving the
-portable `files/native/.save/game` namespace, and copy restores bytes to
-`profile/.save/game`. Before a standard launch the runner validates the complete
-manifest/census, exact copied rows, requested UUID, unique metadata set, current
-`m_sMissionResource`, save types `2/1/8`, and nonempty `System/` payloads. The
-publisher independently repeats the stage-set and standard-console checks.
-Readiness now accepts two consecutive semantic observations even while bytes
-grow, checks exact process identity before and after reading, requires online
-and GAME markers, requires native restoration for loaded stages, rejects missing
-loads/new playthroughs, and requires `native` or `profile_fallback` as appropriate.
-Its bounded failure artifact is path-free.
+Follow-up run `20260722T054405Z-592d89ac42b8` proved the corrected native root,
+complete census, exact copied rows, requested UUID, metadata, and `System/`
+payloads. The standard server reached online/GAME but selected
+`profile_fallback` after diagnostic-created native state entered `FAILURE` under
+the different standard script topology. One live console existed throughout,
+but `ReadAllText` conflicted with the held writer on all 104 polls and recorded
+zero signatures. Its failure seal and cleanup are exact; it is not a package
+defect or standard-restoration pass.
+
+Readiness now uses a bounded fixed-length shared-handle snapshot, strict UTF-8,
+append-only prefix continuity, and exact process identity around two consecutive
+semantic reads. Within this explicitly raw-retention-only artifact, a UUID-
+bearing stage accepts coherent `native` plus restoration or coherent
+`profile_fallback` without restoration; explicit missing/new-playthrough markers
+still reject. The no-UUID stage remains exact fallback. The index continues to
+set `standardSaveRestorationCertified=false`, and the bounded failure artifact
+is path-free.
 
 The release-surface publisher passes 65 self-test checks, and the retention
 publisher passes 71/71, including actual-profile snapshot round trips,

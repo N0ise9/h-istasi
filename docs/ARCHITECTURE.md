@@ -230,26 +230,34 @@ release-index SHA-256
 `52bb83ffd810760eba27e7ca6ee490710fdb61bcc2e87f99e29c32ec63823ad5`
 passed independent zero-write verification.
 
-Retention run `20260722T043633Z-4caead8fcfba` completed all five diagnostic
-stages but no standard context. Native engine saves existed under the actual
-profile subtree, while the snapshotter looked one level too high and captured
-only journal files. The first standard context consequently requested an absent
-UUID, logged `LoadSessionSave ... was not found`, started a new playthrough, and
-selected `profile_fallback`. Its append-only console simultaneously defeated a
-second obsolete rule requiring two identical whole-file hashes. The run is
-failure-sealed with exact cleanup, no success controls, and no live residue. It
-is harness-failure evidence, not a package pass or package defect.
+Retention run `20260722T043633Z-4caead8fcfba` exposed the obsolete native root
+and whole-log-stability rules. Follow-up run
+`20260722T054405Z-592d89ac42b8` proved the native-path repair: all five
+diagnostic stages completed, the autosave journal, metadata, and both nonempty
+`System/` rows copied byte-exactly into the standard profile, and the exact UUID
+appeared in the standard CLI. The standard server reached online/GAME but
+selected `profile_fallback` after native persistence entered `FAILURE`. That is
+an invalid diagnostic-to-standard native handoff across different compiled
+script topologies, not proof of a package defect or of standard restoration.
 
-The runner now snapshots native bytes from `profile/.save/game` into the stable
+The same run exposed a separate reader defect. The engine held its console open
+for writing; `ReadAllText` therefore failed on every one of 104 polls even though
+one retained console grew to 25,241 bytes. Readiness now takes a bounded,
+fixed-length, strict-UTF-8 snapshot through a read handle shared with writers,
+requires append-only prefix continuity, and resets on transient read gaps. A
+held-writer regression proves the writer remains open and writable throughout.
+
+The runner snapshots native bytes from `profile/.save/game` into the stable
 portable `files/native/.save/game` namespace, validates exact metadata, payload,
-UUID, source census, and copy bytes before launch, and restores those bytes to
+UUID, source census, and copied bytes before launch, and restores those bytes to
 the actual profile subtree. Current engine metadata uses `m_sMissionResource`,
-save types `2/1/8`, and nonempty `System/` payloads. Standard readiness requires
-two consecutive marker-positive observations while allowing log growth, checks
-process identity before and after each read, requires native restoration and
-the stage-specific startup source, and retains a path-free failure record.
+save types `2/1/8`, and nonempty `System/` payloads. This Gate 1 artifact remains
+`raw-retention-only`: a UUID-bearing standard stage may observe either coherent
+native restoration or coherent journal fallback, and the fallback branch proves
+startup plus byte stability, not native recognition. Retail-created-to-retail-
+restored native certification remains a later restart gate.
 
-The release-surface publisher passes 65 checks, and the strengthened retention
+The release-surface publisher passes 65 checks, and the corrected retention
 publisher passes 71/71, including native-layout round trips, growing-log
 readiness, current metadata/schema negatives, startup-source negatives,
 terminal failure sealing, and zero-write republishing verification. The release-

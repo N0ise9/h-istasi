@@ -165,14 +165,23 @@ The embedded implementation stamp is
   stage save, at least one nonempty `System/` row, no empty or orphan native row,
   and one exact requested load UUID before launching standard runtime.
 - An append-only engine log is not expected to become byte-stable while startup
-  continues. Standard readiness requires two consecutive marker-positive reads,
-  not two identical whole-file hashes. Recheck exact process identity before and
-  after each read; require CLI, game-created, online, and GAME markers. Native
-  stages additionally require `[PERSISTENCE] Session restored.` and exact
-  `startup source native`, and reject a missing `LoadSessionSave` or new
-  playthrough. The fallback stage requires zero native/load authority and exact
-  `startup source profile_fallback`. Preserve bounded path-free poll state on
-  rejection or timeout.
+  continues, and `ReadAllText` cannot read it while Enfusion holds the write
+  handle. Take a bounded fixed-length snapshot with read/write/delete sharing,
+  strict UTF-8, and append-only prefix continuity. Standard readiness requires
+  two consecutive marker-positive reads and exact process identity before and
+  after each read. Require CLI, game-created, online, and GAME markers. For the
+  explicitly noncertifying Gate 1 raw-retention artifact, a UUID-bearing stage
+  may report `native` only with `[PERSISTENCE] Session restored.`, or
+  `profile_fallback` only without that marker. Reject a missing UUID or new
+  playthrough when a UUID was supplied. The no-UUID fallback stage requires
+  exact `profile_fallback` and may legitimately start a new playthrough. This
+  proves retained bytes and standard startup, not standard native restoration.
+  Preserve bounded path-free poll state on rejection or timeout.
+- Native save binaries must not be assumed portable across compiled script
+  topologies. Diagnostic and standard 1.7.0.54 servers compiled 11,964/11,604
+  Game classes with CRCs `11041e00`/`aeddce9b`, and campaign state contains
+  diagnostic-only serialized members. Certify standard native restart only with
+  a standard-created checkpoint restored by a fresh standard process.
 - A global engine census has a second normal-exit window after its process
   snapshot. Resolve the exact ledger entry before recapturing identity. For one
   ledger-known observed process, reuse the process-object status core and accept

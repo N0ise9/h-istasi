@@ -4890,8 +4890,8 @@ Consequences:
 
 ## CRI-092 - Bind Retention to the Actual Native Profile and Semantic Readiness
 
-- Status: Accepted as a fail-closed retention-only evidence-tooling correction;
-  the accepted surface half is retained and pair completion remains pending
+- Status: Superseded in part by CRI-093; the native-profile correction remains
+  accepted, while the restoration claim was outside this evidence contract
 - Date: 2026-07-22
 
 Context: Corrected release-surface run
@@ -4938,6 +4938,9 @@ and exact `startup source native`, and immediately rejects a missing
 authority and requires exact `startup source profile_fallback`. On rejection or
 deadline, retain only bounded path-free poll/marker/signature state.
 
+The preceding restoration predicate records CRI-092's superseded approach;
+CRI-093 below defines the current noncertifying Gate 1 boundary.
+
 Strengthen the existing retention publisher in place: independently parse the
 current metadata and retained standard consoles, require exact diagnostic input
 and output save sets, reject empty/orphan payloads, and preserve the v1 index
@@ -4962,3 +4965,64 @@ Consequences:
   unchanged package, independently verify its publication, and consume it with
   the accepted surface half. Until that succeeds, `STATUS-008` remains open,
   Gate 1 remains incomplete, and release remains `NO-GO`.
+
+## CRI-093 - Keep Gate 1 Retention Noncertifying Across Script Topologies
+
+- Status: Accepted as a retention-only evidence-tooling correction; a fresh
+  paired run remains pending
+- Date: 2026-07-22
+
+Context: Follow-up retention run `20260722T054405Z-592d89ac42b8` used the
+correct native profile root and completed all five diagnostic stages. Its first
+standard input exactly matched the diagnostic autosave output: journal,
+`meta-info.json`, and both nonempty `System/` rows shared one aggregate digest,
+the metadata contained the requested UUID, and the standard CLI passed that
+UUID against the correct profile. The standard server reached online/GAME but
+did not emit `[PERSISTENCE] Session restored.` It selected `profile_fallback`
+after native persistence entered state `4`, which is `FAILURE`.
+
+This handoff crossed compiled script topologies. The diagnostic server compiled
+11,964 Game classes with CRC `11041e00`; the standard server compiled 11,604
+with CRC `aeddce9b`. Campaign state also has diagnostic-only serialized members.
+The result therefore proves neither a missing-copy defect nor a retail package
+defect. It proves that a diagnostic-created native binary is not a valid input
+from which to certify standard-created-to-standard-restored persistence.
+
+The same run found an independent live-reader defect. One console existed for
+104 polls and eventually contained 25,241 bytes, but every `ReadAllText` call
+conflicted with the engine's held write handle. The sealed failure consequently
+recorded zero readable signatures. Cleanup was exact and no success controls or
+live residue remained.
+
+Decision: Keep the existing v1 evidence and consumer boundary:
+`raw-retention-only`, `certificationClaim=none`, `retailClaim=none`,
+`byteStabilityClaim=observation-only`, and
+`standardSaveRestorationCertified=false`. For UUID-bearing standard contexts,
+accept exactly one coherent observation: `native` plus the engine restoration
+marker, or `profile_fallback` without that marker. Continue rejecting an
+explicit missing UUID or new playthrough when a UUID was supplied. A no-UUID
+stage must remain exact `profile_fallback` and may legitimately start a new
+playthrough. Neither branch promotes this artifact to restoration proof.
+
+Read the live console through a bounded fixed-length `FileStream` snapshot with
+writer/delete sharing, strict UTF-8 decoding, and append-only prefix continuity.
+Treat sharing, partial-read, and UTF-8 boundary races as nonqualifying gaps;
+retain only path-free bounded failure categories. Require two consecutive
+semantic observations and exact process identity before and after each read.
+
+Consequences:
+
+- The retention suite remains 71/71 without an engine. Its held-writer case
+  proves the legacy reader fails while the bounded reader succeeds and the same
+  writer remains open across appended growth.
+- The accepted release-surface half remains valid because this correction does
+  not change any of its bound files. The retention publisher still records
+  standard startup and exact input/output byte stability without certifying
+  native restoration.
+- A genuine standard native restart requires a standard server to import the
+  verified journal, create its own natural checkpoint, and a fresh standard
+  server to restore that checkpoint. Carry that proof into the earliest natural
+  restart gate rather than expanding Gate 1.
+- Run a fresh retention proof and consume it with the accepted surface half.
+  Until that pair is accepted, `STATUS-008` remains open, Gate 1 is incomplete,
+  and release remains `NO-GO`.

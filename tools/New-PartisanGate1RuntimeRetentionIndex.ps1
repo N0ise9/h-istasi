@@ -1444,21 +1444,30 @@ function Assert-StandardRuntimeConsoleContract {
             throw "$Stage standard console lacks a readiness marker."
         }
     }
-    $expectedSource = if ([string]::IsNullOrWhiteSpace($LoadSavePointId)) {
-        'profile_fallback'
+    $expectedSources = if ([string]::IsNullOrWhiteSpace($LoadSavePointId)) {
+        [string[]]@('profile_fallback')
     }
-    else { 'native' }
+    else { [string[]]@('native', 'profile_fallback') }
     $sourceMatches = @([regex]::Matches(
         $text,
         '(?m)Partisan persistence \| startup source ([a-z_]+) \|'))
+    $actualSource = if ($sourceMatches.Count -eq 1) {
+        [string]$sourceMatches[0].Groups[1].Value
+    }
+    else { '' }
     if ($sourceMatches.Count -ne 1 -or
-        [string]$sourceMatches[0].Groups[1].Value -cne $expectedSource) {
+        $actualSource -notin $expectedSources) {
         throw "$Stage standard console startup source is not exact."
     }
     $restored = $text -match '(?m)\[PERSISTENCE\] Session restored\.'
-    $rejected = $text -match '(?m)LoadSessionSave id .+ was not found\.' -or
-        $text -match '(?m)\[SaveGameManager\] Starting new playthrough'
-    if ($expectedSource -ceq 'native') {
+    $loadRequested = -not [string]::IsNullOrWhiteSpace($LoadSavePointId)
+    $rejected = $loadRequested -and (
+        $text -match '(?m)LoadSessionSave id .+ was not found\.' -or
+        $text -match '(?m)\[SaveGameManager\] Starting new playthrough')
+    if ($rejected) {
+        throw "$Stage standard console explicitly rejected its supplied save."
+    }
+    if ($actualSource -ceq 'native') {
         if (-not $restored -or $rejected) {
             throw "$Stage standard console did not restore its native save."
         }

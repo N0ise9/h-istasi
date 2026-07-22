@@ -76,14 +76,21 @@ hashes. The failure seal and cleanup are exact, no success controls or live
 residue exist, and the result is harness-failure evidence rather than a package
 pass or package defect.
 
-The corrected retention boundary snapshots/restores the actual profile subtree,
-prevalidates the current `m_sMissionResource`, `2/1/8`, `System/`, UUID, full-
-census, and exact-copy contracts, and uses two consecutive semantic readiness
-observations that allow file growth. Native loads require restoration and exact
-`startup source native`; fallback requires zero native load authority and exact
-`profile_fallback`. The publisher independently rechecks these semantics and its
-non-engine suite passes 71/71. Since no shared surface-bound byte changed, the
-accepted surface remains valid while a fresh retention run is pending.
+Follow-up run `20260722T054405Z-592d89ac42b8` proved the corrected native root,
+full census, exact copied rows, metadata, payload, and UUID handoff. Standard
+startup reached online/GAME but selected `profile_fallback` after the diagnostic-
+created native state failed under the different standard script topology. Its
+live console also exposed a held-writer sharing conflict in `ReadAllText`.
+
+The corrected boundary uses bounded shared-handle snapshots and two consecutive
+semantic observations while the console grows. A UUID-bearing standard stage
+accepts coherent `native` plus restoration or coherent `profile_fallback`
+without restoration; explicit missing/new-playthrough rejection still fails.
+This is exactly `raw-retention-only`, and the index keeps
+`standardSaveRestorationCertified=false`. The publisher independently rechecks
+these semantics and its non-engine suite passes 71/71. Since no shared surface-
+bound byte changed, the accepted surface remains valid while a fresh retention
+run is pending.
 
 The former ee0 candidate is immutable ordered `history[2]` with
 `rejected-after-full-profile`. Its package-bound focused and corrected-canary

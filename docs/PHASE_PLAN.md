@@ -196,15 +196,24 @@ sealed exact failed evidence, emitted no success controls, and left no live
 residue. This is a harness failure, not candidate acceptance or a demonstrated
 candidate defect.
 
-The runner now captures/restores the actual native profile subtree, validates
-the full manifest/census, exact copied rows, unique requested UUID, current
-`m_sMissionResource`, save types `2/1/8`, and nonempty `System/` payloads before
-standard launch. Readiness accepts two consecutive semantic observations while
-the log grows, with exact process checks around each read and stage-specific
-native/fallback source enforcement. The publisher independently repeats those
-checks; its no-engine suite passes 71/71. Only retention-specific bound tools and
-Markdown changed, so the accepted surface half remains byte-valid and may pair
-with a later descendant retention harness after independent exact-blob checks.
+Follow-up run `20260722T054405Z-592d89ac42b8` proved the actual native profile
+subtree, full manifest/census, exact copied rows, requested UUID, current
+`m_sMissionResource`, save types `2/1/8`, and nonempty `System/` payloads. The
+standard server reached online/GAME but selected journal fallback after the
+diagnostic-created native state entered `FAILURE` under a different compiled
+script topology. Its held console writer also made every `ReadAllText` poll fail.
+This sealed result remains harness evidence, not a package defect or restoration
+pass.
+
+Readiness now uses a bounded shared-handle, strict-UTF-8, append-only snapshot
+and two consecutive semantic observations with exact process checks. Within the
+raw-retention-only claim, UUID-bearing stages accept coherent native restoration
+or coherent journal fallback; neither promotes
+`standardSaveRestorationCertified` above false. The publisher independently
+repeats those checks and its no-engine suite passes 71/71. Only retention-
+specific bound tools and Markdown changed, so the accepted surface half remains
+byte-valid and may pair with a later descendant retention harness after exact-
+blob checks.
 
 1. Run and independently accept fresh diagnostic-write/standard-read runtime-
    retention evidence under the corrected retention tools, then consume it with

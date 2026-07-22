@@ -1343,6 +1343,19 @@ function Get-GateNextReadinessConsecutiveCount {
     return $CurrentCount + 1
 }
 
+function Test-GateStartupSourceExpectation {
+    param(
+        [Parameter(Mandatory = $true)]
+        [ValidateSet('native', 'profile_fallback', 'native_or_profile_fallback')]
+        [string]$Expected,
+        [Parameter(Mandatory = $true)][AllowEmptyString()][string]$Actual
+    )
+    if ($Expected -ceq 'native_or_profile_fallback') {
+        return $Actual -in @('native', 'profile_fallback')
+    }
+    return $Actual -ceq $Expected
+}
+
 function Wait-GateStandardLogReadiness {
     param(
         [Parameter(Mandatory = $true)]$Launch,
@@ -1360,9 +1373,11 @@ function Wait-GateStandardLogReadiness {
             (-not [string]::IsNullOrWhiteSpace($ExpectedStartupSource) -or
                 -not [string]::IsNullOrWhiteSpace($ExpectedLoadSavePointId))) -or
         ($Role -ceq 'server' -and
-            $ExpectedStartupSource -notin @('native', 'profile_fallback')) -or
+            $ExpectedStartupSource -notin @(
+                'native', 'profile_fallback', 'native_or_profile_fallback')) -or
         (-not [string]::IsNullOrWhiteSpace($ExpectedLoadSavePointId) -and
-            ($ExpectedStartupSource -cne 'native' -or
+            ($ExpectedStartupSource -notin @(
+                    'native', 'native_or_profile_fallback') -or
                 $ExpectedLoadSavePointId -cnotmatch
                     '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$')) -or
         ([string]::IsNullOrWhiteSpace($ExpectedLoadSavePointId) -and
@@ -1484,18 +1499,26 @@ function Wait-GateStandardLogReadiness {
                 $sourceMatches = @([regex]::Matches(
                     $text,
                     '(?m)Partisan persistence \| startup source ([a-z_]+) \|'))
-                $lastState.expectedStartupSource = $Role -ceq 'client' -or
-                    @($sourceMatches | Where-Object {
-                            [string]$_.Groups[1].Value -ceq
-                                $ExpectedStartupSource
-                        }).Count -eq 1
+                $actualSource = if ($sourceMatches.Count -eq 1) {
+                    [string]$sourceMatches[0].Groups[1].Value
+                }
+                else { '' }
+                $sourceExpected = $Role -ceq 'client' -or (
+                    $sourceMatches.Count -eq 1 -and
+                    (Test-GateStartupSourceExpectation `
+                        -Expected $ExpectedStartupSource `
+                        -Actual $actualSource))
+                $restoreCoherent = $Role -ceq 'client' -or
+                    ($actualSource -ceq 'native' -and
+                        [bool]$lastState.sessionRestored) -or
+                    ($actualSource -ceq 'profile_fallback' -and
+                        -not [bool]$lastState.sessionRestored)
+                $lastState.expectedStartupSource = [bool]$sourceExpected
                 $lastState.wrongStartupSource = $Role -ceq 'server' -and
                     $sourceMatches.Count -gt 0 -and
-                    (-not [bool]$lastState.expectedStartupSource -or
-                        @($sourceMatches | Where-Object {
-                                [string]$_.Groups[1].Value -cne
-                                    $ExpectedStartupSource
-                            }).Count -gt 0)
+                    (-not [bool]$sourceExpected -or
+                        ($actualSource -ceq 'profile_fallback' -and
+                            [bool]$lastState.sessionRestored))
                 $loadRequested = -not [string]::IsNullOrWhiteSpace(
                     $ExpectedLoadSavePointId)
                 $lastState.rejectedLoad = $loadRequested -and (
@@ -1527,8 +1550,7 @@ function Wait-GateStandardLogReadiness {
                     [bool]$lastState.online -and
                     [bool]$lastState.gameState -and
                     [bool]$lastState.expectedStartupSource -and
-                    (-not $loadRequested -or
-                        [bool]$lastState.sessionRestored)
+                    [bool]$restoreCoherent
                 $statusAfter = Get-PartisanProcessIdentityStatus `
                     -Identity $Launch.RootIdentity
                 if ([string]$statusAfter.Status -cne 'alive') {
@@ -1707,7 +1729,7 @@ function Invoke-GateStandardRetentionContext {
                 'server-readiness-failure.json') `
             -ExpectedStartupSource $(if ($Stage -ceq
                     'profile_fallback_verify') { 'profile_fallback' }
-                else { 'native' }) `
+                else { 'native_or_profile_fallback' }) `
             -ExpectedLoadSavePointId $LoadSavePointId `
             -PollIntervalMilliseconds $PollMilliseconds
         $clientArguments = [string[]]@()

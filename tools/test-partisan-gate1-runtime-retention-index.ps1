@@ -520,6 +520,53 @@ try {
     finally {
         if ($writer) { $writer.Dispose() }
     }
+    $fallbackReadinessRoot = Join-Path $tempRoot 'runner-readiness-fallback'
+    $fallbackReadinessText = $readinessText.Replace(
+        '[PERSISTENCE] Session restored.' + "`n", '').Replace(
+        'startup source native', 'startup source profile_fallback') + "`n"
+    $null = Write-TestText (Join-Path $fallbackReadinessRoot 'console.log') `
+        $fallbackReadinessText
+    $fallbackReady = Wait-GateStandardLogReadiness `
+        -Launch $launch `
+        -LogRoot $fallbackReadinessRoot `
+        -Stage autosave_checkpoint `
+        -Role server `
+        -DeadlineUtc ([DateTime]::UtcNow.AddSeconds(2)) `
+        -FailureEvidencePath (Join-Path $fallbackReadinessRoot 'failure.json') `
+        -ExpectedStartupSource native_or_profile_fallback `
+        -ExpectedLoadSavePointId $snapshotSaveId `
+        -PollIntervalMilliseconds 10
+    Assert-TestCondition (
+        [bool]$fallbackReady.observed -and
+        -not (Test-Path -LiteralPath (Join-Path $fallbackReadinessRoot `
+                'failure.json'))) `
+        'supplied diagnostic bytes may coherently select the journal fallback'
+    $pendingNativeRoot = Join-Path $tempRoot 'runner-readiness-native-pending'
+    $pendingNativeText = $readinessText.Replace(
+        '[PERSISTENCE] Session restored.' + "`n", '') + "`n"
+    $null = Write-TestText (Join-Path $pendingNativeRoot 'console.log') `
+        $pendingNativeText
+    $pendingNativeEvidence = Join-Path $pendingNativeRoot 'failure.json'
+    Assert-TestRejected 'native source before restore marker remains pending' {
+        Wait-GateStandardLogReadiness `
+            -Launch $launch `
+            -LogRoot $pendingNativeRoot `
+            -Stage autosave_checkpoint `
+            -Role server `
+            -DeadlineUtc ([DateTime]::UtcNow.AddSeconds(1)) `
+            -FailureEvidencePath $pendingNativeEvidence `
+            -ExpectedStartupSource native_or_profile_fallback `
+            -ExpectedLoadSavePointId $snapshotSaveId `
+            -PollIntervalMilliseconds 10 | Out-Null
+    } 'readiness rejected: deadline'
+    $pendingNativeFailure = Get-Content -Raw -LiteralPath `
+        $pendingNativeEvidence | ConvertFrom-Json
+    Assert-TestCondition (
+        [string]$pendingNativeFailure.reason -ceq 'deadline' -and
+        [bool]$pendingNativeFailure.markers.expectedStartupSource -and
+        -not [bool]$pendingNativeFailure.markers.sessionRestored -and
+        -not [bool]$pendingNativeFailure.markers.wrongStartupSource) `
+        'native source may precede its restoration marker without terminal rejection'
     $rejectedReadinessRoot = Join-Path $tempRoot 'runner-readiness-rejected'
     $rejectedText = $readinessText + "`n" +
         "LoadSessionSave id '$snapshotSaveId' was not found.`n" +
@@ -2315,11 +2362,23 @@ public static class Gate1SyntheticSleeper {
         -LoadSavePointId ([string]$saveIds[0])
     try {
         $autosaveConsoleText = [IO.File]::ReadAllText($autosaveConsolePath)
+        $fallbackConsoleText = $autosaveConsoleText.Replace(
+            "[PERSISTENCE] Session restored.`r`n", '').Replace(
+            "[PERSISTENCE] Session restored.`n", '').Replace(
+            'startup source native', 'startup source profile_fallback')
         [IO.File]::WriteAllText(
             $autosaveConsolePath,
-            $autosaveConsoleText.Replace(
-                'startup source native', 'startup source profile_fallback'))
-        Assert-TestRejected 'wrong standard startup source' {
+            $fallbackConsoleText)
+        Assert-StandardRuntimeConsoleContract `
+            -RunRoot $runRoot `
+            -StageDirectory '00-autosave_checkpoint' `
+            -Stage autosave_checkpoint `
+            -LoadSavePointId ([string]$saveIds[0])
+        [IO.File]::WriteAllText(
+            $autosaveConsolePath,
+            $fallbackConsoleText.Replace(
+                'startup source profile_fallback', 'startup source fatal'))
+        Assert-TestRejected 'unsupported standard startup source' {
             Assert-StandardRuntimeConsoleContract `
                 -RunRoot $runRoot `
                 -StageDirectory '00-autosave_checkpoint' `
@@ -2336,7 +2395,7 @@ public static class Gate1SyntheticSleeper {
                 -StageDirectory '00-autosave_checkpoint' `
                 -Stage autosave_checkpoint `
                 -LoadSavePointId ([string]$saveIds[0])
-        } 'did not restore its native save'
+        } 'explicitly rejected its supplied save'
         [IO.File]::WriteAllBytes($autosaveConsolePath, $autosaveConsoleBytes)
         $withoutRestore = ([IO.File]::ReadAllText($autosaveConsolePath)).Replace(
             "[PERSISTENCE] Session restored.`r`n", '').Replace(
@@ -2349,6 +2408,17 @@ public static class Gate1SyntheticSleeper {
                 -Stage autosave_checkpoint `
                 -LoadSavePointId ([string]$saveIds[0])
         } 'did not restore its native save'
+        [IO.File]::WriteAllText(
+            $autosaveConsolePath,
+            $autosaveConsoleText.Replace(
+                'startup source native', 'startup source profile_fallback'))
+        Assert-TestRejected 'fallback with native restore marker' {
+            Assert-StandardRuntimeConsoleContract `
+                -RunRoot $runRoot `
+                -StageDirectory '00-autosave_checkpoint' `
+                -Stage autosave_checkpoint `
+                -LoadSavePointId ([string]$saveIds[0])
+        } 'unexpectedly restored a native save'
     }
     finally { [IO.File]::WriteAllBytes($autosaveConsolePath, $autosaveConsoleBytes) }
     Assert-StandardRuntimeConsoleContract `

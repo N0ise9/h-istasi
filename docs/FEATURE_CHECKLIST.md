@@ -199,17 +199,17 @@ remains open, Gate 1 remains incomplete, and release remains `NO-GO`.
   cleanup were exact, and independent zero-write verification accepted release-
   index SHA-256
   `52bb83ffd810760eba27e7ca6ee490710fdb61bcc2e87f99e29c32ec63823ad5`.
-- [x] Preserve and correct the failed retention harness without blaming the
-  package. Run `20260722T043633Z-4caead8fcfba` completed all five diagnostic
-  stages and zero standard stages. Native saves existed under
-  `profile/.save/game`, but the snapshotter looked one level too high, so the
-  requested UUID was absent and standard startup selected `profile_fallback`.
-  Whole-log hash stability also timed out on the live append-only console. The
-  exact failure seal and cleanup passed with no success controls or residue.
-  Snapshot/copy now uses the actual profile subtree, validates the exact current
-  `m_sMissionResource`, `2/1/8`, and `System/` contract before launch, and
-  semantic readiness permits growth while requiring online/GAME, native restore,
-  and exact startup source. The strengthened suite passes 71/71 without engines.
+- [x] Preserve and correct both failed retention harnesses without blaming the
+  package. Run `20260722T043633Z-4caead8fcfba` exposed the wrong native root and
+  whole-log stability rule. Run `20260722T054405Z-592d89ac42b8` proved exact
+  native capture/copy/UUID input, then exposed cross-topology native `FAILURE`
+  and a live `ReadAllText` sharing conflict. Both failure seals and cleanups are
+  exact, with no success controls or residue. Snapshot/copy uses the actual
+  profile subtree and validates `m_sMissionResource`, `2/1/8`, and nonempty
+  `System/` rows. The bounded held-writer reader now permits growth and requires
+  online/GAME plus one coherent `native` or `profile_fallback` observation. The
+  artifact remains raw-retention-only and does not certify standard native
+  restoration. The suite passes 71/71 without engines.
 - [x] Replace the five aggregate JUnit wrappers with five suite launches that
   validate 91 individually named cases in exact counts 14/13/17/6/41. The
   forward aggregate contract requires JUnit 91/0/0/0, 40 retained files, and

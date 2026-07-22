@@ -227,17 +227,23 @@ out. The failure-sealed run has exact cleanup, no run envelope, index, ready
 seal, success output, or live residue. It is noncertifying harness-failure
 evidence, not a package pass or demonstrated package defect.
 
-Retention snapshots now read the actual profile subtree but preserve the stable
-portable `files/native/.save/game` namespace; restore prepends `profile/`.
-Before standard launch, the runner verifies manifest hashes and census, exact
-copied rows, unique requested UUIDs, `m_sMissionResource`, exact `2/1/8` save
-types, and nonempty `System/` payloads. The publisher independently requires the
-exact stage save sets and retained standard-console source/restore markers.
-Readiness now requires two consecutive marker-positive reads while allowing log
-growth, with process identity checks before and after reading; native stages
-reject missing loads or new playthroughs and require `startup source native`,
-while fallback requires zero load authority and exact `profile_fallback`.
-Bounded failure state is path-free. The no-engine suite passes 71/71.
+Follow-up run `20260722T054405Z-592d89ac42b8` used the actual profile subtree
+and proved manifest hashes, full census, exact copied rows, unique requested UUID,
+`m_sMissionResource`, `2/1/8`, and nonempty `System/` payloads. The first
+standard context received byte-exact input and reached online/GAME, but selected
+`profile_fallback` after diagnostic-created native state entered `FAILURE` under
+the different standard script topology. This is neither a missing-copy defect
+nor standard native-restoration proof.
+
+The same run's live console grew to 25,241 bytes while all 104 `ReadAllText`
+polls conflicted with the held engine writer. Readiness now uses bounded shared-
+handle snapshots, strict UTF-8, append-only prefix continuity, and two consecutive
+semantic observations. A UUID-bearing stage accepts coherent `native` plus the
+restoration marker or coherent `profile_fallback` without it; explicit missing
+UUID/new-playthrough rejection still fails. The no-UUID stage remains exact
+fallback. Bounded failure state is path-free, and the no-engine suite passes
+71/71. The result remains `raw-retention-only` with
+`standardSaveRestorationCertified=false`.
 
 Only retention-specific bound tools and Markdown changed after the accepted
 surface run. The evidence consumer permits distinct descendant harness commits
