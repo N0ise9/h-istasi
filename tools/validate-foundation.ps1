@@ -55319,12 +55319,18 @@ if (-not (Test-Path -LiteralPath $releaseStatusDataPath -PathType Leaf)) {
 $releaseStatusDataText = Get-Content -Raw $releaseStatusDataPath
 $releaseStatusData = $releaseStatusDataText | ConvertFrom-Json
 $releaseStatusHistory = $releaseStatusData.historicalCandidateEvidence
+$releaseStatusEvidenceByName = @{}
+foreach ($releaseStatusEvidenceProperty in
+		$releaseStatusData.evidence.PSObject.Properties) {
+	$releaseStatusEvidenceByName[[string] $releaseStatusEvidenceProperty.Name] =
+		$releaseStatusEvidenceProperty.Value
+}
 $releaseStatusActiveFocused =
-	$releaseStatusData.evidence.packagedFocusedAutotests
+	$releaseStatusEvidenceByName['packagedFocusedAutotests']
 $releaseStatusActiveCanary =
-	$releaseStatusData.evidence.correctedForceAuthorityCanary
+	$releaseStatusEvidenceByName['correctedForceAuthorityCanary']
 $releaseStatusActiveFull =
-	$releaseStatusData.evidence.fullCampaignDebug
+	$releaseStatusEvidenceByName['fullCampaignDebug']
 $releaseStatusDeterministicRungs = @($releaseStatusData.proofRungs |
 	Where-Object { [string] $_.id -ceq 'deterministic-service' })
 $releaseStatusNativeRungs = @($releaseStatusData.proofRungs |

@@ -44,6 +44,10 @@
   and addon-temp roots and proves exact process cleanup. It does not claim a
   snapshot of every ordinary external log/profile root; add explicit watched
   roots before using it for a stronger no-spill claim.
+- The source Foundation runner starts a fresh `Set-StrictMode -Version Latest`
+  child. Optional JSON properties must be read through an explicit property map
+  rather than direct member access, which is only null-tolerant in a non-strict
+  host. Run Foundation in that strict child before sealing its evidence.
 
 Campaign Schema 71 and runtime-settings Schema 24 are current. The retained
 external prepublish QA candidate is
