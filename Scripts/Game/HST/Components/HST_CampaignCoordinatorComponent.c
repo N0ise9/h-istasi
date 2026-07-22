@@ -22897,20 +22897,25 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		int observationToken = GetCampaignDebugCleanupObservationToken();
 		if (!context.RestorePlayer(this, observationToken))
 		{
+			string pendingActual = string.Format(
+				"observation %1 | apply/ack %2/%3 | pending %4 | "
+					+ "server/owner maximum delta %5/%6m",
+				observationToken,
+				context.m_iPlayerRestoreApplySequence,
+				context.m_iPlayerRestoreOwnerAckSequence,
+				context.m_bPlayerRestoreOwnerAckPending,
+				context.m_fPlayerRestoreMaximumTransformDelta,
+				context.m_fPlayerRestoreOwnerMaximumTransformDelta);
+			pendingActual = pendingActual + string.Format(
+				" | applied/ack/stable tokens %1/%2/%3 | %4",
+				context.m_iPlayerRestoreAppliedObservationToken,
+				context.m_iPlayerRestoreOwnerAckObservedToken,
+				context.m_iPlayerRestoreStableSampleObservationToken,
+				EmptyCampaignDebugField(context.m_sPlayerRestoreEvidence));
 			AppendCampaignDebugLog(
 				"INFO",
 				"physical-response player restore pending",
-				EmptyCampaignDebugField(reason) + string.Format(
-					" | observation %1 | apply/ack %2/%3 | pending %4 | "
-						+ "applied/ack/stable tokens %5/%6/%7 | %8",
-					observationToken,
-					context.m_iPlayerRestoreApplySequence,
-					context.m_iPlayerRestoreOwnerAckSequence,
-					context.m_bPlayerRestoreOwnerAckPending,
-					context.m_iPlayerRestoreAppliedObservationToken,
-					context.m_iPlayerRestoreOwnerAckObservedToken,
-					context.m_iPlayerRestoreStableSampleObservationToken,
-					EmptyCampaignDebugField(context.m_sPlayerRestoreEvidence)));
+				EmptyCampaignDebugField(reason) + " | " + pendingActual);
 			if (!context.NeedsRetainedPlayerRestore())
 			{
 				AppendCampaignDebugLog(
