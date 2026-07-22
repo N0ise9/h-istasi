@@ -1,0 +1,99 @@
+{
+    "schemaVersion":  1,
+    "evidenceKind":  "source-gate1-foundation",
+    "source":  {
+                   "sourceGitHead":  "33642bd8a84d8a692f7fe9920510ab97cb890383",
+                   "publishInputPolicy":  "git-ls-tree-sha256-v1",
+                   "publishInputTreeSha256":  "aa136cb64740b5ac48560ebdf98d09ed030cc3414c1dd850dc79c1c10062e912",
+                   "publishInputRowCount":  436,
+                   "addonGuid":  "698532771130111D",
+                   "campaignSchema":  71,
+                   "runtimeSettingsSchema":  24,
+                   "embeddedImplementationSha":  "7fdf3988797edeb747f5d6a6951ad0382bd93db3",
+                   "embeddedBuildUtc":  "2026-07-21T19:36:22Z",
+                   "embeddedBuildLabel":  "schema71-settings24-gate1-release-surface"
+               },
+    "harness":  {
+                    "gitHead":  "423bde65f695caa2eb5fa5cfc55c18250fdc7e56",
+                    "dirty":  false,
+                    "runnerPath":  "tools/run-source-static-gates.ps1",
+                    "runnerHashPolicy":  "sha256-git-blob-bytes-v1",
+                    "runnerSha256":  "69ef4e591b428f87e4d4c05d50e598909d98e772f421617df337f95068a32e75"
+                },
+    "toolchain":  {
+                      "powershell":  {
+                                         "role":  "foundation-host",
+                                         "name":  "powershell.exe",
+                                         "pathBindingPolicy":  "normalized-lowercase-utf8-lf-sha256-v1",
+                                         "pathSha256":  "9b3884a08f9c808b8e1c9a142057b065b3079534daad0a92ecc600e8426e5a95",
+                                         "sha256":  "7600ffe12da441fe89d035b13801e8e91d064bc544a27b19a5cf49f6ab8b18f5",
+                                         "length":  454656,
+                                         "fileVersion":  "10.0.26100.8875 (WinBuild.160101.0800)",
+                                         "productVersion":  "10.0.26100.8875"
+                                     },
+                      "harnessHelpers":  [
+                                             {
+                                                 "path":  "tools/validate-foundation.ps1",
+                                                 "gitBlobOid":  "67cdd8e39b32040b6f9a5ad1cc28b3ad132d8a2a",
+                                                 "hashPolicy":  "sha256-git-blob-bytes-v1",
+                                                 "sha256":  "160267a94d49f477339f8c3e79e1939685f512b4950d9d575664eb736715cbfd",
+                                                 "length":  3071710,
+                                                 "worktreeCleanBlobOid":  "67cdd8e39b32040b6f9a5ad1cc28b3ad132d8a2a"
+                                             }
+                                         ],
+                      "sourceWorktree":  {
+                                             "cleanFilterPolicy":  "git-hash-object-path-v1",
+                                             "verifiedTrackedPublishInputCount":  436,
+                                             "extraUntrackedOrIgnoredPublishInputCount":  0,
+                                             "archiveCensus":  {
+                                                                   "sourceTracked":  0,
+                                                                   "harnessTracked":  0,
+                                                                   "workspaceTrackedUntrackedIgnored":  0
+                                                               }
+                                         }
+                  },
+    "capture":  {
+                    "runId":  "source-gate1-static-20260722T202919Z-fd9d96431e75",
+                    "startedUtc":  "2026-07-22T20:29:19.1043797Z",
+                    "completedUtc":  "2026-07-22T20:30:42.1568221Z",
+                    "rawStdout":  "stdout.log",
+                    "rawStderr":  "stderr.log"
+                },
+    "result":  {
+                   "status":  "passed",
+                   "success":  true,
+                   "exitCode":  0,
+                   "completionMarker":  true,
+                   "referenceCount":  985,
+                   "trackedPakCount":  0,
+                   "workspacePakCount":  0,
+                   "verifiedTrackedPublishInputCount":  436,
+                   "extraUntrackedOrIgnoredPublishInputCount":  0,
+                   "sourceAndHarnessStable":  true,
+                   "failureCodes":  [
+
+                                    ]
+               },
+    "integrity":  {
+                      "hashAlgorithm":  "sha256-file-set-v1",
+                      "artifactCount":  3,
+                      "artifactSetSha256":  "a15b04d28f709ac941466fee589f24b57648fbcd116ed8b11167690009b72762",
+                      "files":  [
+                                    {
+                                        "path":  "invocation.json",
+                                        "length":  198,
+                                        "sha256":  "38760b25433d7bc62f38d7d19df79b221e71aa35beb24dffca4513fed2903121"
+                                    },
+                                    {
+                                        "path":  "stderr.log",
+                                        "length":  163373,
+                                        "sha256":  "89a5b5fa64c4084380f11c597e6ccf8447c63ee3848aa1a6786cdaaec7bbc555"
+                                    },
+                                    {
+                                        "path":  "stdout.log",
+                                        "length":  14303,
+                                        "sha256":  "31c311b01d4ef8903071263b3429be0ea8d5c6a84f6a1fc1863a69e3f98fa052"
+                                    }
+                                ]
+                  }
+}

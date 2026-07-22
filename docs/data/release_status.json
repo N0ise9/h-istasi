@@ -1,6 +1,6 @@
 {
   "schemaVersion": 4,
-  "statusAsOfUtc": "2026-07-22T20:27:28Z",
+  "statusAsOfUtc": "2026-07-22T20:31:38Z",
   "releaseStage": "development alpha",
   "releaseDecision": "NO-GO",
   "auditedRevision": "33642bd8a84d8a692f7fe9920510ab97cb890383",
@@ -29,9 +29,9 @@
     },
     "evidence": {
       "foundation": {
-        "status": "pending",
-        "summaryPath": null,
-        "summarySha256": null
+        "status": "passed",
+        "summaryPath": "docs/evidence/source-gate1/33642bd8a84d8a692f7fe9920510ab97cb890383/foundation.json",
+        "summarySha256": "4ef7304cd317415a8c4303784d8a2929c35d08a3048548955d8b1d7b952f4cac"
       },
       "workbenchAllTargets": {
         "status": "pending",
@@ -561,8 +561,8 @@
     {
       "id": "static-source-resource",
       "label": "Static/source/resource contracts",
-      "status": "not-run",
-      "summary": "Historical Foundation evidence remains green for the retired snapshot source, but it does not advance the revised Gate 1. The clean replacement source checkpoint is frozen and current Foundation is pending."
+      "status": "passed",
+      "summary": "Current Foundation passed at 985 references for frozen source checkpoint 33642bd8a84d8a692f7fe9920510ab97cb890383, with exact source/worktree identity, zero checkout .pak files, and a tracked hash-bound summary."
     },
     {
       "id": "compile-configuration",

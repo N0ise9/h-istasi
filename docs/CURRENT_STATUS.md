@@ -14,7 +14,7 @@ The retained local-validation snapshot below is historical QA evidence, not sour
 
 | Field | Current value |
 | --- | --- |
-| Status data as of | `2026-07-22T20:27:28Z` |
+| Status data as of | `2026-07-22T20:31:38Z` |
 | Audited gameplay Git HEAD | `33642bd8a84d8a692f7fe9920510ab97cb890383` |
 | Gate 1 source state | `in-progress` |
 | Frozen publish-source HEAD | `33642bd8a84d8a692f7fe9920510ab97cb890383` |
@@ -41,7 +41,7 @@ A pass never inherits upward. `partial` means some scoped evidence exists but th
 
 | Rung | Status | Honest scope |
 | --- | --- | --- |
-| Static/source/resource contracts | `not-run` | Historical Foundation evidence remains green for the retired snapshot source, but it does not advance the revised Gate 1. The clean replacement source checkpoint is frozen and current Foundation is pending. |
+| Static/source/resource contracts | `passed` | Current Foundation passed at 985 references for frozen source checkpoint 33642bd8a84d8a692f7fe9920510ab97cb890383, with exact source/worktree identity, zero checkout .pak files, and a tracked hash-bound summary. |
 | Enforce compile and configuration | `not-run` | Historical all-target Workbench evidence remains green for the retired snapshot source, but it does not advance the revised Gate 1. Current all-target source validation follows Foundation and compiles directly without a repository package artifact. |
 | Deterministic service contracts | `not-run` | A loose-source QRF feasibility probe passed 6/0/0/0, but it is not structured Gate 1 evidence and does not advance this rung. The maintained five-suite 91-case source run is pending. |
 | Native engine-world behavior | `not-run` | Historical package-bound surface/retention evidence remains noncertifying history. The corrected force-authority canary and Full Campaign Debug must run from the same frozen source checkpoint as the accepted source-native focused set. |
@@ -56,7 +56,7 @@ A pass never inherits upward. `partial` means some scoped evidence exists but th
 
 - Historical snapshot Foundation: **passed** at 985 references for `5b1f2e98f93137230e686312c6e99cea7630dae4`. It does not advance the revised Gate 1.
 - Historical snapshot Workbench: **passed** at 5849 files / 12022 classes / CRC `aeddce9b` for `5b1f2e98f93137230e686312c6e99cea7630dae4`. It does not advance the revised Gate 1.
-- Current Gate 1 source evidence: Foundation **pending**; all-target Workbench **pending**; five-suite focused **pending**; force-authority canary **pending**; Full Campaign Debug **pending**.
+- Current Gate 1 source evidence: Foundation **passed**; all-target Workbench **pending**; five-suite focused **pending**; force-authority canary **pending**; Full Campaign Debug **pending**.
 - Historical local-package QA: snapshot `partisan-rc-5b1f2e98f931-20260721T193941Z`, its manifest/seal, release-surface/runtime-retention pair, and rejected focused batches remain immutable forensic evidence. They are not active Gate 1 or Workshop release authority and are not required to match current source-workflow tool bytes.
 - Focused force-authority profile: **35/35** cases and **87/87** counted conditions for `32727238d74b29905c68e5a80bb5897dfdc783c0`, with `CertificationPassed:false`. This is historical state-only, non-package, non-certifying evidence.
 - Historical packaged focused autotests: **5/5** cases and JUnit **5/0/0/0** tests/failures/errors/skips against prior exact candidate `partisan-rc-0e632ec4f63e-20260719T004133Z`. Hard diagnostics are explicitly not free: 11 total = 10 approved stock + 1 approved intentional + 0 unapproved, with 40 envelope files rehashed and zero cleanup/spill residue. Summary: `docs/evidence/focused-autotest/partisan-rc-0e632ec4f63e-20260719T004133Z.json` / SHA-256 `961ef6b0a84c26446468b31dd7ac5120448b21a442e9a823de4ff5dc804da7f9`; harness `d4d8f29cda9896ce2c6a5b073dac2cbd03757700`. This immutable non-certifying result does not attach to the retained historical validation snapshot.
