@@ -34,6 +34,13 @@ Package identity is independently recomputed from the exact canonical four-file
 manifest tuple set. Console admission censes all suite-start and profile-success
 shapes, and a replacement receipt has authority only when its candidate ID plus
 package, manifest, and ready-seal hashes match the retained candidate.
+Focused success-marker parsing must remain encoding-stable in Windows PowerShell
+5.1. These BOM-less UTF-8 tool sources spell the optional marker as ASCII regex
+`(?:\u2705\s+)?` and build the real fixture character with
+`[string][char]0x2705`; a literal non-ASCII source marker can be decoded through
+the legacy code page before regex construction even when the retained engine log
+contains correct U+2705 rows. Tests must admit the exact marker or no prefix and
+must reject arbitrary replacement prefixes.
 Historical five-testcase JUnit evidence remains valid only for candidate
 ancestry at or before `075558ac7b6c14d1bb3e5829a2b87f3dbb608351`; it remains
 history and cannot satisfy the active 91-testcase contract.
@@ -343,6 +350,27 @@ against unchanged package
 `STATUS-008` is closed again. The `52c7e2b` pair remains immutable superseded
 history.
 
+The first focused counterattack run after that close retained leaf
+`20260722T105628Z-68bd71de0fea40f68b533feee1c9e86a`; its `run.json` SHA-256 is
+`ec76dfb51f71247715a78336fc6cb1be030db4242c3dafc8aa5be580ebe27be8`.
+Candidate binding and 2/2/1/0 mount attestation were exact, exit was `0`, JUnit
+was 14/0/0/0, all 14 U+2705 success rows plus exact suite/build evidence were
+present, the failed list was empty, the two diagnostics were approved stock with
+zero intentional and zero unapproved diagnostics, and cleanup was exact zero.
+The wrapper rejected the leaf because the success-marker census alone produced
+`MarkerOrderExact: false`.
+
+The retained log was correct. A literal U+2705 in three BOM-less UTF-8
+PowerShell regex sources was decoded through the legacy code page by Windows
+PowerShell 5.1 before regex construction. The ASCII-source `\u2705` correction
+and runtime `[string][char]0x2705` fixture are tooling-only; the failed envelope
+remains rejected forensic evidence. Because the correction changes the bound
+release-document consumer, both the `52c7e2b` and `e2c38d2` pairs remain
+immutable passed history under their recorded tool bytes but neither satisfies
+the active current-consumer boundary. `STATUS-008` is reopened. Next run a fresh
+same-package pair, all five focused suites, the corrected canary, and Full
+Campaign Debug only after an accepted canary.
+
 ## Release-Ledger Schema 3 Historical Evidence
 
 Release-ledger Schema 3 is distinct from Campaign Schema 71. Its
@@ -389,13 +417,12 @@ Foundation passed 985 references. All five Workbench targets passed at 5,849
 files/12,022 classes with common CRC `aeddce9b`; the seal binds four package
 files and 50 evidence files. The tracked manifest and ready seal are the portable
 identity records; the package and complete raw evidence bundle remain external,
-immutable, and untracked. The `52c7e2b` pair remains immutable historical
-evidence and is superseded. Fresh surface leaf
-`20260722T103329Z-edea9d8417884dd8a2d2b313c4543ad0` and retention leaf
-`20260722T103514Z-436f331b8659` passed under corrected harness
-`e2c38d2770d8ebaaa675326d1b8a91068db989e5`, independently reverified read-only,
-and were jointly consumed against the unchanged package. `STATUS-008` is closed
-again. Next run all five focused suites and their 91-case aggregate, the
+immutable, and untracked. The passed `52c7e2b` and `e2c38d2` surface/retention
+pairs remain immutable history under their recorded tool bytes but neither
+satisfies the active current-consumer binding after the encoding-stable focused-
+marker correction. Candidate, package, gameplay, Foundation, and Workbench
+evidence are unchanged. `STATUS-008` is open. Next run a fresh same-package
+surface/retention pair, all five focused suites and their 91-case aggregate, the
 corrected canary, and Full Campaign Debug only after an accepted canary. Gate 1
 remains incomplete and release remains `NO-GO`.
 

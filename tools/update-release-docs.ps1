@@ -2133,7 +2133,7 @@ function Get-FocusedRawDiagnosticCensus {
 	$allSuiteStartedPattern = $timestampedScriptPrefix +
 		'TestSuite #[^\r\n]+ started\s*$'
 	$allTestSuccessPattern = $timestampedScriptPrefix +
-		'(?:✅\s+)?(?<case>HST_TEST_[A-Za-z0-9_]+): SUCCESS\s*$'
+		'(?:\u2705\s+)?(?<case>HST_TEST_[A-Za-z0-9_]+): SUCCESS\s*$'
 	$runnerFinishedPattern = $timestampedScriptPrefix +
 		'SCR_TestRunner has finished running\s*$'
 	$junitSavedPattern =

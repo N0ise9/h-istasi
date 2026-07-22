@@ -17,12 +17,17 @@ seal SHA-256 values are respectively
 Foundation passed 985 references; all five Workbench targets passed at
 5,849 files/12,022 classes and common CRC `aeddce9b`; and the seal binds four
 package files and 50 evidence files. The `52c7e2b` pair remains immutable
-historical evidence and is superseded. Fresh surface leaf
+passed history. Fresh surface leaf
 `20260722T103329Z-edea9d8417884dd8a2d2b313c4543ad0` and retention leaf
 `20260722T103514Z-436f331b8659` passed under corrected harness
 `e2c38d2770d8ebaaa675326d1b8a91068db989e5`, independently reverified read-only,
-and were jointly consumed against the unchanged package. The five focused suites
-are the next runtime boundary.
+and were jointly consumed against the unchanged package. CRI-100 keeps both
+pairs as immutable passed history under their recorded tool bytes, but neither
+satisfies the active encoding-stable current-consumer binding. `STATUS-008` is
+reopened. Candidate, package, gameplay, Foundation, and Workbench facts remain
+unchanged. The next runtime boundary is a fresh jointly consumed pair, followed
+by all five focused suites, the corrected canary, and then Full Campaign Debug
+only after an accepted canary.
 
 ## Release-Closure Gate Order
 
@@ -75,7 +80,10 @@ observable mixed state. No runtime evidence transfers. The active package later
 closed `STATUS-008` with its own jointly consumed surface/retention pair at the
 CRI-097 checkpoint. A subsequent bound-tool correction supersedes that pair as
 active. CRI-099 accepts the fresh corrected-harness pair and closes `STATUS-008`
-again. Gate 1 is incomplete, and release stays `NO-GO`.
+again. CRI-100 preserves a later rejected focused leaf, makes success-marker
+parsing encoding-stable, and reopens `STATUS-008` because the bound current-
+consumer bytes changed. Both passed pairs remain immutable history under their
+recorded tool bytes. Gate 1 is incomplete, and release stays `NO-GO`.
 
 ## Gate 1 Build-Once Plan
 
@@ -262,20 +270,40 @@ publisher checks with 73 negatives and two guarded receipts, 73/73 retention
 checks, 3 valid/optional plus 53 adversarial consumer cases, and the 741-check
 focused-aggregate self-test.
 
-1. Completed under the corrected bound tools: surface leaf
-   `20260722T103329Z-edea9d8417884dd8a2d2b313c4543ad0` retained 41 files with
-   exact 2/2/1/0 candidate-mount attestation; its index/ready SHA-256 values are
-   `205f9c2d2c3166bced4e92312ded1d16a633518732fad748b5178628e59d75b6` and
-   `7201bb54caccd48ee270bb34a9eba5e5e09596ea33b9855b9cbf5a2499c6a43a`.
-   Retention leaf `20260722T103514Z-436f331b8659` retained 251 files; its
-   index/ready SHA-256 values are
-   `94906067a7637e69a186926dc731320cf14011a04c9fe7a26117960f46e7f29a` and
-   `ff503f5f1f16ad7fbac45c292ad43a2b07984ca35ce8a188cbee2b55ddaea503`.
-   Both passed under harness `e2c38d2770d8ebaaa675326d1b8a91068db989e5`,
-   independently reverified read-only, and were jointly consumed against package
-   `af22d6322a215dbef466e49041fc07395cbb5ed7a5951fd3e0cee5f4a101f530`.
-   The `52c7e2b` pair remains immutable superseded history; `STATUS-008` is
-   closed again.
+The next focused counterattack launch retained leaf
+`20260722T105628Z-68bd71de0fea40f68b533feee1c9e86a`, whose `run.json` SHA-256 is
+`ec76dfb51f71247715a78336fc6cb1be030db4242c3dafc8aa5be580ebe27be8`.
+The candidate boundary was valid; mount attestation was exact at 2/2/1/0; the
+process exited `0`; and JUnit 14/0/0/0, all 14 U+2705 success rows, the required
+stamped build pattern and banner, two approved stock diagnostics, zero intentional
+diagnostics, zero unapproved diagnostics, and exact-zero cleanup were present.
+The wrapper rejected because Windows PowerShell 5.1 decoded the BOM-less UTF-8
+source's literal U+2705 regex token through its legacy code page, yielding
+mojibake and false `MarkerOrderExact` while the raw log character was correct.
+CRI-100 replaces the
+literal with ASCII source `(?:\u2705\s+)?`, constructs the real self-test marker
+with `[string][char]0x2705`, and retains a wrong-prefix negative. Preserve the
+leaf as rejected forensic evidence; never retrofit or promote it.
+
+The following is an immutable passed checkpoint under its recorded tool bytes,
+not the active current-consumer pair: surface leaf
+`20260722T103329Z-edea9d8417884dd8a2d2b313c4543ad0` retained 41 files with
+exact 2/2/1/0 candidate-mount attestation; its index/ready SHA-256 values are
+`205f9c2d2c3166bced4e92312ded1d16a633518732fad748b5178628e59d75b6` and
+`7201bb54caccd48ee270bb34a9eba5e5e09596ea33b9855b9cbf5a2499c6a43a`.
+Retention leaf `20260722T103514Z-436f331b8659` retained 251 files; its
+index/ready SHA-256 values are
+`94906067a7637e69a186926dc731320cf14011a04c9fe7a26117960f46e7f29a` and
+`ff503f5f1f16ad7fbac45c292ad43a2b07984ca35ce8a188cbee2b55ddaea503`.
+Both passed under harness `e2c38d2770d8ebaaa675326d1b8a91068db989e5`,
+independently reverified read-only, and were jointly consumed against package
+`af22d6322a215dbef466e49041fc07395cbb5ed7a5951fd3e0cee5f4a101f530`.
+The `52c7e2b` pair is also immutable passed history. Neither pair satisfies the
+active encoding-stable current-consumer binding, so `STATUS-008` is reopened.
+Candidate, package, gameplay, Foundation, and Workbench facts are unchanged.
+
+1. Run and jointly consume a fresh surface/retention pair under the committed
+   encoding-stable consumer against the unchanged package.
 2. Run the five individually named packaged focused profiles serially against
    that exact candidate. Retain eight raw envelope files per profile outside
    the checkout, publish one Schema-2 aggregate over the exact five-run,
@@ -1879,12 +1907,12 @@ publishing a build does not waive them.
 | Living War | Broad-alpha paths plus the sealed exact projections and both exact rebuild fresh-process cuts share the combat-presence/heat boundary | Delivery and physical-live-fold subgates are closed for the rebuild fixture; now prove natural route/combat casualty continuity, every earlier exact roster, all Schema-63 consumers and `HOT -> COOLING -> COLD`, multiplayer/JIP, and soak. |
 | Reliable Orders | Exact player QRF/Search-and-Destroy, defensive QRF/patrol, Schema-69 counterattack, and Schema-70 rebuild retain separate policies. Counterattack restore fences lifecycle-illegal ownership rows before runtime reconciliation; rebuild independently has exact `delivery_pending` and `physical_live_fold` restart chains | Preserve the counterattack eight-cut matrix and both rebuild results, then broaden natural route/combat, other force-family/world-scope, multiplayer/JIP, performance, and soak proof; do not infer other exact-family runtime coverage from this fixture. |
 | One Campaign View | Schema 61 implements marker-only snapshot/delta/JIP projection; Schema 62 adds ownership source revision/fencing; Schema 66 protects campaign markers. Exact QRF/counterattack/rebuild/patrol backing now delegates to the publisher's reciprocal canonical predicate | Execute the owner-client probe and rerun orphan checks, then prove host/two-client/late-join equality, revisions, nested ownership atomicity, gap/resync, map-close continuity, one canonical repaired campaign marker, player-marker editability/removal, duplicate-free rendering, and restart. |
-| Political Map | Schema 62 canonicalizes all ownership causes; Schema 63 supplies combat pressure/heat; Schema 64 supplies sole town support/population truth and contacted/territory projections. The historical focused deterministic engine case passed all three state-only groups; historical e11 canary rejected stale mission-source fixture assumptions. The correction was sealed in historical ee0, whose packaged focused gate and corrected canary passed noncertifying at 35/35 and 87/87 before its full profile was rejected at 598/47/26/13/1 and 5,630/5,695. Active 5b begins a fresh package-bound runtime chain with no transferred evidence; its corrected-harness surface/retention pair is accepted while `52c7e2b` remains superseded history. | Against unchanged active 5b, run all five focused suites and their 91-case aggregate, the corrected canary, and Full Campaign Debug only after an accepted canary. Then prove broader native ownership consequences and classifications, real migration/restart, rendered contact/current-first/complete-territory projection, JIP/reconnect, and no bypass. Broader encounter/facility consequences, performance, and soak remain. |
+| Political Map | Schema 62 canonicalizes all ownership causes; Schema 63 supplies combat pressure/heat; Schema 64 supplies sole town support/population truth and contacted/territory projections. The historical focused deterministic engine case passed all three state-only groups; historical e11 canary rejected stale mission-source fixture assumptions. The correction was sealed in historical ee0, whose packaged focused gate and corrected canary passed noncertifying at 35/35 and 87/87 before its full profile was rejected at 598/47/26/13/1 and 5,630/5,695. Active 5b begins a fresh package-bound runtime chain with no transferred evidence. Its two passed surface/retention pairs remain immutable history, but neither satisfies the CRI-100 encoding-stable current-consumer binding. | Against unchanged active 5b, first run a fresh jointly consumed surface/retention pair, then all five focused suites and their 91-case aggregate, the corrected canary, and Full Campaign Debug only after an accepted canary. Then prove broader native ownership consequences and classifications, real migration/restart, rendered contact/current-first/complete-territory projection, JIP/reconnect, and no bypass. Broader encounter/facility consequences, performance, and soak remain. |
 | Living Towns | Settings 24 adds budgeted ambience; Schema 65 adds town consequences/pedestrian panic; sealed Schema 66 source/Workbench adds exact enemy-town local-security rosters and zero resistance automatic police/roadblocks without making actor count political truth | Package-prove town taxonomy/ambience, casualty/theft/combat/panic, exact police roster casualties/fold/rearm, ownership policy, save/restart, cleanup/recycle, and ten towns for ten minutes without churn or one-second stutter. |
 | Enemy Commander | Sealed resource, planning, and Schema-69 counterattack authority remains intact. Schema 70 makes newly admitted garrison rebuilds exact while leaving historical rebuilds on contract `0`; delivery-pending and physical-live-fold cuts now pass fresh-process recovery/replay | Preserve the validated ambient cadence isolation and explicit production-tick ownership; then prove natural route/combat behavior, other force families, multiplayer/JIP, and soak. |
 | Mission Parity | All 39 configured IDs map to MVP primitives; convoy, all assassination guards, newly started `rescue_pows`, and exact radio lifecycle use narrow contracts. R16 proves the disposable isolated radio pair end to end. Current source adds structural active demolition-witness admission and a quiet pre-action assertion | Fresh Workbench validation passes. R23 proves all six generic `primitive.destroy.no_ambient_witness_score` assertions and all seven destroy-family start/runtime/primitive cases. Next package-prove authored radio binding/restart/streaming and runtime-prove callback-plus-scan deduplication, convoy, all three assassination guards, and Schema-58 rescue. Keep refugees, historical POWs, and other mission families legacy until their own explicit cutovers. |
 | Resistance Progression | Arsenal, garage, training, undercover, HQ/Petros, and end-state foundations exist | Complete exact logistics/loadouts/static defenses and tune the full progression loop. |
-| Campaign Certification | Active immutable candidate `partisan-rc-5b1f2e98f931-20260721T193941Z` is sealed from clean source HEAD `5b1f2e98f93137230e686312c6e99cea7630dae4`; package, manifest, and ready-seal SHA-256 values are `af22d6322a215dbef466e49041fc07395cbb5ed7a5951fd3e0cee5f4a101f530`, `bef040090557ca1403d6505e2bd1150452ba467225a29adc4295641f5aa3c80c`, and `173434122dce60dde8ff1dc939e2d5a916094bdb31096a641850772aa9853ad3`. Foundation passed 985 references; all five Workbench targets passed at 5,849/12,022 and CRC `aeddce9b`; the seal binds four package files and 50 evidence files. Fresh 41-file surface leaf `20260722T103329Z-edea9d8417884dd8a2d2b313c4543ad0` and 251-file retention leaf `20260722T103514Z-436f331b8659` passed under corrected harness `e2c38d2770d8ebaaa675326d1b8a91068db989e5`, independently reverified read-only, and were jointly consumed; the `52c7e2b` pair remains immutable superseded history. | `STATUS-008` is closed again, but Gate 1 is incomplete. Against the unchanged package, next run all five focused suites and their 91-case aggregate, the corrected canary, and Full Campaign Debug only after an accepted canary. Ee0 remains immutable ordered `history[2]` with `rejected-after-full-profile`; its focused, accepted canary, and rejected full results do not transfer. Release remains `NO-GO`. Fuel/damage/attachments/trunk parity, abrupt-termination recovery beyond the last completed checkpoint, broader active-world records, Workshop/live clients, network/JIP/reconnect/soak, arbitrary migration, multi-writer/off-device recovery, markers, and performance remain open. |
+| Campaign Certification | Active immutable candidate `partisan-rc-5b1f2e98f931-20260721T193941Z` is sealed from clean source HEAD `5b1f2e98f93137230e686312c6e99cea7630dae4`; package, manifest, and ready-seal SHA-256 values are `af22d6322a215dbef466e49041fc07395cbb5ed7a5951fd3e0cee5f4a101f530`, `bef040090557ca1403d6505e2bd1150452ba467225a29adc4295641f5aa3c80c`, and `173434122dce60dde8ff1dc939e2d5a916094bdb31096a641850772aa9853ad3`. Foundation passed 985 references; all five Workbench targets passed at 5,849/12,022 and CRC `aeddce9b`; the seal binds four package files and 50 evidence files. The `52c7e2b` pair and fresh 41-file surface leaf `20260722T103329Z-edea9d8417884dd8a2d2b313c4543ad0` plus 251-file retention leaf `20260722T103514Z-436f331b8659` under corrected harness `e2c38d2770d8ebaaa675326d1b8a91068db989e5` remain immutable passed history. CRI-100 preserves rejected focused leaf `20260722T105628Z-68bd71de0fea40f68b533feee1c9e86a` after its encoding-sensitive marker classifier failed closed. | `STATUS-008` is reopened because neither passed pair satisfies the active encoding-stable current-consumer binding. Against the unchanged package, first run a fresh jointly consumed pair, then all five focused suites and their 91-case aggregate, the corrected canary, and Full Campaign Debug only after an accepted canary. Ee0 remains immutable ordered `history[2]` with `rejected-after-full-profile`; its focused, accepted canary, and rejected full results do not transfer. Release remains `NO-GO`. Fuel/damage/attachments/trunk parity, abrupt-termination recovery beyond the last completed checkpoint, broader active-world records, Workshop/live clients, network/JIP/reconnect/soak, arbitrary migration, multi-writer/off-device recovery, markers, and performance remain open. |
 
 CRI-1 and the first CRI-2 vertical slices remain intentionally narrow. Troop
 training is the first production ledger consumer; exact visible garrison

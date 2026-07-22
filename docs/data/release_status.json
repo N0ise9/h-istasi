@@ -1,6 +1,6 @@
 {
   "schemaVersion": 3,
-  "statusAsOfUtc": "2026-07-22T10:44:29Z",
+  "statusAsOfUtc": "2026-07-22T11:16:31Z",
   "releaseStage": "development alpha",
   "releaseDecision": "NO-GO",
   "auditedRevision": "25dedb3e82ad516c28826830bc1e06a2d3940f53",
@@ -29,7 +29,7 @@
     "workbenchCrc": "aeddce9b",
     "serverVersion": "1.7.0.54",
     "clientVersion": "1.7.0.54",
-    "note": "This immutable Gate 1 package is the active runtime candidate. Foundation passed 985 references and all five Workbench targets passed at 5,849 files/12,022 classes with common CRC aeddce9b for its exact source HEAD and four-file package. The corrected structured-mount release-surface/runtime-retention boundary passed noncertifying under clean committed harness e2c38d2 and was independently consumed; the 91-case focused aggregate, corrected canary, Full Campaign Debug, and all later package-bound gates remain pending. The superseded 52c7e2b pair remains immutable historical evidence, and no historical result transfers. Release remains NO-GO."
+    "note": "This immutable Gate 1 package is the active runtime candidate. Foundation passed 985 references and all five Workbench targets passed at 5,849 files/12,022 classes with common CRC aeddce9b for its exact source HEAD and four-file package. The passed 52c7e2b and e2c38d2 surface/retention pairs remain immutable history under their recorded tool bytes, but the encoding-stable focused-marker correction changes the active release-document consumer binding and requires a fresh pair. Candidate, package, and gameplay bytes are unchanged; the fresh pair, 91-case focused aggregate, corrected canary, Full Campaign Debug, and all later package-bound gates remain pending. No historical result transfers. Release remains NO-GO."
   },
   "evidence": {
     "foundation": {
@@ -55,43 +55,6 @@
       "passedConditions": 87,
       "certificationPassed": false,
       "summary": "State-only combat-presence, ownership-transition, and town-influence fixtures passed; native world, package, network, restart breadth, performance, and soak remain outside this result."
-    },
-    "releaseSurfaceAudit": {
-      "status": "passed-noncertifying",
-      "summaryPath": "docs/evidence/release-surface-audit/partisan-rc-5b1f2e98f931-20260721T193941Z-20260722T103329Z-edea9d8417884dd8a2d2b313c4543ad0.json",
-      "summarySha256": "205f9c2d2c3166bced4e92312ded1d16a633518732fad748b5178628e59d75b6",
-      "runReadySha256": "7201bb54caccd48ee270bb34a9eba5e5e09596ea33b9855b9cbf5a2499c6a43a",
-      "candidateId": "partisan-rc-5b1f2e98f931-20260721T193941Z",
-      "candidateSourceHead": "5b1f2e98f93137230e686312c6e99cea7630dae4",
-      "packageSha256": "af22d6322a215dbef466e49041fc07395cbb5ed7a5951fd3e0cee5f4a101f530",
-      "candidateBindingSha256": "06b5fa23ccd10bfd1f8621f6b03c25d9c36719cc9c7d08ebcc73dabbba8c9f5f",
-      "harnessGitHead": "e2c38d2770d8ebaaa675326d1b8a91068db989e5",
-      "runId": "release_surface_20260722T103329Z_edea9d8417884dd8a2d2",
-      "runLeafId": "20260722T103329Z-edea9d8417884dd8a2d2b313c4543ad0",
-      "startedUtc": "2026-07-22T10:33:29.2262423Z",
-      "completedUtc": "2026-07-22T10:34:12.2987101Z",
-      "disposition": "passed-noncertifying-release-surface-audit",
-      "certificationPromotion": "none",
-      "summary": "The exact candidate package passed paired retail and diagnostic surface inspection with all contracted production controls present, retail proof/debug surfaces absent, exact structured 2/2/1/0 candidate-mount attestation, the exact approved diagnostic shutdown cluster, a complete 41-file census, exact cleanup, and read-only independent verification. This inert/read-only surface result is noncertifying."
-    },
-    "gate1RuntimeRetention": {
-      "status": "passed-noncertifying",
-      "summaryPath": "docs/evidence/gate1-runtime-retention/partisan-rc-5b1f2e98f931-20260721T193941Z-20260722T103514Z-436f331b8659.json",
-      "summarySha256": "94906067a7637e69a186926dc731320cf14011a04c9fe7a26117960f46e7f29a",
-      "runReadySha256": "ff503f5f1f16ad7fbac45c292ad43a2b07984ca35ce8a188cbee2b55ddaea503",
-      "candidateId": "partisan-rc-5b1f2e98f931-20260721T193941Z",
-      "candidateSourceHead": "5b1f2e98f93137230e686312c6e99cea7630dae4",
-      "packageSha256": "af22d6322a215dbef466e49041fc07395cbb5ed7a5951fd3e0cee5f4a101f530",
-      "candidateBindingSha256": "06b5fa23ccd10bfd1f8621f6b03c25d9c36719cc9c7d08ebcc73dabbba8c9f5f",
-      "harnessGitHead": "e2c38d2770d8ebaaa675326d1b8a91068db989e5",
-      "runId": "gate1_20260722T103514Z_436f331b86594c5bb94f",
-      "runLeafId": "20260722T103514Z-436f331b8659",
-      "startedUtc": "2026-07-22T10:35:14.8010942Z",
-      "completedUtc": "2026-07-22T10:41:14.7913808Z",
-      "disposition": "passed-noncertifying-retention",
-      "certificationClaim": "none",
-      "standardSaveRestorationCertified": false,
-      "summary": "The exact candidate package completed five diagnostic save-lineage stages and five disjoint standard load/start/log observations with 251 retained files, exact candidate/tool/launch bindings, stable retained save bytes, exact cleanup, and read-only independent verification. It is raw retention evidence and does not certify standard native save restoration."
     }
   },
   "historicalCandidateEvidence": [
@@ -536,7 +499,7 @@
       "id": "native-engine-world",
       "label": "Native engine-world behavior",
       "status": "not-run",
-      "summary": "The same-package release-surface/runtime-retention pair passed and was independently consumed as noncertifying evidence. The 91-case focused aggregate, corrected force-authority canary, and Full Campaign Debug remain pending; historical runtime results do not transfer."
+      "summary": "No surface/retention pair satisfies the active current-consumer binding. The passed 52c7e2b and e2c38d2 pairs remain immutable history under their recorded tool bytes; a fresh same-package pair, the 91-case focused aggregate, corrected force-authority canary, and Full Campaign Debug remain pending, and historical runtime results do not transfer."
     },
     {
       "id": "packaged-dedicated",
@@ -572,19 +535,19 @@
       "id": "stable-certification",
       "label": "Stable certification",
       "status": "blocked",
-      "summary": "No current matrix row is certified. The active package passed its first noncertifying runtime boundary, while focused, canary, full-profile, and later external gates remain open."
+      "summary": "No current matrix row is certified. The active package has no pair satisfying the active current-consumer boundary; fresh paired, focused, canary, full-profile, and later external gates remain open."
     }
   ],
   "activeBlockers": [
     {
       "id": "STATUS-001",
       "category": "AUTH",
-      "summary": "The active Gate 1 candidate has green Foundation, all-target Workbench, and same-package paired release-surface/runtime-retention evidence. The 91-case focused aggregate, corrected canary, and Full Campaign Debug are still required; no historical result transfers."
+      "summary": "The active Gate 1 candidate has green Foundation and all-target Workbench evidence, but no surface/retention pair satisfies the active current-consumer binding. The passed 52c7e2b and e2c38d2 pairs remain immutable history under their recorded tool bytes; no historical result transfers."
     },
     {
       "id": "STATUS-002",
       "category": "TEST",
-      "summary": "Run and independently consume the 91-case packaged focused set against the unchanged candidate, then the corrected force-authority canary, and only after an accepted canary run Full Campaign Debug."
+      "summary": "Run and independently consume a fresh same-package release-surface/runtime-retention pair, then the 91-case packaged focused set, then the corrected force-authority canary, and only after an accepted canary run Full Campaign Debug."
     },
     {
       "id": "STATUS-003",
@@ -610,6 +573,11 @@
       "id": "STATUS-007",
       "category": "MISSION",
       "summary": "Configured mission breadth still exceeds mission-specific CE 3.11.1 behavioral parity and proof."
+    },
+    {
+      "id": "STATUS-008",
+      "category": "SEC",
+      "summary": "Source-level diagnostic separation remains implemented, but the encoding-stable focused-marker correction changed the bound release-document consumer. The passed 52c7e2b and e2c38d2 pairs remain immutable history and a fresh same-package pair must pass and be independently consumed before this boundary closes again."
     }
   ]
 }

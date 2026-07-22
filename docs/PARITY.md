@@ -18,17 +18,35 @@ seal SHA-256 values are respectively
 Foundation passed 985 references; PC, PS4, PS5, XBOX_ONE, and XBOX_SERIES each
 passed at 5,849 files/12,022 classes with common CRC `aeddce9b`; the seal binds
 four package files and 50 evidence files. The `52c7e2b` pair remains immutable
-historical evidence and is superseded. Fresh 41-file surface leaf
+passed history. Fresh 41-file surface leaf
 `20260722T103329Z-edea9d8417884dd8a2d2b313c4543ad0` and 251-file retention
 leaf `20260722T103514Z-436f331b8659` passed under corrected harness
 `e2c38d2770d8ebaaa675326d1b8a91068db989e5`, independently reverified read-only,
-and were jointly consumed against the unchanged package. `STATUS-008` is closed
-again. No 91-case focused, corrected-canary, or full-profile runtime evidence
+and were jointly consumed against the unchanged package. CRI-100 keeps both
+pairs as immutable passed history under their recorded tool bytes, but neither
+satisfies the active encoding-stable current-consumer binding. `STATUS-008` is
+reopened. Candidate, package, gameplay, Foundation, and Workbench facts are
+unchanged. No 91-case focused, corrected-canary, or full-profile runtime evidence
 has yet been accepted for these bytes. Gate 1 is incomplete, and release remains
 `NO-GO`.
 
-The next exact order is all five focused suites and their 91-case aggregate, the
-corrected canary, and Full Campaign Debug only after an accepted canary.
+Focused counterattack leaf
+`20260722T105628Z-68bd71de0fea40f68b533feee1c9e86a`, `run.json` SHA-256
+`ec76dfb51f71247715a78336fc6cb1be030db4242c3dafc8aa5be580ebe27be8`, remains
+rejected forensic evidence. The candidate boundary was valid; mount attestation
+was exact at 2/2/1/0; the process exited `0`; and JUnit 14/0/0/0, all 14 U+2705
+success rows, the required stamped build pattern and banner, two approved stock
+diagnostics, zero intentional diagnostics, zero unapproved diagnostics, and
+exact-zero cleanup were present. The raw log's U+2705 was correct; the wrapper
+rejected because Windows PowerShell 5.1 decoded a literal U+2705 regex token in
+BOM-less UTF-8 source through its legacy code page, producing mojibake and making
+`MarkerOrderExact` false. CRI-100 uses ASCII source `(?:\u2705\s+)?`, constructs
+the real self-test prefix with `[string][char]0x2705`, and retains a wrong-prefix
+negative. The rejected leaf is never retroactively promoted.
+
+The next exact order is a fresh jointly consumed surface/retention pair, all five
+focused suites and their 91-case aggregate, the corrected canary, and Full
+Campaign Debug only after an accepted canary.
 
 Focused counterattack leaf
 `20260722T084353Z-03d78e016b244d8fb1aea42f307af1d6`, envelope SHA-256
@@ -2474,6 +2492,18 @@ Debug and packaged-runtime gates remain open.
   `e2c38d2770d8ebaaa675326d1b8a91068db989e5`. Both passed, independently
   reverified read-only, and were jointly consumed; the surface mount attestation
   is exact 2/2/1/0 and `STATUS-008` is closed again.
+- [x] Preserve focused leaf
+  `20260722T105628Z-68bd71de0fea40f68b533feee1c9e86a` as rejected forensic
+  evidence. Its candidate, 2/2/1/0 mount, exit-zero, JUnit 14/0/0/0, 14 U+2705
+  success-row, build, 2-stock/0-intentional/0-unapproved diagnostic, and zero-
+  cleanup facts were green; its marker-order classifier failed closed.
+- [x] Correct the BOM-less UTF-8 marker consumers for Windows PowerShell 5.1
+  with ASCII regex `(?:\u2705\s+)?`, runtime fixture construction
+  `[string][char]0x2705`, and a wrong-prefix negative. Keep both earlier pairs as
+  immutable passed history under their recorded tool bytes; neither satisfies
+  the active current-consumer binding, so `STATUS-008` is reopened.
+- [ ] Run and jointly consume a fresh same-package surface/retention pair under
+  the committed encoding-stable current consumer.
 - [ ] Run the five-suite focused aggregate with exactly 91 individually named
   cases and JUnit 91/0/0/0 against the unchanged active package.
 - [ ] Run the corrected canary only after the focused aggregate is accepted.

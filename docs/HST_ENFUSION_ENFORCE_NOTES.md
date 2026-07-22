@@ -86,6 +86,14 @@ The embedded implementation stamp is
   collections, handle `$null` explicitly before reading `Count`; a zero-argument
   `InvokeMemberExpressionAst.Arguments` value is null and otherwise passes
   standalone validation but throws in the real candidate-build context.
+- Keep regex source ASCII-safe in BOM-less PowerShell scripts that must execute
+  under Windows PowerShell 5.1. Spell a U+2705 success-marker prefix as
+  `(?:\u2705\s+)?`, and construct the real fixture marker at runtime with
+  `[string][char]0x2705`. Retain a wrong-prefix negative so the optional prefix
+  admits only the exact checkmark plus whitespace or no prefix, never arbitrary
+  leading text. A literal non-ASCII regex token can be decoded through the
+  legacy code page and become mojibake even when the retained engine log has the
+  correct Unicode character.
 - Apply the same rule to optional projected properties. Full-profile synthetic
   validation objects do not need corrected-canary-only exactness fields; test
   projections must inspect `PSObject.Properties[...]` and record an absent
@@ -298,14 +306,17 @@ The embedded implementation stamp is
   read-only per-command availability inspection, but executes no command action
   and does not mutate campaign gameplay state. It does not certify gameplay,
   multiplayer, persistence, restart, soak, or performance. The active immutable
-  candidate's `52c7e2b` pair remains immutable historical evidence and is
-  superseded as active. Corrected surface leaf
+  candidate's `52c7e2b` pair remains immutable historical evidence. Corrected
+  surface leaf
   `20260722T103329Z-edea9d8417884dd8a2d2b313c4543ad0` and retention leaf
   `20260722T103514Z-436f331b8659` passed under clean harness
   `e2c38d2770d8ebaaa675326d1b8a91068db989e5`, independently reverified read-only,
-  and were jointly consumed against the unchanged package. `STATUS-008` is
-  closed again without changing candidate, package, or gameplay bytes. Gate 1
-  remains incomplete and release remains `NO-GO`.
+  and were jointly consumed against the unchanged package. CRI-099 therefore
+  closed `STATUS-008` again without changing candidate, package, or gameplay
+  bytes. CRI-100 later changed bound current-consumer bytes; both pairs remain
+  immutable passed history under their recorded tool bytes, but neither now
+  satisfies the active current-consumer binding. `STATUS-008` is reopened. Gate
+  1 remains incomplete and release remains `NO-GO`.
 - Parse mount evidence as structured timestamped `ENGINE : gproj:` records, not
   as arbitrary lines containing a GUID. Select the exact case-sensitive
   candidate GUID, require the exact guard-owned candidate path, and require
@@ -323,7 +334,7 @@ The embedded implementation stamp is
   approved stock diagnostics appeared, and cleanup was exact zero. Its parser
   saw all six legitimate candidate/core/data `gproj` rows rather than the two
   candidate rows. Never admit that leaf to the five-suite aggregate.
-- The corrected active pair is exact. Surface leaf
+- The CRI-099 corrected pair was exact under its recorded tool bytes. Surface leaf
   `20260722T103329Z-edea9d8417884dd8a2d2b313c4543ad0` retains 41 files and
   exact 2/2/1/0 candidate-mount attestation; its index/ready SHA-256 values are
   `205f9c2d2c3166bced4e92312ded1d16a633518732fad748b5178628e59d75b6` and
@@ -335,6 +346,20 @@ The embedded implementation stamp is
   Both halves bind clean harness `e2c38d2770d8ebaaa675326d1b8a91068db989e5`
   and unchanged package
   `af22d6322a215dbef466e49041fc07395cbb5ed7a5951fd3e0cee5f4a101f530`.
+- CRI-100 preserves focused counterattack leaf
+  `20260722T105628Z-68bd71de0fea40f68b533feee1c9e86a`, whose `run.json` SHA-256
+  is `ec76dfb51f71247715a78336fc6cb1be030db4242c3dafc8aa5be580ebe27be8`, as
+  rejected forensic evidence. The candidate boundary was valid; mount attestation
+  was exact at 2/2/1/0; the process exited `0`; and JUnit 14/0/0/0, all 14 U+2705
+  success rows, the required stamped build pattern and banner, two approved stock
+  diagnostics, zero intentional diagnostics, zero unapproved diagnostics, and
+  exact-zero cleanup were present. The wrapper rejected only because the
+  BOM-less UTF-8 source's literal U+2705 regex token was decoded by Windows
+  PowerShell 5.1 into mojibake,
+  making `MarkerOrderExact` false even though the raw log character was correct.
+  Use ASCII source `(?:\u2705\s+)?`, build the real self-test marker with
+  `[string][char]0x2705`, retain the wrong-prefix negative, and never retrofit or
+  promote the rejected leaf. The correction changes bound tool bytes only.
 - Treat tracked release indexes as canonical LF evidence, not native PowerShell
   text. A successful retention run exposed that `ConvertTo-Json` on Windows had
   written CRLF internally while the tracked evidence paths require LF; Git would
@@ -790,14 +815,17 @@ The embedded implementation stamp is
   Foundation passes all 985 references; all five Workbench targets pass at
   5,849 files/12,022 classes and common CRC `aeddce9b`; and the seal binds four
   package files and 50 evidence files. The `52c7e2b` pair remains immutable
-  historical evidence and is superseded. Corrected surface leaf
+  passed history. Corrected surface leaf
   `20260722T103329Z-edea9d8417884dd8a2d2b313c4543ad0` and retention leaf
   `20260722T103514Z-436f331b8659` passed, independently reverified read-only, and
   were jointly consumed under harness `e2c38d2770d8ebaaa675326d1b8a91068db989e5`.
-  `STATUS-008` is closed again. Its next evidence order is all five focused
-  suites and their 91-case aggregate, the corrected canary, and Full Campaign
-  Debug only after an accepted canary. Gate 1 is incomplete, and release remains
-  `NO-GO`.
+  CRI-100 also keeps that pair as immutable passed history under its recorded
+  tool bytes, but neither pair satisfies the active encoding-stable current-
+  consumer binding. `STATUS-008` is reopened. Its next evidence order is a fresh
+  jointly consumed surface/retention pair, all five focused suites and their 91-
+  case aggregate, the corrected canary, and Full Campaign Debug only after an
+  accepted canary. Candidate, package, gameplay, Foundation, and Workbench facts
+  are unchanged. Gate 1 is incomplete, and release remains `NO-GO`.
 - The historical ordered `history[2]` `rejected-after-full-profile` candidate is
   `partisan-rc-ee0e8add2a29-20260719T063815Z`, version
   `0.1.0-rc.20260719T063815Z.ee0e8add`, from clean source HEAD
@@ -8824,11 +8852,12 @@ This file is for practical engine/script behavior, not project planning. Keep en
   It is non-certifying and does not advance native-engine/world, canary-release,
   or stable certification. This package's next canary rejected, so its chain is
   closed and Full Campaign Debug must not run. For the active immutable
-  candidate, the current-tool release-surface/runtime-retention boundary is now
-  complete. Preserve the remaining serial order: the 91-case focused aggregate,
-  followed by the corrected canary and then full only after an accepted canary.
-  An older surface pass bound to superseded tool bytes still cannot pair with
-  current retention.
+  candidate, CRI-100 reopened the current-consumer release-surface/runtime-
+  retention boundary; both passed pairs remain immutable history under their
+  recorded tool bytes. Preserve the remaining serial order: a fresh same-package
+  pair, the 91-case focused aggregate, the corrected canary, and then full only
+  after an accepted canary. Evidence bound to superseded tool bytes cannot
+  satisfy the active pair boundary.
 - A passing focused JUnit result does not classify the surrounding engine error
   channel. Bind a separate hard-diagnostic census into the runner's success
   predicate. For the current diagnostic client, exactly two stock filter-

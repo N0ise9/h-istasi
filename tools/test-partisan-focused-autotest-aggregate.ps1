@@ -357,6 +357,7 @@ function New-SelfTestFixture {
             "00:01:59.750 ENGINE : gproj: 'runtime-addons/data/ArmaReforger.gproj' guid: '58D0FB3206B6F859'")
         [void]$consoleLines.Add("00:02:00.000 SCRIPT : TestSuite #$suite started")
         [void]$consoleLines.Add($buildSummary)
+        $successMarker = [string][char]0x2705
         foreach ($expectedTestCase in $expectedTestCases) {
             if ($index -eq 4) {
                 [void]$consoleLines.Add(
@@ -367,7 +368,8 @@ function New-SelfTestFixture {
                     '00:02:03.000 SCRIPT : setup/seam/request/bytes/journal 1/1/1/1/1')
             }
             [void]$consoleLines.Add(
-                "00:02:04.000 SCRIPT : $expectedTestCase`: SUCCESS")
+                ("00:02:04.000 SCRIPT : " + $successMarker + ' ' +
+                    $expectedTestCase + ': SUCCESS'))
         }
         [void]$consoleLines.Add('00:02:05.000 SCRIPT : SCR_TestRunner has finished running')
         [void]$consoleLines.Add(

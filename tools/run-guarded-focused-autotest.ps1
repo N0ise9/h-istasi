@@ -1113,7 +1113,7 @@ function Get-FocusedHardDiagnosticCensus {
 	$allSuiteStartedPattern = $timestampedScriptPrefix +
 		'TestSuite #(?<suite>[^\r\n]+) started\s*$'
 	$allTestSuccessPattern = $timestampedScriptPrefix +
-		'(?:✅\s+)?(?<case>HST_TEST_[A-Za-z0-9_]+): SUCCESS\s*$'
+		'(?:\u2705\s+)?(?<case>HST_TEST_[A-Za-z0-9_]+): SUCCESS\s*$'
 	$runnerFinishedPattern = $timestampedScriptPrefix +
 		'SCR_TestRunner has finished running\s*$'
 	$junitSavedPattern =
@@ -1319,9 +1319,11 @@ function Get-FocusedHardDiagnosticCensus {
 function Test-FocusedHardDiagnosticCensus {
     $standardCase = 'HST_TEST_EnemyCounterattackAuthority'
     $profileCase = 'HST_TEST_CampaignProfileJournalAuthority'
+    $successMarker = [string][char]0x2705
     $standardPrefix = @(
         '17:00:00.000 SCRIPT       : TestSuite #Example started',
-        ('17:00:00.001 SCRIPT       : ' + $standardCase + ': SUCCESS'),
+        ('17:00:00.001 SCRIPT       : ' + $successMarker + ' ' +
+            $standardCase + ': SUCCESS'),
         '17:00:00.002 SCRIPT       : SCR_TestRunner has finished running',
         '17:00:00.003 SCRIPT       : Autotest JUnit XML saved to: $logs:/junit.xml',
         '17:00:00.004 SCRIPT       : Autotest failed list saved to: $logs:/autotest_failed.log'
@@ -1339,6 +1341,15 @@ function Test-FocusedHardDiagnosticCensus {
         $standardValid.ApprovedStockFilterCount -ne 2 -or
         $standardValid.UnapprovedHardDiagnosticCount -ne 0) {
         throw 'Focused hard-diagnostic stock classification self-test failed.'
+    }
+    $wrongSuccessPrefix = Get-FocusedHardDiagnosticCensus `
+        -ConsoleText $standardValidText.Replace(
+            $successMarker + ' ',
+            'CHECK ') `
+        -ExpectedTestCase $standardCase
+    if ($wrongSuccessPrefix.Valid -or
+        $wrongSuccessPrefix.MarkerOrderExact) {
+        throw 'Focused success-marker prefix rejection self-test failed.'
     }
 
     $profileText = @(

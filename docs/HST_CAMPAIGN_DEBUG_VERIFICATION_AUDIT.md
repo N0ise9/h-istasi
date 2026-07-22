@@ -364,6 +364,38 @@ unchanged package
 aggregate, the corrected canary, and Full Campaign Debug only after the canary
 is accepted. Gate 1 is incomplete and release remains `NO-GO`.
 
+## Focused Success-Marker Parsing Made Encoding-Stable
+
+CRI-100 preserves focused counterattack leaf
+`20260722T105628Z-68bd71de0fea40f68b533feee1c9e86a`, whose `run.json` SHA-256 is
+`ec76dfb51f71247715a78336fc6cb1be030db4242c3dafc8aa5be580ebe27be8`, as
+rejected forensic evidence. Its candidate boundary was valid; mount attestation
+was exact at 2/2/1/0; the process exited zero; JUnit was 14/0/0/0; all 14 exact
+U+2705 success rows, the required stamped build pattern and banner, two approved
+stock diagnostics, zero intentional diagnostics, zero unapproved diagnostics,
+and exact-zero cleanup were present. The wrapper still rejected the run because
+`MarkerOrderExact` was false, which made `HardDiagnosticClassificationValid`
+false and failed the wrapper closed. The leaf must not be retroactively
+promoted.
+
+The three marker consumers were BOM-less UTF-8 PowerShell sources containing a
+literal U+2705 regex token. Windows PowerShell 5.1 decoded that source through
+its legacy code page, so the live regex contained mojibake while the retained
+engine log correctly contained U+2705. The encoding-stable contract spells the
+optional prefix in ASCII source as `(?:\u2705\s+)?` and constructs the real
+self-test character with `[string][char]0x2705`; a wrong-prefix negative remains
+required. The optional prefix therefore admits only the exact checkmark plus
+whitespace or no prefix, never arbitrary leading text.
+
+That bound consumer correction does not change the candidate, package, gameplay,
+Foundation result, or Workbench results. The `52c7e2b` and
+`e2c38d2770d8ebaaa675326d1b8a91068db989e5` surface/retention pairs remain
+immutable passed history under their recorded tool bytes, but neither satisfies
+the active current-consumer binding. `STATUS-008` is reopened. The exact next
+order is a fresh jointly consumed surface/retention pair, all five focused suites
+and their 91-case aggregate, the corrected canary, and Full Campaign Debug only
+after an accepted canary. Gate 1 remains incomplete and release remains `NO-GO`.
+
 The release-index publishers and focused aggregate bind their relevant
 producer and consumer worktree bytes to immutable Git blobs. The
 release-document consumers reverify those bindings, while Foundation pins the
@@ -432,10 +464,12 @@ aggregate, focused-consumer, general-consumer, generated-document check, and
 Foundation commands to pass serially in independently started PowerShell
 processes on one clean unchanged commit. No command may overlap another, and
 any HEAD or bound-hash drift restarts the sequence.
-This is portable tooling proof plus the jointly consumed current-tool surface/
-retention pair. The five-suite 91-case focused aggregate, corrected native
-canary, full profile, dedicated multiplayer, restart, and soak remain pending;
-release remains `NO-GO`.
+This checkpoint retains portable tooling proof. CRI-100 changed the active
+current-consumer binding, so neither immutable passed historical surface/
+retention pair satisfies the current boundary. A fresh same-package pair, the
+five-suite 91-case focused aggregate, corrected native canary, full profile,
+dedicated multiplayer, restart, and soak remain pending; release remains
+`NO-GO`.
 
 ## Unsealed Phase 20 Ownership Repair
 
@@ -796,15 +830,21 @@ and its ready-seal SHA-256 is
 Foundation passed all 985 references. PC, PS4, PS5, XBOX_ONE, and XBOX_SERIES
 each passed at 5,849 files, 12,022 classes, and common CRC `aeddce9b`. The seal
 binds exactly four package files and 50 evidence files. The `52c7e2b` pair
-remains immutable historical evidence and is superseded as the active current-
-tool pair. Fresh surface run
+remains immutable passed history. Later surface run
 `20260722T103329Z-edea9d8417884dd8a2d2b313c4543ad0` and retention run
 `20260722T103514Z-436f331b8659` passed for these bytes under corrected harness
 `e2c38d2770d8ebaaa675326d1b8a91068db989e5`, with exact 41- and 251-file
-bundles independently reverified read-only and jointly consumed. `STATUS-008`
-is closed again. Five-suite focused, corrected-canary, and full-profile evidence
-remain pending in that order; Full runs only after an accepted canary. Gate 1 is
-incomplete and release remains `NO-GO`.
+bundles independently reverified read-only and jointly consumed. CRI-100 keeps
+both pairs as immutable passed history under their recorded tool bytes, but the
+encoding-stable marker-consumer correction means neither satisfies the active
+current-consumer binding. Rejected focused leaf
+`20260722T105628Z-68bd71de0fea40f68b533feee1c9e86a`, `run.json` SHA-256
+`ec76dfb51f71247715a78336fc6cb1be030db4242c3dafc8aa5be580ebe27be8`, is the
+fail-closed evidence for that correction. `STATUS-008` is reopened. Fresh paired
+surface/retention evidence, all five focused suites, corrected-canary evidence,
+and full-profile evidence remain pending in that order; Full runs only after an
+accepted canary. Candidate, package, gameplay, Foundation, and Workbench facts
+are unchanged. Gate 1 is incomplete and release remains `NO-GO`.
 
 The first candidate, `partisan-rc-c2b16c4a2d85-20260718T201442Z`, remains sealed
 with digest `8f60260331c6c7473465dc4517b1063a179a8f4efeffdcfe3d5eccac9af476db`

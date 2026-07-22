@@ -5276,3 +5276,50 @@ Consequences:
   `NO-GO`.
 - The exact next order is all five focused suites and their 91-case aggregate,
   the corrected canary, and Full Campaign Debug only after an accepted canary.
+
+## CRI-100 - Make Focused Success-Marker Parsing Encoding-Stable
+
+- Status: Accepted as a fail-closed evidence-tool correction; fresh paired and
+  focused evidence is required
+- Date: 2026-07-22
+
+Context: The first focused counterattack run after CRI-099 retained leaf
+`20260722T105628Z-68bd71de0fea40f68b533feee1c9e86a`, whose `run.json` SHA-256
+is `ec76dfb51f71247715a78336fc6cb1be030db4242c3dafc8aa5be580ebe27be8`.
+Clean harness `932586105bebfb5e3d929971aaa280fd1eb8e434` verified the candidate
+boundary, exact 2/2/1/0 mount attestation, process exit `0`, JUnit 14/0/0/0,
+the exact suite identity, all 14 U+2705 success rows, the required pattern and
+build provenance, an empty failed list, two approved stock diagnostics with
+zero intentional and zero unapproved diagnostics, and exact-zero cleanup. The
+wrapper still rejected the leaf because its overall diagnostic classification
+was false: `MarkerOrderExact` was false even though the retained raw engine log
+contained the correct markers.
+
+The three focused raw consumers were BOM-less UTF-8 PowerShell source files
+whose success regex contained a literal U+2705 character. Windows PowerShell
+5.1 decoded that source through the legacy code page before constructing the
+regex, so the live pattern contained mojibake and did not match the correct
+U+2705 log rows. This was a fail-closed evidence-tool false negative, not a
+candidate, package, or gameplay failure.
+
+Decision: Keep the PowerShell source ASCII-safe. Spell the optional success
+prefix as `(?:\u2705\s+)?` in the guarded runner, focused aggregate producer,
+and release-document consumer. Build the real Unicode fixture prefix at runtime
+with `[string][char]0x2705`, retain a wrong-prefix negative, and pin these shapes
+in Foundation. Preserve the failed leaf unchanged as rejected forensic evidence;
+do not reinterpret or retrofit its envelope.
+
+Consequences:
+
+- The CRI-097 `52c7e2b` pair and CRI-099 `e2c38d2` pair remain immutable passed
+  historical evidence under their recorded tool bytes. The release-document
+  consumer correction changes the active current-consumer binding, so neither
+  pair satisfies the new active boundary.
+- Candidate, package, and gameplay bytes are unchanged. Repacking and Workbench
+  recompilation are neither required nor permitted for this tooling-only
+  correction; the retained Foundation and all-target Workbench results stand.
+- `STATUS-008` is reopened. Gate 1 remains incomplete and release remains
+  `NO-GO`.
+- The exact next order is a fresh same-package surface/retention pair, all five
+  focused suites and their 91-case aggregate, the corrected canary, and Full
+  Campaign Debug only after an accepted canary.
