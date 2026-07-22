@@ -5026,3 +5026,42 @@ Consequences:
 - Run a fresh retention proof and consume it with the accepted surface half.
   Until that pair is accepted, `STATUS-008` remains open, Gate 1 is incomplete,
   and release remains `NO-GO`.
+
+## CRI-094 - Isolate Gate 1 Publisher Helpers Across Real-Mode Imports
+
+- Status: Accepted as a retention-only evidence-tooling correction; a fresh
+  paired run remains pending
+- Date: 2026-07-22
+
+Context: Retention run `20260722T061934Z-41752660e5a2` completed all five
+diagnostic and all five standard contexts and wrote a `run.json` whose outcome
+is `passed-noncertifying-retention`. Publication then rejected its first
+retained-file row. The run is correctly failure-sealed, has no release index or
+ready seal, and cannot be accepted. All 251 retained rows now rehash exactly;
+cleanup records zero engines, listeners, sessions, guard directories, candidate
+mounts, or success controls.
+
+The mismatch was deterministic function replacement, not changing evidence.
+Only the real two-phase branch dot-sources the ordinary persistence library.
+That library installed its generic `Get-FileSignature`, which returns one
+`length:sha256` string, over the publisher's same-named helper, which returns an
+object with separate `length` and `sha256` properties. The next comparison used
+the string's character length and failed. Synthetic fixtures never entered this
+branch, so the prior 71-check suite could not expose it.
+
+Decision: Give the publisher's helper a producer-specific name and update every
+call site. Add a no-engine child-scope regression that loads the publisher and
+ordinary library in the production order, then exact-checks both properties of
+the publisher helper's typed result. Preserve the failed evidence unchanged and
+rerun retention only from a fresh directory against the same immutable package.
+
+Consequences:
+
+- The retention publisher suite passes 72/72 without starting an engine.
+- The accepted release-surface half remains byte-valid because the changed
+  producer and regression are not among its nine indexed harness paths.
+- The failed run proves completion of its engine contexts but no publication or
+  retention acceptance. It cannot be consumed or resealed.
+- Until a fresh retention result is independently verified and paired with the
+  accepted surface half, `STATUS-008` remains open, Gate 1 is incomplete, and
+  release remains `NO-GO`.

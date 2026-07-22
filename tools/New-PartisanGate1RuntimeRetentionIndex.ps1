@@ -96,7 +96,7 @@ function Get-StrictTextArtifact {
     }
 }
 
-function Get-FileSignature {
+function Get-Gate1RetentionIndexFileSignature {
     param([Parameter(Mandatory = $true)][string]$Path)
 
     $leaf = Get-Item -LiteralPath $Path -Force -ErrorAction Stop
@@ -1103,7 +1103,7 @@ function Assert-HarnessGitBinding {
         if (-not (Test-Path -LiteralPath $worktreePath -PathType Leaf)) {
             throw 'A retained harness worktree tool is missing.'
         }
-        $worktree = Get-FileSignature $worktreePath
+        $worktree = Get-Gate1RetentionIndexFileSignature $worktreePath
         $blob = Get-GitBlobSignature $RepositoryRoot $HarnessHead `
             ([string]$tool.path)
         if (-not (Test-FileSignatureExact $tool $worktree) -or
@@ -1270,7 +1270,8 @@ function Assert-SnapshotManifest {
         $file = Resolve-PortableFile $snapshotRoot ([string]$row.path) `
             'Snapshot file path'
         if (-not (Test-Path -LiteralPath $file -PathType Leaf) -or
-            -not (Test-FileSignatureExact $row (Get-FileSignature $file))) {
+            -not (Test-FileSignatureExact $row `
+                (Get-Gate1RetentionIndexFileSignature $file))) {
             throw "$Stage/$Direction snapshot bytes differ from its manifest."
         }
     }
@@ -1628,7 +1629,7 @@ function Write-JsonAtomicCreateOnly {
             Remove-Item -LiteralPath $temporary -Force -ErrorAction SilentlyContinue
         }
     }
-    return Get-FileSignature $Path
+    return Get-Gate1RetentionIndexFileSignature $Path
 }
 
 function Get-CanonicalJsonBytes {
@@ -1893,7 +1894,8 @@ foreach ($row in $packageRows) {
     $path = Resolve-PortableFile $runRoot ([string]$row.path) `
         'Candidate package file'
     if ([string]$row.indexPath -cnotmatch '^Partisan/[^/]+$' -or
-        -not (Test-FileSignatureExact $row (Get-FileSignature $path))) {
+        -not (Test-FileSignatureExact $row `
+            (Get-Gate1RetentionIndexFileSignature $path))) {
         throw 'A copied candidate package file differs from its sealed row.'
     }
 }
@@ -2633,7 +2635,8 @@ foreach ($row in $fileRows) {
     }
     $path = Resolve-PortableFile $runRoot ([string]$row.path) 'Gate 1 file row path'
     if (-not (Test-Path -LiteralPath $path -PathType Leaf) -or
-        -not (Test-FileSignatureExact $row (Get-FileSignature $path))) {
+        -not (Test-FileSignatureExact $row `
+            (Get-Gate1RetentionIndexFileSignature $path))) {
         throw 'A retained Gate 1 file differs from its run census.'
     }
 }

@@ -257,9 +257,24 @@ native restoration or coherent journal fallback, and the fallback branch proves
 startup plus byte stability, not native recognition. Retail-created-to-retail-
 restored native certification remains a later restart gate.
 
+Fresh retention run `20260722T061934Z-41752660e5a2` completed all five
+diagnostic and all five standard contexts and wrote a passing noncertifying
+`run.json`, but publication failed before either terminal success control. The
+real-mode publisher had dot-sourced the ordinary persistence library, whose
+generic `Get-FileSignature` function replaced the publisher's same-named helper
+with a string-returning implementation. The first retained-file comparison
+therefore compared the recorded row against the wrong return type. The failure
+seal and cleanup are exact, all 251 retained rows now rehash exactly, and no
+engine, listener, session, guard directory, candidate mount, index, or ready
+seal remains. This is deterministic publisher failure evidence, not an accepted
+retention result or package defect. The publisher helper now has a producer-
+unique name, and a child-scope regression loads both libraries in the real order
+before checking its exact typed result.
+
 The release-surface publisher passes 65 checks, and the corrected retention
-publisher passes 71/71, including native-layout round trips, growing-log
-readiness, current metadata/schema negatives, startup-source negatives,
+publisher passes 72/72, including import-order isolation, native-layout round
+trips, growing-log readiness, current metadata/schema negatives, startup-source
+negatives,
 terminal failure sealing, and zero-write republishing verification. The release-
 ledger consumer invokes both exact Git-bound publishers in verification mode and
 passes 3 valid/optional plus 49 adversarial cases. These tests start no engine.

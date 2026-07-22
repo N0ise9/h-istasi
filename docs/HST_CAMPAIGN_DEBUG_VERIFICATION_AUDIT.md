@@ -256,11 +256,24 @@ still reject. The no-UUID stage remains exact fallback. The index continues to
 set `standardSaveRestorationCertified=false`, and the bounded failure artifact
 is path-free.
 
+Fresh run `20260722T061934Z-41752660e5a2` then completed all five diagnostic
+and all five standard contexts. Its `run.json` records the intended passing
+noncertifying outcome, but it has no release index or ready seal and cannot be
+accepted. In the real-only publication branch, dot-sourcing the ordinary
+persistence library replaced the publisher's generic typed file-signature
+helper with that library's same-named string helper. The first retained-file
+census comparison consequently used the wrong return type and failed
+deterministically. The terminal failure seal and cleanup are exact; all 251
+retained rows currently match their recorded length and SHA-256, and no engine,
+listener, session, guard directory, candidate mount, or success control remains.
+The producer helper now has a unique name, and a child-scope regression exercises
+the exact producer-then-library load order without an engine.
+
 The release-surface publisher passes 65 self-test checks, and the retention
-publisher passes 71/71, including actual-profile snapshot round trips,
-growing-log readiness, current native schema and startup-source negatives,
-terminal failure-boundary placement,
-ready/failure mutual exclusion, sealing, zero-write
+publisher passes 72/72, including import-order isolation, actual-profile
+snapshot round trips, growing-log readiness, current native schema and startup-
+source negatives, terminal failure-boundary placement, ready/failure mutual
+exclusion, sealing, zero-write
 verification of an existing publication, canonical index-byte comparison,
 strict scalar typing, terminal
 seals, fail-closed synthetic publication, receipt reuse, role relabeling,

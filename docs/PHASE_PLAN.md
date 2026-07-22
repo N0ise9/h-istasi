@@ -215,6 +215,17 @@ specific bound tools and Markdown changed, so the accepted surface half remains
 byte-valid and may pair with a later descendant retention harness after exact-
 blob checks.
 
+Fresh run `20260722T061934Z-41752660e5a2` completed all five diagnostic and all
+five standard contexts but failed before release-index and ready-seal creation.
+The real-mode publisher dot-sourced the ordinary persistence library, which
+replaced its generic typed file-signature helper with a same-named string helper;
+the first valid census row therefore failed the type-incompatible comparison.
+The run is exactly failure-sealed, all 251 retained rows currently rehash to
+their recorded values, and cleanup left no engine, listener, session, guard,
+mount, or success control. The publisher now uses a unique helper name and its
+exact import-order regression raises the no-engine suite to 72/72. Preserve the
+failed run and retry from a fresh directory; never retrofit it.
+
 1. Run and independently accept fresh diagnostic-write/standard-read runtime-
    retention evidence under the corrected retention tools, then consume it with
    the accepted surface half. Neither half alone advances Gate 1; `STATUS-008`

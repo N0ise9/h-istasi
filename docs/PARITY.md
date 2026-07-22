@@ -88,7 +88,7 @@ accepts coherent `native` plus restoration or coherent `profile_fallback`
 without restoration; explicit missing/new-playthrough rejection still fails.
 This is exactly `raw-retention-only`, and the index keeps
 `standardSaveRestorationCertified=false`. The publisher independently rechecks
-these semantics and its non-engine suite passes 71/71. Since no shared surface-
+these semantics and its non-engine suite passes 72/72. Since no shared surface-
 bound byte changed, the accepted surface remains valid while a fresh retention
 run is pending.
 
@@ -2426,6 +2426,11 @@ Debug and packaged-runtime gates remain open.
   `partisan-rc-5b1f2e98f931-20260721T193941Z` from clean source HEAD
   `5b1f2e98f93137230e686312c6e99cea7630dae4` and retire ee0 exactly once as
   ordered `history[2]` with `rejected-after-full-profile`.
+- [x] Preserve retention run `20260722T061934Z-41752660e5a2` as failed,
+  noncertifying publication evidence after all ten engine contexts completed;
+  isolate the real-only dot-sourced signature-helper collision with a unique
+  publisher helper and a 72/72 no-engine import-order regression. Do not attach
+  its unsealed `run.json` to the active candidate.
 - [ ] Run and jointly accept the paired release-surface and runtime-retention
   evidence against the active package; keep `STATUS-008` open until both pass.
 - [ ] Run the five-suite focused aggregate with exactly 91 individually named

@@ -306,6 +306,8 @@ $producerPath = Join-Path $PSScriptRoot `
     'New-PartisanGate1RuntimeRetentionIndex.ps1'
 $runnerPath = Join-Path $PSScriptRoot `
     'run-guarded-gate1-runtime-retention.ps1'
+$ordinaryPath = Join-Path $PSScriptRoot `
+    'run-ordinary-campaign-persistence-proof.ps1'
 . $producerPath -RunEnvelopePath 'library-only' -LibraryOnly
 . $runnerPath `
     -ManifestPath 'library-only' `
@@ -329,6 +331,28 @@ $checks = New-Object Collections.Generic.List[string]
 New-Item -ItemType Directory -Path $tempRoot -ErrorAction Stop | Out-Null
 
 try {
+    $signatureCollisionPath = Join-Path $tempRoot 'signature-collision.txt'
+    $signatureCollisionExpected = Write-TestText `
+        -Path $signatureCollisionPath `
+        -Text "producer signature helper remains exact`n"
+    $signatureCollisionActual = & {
+        param($ProducerPath, $OrdinaryPath, $SamplePath)
+        . $ProducerPath -RunEnvelopePath 'library-only' -LibraryOnly
+        . $OrdinaryPath `
+            -Executable 'library-only' `
+            -RuntimeAddonRoot 'library-only' `
+            -WorkbenchExecutable 'library-only' `
+            -LibraryOnly
+        Get-Gate1RetentionIndexFileSignature $SamplePath
+    } $producerPath $ordinaryPath $signatureCollisionPath
+    Assert-TestCondition (
+        [long]$signatureCollisionActual.length -eq
+            [long]$signatureCollisionExpected.length -and
+        [string]$signatureCollisionActual.sha256 -ceq
+            [string]$signatureCollisionExpected.sha256) `
+        'producer signature helper survives ordinary-library import'
+    [void]$checks.Add('producer-signature-helper-import-isolated')
+
     $libraryBindingResult = @(& $runnerPath `
         -ManifestPath 'binding-self-test' `
         -BundleRoot 'binding-self-test' `

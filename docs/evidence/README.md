@@ -132,7 +132,7 @@ The source contract covers 55 wholly guarded carriers, 39 mixed files, 321
 forbidden types, 71 forbidden commands, 67 forbidden members, and 9 forbidden
 literals. Its production controls are four types, three commands, and 91
 members. The source guard passes 15/15, the paired runner self-test passes 48
-  checks, the surface and retention publisher suites pass 65 and 71/71 checks,
+  checks, the surface and retention publisher suites pass 65 and 72/72 checks,
 and the consumer passes 3 valid/optional plus 49 adversarial cases. These source
 and publisher checkpoints do not constitute a runtime audit. The fourth and
 fifth fresh audits each produced internally passing retail and diagnostic mode
@@ -244,6 +244,16 @@ UUID/new-playthrough rejection still fails. The no-UUID stage remains exact
 fallback. Bounded failure state is path-free, and the no-engine suite passes
 71/71. The result remains `raw-retention-only` with
 `standardSaveRestorationCertified=false`.
+
+Fresh retention run `20260722T061934Z-41752660e5a2` completed all five
+diagnostic and all five standard contexts, then failed before publication. The
+real-only ordinary-library import replaced the publisher's generic typed
+signature helper with a same-named string helper, so the first valid retained
+row failed its comparison. Preserve its failure seal, cleanup, `run.json`, and
+251 currently exact census rows as noncertifying harness evidence. It has no
+release index or ready seal and must not be retrofitted. The publisher now uses
+a producer-unique helper and the 72nd no-engine check reproduces the exact import
+order and typed signature result.
 
 Only retention-specific bound tools and Markdown changed after the accepted
 surface run. The evidence consumer permits distinct descendant harness commits

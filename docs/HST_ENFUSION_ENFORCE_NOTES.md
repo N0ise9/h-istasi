@@ -117,7 +117,7 @@ The embedded implementation stamp is
   competing synthetic applications so a collection-valued process path cannot
   recur only in the production publication branch.
 - The release-surface publisher self-test passes 65 checks, and the retention
-  publisher self-test passes 71/71. The ledger consumer invokes both exact
+  publisher self-test passes 72/72. The ledger consumer invokes both exact
   Git-bound verifier scripts and passes 3 valid/optional plus 49 adversarial
   cases. Coverage includes actual-profile native-save round trips, growing-log
   readiness, current native-schema and startup-source negatives, zero-write
@@ -133,6 +133,14 @@ The embedded implementation stamp is
   actual import with distinct sentinel values rather than inspecting only text
   or AST shape. It also pins `LoopbackPort` and `StandardReadinessSeconds` across
   the complete outer binding.
+- Dot-sourcing also installs library functions in the caller's scope. A generic
+  helper name can therefore survive every synthetic test yet be replaced only
+  in a real-only import branch. The Gate 1 publisher's typed
+  `Get-FileSignature` was replaced by the ordinary library's string-returning
+  function after all engine contexts completed, so the first valid retained row
+  failed publication. Give cross-script helpers producer-specific names and
+  exercise the exact load order in a child scope; the regression must assert the
+  returned shape and values, not merely that both function definitions parse.
 - A process can exit normally between a successful liveness check and a separate
   CIM identity recapture. On identity-inspection failure, recheck the same
   `System.Diagnostics.Process` object. Report dead only if that exact handle has

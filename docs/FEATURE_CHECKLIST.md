@@ -76,9 +76,10 @@ remains open, Gate 1 remains incomplete, and release remains `NO-GO`.
   The seal binds four package files and 50 evidence files; this is not runtime
   acceptance.
 - [x] Harden the release-surface and retention publishers. Their self-tests
-  pass 65 checks and 71/71 respectively, including actual-profile native-save
-  round trips, growing-log readiness, current metadata and startup-source
-  negatives, terminal retention-failure sealing, zero-write published-index
+  pass 65 checks and 72/72 respectively, including import-order isolation,
+  actual-profile native-save round trips, growing-log readiness, current metadata
+  and startup-source negatives, terminal retention-failure sealing, zero-write
+  published-index
   verification, canonical byte comparison, strict scalar typing, terminal
   seals, synthetic-publication, receipt-reuse, role-relabel, launch-vector,
   journal, and reparse negatives. The ledger consumer reuses both exact
@@ -210,6 +211,16 @@ remains open, Gate 1 remains incomplete, and release remains `NO-GO`.
   online/GAME plus one coherent `native` or `profile_fallback` observation. The
   artifact remains raw-retention-only and does not certify standard native
   restoration. The suite passes 71/71 without engines.
+- [x] Preserve the completed-but-unpublished retention run and remove its
+  deterministic publisher collision. Run
+  `20260722T061934Z-41752660e5a2` completed all five diagnostic and all five
+  standard contexts, then the real-mode ordinary-library import replaced the
+  publisher's generic typed signature helper with a same-named string helper.
+  Publication rejected the first valid census row. The run is failure-sealed,
+  has no index/ready seal, retains 251 currently exact rows, and cleaned every
+  engine, listener, session, guard, and mount. A producer-unique helper name and
+  exact child-scope import-order regression pass 72/72 without engines. This is
+  harness-failure evidence, not candidate acceptance or a package defect.
 - [x] Replace the five aggregate JUnit wrappers with five suite launches that
   validate 91 individually named cases in exact counts 14/13/17/6/41. The
   forward aggregate contract requires JUnit 91/0/0/0, 40 retained files, and
