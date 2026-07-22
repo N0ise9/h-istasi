@@ -55,7 +55,8 @@ function Write-TestJson {
     if (-not (Test-Path -LiteralPath $parent -PathType Container)) {
         New-Item -ItemType Directory -Path $parent -Force | Out-Null
     }
-    $text = ($Value | ConvertTo-Json -Depth 64) + "`n"
+    $text = (($Value | ConvertTo-Json -Depth 64).Replace("`r`n", "`n") +
+        "`n")
     [IO.File]::WriteAllText(
         $Path, $text, (New-Object Text.UTF8Encoding($false)))
     return Get-TestSignature $Path
@@ -331,6 +332,34 @@ $checks = New-Object Collections.Generic.List[string]
 New-Item -ItemType Directory -Path $tempRoot -ErrorAction Stop | Out-Null
 
 try {
+    $canonicalIndexProbePath = Join-Path $tempRoot 'canonical-index-probe.json'
+    $canonicalIndexProbeSignature = & {
+        param($ProducerPath, $ProbeOutputPath)
+        . $ProducerPath -RunEnvelopePath 'library-only' -LibraryOnly
+        Write-JsonAtomicCreateOnly -Path $ProbeOutputPath -Value ([ordered]@{
+            contract = 'canonical-lf-probe'
+            nested = [ordered]@{ passed = $true }
+        })
+    } $producerPath $canonicalIndexProbePath
+    $canonicalIndexProbeText = [IO.File]::ReadAllText($canonicalIndexProbePath)
+    $repositoryRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
+    $rawIndexBlob = [string](& git -C $repositoryRoot hash-object `
+        --no-filters $canonicalIndexProbePath)
+    $filteredIndexBlob = [string](& git -C $repositoryRoot hash-object `
+        --path=docs/evidence/gate1-runtime-retention/selftest.json `
+        $canonicalIndexProbePath)
+    Assert-TestCondition (
+        $LASTEXITCODE -eq 0 -and
+        $canonicalIndexProbeText.IndexOf("`r", [StringComparison]::Ordinal) -lt 0 -and
+        [long]$canonicalIndexProbeSignature.length -eq
+            [long](Get-Item -LiteralPath $canonicalIndexProbePath).Length -and
+        [string]$canonicalIndexProbeSignature.sha256 -ceq
+            [string](Get-TestSignature $canonicalIndexProbePath).sha256 -and
+        -not [string]::IsNullOrWhiteSpace($rawIndexBlob) -and
+        $rawIndexBlob.Trim() -ceq $filteredIndexBlob.Trim()) `
+        'published retention index is canonical LF and Git-filter stable'
+    [void]$checks.Add('published-index-canonical-lf-git-stable')
+
     $signatureCollisionPath = Join-Path $tempRoot 'signature-collision.txt'
     $signatureCollisionExpected = Write-TestText `
         -Path $signatureCollisionPath `

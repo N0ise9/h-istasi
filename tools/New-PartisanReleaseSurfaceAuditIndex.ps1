@@ -436,9 +436,7 @@ function Get-ReleaseSurfaceIndexOptionValue {
 function Write-ReleaseSurfaceIndexAtomicCreateOnly {
     param([string]$Path, $Value)
 
-    $json = ($Value | ConvertTo-Json -Depth 64) + "`n"
-    Assert-ReleaseSurfaceIndexNoLocalPathText $json 'Release-surface audit index'
-    $bytes = (New-Object Text.UTF8Encoding($false)).GetBytes($json)
+    $bytes = Get-ReleaseSurfaceIndexCanonicalJsonBytes $Value
     if (Test-Path -LiteralPath $Path) {
         $existing = [IO.File]::ReadAllBytes($Path)
         if ($existing.Length -ne $bytes.Length -or
@@ -2586,7 +2584,8 @@ function Assert-ReleaseSurfaceIndexEvidenceCensus {
 function Get-ReleaseSurfaceIndexCanonicalJsonBytes {
     param($Value)
 
-    $json = ($Value | ConvertTo-Json -Depth 64) + "`n"
+    $json = (($Value | ConvertTo-Json -Depth 64).Replace("`r`n", "`n") +
+        "`n")
     Assert-ReleaseSurfaceIndexNoLocalPathText $json 'Release-surface audit index'
     return (New-Object Text.UTF8Encoding($false)).GetBytes($json)
 }

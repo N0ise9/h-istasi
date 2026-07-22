@@ -74,7 +74,7 @@ function Write-TestJson {
     }
     [IO.File]::WriteAllText(
         $Path,
-        (($Value | ConvertTo-Json -Depth 64) + "`n"),
+        (($Value | ConvertTo-Json -Depth 64).Replace("`r`n", "`n") + "`n"),
         (New-Object Text.UTF8Encoding($false)))
     return Get-TestSignature $Path
 }
@@ -1653,6 +1653,20 @@ public static class SyntheticReleaseSurfaceHost {
 
     Restore-TestBaseline $runRoot $baseline
     $null = Write-TestPublishedSeals $runRoot
+    $publishedIndexPath = Join-Path $runRoot 'release-index.json'
+    $publishedIndexText = [IO.File]::ReadAllText($publishedIndexPath)
+    $rawIndexBlob = [string](& git -C $repositoryRoot hash-object `
+        --no-filters $publishedIndexPath)
+    $filteredIndexBlob = [string](& git -C $repositoryRoot hash-object `
+        --path=docs/evidence/release-surface-audit/selftest.json `
+        $publishedIndexPath)
+    Assert-TestCondition (
+        $LASTEXITCODE -eq 0 -and
+        $publishedIndexText.IndexOf("`r", [StringComparison]::Ordinal) -lt 0 -and
+        -not [string]::IsNullOrWhiteSpace($rawIndexBlob) -and
+        $rawIndexBlob.Trim() -ceq $filteredIndexBlob.Trim()) `
+        'published release-surface index is canonical LF and Git-filter stable'
+    [void]$checks.Add('published-index-canonical-lf-git-stable')
     $publishedBaseline = Get-TestBaseline $runRoot
     $treeBeforeVerification = Get-TestTreeStateDigest $runRoot
     $verified = @(Invoke-TestPublishedVerification $runPath)

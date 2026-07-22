@@ -1603,8 +1603,7 @@ function Get-ExpectedGateFileProjection {
 
 function Write-JsonAtomicCreateOnly {
     param([string]$Path, $Value)
-    $json = ($Value | ConvertTo-Json -Depth 64) + "`n"
-    $bytes = (New-Object Text.UTF8Encoding($false)).GetBytes($json)
+    $bytes = Get-Gate1RetentionCanonicalJsonBytes $Value
     if (Test-Path -LiteralPath $Path) {
         throw 'The release index output already exists.'
     }
@@ -1632,10 +1631,11 @@ function Write-JsonAtomicCreateOnly {
     return Get-Gate1RetentionIndexFileSignature $Path
 }
 
-function Get-CanonicalJsonBytes {
+function Get-Gate1RetentionCanonicalJsonBytes {
     param([Parameter(Mandatory = $true)]$Value)
 
-    $json = ($Value | ConvertTo-Json -Depth 64) + "`n"
+    $json = (($Value | ConvertTo-Json -Depth 64).Replace("`r`n", "`n") +
+        "`n")
     return (New-Object Text.UTF8Encoding($false)).GetBytes($json)
 }
 
@@ -1668,7 +1668,7 @@ function Assert-PublishedGate1RetentionSeal {
     if ($indexArtifact.Text -match '(?i)(?:[a-z]:[\\/]|\\\\|file://)') {
         throw 'The published Gate 1 release index contains a machine-local path.'
     }
-    $expectedIndexBytes = Get-CanonicalJsonBytes $CanonicalIndex
+    $expectedIndexBytes = Get-Gate1RetentionCanonicalJsonBytes $CanonicalIndex
     if (-not (Test-ByteArrayExact $expectedIndexBytes $indexArtifact.Bytes)) {
         throw 'The published Gate 1 release index is not the exact recomputed canonical index.'
     }

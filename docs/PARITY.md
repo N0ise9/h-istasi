@@ -17,17 +17,16 @@ seal SHA-256 values are respectively
 `173434122dce60dde8ff1dc939e2d5a916094bdb31096a641850772aa9853ad3`.
 Foundation passed 985 references; PC, PS4, PS5, XBOX_ONE, and XBOX_SERIES each
 passed at 5,849 files/12,022 classes with common CRC `aeddce9b`; the seal binds
-  four package files and 50 evidence files. Corrected release-surface run
-  `20260722T043428Z-6dfc9b8f53d249808d9f5f4f97516455` passed and independently
-  verified its exact 41-file bundle under harness `fe018c1`. The subsequent
-  changes are confined to retention-only bound tools and Markdown, so that
-  surface half remains eligible for pairing. No retention pair, 91-case focused,
+  four package files and 50 evidence files. Earlier corrected surface and
+  retention runs passed and independently verified under their recorded tool
+  bytes, but their native-CRLF indexes cannot enter the LF-tracked current-tool
+  pair. No paired evidence, 91-case focused,
   corrected-canary, or full-profile runtime evidence has been accepted for
   these bytes. `STATUS-008` remains open, Gate 1 is incomplete, and release
   remains `NO-GO`.
 
-The next exact order is a fresh retention run and independent consumption with
-the accepted surface half, the five-suite 91-case focused aggregate, the
+The next exact order is a fresh paired run and independent consumption, the
+five-suite 91-case focused aggregate, the
 corrected canary, and Full Campaign Debug only after an accepted canary.
 
 Retention attempt `20260722T031531Z-434ebf5a6831` completed four diagnostic
@@ -88,9 +87,10 @@ accepts coherent `native` plus restoration or coherent `profile_fallback`
 without restoration; explicit missing/new-playthrough rejection still fails.
 This is exactly `raw-retention-only`, and the index keeps
 `standardSaveRestorationCertified=false`. The publisher independently rechecks
-these semantics and its non-engine suite passes 72/72. Since no shared surface-
-bound byte changed, the accepted surface remains valid while a fresh retention
-run is pending.
+  these semantics and its then-current non-engine suite passed 72/72. At that
+  checkpoint no shared surface-bound byte had changed, so the surface remained
+  eligible while a fresh retention run was pending. The later LF publisher
+  correction supersedes that retry boundary and requires both halves afresh.
 
 The former ee0 candidate is immutable ordered `history[2]` with
 `rejected-after-full-profile`. Its package-bound focused and corrected-canary
@@ -2431,8 +2431,14 @@ Debug and packaged-runtime gates remain open.
   isolate the real-only dot-sourced signature-helper collision with a unique
   publisher helper and a 72/72 no-engine import-order regression. Do not attach
   its unsealed `run.json` to the active candidate.
+- [x] Preserve sealed retention success `20260722T070815Z-6e6d4849f5ad` and the
+  earlier sealed surface success unchanged after discovering their tracked
+  copies would be LF-normalized and fail exact-byte consumption. Canonicalize
+  both publisher byte paths, add Git-filter stability checks, and pass 66/66
+  surface plus 73/73 retention checks without engines.
 - [ ] Run and jointly accept the paired release-surface and runtime-retention
-  evidence against the active package; keep `STATUS-008` open until both pass.
+  evidence under the corrected publishers against the active package; keep
+  `STATUS-008` open until both pass.
 - [ ] Run the five-suite focused aggregate with exactly 91 individually named
   cases and JUnit 91/0/0/0 against the unchanged active package.
 - [ ] Run the corrected canary only after the focused aggregate is accepted.

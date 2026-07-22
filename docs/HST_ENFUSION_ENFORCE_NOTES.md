@@ -116,8 +116,8 @@ The embedded implementation stamp is
   command record. Exercise the publisher's actual AST expression against two
   competing synthetic applications so a collection-valued process path cannot
   recur only in the production publication branch.
-- The release-surface publisher self-test passes 65 checks, and the retention
-  publisher self-test passes 72/72. The ledger consumer invokes both exact
+- The release-surface publisher self-test passes 66 checks, and the retention
+  publisher self-test passes 73/73. The ledger consumer invokes both exact
   Git-bound verifier scripts and passes 3 valid/optional plus 49 adversarial
   cases. Coverage includes actual-profile native-save round trips, growing-log
   readiness, current native-schema and startup-source negatives, zero-write
@@ -296,6 +296,15 @@ The embedded implementation stamp is
   tool bytes, but no current-tool retention result or accepted pair. Keep
   `STATUS-008` open, Gate 1 incomplete, and release `NO-GO` until the active
   candidate completes a fresh paired evidence boundary.
+- Treat tracked release indexes as canonical LF evidence, not native PowerShell
+  text. A successful retention run exposed that `ConvertTo-Json` on Windows had
+  written CRLF internally while the tracked evidence paths require LF; Git would
+  therefore change the exact length and digest required by the consumer. Share
+  one producer-specific LF serializer between publication and recomputation,
+  and test both CR absence and clean-filter stability. Never normalize a sealed
+  external run in place or add an attribute exception to make an OS-dependent
+  index appear portable. A producer correction requires a fresh bound run but
+  not a new candidate package.
 - The forward focused contract launches five suites serially and requires 91
   individually named JUnit cases in exact suite counts 14/13/17/6/41, with
   JUnit 91/0/0/0, 40 retained files, and 35/35 aggregate-policy checks. Preserve
@@ -732,11 +741,10 @@ The embedded implementation stamp is
   `173434122dce60dde8ff1dc939e2d5a916094bdb31096a641850772aa9853ad3`.
   Foundation passes all 985 references; all five Workbench targets pass at
   5,849 files/12,022 classes and common CRC `aeddce9b`; and the seal binds four
-  package files and 50 evidence files. Corrected release-surface run
-  `20260722T043428Z-6dfc9b8f53d249808d9f5f4f97516455` passed under harness
-  `fe018c1`, and its exact 41-file bundle passed independent verification. Only
-  retention-specific bound tools and Markdown changed afterward, so its next
-  evidence order is fresh corrected retention and pair consumption, the five-
+  package files and 50 evidence files. Earlier corrected surface and retention
+  runs passed under their recorded harnesses, but their native-CRLF indexes
+  cannot enter the LF-tracked current-tool pair. Its next evidence order is a
+  fresh paired run and consumption, the five-
   suite 91-case focused aggregate, the corrected canary, and Full Campaign Debug
   only after an accepted canary. Until then `STATUS-008` remains open, Gate 1 is
   incomplete, and release remains `NO-GO`.

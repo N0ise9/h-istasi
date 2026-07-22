@@ -132,7 +132,7 @@ The source contract covers 55 wholly guarded carriers, 39 mixed files, 321
 forbidden types, 71 forbidden commands, 67 forbidden members, and 9 forbidden
 literals. Its production controls are four types, three commands, and 91
 members. The source guard passes 15/15, the paired runner self-test passes 48
-  checks, the surface and retention publisher suites pass 65 and 72/72 checks,
+  checks, the surface and retention publisher suites pass 66 and 73/73 checks,
 and the consumer passes 3 valid/optional plus 49 adversarial cases. These source
 and publisher checkpoints do not constitute a runtime audit. The fourth and
 fifth fresh audits each produced internally passing retail and diagnostic mode
@@ -255,10 +255,21 @@ release index or ready seal and must not be retrofitted. The publisher now uses
 a producer-unique helper and the 72nd no-engine check reproduces the exact import
 order and typed signature result.
 
-Only retention-specific bound tools and Markdown changed after the accepted
-surface run. The evidence consumer permits distinct descendant harness commits
-and independently exact-checks each half's recorded blobs against current bytes,
-so the surface result remains eligible for the pending retention pair.
+Corrected run `20260722T070815Z-6e6d4849f5ad` completed all ten contexts,
+published and ready-sealed a 251-file noncertifying index, passed independent
+zero-write verification, and cleaned every owned boundary. Pair preparation
+then proved that this index and the earlier surface index contained native CRLF
+internally while their tracked destinations require LF. Git would change their
+exact consumer-bound length and SHA-256, so neither was attached or modified.
+
+Both publishers now route publication and recomputation through one
+producer-specific LF-canonical serializer. Their self-tests require CR-free
+output whose raw Git blob equals the blob after the tracked-path clean filter;
+surface passes 66/66 and retention passes 73/73 without engines. The evidence
+consumer still requires exact external/tracked bytes. Because both bound
+producer blobs changed, capture a fresh surface and retention pair against the
+unchanged candidate rather than weakening that rule or retrofitting either old
+seal.
 
 ## Release-Ledger Schema 3 Historical Evidence
 

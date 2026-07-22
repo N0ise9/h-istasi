@@ -22,11 +22,11 @@ with common CRC `aeddce9b`. Its exact four-file package SHA-256 is
 manifest and ready-seal SHA-256 values are
 `bef040090557ca1403d6505e2bd1150452ba467225a29adc4295641f5aa3c80c` and
 `173434122dce60dde8ff1dc939e2d5a916094bdb31096a641850772aa9853ad3`.
-  The seal binds four package files and 50 evidence files. Corrected release-
-  surface run `20260722T043428Z-6dfc9b8f53d249808d9f5f4f97516455` is accepted
-  under its exact recorded tool bytes. The corrected retention half and pair
-  consumption remain pending; `STATUS-008` remains open, and release remains
-  `NO-GO`.
+  The seal binds four package files and 50 evidence files. Earlier corrected
+  surface and retention runs both passed under their recorded tool bytes, but
+  their native-CRLF indexes cannot enter the LF-tracked current-tool pair. Fresh
+  paired evidence and consumption remain pending; `STATUS-008` remains open,
+  and release remains `NO-GO`.
 
 ## Gate 1 Standard/Diagnostic Packaging Boundary
 
@@ -73,7 +73,7 @@ diagnostic surfaces. No command action executes and no campaign gameplay state
 is mutated.
 
 The paired runner's structural self-test passes 48 checks. The release-surface
-publisher passes 65 checks, and the release-ledger consumer passes 3
+publisher passes 66 checks, and the release-ledger consumer passes 3
 valid/optional plus 49 adversarial cases. These results prove source and tool
 contracts only. Runtime member-presence probes are inert; the package census
 deliberately performs production menu generation and read-only per-ID
@@ -271,18 +271,30 @@ retention result or package defect. The publisher helper now has a producer-
 unique name, and a child-scope regression loads both libraries in the real order
 before checking its exact typed result.
 
-The release-surface publisher passes 65 checks, and the corrected retention
-publisher passes 72/72, including import-order isolation, native-layout round
+Before the LF transport correction, the release-surface publisher passed 65
+checks and the corrected retention publisher passed 72/72, including import-
+order isolation, native-layout round
 trips, growing-log readiness, current metadata/schema negatives, startup-source
 negatives,
 terminal failure sealing, and zero-write republishing verification. The release-
 ledger consumer invokes both exact Git-bound publishers in verification mode and
 passes 3 valid/optional plus 49 adversarial cases. These tests start no engine.
-Only retention-specific bound tools and Markdown changed, so the accepted
-surface result remains byte-valid; each half may record a different descendant
-harness HEAD, and the consumer independently verifies each recorded blob set.
-No accepted pair exists yet; `STATUS-008` remains open, Gate 1 is incomplete,
-and release remains `NO-GO`.
+At that checkpoint only retention-specific bound tools and Markdown had changed,
+so the accepted surface result remained byte-valid; each half could record a
+different descendant harness HEAD. The later paired publisher correction
+supersedes that retry boundary as described next. No accepted pair exists yet;
+`STATUS-008` remains open, Gate 1 is incomplete, and release remains `NO-GO`.
+
+Corrected retention run `20260722T070815Z-6e6d4849f5ad` subsequently completed
+and sealed all ten contexts with 251 retained rows, exact independent publisher
+verification, and zero owned residue. Pair preparation did not attach it: both
+that index and the earlier surface index contained native CRLF internally while
+their tracked destinations require LF, so Git would change the consumer-bound
+length and digest. The publishers now route writes and recomputation through one
+LF-canonical byte path, and their suites pass 66/66 and 73/73 with explicit
+CR-free, Git-filter-stable checks. Because each run binds its exact producer,
+both external successes remain immutable but a fresh surface and retention pair
+must run under the corrected commit against the unchanged package.
 
 ## Release-Ledger Schema 3
 

@@ -5065,3 +5065,42 @@ Consequences:
 - Until a fresh retention result is independently verified and paired with the
   accepted surface half, `STATUS-008` remains open, Gate 1 is incomplete, and
   release remains `NO-GO`.
+
+## CRI-095 - Canonicalize Tracked Gate 1 Index Bytes Before Publication
+
+- Status: Accepted as a paired evidence-transport correction; fresh paired
+  evidence remains pending
+- Date: 2026-07-22
+
+Context: Corrected retention run `20260722T070815Z-6e6d4849f5ad` completed all
+five diagnostic and all five standard contexts, published a 251-file
+`passed-noncertifying-retention` index and terminal ready seal, passed the exact
+publisher verifier, and left zero owned runtime residue. Pair preparation then
+found that both this index and accepted surface index
+`20260722T043428Z-6dfc9b8f53d249808d9f5f4f97516455` used native Windows line
+endings internally plus one final LF. Their tracked destinations require LF.
+Git would therefore change the exact length and SHA-256 on add or checkout,
+while the consumer correctly requires the tracked and external indexes to be
+byte-identical. The pair was not attached.
+
+Decision: Keep the successful external runs immutable. Route each publisher's
+write and verification paths through one producer-specific canonical serializer
+that replaces native CRLF with LF before hashing and writing. Add regressions
+that require CR-free output and prove Git's clean filter leaves representative
+tracked-path bytes unchanged. Do not add line-ending exceptions, normalize a
+sealed external artifact in place, weaken exact-byte consumption, or rebuild the
+unchanged candidate package. Commit the transport correction, then rerun both
+surface and retention from fresh directories under the corrected bound tools.
+
+Consequences:
+
+- The release-surface publisher suite passes 66/66 and the retention publisher
+  suite passes 73/73 without starting an engine.
+- The successful old indexes and ready seals remain exact evidence of their own
+  runs, but changing each bound producer prevents either half from entering the
+  active current-tool pair.
+- A fresh surface run and fresh two-phase retention run are required against the
+  same sealed package. Only their independently verified LF indexes may be
+  tracked and jointly consumed.
+- `STATUS-008` remains open, Gate 1 remains incomplete, and release remains
+  `NO-GO`.

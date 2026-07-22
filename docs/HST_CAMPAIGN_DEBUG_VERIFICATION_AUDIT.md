@@ -289,6 +289,16 @@ retained bytes but may not receive diagnostic, test, proof, or mutation
 authority or any script definition. Every phase must bind the exact sealed candidate, package, launch
 vector, executable, tool blob, save/journal inventory, and cleanup boundary.
 
+Corrected retention run `20260722T070815Z-6e6d4849f5ad` then published a valid
+251-file index and terminal ready seal after all ten contexts, passed independent
+zero-write verification, and cleaned every owned boundary. It still was not
+attached. The retained surface and retention indexes used native CRLF internally
+while their tracked paths require LF, so Git would change their exact consumer-
+bound length and SHA-256. Both publishers now share one LF-canonical write and
+verification byte path. Explicit CR-free and clean-filter-stability regressions
+raise the suites to 66/66 and 73/73. Because the corrected producer blobs differ
+from both old harnesses, a fresh pair must run against the unchanged candidate.
+
 The active focused evidence contract now uses five serial suite launches with
 exact case counts 14/13/17/6/41. It requires 91 individually named JUnit cases
 at 91/0/0/0, all 40 envelope files, and 35/35 aggregate-policy checks. The
@@ -299,14 +309,12 @@ valid only for candidate ancestry at or before
 `075558ac7b6c14d1bb3e5829a2b87f3dbb608351`; it is not active evidence for a
 future candidate.
 
-The new candidate is sealed and active. Its corrected release-surface run is
-terminally sealed and independently verified under its recorded tool bytes.
-Only retention-specific bound tools and Markdown changed afterward, so that
-surface half remains eligible for pairing; the consumer verifies each half
-against its own recorded descendant harness HEAD and exact current bytes.
-Engine-retention evidence has not been accepted. `STATUS-008` therefore remains
-open, Gate 1 is incomplete, and release remains `NO-GO`. The remaining order is
-a fresh retention run and pair consumption, the five-suite 91-case focused
+The new candidate is sealed and active. Its earlier surface and retention runs
+remain terminally sealed and independently verified under their recorded tool
+bytes, but neither can enter the current-tool pair after the canonical publisher
+correction. `STATUS-008` therefore remains open, Gate 1 is incomplete, and
+release remains `NO-GO`. The remaining order is a fresh paired run and
+consumption, the five-suite 91-case focused
 aggregate, the corrected canary, and Full Campaign Debug only after the canary
 is accepted.
 
