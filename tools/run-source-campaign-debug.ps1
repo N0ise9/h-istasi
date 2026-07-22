@@ -1041,7 +1041,7 @@ function Get-SourceBinding {
                     '--exclude-standard',
                     '--') + $archivePathspecs))
     ) | Sort-Object -Unique
-    if ($archiveRows.Count -ne 0) {
+    if (@($archiveRows).Count -ne 0) {
         throw 'The source checkout contains a generated archive.'
     }
 

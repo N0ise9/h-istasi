@@ -832,6 +832,11 @@ Gate 1 or Workshop publishing requirement.
   sentinel separate at the outer root. Bind this mapping in the runner self-test;
   passing the child itself creates an unintended doubled `profile/profile`
   mount and can make every journal case fail before exercising production logic.
+- Under PowerShell strict mode, a pipeline that finds zero or one row may bind
+  as null or a scalar even when its inputs were arrays. Wrap the final pipeline
+  expression (or the use site) in `@(...)` before reading `.Count`; source-gate
+  archive censuses must accept exactly zero rows without failing their own
+  prelaunch check.
 
 ## Historical Manual Candidate-Pack QA Mechanics (Retired)
 
