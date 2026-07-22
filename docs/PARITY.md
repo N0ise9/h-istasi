@@ -24,11 +24,27 @@ leaf `20260722T103514Z-436f331b8659` passed under corrected harness
 `e2c38d2770d8ebaaa675326d1b8a91068db989e5`, independently reverified read-only,
 and were jointly consumed against the unchanged package. CRI-100 keeps both
 pairs as immutable passed history under their recorded tool bytes, but neither
-satisfies the active encoding-stable current-consumer binding. `STATUS-008` is
-reopened. Candidate, package, gameplay, Foundation, and Workbench facts are
-unchanged. No 91-case focused, corrected-canary, or full-profile runtime evidence
-has yet been accepted for these bytes. Gate 1 is incomplete, and release remains
-`NO-GO`.
+satisfies the active encoding-stable current-consumer binding. CRI-101 accepts
+surface leaf `20260722T114802Z-1fb5e08619ef45b2aae20f2c5938b56c` and retention
+leaf `20260722T115003Z-4e159a24384c` under clean harness
+`7e2fe71d9619fd60cfe393d2776b4ed49f75186b`. The surface retains 41 files,
+per-mode exact 2/2/1/0 mounts, retail's exact approved 6 raw/2 events,
+diagnostic's exact 0/0, and zero unapproved diagnostics. Its tracked index/ready
+SHA-256 values are
+`832c91705120f54de5c2afa974492efdf23cb11f4f1ef9b8f2395c8ecf2399e8` and
+`84079df17dc4293e23706f36e3a4eb6efefae29cf709396ecbee2530441dded0`.
+Retention retains 251 files across five diagnostic plus five standard contexts,
+with `standardSaveRestorationCertified: false` and `certificationClaim: none`; its
+tracked index/ready SHA-256 values are
+`5989778fef9a560b94dff311e8fa82547166f10ac2b0598504a56489163f5a4e` and
+`023f17a4e36f73627fbe64bb456165991b7a66f3100908d5343f49ded00d4504`.
+Both halves independently reverified read-only and were jointly consumed against
+the unchanged package and candidate binding
+`06b5fa23ccd10bfd1f8621f6b03c25d9c36719cc9c7d08ebcc73dabbba8c9f5f`.
+`STATUS-008` is closed again. Candidate, package, gameplay, Foundation, and
+Workbench facts are unchanged. No 91-case focused, corrected-canary, or full-
+profile runtime evidence has yet been accepted for these bytes. Gate 1 is
+incomplete, and release remains `NO-GO`.
 
 Focused counterattack leaf
 `20260722T105628Z-68bd71de0fea40f68b533feee1c9e86a`, `run.json` SHA-256
@@ -44,9 +60,10 @@ BOM-less UTF-8 source through its legacy code page, producing mojibake and makin
 the real self-test prefix with `[string][char]0x2705`, and retains a wrong-prefix
 negative. The rejected leaf is never retroactively promoted.
 
-The next exact order is a fresh jointly consumed surface/retention pair, all five
-focused suites and their 91-case aggregate, the corrected canary, and Full
-Campaign Debug only after an accepted canary.
+The next exact order is all five focused suites and their 91-case aggregate, the
+corrected canary, and Full Campaign Debug only after an accepted canary. Both
+earlier pairs remain immutable passed history, and both rejected focused leaves
+remain immutable rejected history.
 
 Focused counterattack leaf
 `20260722T084353Z-03d78e016b244d8fb1aea42f307af1d6`, envelope SHA-256
@@ -2502,8 +2519,16 @@ Debug and packaged-runtime gates remain open.
   `[string][char]0x2705`, and a wrong-prefix negative. Keep both earlier pairs as
   immutable passed history under their recorded tool bytes; neither satisfies
   the active current-consumer binding, so `STATUS-008` is reopened.
-- [ ] Run and jointly consume a fresh same-package surface/retention pair under
-  the committed encoding-stable current consumer.
+- [x] Run and jointly consume the fresh same-package encoding-stable pair under
+  clean harness `7e2fe71d9619fd60cfe393d2776b4ed49f75186b`. Surface leaf
+  `20260722T114802Z-1fb5e08619ef45b2aae20f2c5938b56c` retains 41 files, exact
+  per-mode 2/2/1/0 mounts, retail 6-raw/2-event approved diagnostics, diagnostic
+  0/0, and zero unapproved diagnostics. Retention leaf
+  `20260722T115003Z-4e159a24384c` retains 251 files across five diagnostic plus
+  five standard contexts with no certification promotion. Both independently
+  reverified read-only and were jointly consumed, closing `STATUS-008` again.
+  Both earlier pairs remain immutable passed history, and both rejected focused
+  leaves remain immutable rejected history.
 - [ ] Run the five-suite focused aggregate with exactly 91 individually named
   cases and JUnit 91/0/0/0 against the unchanged active package.
 - [ ] Run the corrected canary only after the focused aggregate is accepted.

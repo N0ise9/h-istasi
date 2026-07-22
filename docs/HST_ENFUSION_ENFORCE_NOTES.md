@@ -315,8 +315,9 @@ The embedded implementation stamp is
   closed `STATUS-008` again without changing candidate, package, or gameplay
   bytes. CRI-100 later changed bound current-consumer bytes; both pairs remain
   immutable passed history under their recorded tool bytes, but neither now
-  satisfies the active current-consumer binding. `STATUS-008` is reopened. Gate
-  1 remains incomplete and release remains `NO-GO`.
+  satisfies the active current-consumer binding. `STATUS-008` was reopened.
+  CRI-101 subsequently accepts a fresh encoding-stable pair and closes
+  `STATUS-008` again. Gate 1 remains incomplete and release remains `NO-GO`.
 - Parse mount evidence as structured timestamped `ENGINE : gproj:` records, not
   as arbitrary lines containing a GUID. Select the exact case-sensitive
   candidate GUID, require the exact guard-owned candidate path, and require
@@ -360,6 +361,28 @@ The embedded implementation stamp is
   Use ASCII source `(?:\u2705\s+)?`, build the real self-test marker with
   `[string][char]0x2705`, retain the wrong-prefix negative, and never retrofit or
   promote the rejected leaf. The correction changes bound tool bytes only.
+- CRI-101 accepts the fresh encoding-stable pair under clean harness
+  `7e2fe71d9619fd60cfe393d2776b4ed49f75186b`. Surface leaf
+  `20260722T114802Z-1fb5e08619ef45b2aae20f2c5938b56c` retains 41 files; its
+  tracked index/ready SHA-256 values are
+  `832c91705120f54de5c2afa974492efdf23cb11f4f1ef9b8f2395c8ecf2399e8` and
+  `84079df17dc4293e23706f36e3a4eb6efefae29cf709396ecbee2530441dded0`.
+  Retail and diagnostic mount attestations are each exact at 2/2/1/0; retail
+  retains the exact approved 6-raw/2-event cluster, diagnostic is exact at 0
+  raw/0 events, and unapproved diagnostics are zero. Retention leaf
+  `20260722T115003Z-4e159a24384c` retains 251 files; its tracked index/ready
+  SHA-256 values are
+  `5989778fef9a560b94dff311e8fa82547166f10ac2b0598504a56489163f5a4e` and
+  `023f17a4e36f73627fbe64bb456165991b7a66f3100908d5343f49ded00d4504`.
+  It covers five diagnostic plus five standard contexts and retains
+  `standardSaveRestorationCertified: false` with `certificationClaim: none`. Both
+  halves independently reverified read-only and were jointly consumed against
+  unchanged package
+  `af22d6322a215dbef466e49041fc07395cbb5ed7a5951fd3e0cee5f4a101f530`
+  and candidate binding
+  `06b5fa23ccd10bfd1f8621f6b03c25d9c36719cc9c7d08ebcc73dabbba8c9f5f`.
+  This closes `STATUS-008` without certifying save restoration or changing
+  candidate, package, gameplay, Foundation, or Workbench facts.
 - Treat tracked release indexes as canonical LF evidence, not native PowerShell
   text. A successful retention run exposed that `ConvertTo-Json` on Windows had
   written CRLF internally while the tracked evidence paths require LF; Git would
@@ -821,11 +844,17 @@ The embedded implementation stamp is
   were jointly consumed under harness `e2c38d2770d8ebaaa675326d1b8a91068db989e5`.
   CRI-100 also keeps that pair as immutable passed history under its recorded
   tool bytes, but neither pair satisfies the active encoding-stable current-
-  consumer binding. `STATUS-008` is reopened. Its next evidence order is a fresh
-  jointly consumed surface/retention pair, all five focused suites and their 91-
-  case aggregate, the corrected canary, and Full Campaign Debug only after an
-  accepted canary. Candidate, package, gameplay, Foundation, and Workbench facts
-  are unchanged. Gate 1 is incomplete, and release remains `NO-GO`.
+  consumer binding. CRI-101 accepts surface leaf
+  `20260722T114802Z-1fb5e08619ef45b2aae20f2c5938b56c` and retention leaf
+  `20260722T115003Z-4e159a24384c` under clean harness
+  `7e2fe71d9619fd60cfe393d2776b4ed49f75186b`; both independently reverified
+  read-only and were jointly consumed against the unchanged package.
+  `STATUS-008` is closed again. Its next evidence order is all five focused
+  suites and their 91-case aggregate, the corrected canary, and Full Campaign
+  Debug only after an accepted canary. Both earlier pairs remain immutable
+  passed history, and both rejected focused leaves remain immutable rejected
+  history. Candidate, package, gameplay, Foundation, and Workbench facts are
+  unchanged. Gate 1 is incomplete, and release remains `NO-GO`.
 - The historical ordered `history[2]` `rejected-after-full-profile` candidate is
   `partisan-rc-ee0e8add2a29-20260719T063815Z`, version
   `0.1.0-rc.20260719T063815Z.ee0e8add`, from clean source HEAD
@@ -8853,11 +8882,14 @@ This file is for practical engine/script behavior, not project planning. Keep en
   or stable certification. This package's next canary rejected, so its chain is
   closed and Full Campaign Debug must not run. For the active immutable
   candidate, CRI-100 reopened the current-consumer release-surface/runtime-
-  retention boundary; both passed pairs remain immutable history under their
-  recorded tool bytes. Preserve the remaining serial order: a fresh same-package
-  pair, the 91-case focused aggregate, the corrected canary, and then full only
-  after an accepted canary. Evidence bound to superseded tool bytes cannot
-  satisfy the active pair boundary.
+  retention boundary; both earlier passed pairs remain immutable history under
+  their recorded tool bytes. CRI-101 accepts the fresh encoding-stable pair
+  under clean harness `7e2fe71d9619fd60cfe393d2776b4ed49f75186b` and closes
+  `STATUS-008` again without certification promotion. Preserve the remaining
+  serial order: the 91-case focused aggregate, the corrected canary, and then
+  full only after an accepted canary. Both rejected focused leaves remain
+  immutable rejected history, and evidence bound to superseded tool bytes does
+  not satisfy the active pair boundary.
 - A passing focused JUnit result does not classify the surrounding engine error
   channel. Bind a separate hard-diagnostic census into the runner's success
   predicate. For the current diagnostic client, exactly two stock filter-

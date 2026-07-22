@@ -371,6 +371,45 @@ the active current-consumer boundary. `STATUS-008` is reopened. Next run a fresh
 same-package pair, all five focused suites, the corrected canary, and Full
 Campaign Debug only after an accepted canary.
 
+CRI-101 accepts the fresh encoding-stable pair under clean harness
+`7e2fe71d9619fd60cfe393d2776b4ed49f75186b`. Surface run
+`release_surface_20260722T114802Z_1fb5e08619ef45b2aae2`, from
+`2026-07-22T11:48:02.4105472Z` through `2026-07-22T11:48:44.3786578Z`, retains
+41-file leaf `20260722T114802Z-1fb5e08619ef45b2aae20f2c5938b56c`. Its tracked
+index and ready-seal SHA-256 values are
+`832c91705120f54de5c2afa974492efdf23cb11f4f1ef9b8f2395c8ecf2399e8` and
+`84079df17dc4293e23706f36e3a4eb6efefae29cf709396ecbee2530441dded0`.
+Both per-mode mount attestations are exact at 2 records/2 paths/1 packed/0
+invalid; retail retains the exact approved stock 6-raw/2-event cluster,
+diagnostic retains 0 raw/0 events, and unapproved diagnostics are zero. Its
+disposition is `passed-noncertifying-release-surface-audit` with no
+certification promotion.
+
+Retention run `gate1_20260722T115003Z_4e159a24384c4808aee0`, from
+`2026-07-22T11:50:03.6835003Z` through `2026-07-22T11:55:56.7758898Z`, retains
+251-file leaf `20260722T115003Z-4e159a24384c`. Its tracked index and ready-seal
+SHA-256 values are
+`5989778fef9a560b94dff311e8fa82547166f10ac2b0598504a56489163f5a4e` and
+`023f17a4e36f73627fbe64bb456165991b7a66f3100908d5343f49ded00d4504`.
+It covers five diagnostic lineage stages plus five standard contexts and keeps
+the exact noncertifying boundary `standardSaveRestorationCertified: false` and
+`certificationClaim: none`; its disposition is `passed-noncertifying-retention`.
+
+Both tracked indexes byte-match their sealed external copies, every indexed row
+and ready seal independently reverified read-only, and the release consumer
+accepted the pair together against unchanged package
+`af22d6322a215dbef466e49041fc07395cbb5ed7a5951fd3e0cee5f4a101f530` and
+candidate binding
+`06b5fa23ccd10bfd1f8621f6b03c25d9c36719cc9c7d08ebcc73dabbba8c9f5f`.
+`STATUS-008` is closed again. The `52c7e2b` and `e2c38d2` pairs remain immutable
+passed history, and focused leaves
+`20260722T084353Z-03d78e016b244d8fb1aea42f307af1d6` and
+`20260722T105628Z-68bd71de0fea40f68b533feee1c9e86a` remain immutable rejected
+history. Candidate, package, gameplay, Foundation, and Workbench facts are
+unchanged. Next run all five focused suites and their 91-case aggregate, then
+the corrected canary, then Full Campaign Debug only after an accepted canary.
+Gate 1 remains incomplete and release remains `NO-GO`.
+
 ## Release-Ledger Schema 3 Historical Evidence
 
 Release-ledger Schema 3 is distinct from Campaign Schema 71. Its
@@ -418,11 +457,14 @@ files/12,022 classes with common CRC `aeddce9b`; the seal binds four package
 files and 50 evidence files. The tracked manifest and ready seal are the portable
 identity records; the package and complete raw evidence bundle remain external,
 immutable, and untracked. The passed `52c7e2b` and `e2c38d2` surface/retention
-pairs remain immutable history under their recorded tool bytes but neither
-satisfies the active current-consumer binding after the encoding-stable focused-
-marker correction. Candidate, package, gameplay, Foundation, and Workbench
-evidence are unchanged. `STATUS-008` is open. Next run a fresh same-package
-surface/retention pair, all five focused suites and their 91-case aggregate, the
+pairs remain immutable history under their recorded tool bytes. Fresh 41-file
+surface leaf `20260722T114802Z-1fb5e08619ef45b2aae20f2c5938b56c` and 251-file
+retention leaf `20260722T115003Z-4e159a24384c` passed under clean encoding-stable
+harness `7e2fe71d9619fd60cfe393d2776b4ed49f75186b`, independently reverified
+read-only, and were jointly consumed against the unchanged package. Both
+rejected focused leaves remain immutable rejected history. Candidate, package,
+gameplay, Foundation, and Workbench evidence are unchanged. `STATUS-008` is
+closed again. Next run all five focused suites and their 91-case aggregate, the
 corrected canary, and Full Campaign Debug only after an accepted canary. Gate 1
 remains incomplete and release remains `NO-GO`.
 

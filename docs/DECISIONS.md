@@ -5323,3 +5323,53 @@ Consequences:
 - The exact next order is a fresh same-package surface/retention pair, all five
   focused suites and their 91-case aggregate, the corrected canary, and Full
   Campaign Debug only after an accepted canary.
+
+## CRI-101 - Accept the Encoding-Stable Same-Package Gate 1 Pair
+
+- Status: Accepted as the active noncertifying paired Gate 1 boundary
+- Date: 2026-07-22
+
+Context: CRI-100 changed the bound focused-marker and release-document consumer
+bytes without changing candidate, package, or gameplay bytes. The `52c7e2b` and
+`e2c38d2` pairs remain immutable passed history under their recorded tool bytes,
+but neither could satisfy the encoding-stable active current-consumer boundary.
+Both rejected focused leaves likewise remain immutable rejected forensic
+evidence and cannot enter the five-suite aggregate.
+
+Clean harness `7e2fe71d9619fd60cfe393d2776b4ed49f75186b` produced 41-file
+surface leaf `20260722T114802Z-1fb5e08619ef45b2aae20f2c5938b56c`. Its tracked
+index and ready SHA-256 values are
+`832c91705120f54de5c2afa974492efdf23cb11f4f1ef9b8f2395c8ecf2399e8` and
+`84079df17dc4293e23706f36e3a4eb6efefae29cf709396ecbee2530441dded0`.
+Both retail and diagnostic modes carried exact 2/2/1/0 candidate-mount
+attestation. Retail retained the exact approved 6-raw/2-event stock cluster;
+diagnostic retained 0/0; neither mode contained an unapproved event.
+
+The same harness then produced 251-file retention leaf
+`20260722T115003Z-4e159a24384c`. Its tracked index and ready SHA-256 values are
+`5989778fef9a560b94dff311e8fa82547166f10ac2b0598504a56489163f5a4e` and
+`023f17a4e36f73627fbe64bb456165991b7a66f3100908d5343f49ded00d4504`.
+It completed all five diagnostic lineage stages and five disjoint standard
+load/start/log contexts with stable retained bytes. Its certification claim is
+`none`, and `standardSaveRestorationCertified` remains `false`.
+
+Decision: Accept only these exact encoding-stable indexes as the active pair.
+Each external tree and terminal seal was independently rehashed read-only, the
+tracked indexes matched their sealed copies byte-for-byte, and the shared
+release consumer accepted both records together against unchanged package
+`af22d6322a215dbef466e49041fc07395cbb5ed7a5951fd3e0cee5f4a101f530`
+and candidate binding
+`06b5fa23ccd10bfd1f8621f6b03c25d9c36719cc9c7d08ebcc73dabbba8c9f5f`.
+Do not promote either scoped result into gameplay, native save-restoration,
+multiplayer, restart, performance, soak, or certification claims.
+
+Consequences:
+
+- `STATUS-008` is closed again. Gate 1 remains incomplete and release remains
+  `NO-GO`.
+- Candidate, package, gameplay, Foundation, and Workbench evidence are
+  unchanged.
+- Preserve the `52c7e2b` and `e2c38d2` pairs as immutable passed history and
+  both rejected focused leaves as immutable rejected forensic evidence.
+- The exact next order is all five focused suites and their 91-case aggregate,
+  the corrected canary, and Full Campaign Debug only after an accepted canary.
