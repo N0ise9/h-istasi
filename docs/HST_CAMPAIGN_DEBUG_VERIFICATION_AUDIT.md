@@ -114,7 +114,17 @@ not accepted evidence. The publisher now selects one scalar application and
 tests the real resolution expression against two competing synthetic
 applications; a fresh clean-checkout attempt is still required.
 
-The release-surface publisher passes 62 self-test checks, and the retention
+A fifth attempt again produced internally passing retail and diagnostic raw
+records, exact `0 raw / 0 event` diagnostics, no crash artifacts, a 41-file
+census, and exact cleanup. The corrected publisher then rejected the shared
+guarded-runtime module because its CRLF worktree bytes differed from the
+committed LF blob; the other eight bound tools matched. It created neither a
+release index nor a ready seal. All shared bound tools are now explicitly
+LF-pinned, and both surface and retention runners compare their complete bound
+worktree blob set with the clean harness commit before engine launch. The fifth
+directory is also unsealed diagnostic residue and requires a fresh rerun.
+
+The release-surface publisher passes 63 self-test checks, and the retention
 publisher passes 63/63, including zero-write verification of an existing
 publication, canonical index-byte comparison, strict scalar typing, terminal
 seals, fail-closed synthetic publication, receipt reuse, role relabeling,

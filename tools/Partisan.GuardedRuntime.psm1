@@ -713,6 +713,63 @@ function Get-PartisanFileSignature {
     }
 }
 
+function Assert-PartisanGitWorktreeFilesMatchCommit {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)][string]$RepositoryRoot,
+        [Parameter(Mandatory = $true)][string]$Commit,
+        [Parameter(Mandatory = $true)][string[]]$PortablePaths
+    )
+
+    $root = Resolve-PartisanExistingPath -Path $RepositoryRoot -Kind Container
+    if ($Commit -cnotmatch '^[0-9a-f]{40,64}$') {
+        throw 'A Git-bound worktree assertion has an invalid commit identity.'
+    }
+    if (@($PortablePaths).Count -lt 1) {
+        throw 'A Git-bound worktree assertion requires at least one file.'
+    }
+    $seen = New-Object 'Collections.Generic.HashSet[string]' (
+        [StringComparer]::Ordinal)
+    foreach ($portablePath in $PortablePaths) {
+        if ([string]::IsNullOrWhiteSpace($portablePath) -or
+            $portablePath.Contains('\') -or
+            $portablePath.Contains(':') -or
+            $portablePath.StartsWith('/') -or
+            $portablePath.Split('/') -contains '..' -or
+            -not $seen.Add($portablePath)) {
+            throw 'A Git-bound worktree path is invalid or duplicated.'
+        }
+        $worktreePath = [IO.Path]::GetFullPath(
+            (Join-Path $root $portablePath.Replace('/', '\')))
+        if (-not (Test-PartisanContainedPath `
+                -Root $root -Candidate $worktreePath) -or
+            -not (Test-Path -LiteralPath $worktreePath -PathType Leaf)) {
+            throw "A Git-bound worktree file is missing: $portablePath"
+        }
+        Assert-PartisanNoReparseAncestry -Path $worktreePath
+
+        $commitOutput = @(& git -C $root rev-parse `
+            ($Commit + ':' + $portablePath) 2>$null)
+        $commitExit = $LASTEXITCODE
+        $commitBlob = ($commitOutput -join '').Trim()
+        if ($commitExit -ne 0 -or
+            $commitBlob -cnotmatch '^[0-9a-f]{40,64}$') {
+            throw "A Git-bound commit blob is missing: $portablePath"
+        }
+        $worktreeOutput = @(& git -C $root hash-object `
+            --no-filters -- $portablePath 2>$null)
+        $worktreeExit = $LASTEXITCODE
+        $worktreeBlob = ($worktreeOutput -join '').Trim()
+        if ($worktreeExit -ne 0 -or
+            $worktreeBlob -cnotmatch '^[0-9a-f]{40,64}$') {
+            throw "A Git-bound worktree blob is invalid: $portablePath"
+        }
+        if ($worktreeBlob -cne $commitBlob) {
+            throw "A Git-bound worktree file differs from its commit blob: $portablePath"
+        }
+    }
+}
+
 function Test-PartisanFileSignatureExact {
     param(
         [Parameter(Mandatory = $true)]$Expected,
@@ -6226,6 +6283,7 @@ function Test-PartisanGuardedRuntimeReceipt {
 }
 
 Export-ModuleMember -Function `
+    Assert-PartisanGitWorktreeFilesMatchCommit, `
     Assert-PartisanCandidateStage, `
     Assert-PartisanExecutableProvenance, `
     Assert-PartisanLoopbackPortAvailable, `

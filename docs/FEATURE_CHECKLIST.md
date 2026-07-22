@@ -73,7 +73,7 @@ remains open, Gate 1 remains incomplete, and release remains `NO-GO`.
   The seal binds four package files and 50 evidence files; this is not runtime
   acceptance.
 - [x] Harden the release-surface and retention publishers. Their self-tests
-  pass 62 checks and 63/63 respectively, including zero-write published-index
+  pass 63 checks and 63/63 respectively, including zero-write published-index
   verification, canonical byte comparison, strict scalar typing, terminal
   seals, synthetic-publication, receipt-reuse, role-relabel, launch-vector,
   journal, and reparse negatives. The ledger consumer reuses both exact
@@ -118,6 +118,18 @@ remains open, Gate 1 remains incomplete, and release remains `NO-GO`.
   not be salvaged or accepted; the next audit must start fresh from the
   committed clean tooling. Candidate bytes remain unchanged, retention has not
   run, and no release-surface or paired completion is claimed.
+- [x] Pin Git-bound worktree bytes and reject drift before engine launch. The
+  fifth fresh attempt again produced internally passing retail and diagnostic
+  records with exact `0 raw / 0 event` diagnostics, zero crash artifacts, an
+  exact 41-file census, and zero cleanup residue. The corrected publisher then
+  rejected the shared guarded-runtime module because its CRLF worktree bytes
+  differed from its committed LF blob; the other eight bound tools matched.
+  No release index or terminal ready seal was created. Explicitly pin every
+  surface/retention bound text tool to LF, add a 63rd publisher regression over
+  the attributes and current bytes, and make both runners compare bound
+  worktree blob IDs to the clean harness commit before starting an engine. The
+  fifth directory remains unsealed diagnostic residue, candidate bytes remain
+  unchanged, retention has not run, and no runtime completion is claimed.
 - [x] Replace the five aggregate JUnit wrappers with five suite launches that
   validate 91 individually named cases in exact counts 14/13/17/6/41. The
   forward aggregate contract requires JUnit 91/0/0/0, 40 retained files, and

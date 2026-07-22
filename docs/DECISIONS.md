@@ -4445,7 +4445,7 @@ Consequences:
   authoritative. Require `console.log`, `script.log`, and `error.log`; permit
   zero or one `crash.log`, retain and classify it when present, and never
   synthesize it when absent.
-- The release-surface publisher passes 62 structural and fail-closed checks,
+- The release-surface publisher passes 63 structural and fail-closed checks,
   and the retention publisher passes 63/63, including zero-write verification
   of already-published indexes, canonical byte comparison, strict scalar types,
   terminal seals, synthetic-publication, receipt-reuse, role-relabel,
@@ -4611,7 +4611,7 @@ Consequences:
 - Do not broaden the package's headquarters teardown guard or alter the audit
   world to suppress this stock lifecycle behavior. Either change would alter
   package bytes or the loaded-world proof boundary and require a new candidate.
-- The runner now passes 46 checks, the independent publisher passes 62, and the
+- The runner now passes 46 checks, the independent publisher passes 63, and the
   ledger consumer passes 3 valid/optional plus 49 adversarial cases. Those are
   tooling proofs only.
 - The third attempt remains failed and unpublished. Its owned cleanup removed
@@ -4651,6 +4651,45 @@ Consequences:
 - The raw mode results explain the publication defect but are not accepted Gate
   1 evidence without the release index and terminal ready seal. No release-
   surface pass or paired completion is claimed.
+- Candidate package bytes and seals remain unchanged. Runtime retention has not
+  run, `STATUS-008` remains open, Gate 1 remains incomplete, and release remains
+  `NO-GO`.
+
+## CRI-087 - Pin Bound Worktree Bytes Before Engine Launch
+
+- Status: Accepted as a fail-early evidence-tooling correction; paired package
+  proof remains pending
+- Date: 2026-07-21
+
+Context: The fifth fresh release-surface attempt again completed internally
+passing retail and diagnostic raw modes against the unchanged package. Both
+recorded exact `0 raw / 0 event` diagnostics, no crash artifacts, one exact
+41-file evidence census, and cleanup with zero harness residue. The corrected
+publisher started and then rejected exactly one of nine bound tools. The shared
+guarded-runtime module had CRLF worktree bytes while its committed blob used LF;
+the line-ending delta accounted for the entire length and hash mismatch. The
+other eight tool bindings matched exactly. No release index, ready seal, or
+failure seal was created, so this directory is unsealed too.
+
+Decision: Explicitly pin every text artifact shared by the surface and retention
+tool sets to LF. Add a publisher regression that requires exact `text` and
+`eol=lf` attributes plus CR-free current bytes for the complete union of bound
+text tools. Add one shared preflight assertion that hashes each worktree file as
+an unfiltered Git blob and compares it with the exact path at the clean harness
+commit. Both runtime runners must invoke that assertion before candidate staging
+or engine launch. Continue to retain the publisher's independent byte-level
+validation as defense in depth.
+
+Consequences:
+
+- The release-surface publisher suite now passes 63/63. The new LF and worktree-
+  byte check is tooling proof only.
+- A line-ending, filter, or other clean-worktree byte mismatch now fails before
+  either runtime runner spends an engine launch. Publication still revalidates
+  every bound length and SHA-256 after capture.
+- Do not salvage the fifth directory. Commit the normalized tool bytes and
+  preflight contract, then start another fresh paired audit whose harness
+  identity includes this correction.
 - Candidate package bytes and seals remain unchanged. Runtime retention has not
   run, `STATUS-008` remains open, Gate 1 remains incomplete, and release remains
   `NO-GO`.

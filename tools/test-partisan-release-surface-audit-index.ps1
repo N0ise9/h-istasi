@@ -1190,6 +1190,31 @@ public static class SyntheticReleaseSurfaceHost {
     }
     finally { $env:Path = $gitPathBeforeResolutionTest }
 
+    $gitBoundLfPaths = @(
+        @((Get-TestToolRows) | ForEach-Object { [string]$_.path }) +
+        @(
+            'tools/run-guarded-gate1-runtime-retention.ps1',
+            'tools/run-ordinary-campaign-persistence-proof.ps1',
+            'tools/New-PartisanGate1RuntimeRetentionIndex.ps1') |
+            Sort-Object -Unique -CaseSensitive)
+    foreach ($portablePath in $gitBoundLfPaths) {
+        $attributes = @(& git -C $repositoryRoot check-attr `
+            text eol -- $portablePath)
+        $attributeExit = $LASTEXITCODE
+        Assert-TestCondition (
+            $attributeExit -eq 0 -and
+            $attributes.Count -eq 2 -and
+            $attributes -ccontains ($portablePath + ': text: set') -and
+            $attributes -ccontains ($portablePath + ': eol: lf')) `
+            ('Git-bound LF attributes are exact for ' + $portablePath)
+        $boundText = [IO.File]::ReadAllText(
+            (Join-Path $repositoryRoot $portablePath.Replace('/', '\')))
+        Assert-TestCondition (
+            $boundText.IndexOf("`r", [StringComparison]::Ordinal) -lt 0) `
+            ('Git-bound worktree bytes contain no CR for ' + $portablePath)
+    }
+    [void]$checks.Add('git-bound-tool-lf-worktree-contract')
+
     $stageRows = New-Object Collections.Generic.List[object]
     $manifestRows = New-Object Collections.Generic.List[object]
     foreach ($entry in @(

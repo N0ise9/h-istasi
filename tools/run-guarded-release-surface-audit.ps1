@@ -2913,6 +2913,19 @@ $dirtyCheckout = @(& git -C $repositoryRoot status --porcelain --untracked-files
 if ($LASTEXITCODE -ne 0 -or $dirtyCheckout.Count -ne 0) {
     throw 'Release-surface audit requires a clean tracked and untracked checkout.'
 }
+$null = Assert-PartisanGitWorktreeFilesMatchCommit `
+    -RepositoryRoot $repositoryRoot `
+    -Commit $harnessGitHead `
+    -PortablePaths @(
+        'tools/run-guarded-release-surface-audit.ps1',
+        'tools/New-PartisanReleaseSurfaceAuditIndex.ps1',
+        'tools/Partisan.ReleaseCandidate.psm1',
+        'tools/Partisan.GuardedRuntime.psm1',
+        'tools/Partisan.Gate1EvidenceConsumer.psm1',
+        'tools/update-release-docs.ps1',
+        'docs/data/release_surface_contract.json',
+        'tools/release-surface-audit-harness-template/addon.gproj.template',
+        'tools/release-surface-audit-harness-template/Scripts/Game/PartisanReleaseSurfaceAudit.c.template')
 
 $manifestFull = Resolve-ReleaseSurfacePath -Path $ManifestPath -Kind Leaf
 $bundleFull = Resolve-ReleaseSurfacePath -Path $BundleRoot -Kind Container

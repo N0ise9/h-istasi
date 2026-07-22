@@ -105,6 +105,15 @@ publisher correction is tooling-only and leaves the package unchanged. The old
 directory is unsealed diagnostic residue and cannot advance this sequence; run
 the paired boundary again from the committed clean correction.
 
+The fifth attempt reached that corrected publisher after both raw modes passed,
+then exact tool validation rejected one shared module's CRLF worktree bytes
+against its LF commit blob. The other eight tool bindings, 41-file census,
+diagnostic classification, crash-artifact census, and cleanup were exact, but
+no release index or ready seal was created. Bound text tools are now LF-pinned,
+and both surface and retention runners compare worktree blob IDs to the harness
+commit before engine launch. This remains a tooling-only correction; the fifth
+directory is unsealed and the package is unchanged.
+
 1. Run and jointly accept the paired standard/diagnostic release-surface audit
    and diagnostic-write/standard-read runtime-retention evidence. Neither half
    alone advances Gate 1; `STATUS-008` stays open until both are accepted.

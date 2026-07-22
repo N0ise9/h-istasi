@@ -116,7 +116,7 @@ The embedded implementation stamp is
   command record. Exercise the publisher's actual AST expression against two
   competing synthetic applications so a collection-valued process path cannot
   recur only in the production publication branch.
-- The release-surface publisher self-test passes 62 checks, and the retention
+- The release-surface publisher self-test passes 63 checks, and the retention
   publisher self-test passes 63/63. The ledger consumer invokes both exact
   Git-bound verifier scripts and passes 3 valid/optional plus 49 adversarial
   cases. Coverage includes zero-write verification, scalar confusion, canonical
@@ -167,6 +167,14 @@ The embedded implementation stamp is
   process path described above. Keep that directory as unsealed diagnostic
   residue only. Commit the scalar fix and rerun from a fresh clean checkout;
   neither the old output nor the unchanged candidate package may be retrofitted.
+  The fifth attempt reached the now-working publisher after both raw modes
+  passed, but exact blob validation rejected the shared guarded-runtime module:
+  the worktree used CRLF while the committed blob used LF. The other eight bound
+  tools matched. Pin every shared bound text file to LF and compare the complete
+  bound worktree blob set with the clean harness commit before either surface or
+  retention runner starts an engine. This turns a late publication failure into
+  a zero-engine preflight rejection. The fifth directory has no release index or
+  ready seal and is unsealed diagnostic residue too.
 - Do not turn surface inspection into a broader claim. Member-presence probes
   are inert; the audit deliberately invokes production menu generation and
   read-only per-command availability inspection, but executes no command action

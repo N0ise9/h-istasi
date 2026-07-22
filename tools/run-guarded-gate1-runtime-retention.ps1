@@ -1284,6 +1284,17 @@ $dirty = @(& git -C $repositoryRoot status --porcelain --untracked-files=all)
 if ($LASTEXITCODE -ne 0 -or $dirty.Count -ne 0) {
     throw 'Gate 1 requires a clean checkout so its harness is immutable.'
 }
+$null = Assert-PartisanGitWorktreeFilesMatchCommit `
+    -RepositoryRoot $repositoryRoot `
+    -Commit $gitHead `
+    -PortablePaths @(
+        'tools/run-guarded-gate1-runtime-retention.ps1',
+        'tools/Partisan.ReleaseCandidate.psm1',
+        'tools/Partisan.GuardedRuntime.psm1',
+        'tools/run-ordinary-campaign-persistence-proof.ps1',
+        'tools/New-PartisanGate1RuntimeRetentionIndex.ps1',
+        'tools/Partisan.Gate1EvidenceConsumer.psm1',
+        'tools/update-release-docs.ps1')
 
 $serverCandidate = Assert-PartisanReleaseCandidate `
     -ManifestPath $ManifestPath `

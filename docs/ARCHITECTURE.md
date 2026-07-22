@@ -70,7 +70,7 @@ diagnostic surfaces. No command action executes and no campaign gameplay state
 is mutated.
 
 The paired runner's structural self-test passes 46 checks. The release-surface
-publisher passes 62 checks, and the release-ledger consumer passes 3
+publisher passes 63 checks, and the release-ledger consumer passes 3
 valid/optional plus 49 adversarial cases. These results prove source and tool
 contracts only. Runtime member-presence probes are inert; the package census
 deliberately performs production menu generation and read-only per-ID
@@ -124,6 +124,18 @@ application and proves that behavior with two competing synthetic applications.
 These corrections change only evidence tooling, not the candidate package
 bytes, so no release-surface pass or paired completion is claimed.
 
+A fifth fresh attempt again produced internally passing retail and diagnostic
+mode records, exact `0 raw / 0 event` diagnostics, no crash artifacts, a
+41-file census, and exact cleanup. The corrected publisher started, then rejected
+the shared guarded-runtime module because its CRLF worktree bytes differed from
+the committed LF blob. The other eight bound tools matched exactly. That run
+also stopped before its release index and ready seal and remains unaccepted.
+Every shared surface/retention tool is now explicitly LF-pinned, and both
+runners compare all bound worktree blob IDs with their harness commit before
+starting an engine. The publisher's 63-check suite covers the LF attributes and
+current bytes. This correction is also tooling-only and requires another fresh
+run against the unchanged package.
+
 Gate 1 retention evidence follows two ordered phases against that same sealed
 package. Diagnostic-only contexts establish the five-stage native and fallback
 save lineage through diagnostic executables with the exact
@@ -133,7 +145,7 @@ compare input and output bytes without any script definition or diagnostic,
 proof, test, or mutation authority.
 Both phases must bind candidate and package seals, executable and launch
 identity, committed tool blobs, exact save/journal inventories, and cleanup.
-The release-surface index publisher passes 62 checks, and the retention
+The release-surface index publisher passes 63 checks, and the retention
 publisher passes 63/63, including read-only republishing verification, strict
 JSON scalar typing, canonical index-byte comparison, terminal-seal validation,
 synthetic-publication rejection, receipt reuse, role relabeling, launch-vector,

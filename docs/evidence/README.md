@@ -129,14 +129,18 @@ The source contract covers 55 wholly guarded carriers, 39 mixed files, 321
 forbidden types, 71 forbidden commands, 67 forbidden members, and 9 forbidden
 literals. Its production controls are four types, three commands, and 91
 members. The source guard passes 15/15, the paired runner self-test passes 46
-checks, the surface and retention publisher suites pass 62 and 63/63 checks,
+checks, the surface and retention publisher suites pass 63 and 63/63 checks,
 and the consumer passes 3 valid/optional plus 49 adversarial cases. These source
-and publisher checkpoints do not constitute a runtime audit. A fresh raw audit
-produced internally passing retail and diagnostic mode records, an exact
-41-file census, zero crash artifacts, and exact cleanup, but publication stopped
-before the release index and terminal ready seal because Git discovery returned
-multiple application records. That directory is unsealed diagnostic residue,
-not tracked or accepted evidence. Active immutable candidate
+and publisher checkpoints do not constitute a runtime audit. The fourth and
+fifth fresh audits each produced internally passing retail and diagnostic mode
+records, exact 41-file censuses, zero crash artifacts, and exact cleanup. The
+fourth stopped before publication when Git discovery returned multiple
+application records. The fifth reached the corrected publisher but exact blob
+validation rejected one CRLF worktree tool against its LF commit blob. Neither
+directory has a release index or ready seal; both are unsealed diagnostic
+residue, not tracked or accepted evidence. Shared bound tools are now LF-pinned,
+and both runners check exact worktree/commit blob identity before engine launch.
+Active immutable candidate
 `partisan-rc-5b1f2e98f931-20260721T193941Z` remains sealed, but it has no accepted
 paired runtime evidence; `STATUS-008` remains open and release remains `NO-GO`.
 
