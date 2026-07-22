@@ -77,6 +77,43 @@ Both artifact-validation return paths cast the parsed metric to an integer;
 source acceptance and the independent consumer reject JSON string `"0"` so a
 passing runtime cannot produce an inadmissible portable summary.
 
+The first source-native full-profile attempt exposed an auxiliary-classifier
+gap: all 13 exact intentional convoy fault-injection diagnostics were approved
+from the canonical script/console pair and mirrored unchanged into `error.log`,
+but the auxiliary projection treated every mirror as unique. The corrected
+projection compares the ordered timestamps, messages, channels, and empty
+bodies against the already approved canonical rows and permits that exact set
+only in `error.log`; partial, reordered, mutated, continued, duplicated, or
+`crash.log` copies fail closed. Normal-channel
+`Partisan campaign debug | ERROR |` output remains outside the numeric
+`SCRIPT (E)`/`ENGINE (E)` hard-event count, but it now increments the separate
+Partisan severity census and therefore still rejects the run. The failed
+attempt remains failed for its actual runtime containment and gameplay axes;
+correcting auxiliary projection does not convert it into a pass.
+
+That attempt also exposed three real runtime defects before the guarded process
+deadline. Two convoy cases failed because asynchronous driver seating was no
+longer classified as pending after a route attempt rewrote its fallback label,
+and a far-from-route equal-distance cursor collapsed one group to a single
+waypoint. The render-bubble mission-target case then stopped before admission:
+zone deactivation had deleted a zero-agent runtime root without removing its
+pending-population tuple, so the exact registry audit rejected orphaned
+ownership and terminal containment halted. The engine remained alive until the
+guard ended the run; increasing the deadline would not address any failure.
+
+The replacement source makes runtime-group deletion own listener and tuple
+cleanup, binds queued retries to a separate monotonic registration generation,
+and emits explicit pre-admission assertions before returning. Convoy recovery
+now has one bounded 45-second initial seating window for MOVING/CONTACT, both
+same-frame pending gates share that decision, and an explicit pre-driver runtime
+stage closes the window permanently on the first confirmed driver even if route
+assignment fails afterward. Restore grace requires the same explicit pre-driver
+stage and rebind fallback, so it cannot reopen the window after a successful
+bind. Far vehicles retain all route points until within 250 metres, and the
+departure probe stages outside contact. These are source corrections, not
+retroactive evidence. Every prior green rung for the changed publish inputs is
+non-transferable; Gate 1 must restart from a new clean source checkpoint.
+
 The manually assembled local candidate/package runs audited below are retained
 historical QA only. They may support optional regression investigation, but they
 are not current Gate 1 prerequisites and are not a parallel publishing workflow.

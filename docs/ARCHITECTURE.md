@@ -24,6 +24,10 @@ may be retained only as optional historical QA and forensic evidence, and none
 of its manifests, seals, or package digests can replace the frozen-source Gate 1
 decision or the normal Workshop publication path.
 
+Every publish-input change creates a new source checkpoint. Foundation,
+Workbench, focused, canary, or Full evidence from an earlier checkpoint remains
+historical and cannot transfer forward, even when the earlier rung was green.
+
 The following opening checkpoint records the then-active local-QA candidate; it
 is historical evidence, not current publication authority. Its sealed
 implementation/source identity was:

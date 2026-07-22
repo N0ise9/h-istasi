@@ -299,6 +299,7 @@ class HST_PhysicalWarService
 	static const float CONVOY_VEHICLE_SPAWN_CLEARANCE_METERS = 18.0;
 	static const float CONVOY_PHYSICAL_ROAD_SEARCH_RADIUS_METERS = 40.0;
 	static const float CONVOY_ROUTE_WAYPOINT_ROAD_SEARCH_RADIUS_METERS = 250.0;
+	static const float CONVOY_ROUTE_CURSOR_JOIN_RADIUS_METERS = 250.0;
 	static const float CONVOY_ROAD_REPORT_SEARCH_RADIUS_METERS = 6.0;
 	static const float PLAYER_USED_ACTIVE_VEHICLE_DETACH_DISTANCE_METERS = 35.0;
 #ifdef ENABLE_DIAG
@@ -371,6 +372,8 @@ class HST_PhysicalWarService
 	protected ref array<string> m_aPendingPopulationRequestedStatuses = {};
 	protected ref array<ref HST_ActiveGroupState> m_aPendingPopulationActiveGroups = {};
 	protected ref array<ref HST_CampaignState> m_aPendingPopulationStates = {};
+	protected ref array<int> m_aPendingPopulationRegistrationGenerations = {};
+	protected int m_iPendingPopulationRegistrationGeneration;
 	protected ref array<string> m_aRuntimeVehicleGroupIds = {};
 	protected ref array<IEntity> m_aRuntimeVehicleEntities = {};
 	protected ref HST_CampaignState m_ControlledShutdownActiveGroupState;
@@ -5225,6 +5228,9 @@ class HST_PhysicalWarService
 		if (m_aPendingPopulationGroupIds.Count()
 			!= m_aPendingPopulationStates.Count())
 			coreAligned = false;
+		if (m_aPendingPopulationGroupIds.Count()
+			!= m_aPendingPopulationRegistrationGenerations.Count())
+			coreAligned = false;
 		if (m_aForceSpawnOwnedGroupIds.Count()
 			!= m_aForceSpawnOwnedResultIds.Count())
 			coreAligned = false;
@@ -5309,6 +5315,7 @@ class HST_PhysicalWarService
 				|| m_aPendingPopulationActiveGroups[pendingIndex] != activeGroup
 				|| m_aPendingPopulationStates[pendingIndex] != state
 				|| m_aPendingPopulationRequestedStatuses[pendingIndex].IsEmpty()
+				|| m_aPendingPopulationRegistrationGenerations[pendingIndex] <= 0
 				|| !pendingRoot || pendingRoot.IsDeleted()
 				|| !SCR_AIGroup.Cast(pendingRoot))
 			{
@@ -6036,6 +6043,8 @@ class HST_PhysicalWarService
 				m_aPendingPopulationActiveGroups.Remove(pendingIndex);
 			if (pendingIndex < m_aPendingPopulationStates.Count())
 				m_aPendingPopulationStates.Remove(pendingIndex);
+			if (pendingIndex < m_aPendingPopulationRegistrationGenerations.Count())
+				m_aPendingPopulationRegistrationGenerations.Remove(pendingIndex);
 			m_aPendingPopulationGroupIds.Remove(pendingIndex);
 			removed = true;
 		}
@@ -14319,8 +14328,8 @@ class HST_PhysicalWarService
 		{
 			if (!IsMissionConvoyGroupForMission(activeGroup, mission) || !activeGroup.m_bSpawnedEntity || activeGroup.m_sRuntimeStatus == "spawn_failed" || activeGroup.m_sRuntimeStatus == MISSION_CONVOY_ELIMINATED)
 				continue;
-			bool contactSeatingRetry = IsMissionConvoyContactCrewSeatingRetryActive(state, mission, activeGroup);
-			if (mission.m_sRuntimePhase == MISSION_CONVOY_CONTACT && !contactSeatingRetry)
+			bool boundedSeatingRetry = IsMissionConvoyBoundedCrewSeatingRetryActive(state, mission, activeGroup);
+			if (mission.m_sRuntimePhase == MISSION_CONVOY_CONTACT && !boundedSeatingRetry)
 				continue;
 
 			string previousFallbackMode = activeGroup.m_sSpawnFallbackMode;
@@ -14339,7 +14348,7 @@ class HST_PhysicalWarService
 			}
 
 			string reseatBlockReason;
-			if (!contactSeatingRetry && ShouldSuppressMissionConvoyCrewReseat(mission, activeGroup, crewEntity, vehicleEntity, reseatBlockReason))
+			if (!boundedSeatingRetry && ShouldSuppressMissionConvoyCrewReseat(mission, activeGroup, crewEntity, vehicleEntity, reseatBlockReason))
 			{
 				activeGroup.m_sSpawnFailureReason = "Convoy crew reseat blocked: " + reseatBlockReason;
 				if (mission.m_sRuntimePhase == MISSION_CONVOY_CONTACT)
@@ -14409,7 +14418,7 @@ class HST_PhysicalWarService
 				return false;
 			foreach (HST_ActiveGroupState activeGroup : state.m_aActiveGroups)
 			{
-				if (IsMissionConvoyContactCrewSeatingRetryActive(state, mission, activeGroup))
+				if (IsMissionConvoyBoundedCrewSeatingRetryActive(state, mission, activeGroup))
 					return true;
 			}
 			return false;
@@ -14418,12 +14427,12 @@ class HST_PhysicalWarService
 		return IsMissionConvoyTravelPhase(mission) && state.m_iElapsedSeconds % CONVOY_PROGRESS_SYNC_SECONDS == 0;
 	}
 
-	protected bool IsMissionConvoyContactCrewSeatingRetryActive(HST_CampaignState state, HST_ActiveMissionState mission, HST_ActiveGroupState activeGroup)
+	protected bool IsMissionConvoyBoundedCrewSeatingRetryActive(HST_CampaignState state, HST_ActiveMissionState mission, HST_ActiveGroupState activeGroup)
 	{
 		if (!state || !mission || !activeGroup
 			|| mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE
 			|| mission.m_sRuntimePrimitive != MISSION_CONVOY_PRIMITIVE
-			|| mission.m_sRuntimePhase != MISSION_CONVOY_CONTACT
+			|| !IsMissionConvoyTravelPhase(mission)
 			|| IsTerminalMissionConvoyPhase(mission)
 			|| !IsMissionConvoyGroupForMission(activeGroup, mission)
 			|| !state.IsOperationalActiveGroup(activeGroup)
@@ -14433,10 +14442,14 @@ class HST_PhysicalWarService
 			|| activeGroup.m_sRuntimeStatus == MISSION_CONVOY_ELIMINATED)
 			return false;
 
-		bool eligibleFallback = activeGroup.m_sSpawnFallbackMode == "convoy_crew_population_pending"
-			|| activeGroup.m_sSpawnFallbackMode == "convoy_seating_pending"
-			|| activeGroup.m_sSpawnFallbackMode == "convoy_vehicle_control_unavailable";
-		if (!eligibleFallback && !IsRestoredMissionConvoyRuntimeRebindPending(state, activeGroup))
+		bool initialSeatingTransitionPending = IsMissionConvoyInitialAuthoritativeSeatingTransitionPending(activeGroup);
+		bool restoredRuntimeRebindPending = IsRestoredMissionConvoyRuntimeRebindPending(state, activeGroup);
+		if (!initialSeatingTransitionPending && !restoredRuntimeRebindPending)
+			return false;
+		// A confirmed driver advances the runtime stage out of the initial seating
+		// states even when route assignment subsequently fails. Later dismounts then
+		// remain combat behavior instead of being mistaken for startup recovery.
+		if (IsMissionConvoyWaypointAssigned(activeGroup) || activeGroup.m_sConvoyRuntimeStage == "ROUTE_ASSIGNED")
 			return false;
 
 		IEntity crewEntity = GetRuntimeCrewGroupEntity(activeGroup.m_sGroupId);
@@ -14444,10 +14457,28 @@ class HST_PhysicalWarService
 		if (!crewEntity || !vehicleEntity || CountAliveRuntimeCrewAgents(activeGroup) <= 0)
 			return false;
 		if (GetConvoyVehicleControlAdapter().HasLivingDriver(crewEntity, vehicleEntity))
+		{
+			// Observing the authoritative driver is itself the terminal transition for
+			// this startup/rebind window, even if a later route attempt cannot bind.
+			activeGroup.m_sConvoyRuntimeStage = "DRIVER_BOUND";
 			return false;
+		}
 
 		int retryWindowStartSecond = Math.Max(activeGroup.m_iSpawnedAtSecond, state.m_iLastRestoreSecond);
 		return state.m_iElapsedSeconds <= retryWindowStartSecond + CONVOY_CREW_SEATING_GRACE_SECONDS;
+	}
+
+	protected bool IsMissionConvoyInitialAuthoritativeSeatingTransitionPending(HST_ActiveGroupState activeGroup)
+	{
+		if (!activeGroup)
+			return false;
+
+		if (activeGroup.m_sSpawnFallbackMode == "convoy_crew_population_pending")
+			return activeGroup.m_sConvoyRuntimeStage == "CREW_GROUP_CREATED";
+
+		bool seatingControlPending = activeGroup.m_sSpawnFallbackMode == "convoy_seating_pending"
+			|| activeGroup.m_sSpawnFallbackMode == "convoy_vehicle_control_unavailable";
+		return seatingControlPending && activeGroup.m_sConvoyRuntimeStage == "CREW_POPULATED";
 	}
 
 	protected bool ShouldSuppressMissionConvoyCrewReseat(HST_ActiveMissionState mission, HST_ActiveGroupState activeGroup, IEntity crewEntity, IEntity vehicleEntity, out string reason)
@@ -16529,7 +16560,8 @@ class HST_PhysicalWarService
 		for (int index = 0; index < vehicleAssets; index++)
 		{
 			HST_ActiveGroupState activeGroup = state.FindActiveGroup(BuildMissionConvoyGroupId(mission, index));
-			if (IsConvoyCrewControlPending(state, activeGroup))
+			if (IsConvoyCrewControlPending(state, activeGroup)
+				|| IsMissionConvoyBoundedCrewSeatingRetryActive(state, mission, activeGroup))
 				return true;
 		}
 
@@ -16549,7 +16581,8 @@ class HST_PhysicalWarService
 
 			HST_ActiveGroupState activeGroup = state.FindActiveGroup(BuildMissionConvoyGroupId(mission, assetIndex));
 			assetIndex++;
-			if (IsConvoyCrewControlPending(state, activeGroup))
+			if (IsConvoyCrewControlPending(state, activeGroup)
+				|| IsMissionConvoyBoundedCrewSeatingRetryActive(state, mission, activeGroup))
 				return true;
 		}
 
@@ -16591,6 +16624,16 @@ class HST_PhysicalWarService
 		if (!state || !activeGroup || !state.m_bRestoredFromPersistence || !activeGroup.m_bSpawnedEntity)
 			return false;
 		if (state.m_iElapsedSeconds > state.m_iLastRestoreSecond + CONVOY_CREW_POPULATION_GRACE_SECONDS)
+			return false;
+		bool explicitPreDriverStage = activeGroup.m_sConvoyRuntimeStage == "CREW_GROUP_CREATED"
+			|| activeGroup.m_sConvoyRuntimeStage == "CREW_POPULATED";
+		if (!explicitPreDriverStage)
+			return false;
+		bool explicitRebindFallback = activeGroup.m_sSpawnFallbackMode == "restore_rebuild"
+			|| activeGroup.m_sSpawnFallbackMode == "convoy_crew_population_pending"
+			|| activeGroup.m_sSpawnFallbackMode == "convoy_seating_pending"
+			|| activeGroup.m_sSpawnFallbackMode == "convoy_vehicle_control_unavailable";
+		if (!explicitRebindFallback)
 			return false;
 
 		return activeGroup.m_iSpawnedAgentCount > 0 || activeGroup.m_iLastSeenAliveCount > 0 || activeGroup.m_iSurvivorInfantryCount > 0 || activeGroup.m_iSurvivorVehicleCount > 0;
@@ -18043,7 +18086,8 @@ class HST_PhysicalWarService
 			return remaining;
 		}
 
-		int firstForwardIndex = 1;
+		int firstForwardIndex = 0;
+		int closestForwardIndex = 1;
 		float bestDistanceSq = 999999999.0;
 		for (int index = 1; index < routeWaypoints.Count(); index++)
 		{
@@ -18053,8 +18097,11 @@ class HST_PhysicalWarService
 				continue;
 
 			bestDistanceSq = distanceSq;
-			firstForwardIndex = index;
+			closestForwardIndex = index;
 		}
+		float cursorJoinRadiusSq = CONVOY_ROUTE_CURSOR_JOIN_RADIUS_METERS * CONVOY_ROUTE_CURSOR_JOIN_RADIUS_METERS;
+		if (bestDistanceSq <= cursorJoinRadiusSq)
+			firstForwardIndex = closestForwardIndex;
 
 		for (int forwardIndex = firstForwardIndex; forwardIndex < routeWaypoints.Count(); forwardIndex++)
 			remaining.Insert(routeWaypoints[forwardIndex]);
@@ -21907,9 +21954,10 @@ class HST_PhysicalWarService
 				activeGroup.m_iSpawnedAtSecond = state.m_iElapsedSeconds;
 			m_aRuntimeGroupIds.Insert(activeGroup.m_sGroupId);
 			m_aRuntimeGroupEntities.Insert(entity);
-			RegisterPendingActiveGroupPopulation(entity, activeGroup, requestedStatus, state);
+			int pendingRegistrationGeneration = RegisterPendingActiveGroupPopulation(entity, activeGroup, requestedStatus, state);
 			PrintActiveGroupSpawnEvidence(state, activeGroup, "pending_agents");
-			GetGame().GetCallqueue().CallLater(ConfirmSpawnedGroupAgents, ACTIVE_GROUP_AGENT_POPULATION_RETRY_MS, false, activeGroup, requestedStatus, state, 1);
+			if (pendingRegistrationGeneration > 0)
+				GetGame().GetCallqueue().CallLater(ConfirmSpawnedGroupAgents, ACTIVE_GROUP_AGENT_POPULATION_RETRY_MS, false, activeGroup.m_sGroupId, pendingRegistrationGeneration, activeGroup, requestedStatus, state, 1);
 			DebugLog(string.Format("active group pending agent population %1 prefab %2", activeGroup.m_sGroupId, activeGroup.m_sPrefab));
 			return true;
 		}
@@ -22150,8 +22198,14 @@ class HST_PhysicalWarService
 			DebugLog(string.Format("active group stabilized native AIGroup root %1 deleteWhenEmpty false expected infantry %2 via %3", activeGroup.m_sGroupId, activeGroup.m_iInfantryCount, source));
 	}
 
-	protected void ConfirmSpawnedGroupAgents(HST_ActiveGroupState activeGroup, string requestedStatus, HST_CampaignState state, int attempt)
+	protected void ConfirmSpawnedGroupAgents(string expectedGroupId, int expectedRegistrationGeneration, HST_ActiveGroupState activeGroup, string requestedStatus, HST_CampaignState state, int attempt)
 	{
+		// A queued retry can outlive deletion and even a later registration that
+		// reuses the same state object and durable ID. The explicit generation is
+		// stable across legitimate native-root replacement but never across a new
+		// registration, so reject stale callbacks before consulting retained state.
+		if (!IsExactPendingActiveGroupPopulationRegistration(expectedGroupId, expectedRegistrationGeneration, activeGroup, requestedStatus, state))
+			return;
 		if (IsExactOrQuarantinedMissionGuardGroup(state, activeGroup))
 			return;
 		if (IsLocalSecurityPatrolClaimant(state, activeGroup))
@@ -22187,7 +22241,7 @@ class HST_PhysicalWarService
 		bool forceFallback = attempt >= ACTIVE_GROUP_AGENT_POPULATION_FORCE_FALLBACK_ATTEMPT;
 		if (forceFallback && TryKickPendingNativeGroupSpawn(activeGroup, "retry"))
 		{
-			GetGame().GetCallqueue().CallLater(ConfirmSpawnedGroupAgents, ACTIVE_GROUP_AGENT_POPULATION_RETRY_MS, false, activeGroup, requestedStatus, state, attempt + 1);
+			GetGame().GetCallqueue().CallLater(ConfirmSpawnedGroupAgents, ACTIVE_GROUP_AGENT_POPULATION_RETRY_MS, false, expectedGroupId, expectedRegistrationGeneration, activeGroup, requestedStatus, state, attempt + 1);
 			return;
 		}
 
@@ -22210,7 +22264,7 @@ class HST_PhysicalWarService
 			else
 				activeGroup.m_sSpawnFailureReason = string.Format("AIGroup spawned but is still awaiting agent population (%1/%2).", attempt, ACTIVE_GROUP_AGENT_POPULATION_MAX_ATTEMPTS);
 
-			GetGame().GetCallqueue().CallLater(ConfirmSpawnedGroupAgents, ACTIVE_GROUP_AGENT_POPULATION_RETRY_MS, false, activeGroup, requestedStatus, state, attempt + 1);
+			GetGame().GetCallqueue().CallLater(ConfirmSpawnedGroupAgents, ACTIVE_GROUP_AGENT_POPULATION_RETRY_MS, false, expectedGroupId, expectedRegistrationGeneration, activeGroup, requestedStatus, state, attempt + 1);
 			DebugLog(string.Format("active group still pending agent population %1 attempt %2/%3 prefab %4", activeGroup.m_sGroupId, attempt, ACTIVE_GROUP_AGENT_POPULATION_MAX_ATTEMPTS, activeGroup.m_sPrefab));
 			return;
 		}
@@ -22241,6 +22295,27 @@ class HST_PhysicalWarService
 			if (outboundTransaction)
 				RollbackExactMissionConvoyOutboundProjectionTransaction(state, outboundTransaction, string.Format("exact outbound root %1 failed asynchronous population: %2", activeGroup.m_sGroupId, finalPopulationFailure), true);
 		}
+	}
+
+	protected bool IsExactPendingActiveGroupPopulationRegistration(string expectedGroupId, int expectedRegistrationGeneration, HST_ActiveGroupState activeGroup, string requestedStatus, HST_CampaignState state)
+	{
+		if (expectedGroupId.IsEmpty() || expectedRegistrationGeneration <= 0 || !activeGroup)
+			return false;
+
+		int index = FindPendingActiveGroupPopulationIndex(expectedGroupId);
+		if (index < 0
+			|| index >= m_aPendingPopulationRequestedStatuses.Count()
+			|| index >= m_aPendingPopulationActiveGroups.Count()
+			|| index >= m_aPendingPopulationStates.Count()
+			|| index >= m_aPendingPopulationRegistrationGenerations.Count())
+			return false;
+		if (m_aPendingPopulationRequestedStatuses[index] != requestedStatus
+			|| m_aPendingPopulationActiveGroups[index] != activeGroup
+			|| m_aPendingPopulationStates[index] != state
+			|| m_aPendingPopulationRegistrationGenerations[index] != expectedRegistrationGeneration)
+			return false;
+
+		return activeGroup.m_sGroupId == expectedGroupId;
 	}
 
 	protected string BuildFinalActiveGroupPopulationFailureReason(string previousFailureReason)
@@ -22301,20 +22376,24 @@ class HST_PhysicalWarService
 		return true;
 	}
 
-	protected void RegisterPendingActiveGroupPopulation(IEntity entity, HST_ActiveGroupState activeGroup, string requestedStatus, HST_CampaignState state)
+	protected int RegisterPendingActiveGroupPopulation(IEntity entity, HST_ActiveGroupState activeGroup, string requestedStatus, HST_CampaignState state)
 	{
 		if (!entity || !activeGroup)
-			return;
+			return 0;
 		HST_ActiveMissionState exactMission;
 		if (state)
 			exactMission = state.FindActiveMission(activeGroup.m_sMissionInstanceId);
 		if (IsExactMissionConvoyContract(exactMission))
-			return;
+			return 0;
 
 		ClearPendingActiveGroupPopulation(activeGroup);
 		SCR_AIGroup group = SCR_AIGroup.Cast(entity);
 		if (!group)
-			return;
+			return 0;
+
+		int registrationGeneration = AllocatePendingActiveGroupPopulationRegistrationGeneration();
+		if (registrationGeneration <= 0)
+			return 0;
 
 		StabilizeRuntimeAIGroupRoot(entity, activeGroup, "pending population registration");
 		group.GetOnAllDelayedEntitySpawned().Remove(OnDelayedActiveGroupMembersSpawned);
@@ -22323,6 +22402,23 @@ class HST_PhysicalWarService
 		m_aPendingPopulationRequestedStatuses.Insert(requestedStatus);
 		m_aPendingPopulationActiveGroups.Insert(activeGroup);
 		m_aPendingPopulationStates.Insert(state);
+		m_aPendingPopulationRegistrationGenerations.Insert(registrationGeneration);
+		return registrationGeneration;
+	}
+
+	protected int AllocatePendingActiveGroupPopulationRegistrationGeneration()
+	{
+		m_iPendingPopulationRegistrationGeneration++;
+		if (m_iPendingPopulationRegistrationGeneration <= 0)
+			m_iPendingPopulationRegistrationGeneration = 1;
+		while (m_aPendingPopulationRegistrationGenerations.Contains(m_iPendingPopulationRegistrationGeneration))
+		{
+			m_iPendingPopulationRegistrationGeneration++;
+			if (m_iPendingPopulationRegistrationGeneration <= 0)
+				m_iPendingPopulationRegistrationGeneration = 1;
+		}
+
+		return m_iPendingPopulationRegistrationGeneration;
 	}
 
 	protected void OnDelayedActiveGroupMembersSpawned(SCR_AIGroup group)
@@ -25299,7 +25395,14 @@ class HST_PhysicalWarService
 		if (!activeGroup)
 			return;
 
-		string groupId = activeGroup.m_sGroupId;
+		ClearPendingActiveGroupPopulationById(activeGroup.m_sGroupId);
+	}
+
+	protected void ClearPendingActiveGroupPopulationById(string groupId)
+	{
+		if (groupId.IsEmpty())
+			return;
+
 		SCR_AIGroup group = SCR_AIGroup.Cast(GetRuntimeGroupEntity(groupId));
 		if (group)
 			group.GetOnAllDelayedEntitySpawned().Remove(OnDelayedActiveGroupMembersSpawned);
@@ -25315,6 +25418,8 @@ class HST_PhysicalWarService
 				m_aPendingPopulationActiveGroups.Remove(i);
 			if (i < m_aPendingPopulationStates.Count())
 				m_aPendingPopulationStates.Remove(i);
+			if (i < m_aPendingPopulationRegistrationGenerations.Count())
+				m_aPendingPopulationRegistrationGenerations.Remove(i);
 			m_aPendingPopulationGroupIds.Remove(i);
 		}
 	}
@@ -25357,8 +25462,8 @@ class HST_PhysicalWarService
 		HST_ActiveMissionState mission = FindMissionForConvoyGroup(state, activeGroup);
 		if (!mission || mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE || mission.m_sRuntimePrimitive != MISSION_CONVOY_PRIMITIVE)
 			return false;
-		bool contactSeatingRetry = IsMissionConvoyContactCrewSeatingRetryActive(state, mission, activeGroup);
-		if (mission.m_sRuntimePhase == MISSION_CONVOY_CONTACT && activeGroup.m_bEverHadLivingCrew && !contactSeatingRetry)
+		bool boundedSeatingRetry = IsMissionConvoyBoundedCrewSeatingRetryActive(state, mission, activeGroup);
+		if (mission.m_sRuntimePhase == MISSION_CONVOY_CONTACT && activeGroup.m_bEverHadLivingCrew && !boundedSeatingRetry)
 			return false;
 
 		IEntity crewEntity = GetRuntimeCrewGroupEntity(activeGroup.m_sGroupId);
@@ -27656,6 +27761,7 @@ class HST_PhysicalWarService
 		if (groupId.IsEmpty() || IsForceSpawnRuntimeOwnershipHeldForGroup(groupId))
 			return false;
 
+		ClearPendingActiveGroupPopulationById(groupId);
 		bool existed = GetRuntimeGroupEntity(groupId) != null;
 		DeleteRuntimeCrewEntities(groupId);
 

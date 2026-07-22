@@ -423,6 +423,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	static const int CAMPAIGN_DEBUG_CLI_MAX_ATTEMPTS = 60;
 	static const int CAMPAIGN_DEBUG_BOOTSTRAP_PLAYER_SETTLE_MAX_ATTEMPTS = 20;
 	static const float CAMPAIGN_DEBUG_TELEPORT_CONFIRM_RADIUS_METERS = 2.0;
+	static const float CAMPAIGN_DEBUG_CONVOY_DEPARTURE_STAGING_AXIS_METERS = 250.0;
 	static const float CAMPAIGN_DEBUG_TRANSPORT_CARRIER_RADIUS_METERS = 10.0;
 	static const float CAMPAIGN_DEBUG_AREA_HOSTILE_RADIUS_METERS = 90.0;
 	static const int CAMPAIGN_DEBUG_MISSION_TARGET_SETTLE_SECONDS = 15;
@@ -37774,9 +37775,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		m_sCampaignDebugEarlyMissionInstanceId = FindLatestCampaignDebugMissionInstance("convoy_ammo");
 		m_sCampaignDebugCurrentMissionInstanceId = m_sCampaignDebugEarlyMissionInstanceId;
-		TeleportCampaignDebugPlayerToMission(m_sCampaignDebugEarlyMissionInstanceId, "convoy_ammo");
 		if (m_sCampaignDebugEarlyMissionInstanceId.IsEmpty())
 			return "Partisan campaign debug | failed: convoy sample instance not found";
+		if (!TeleportCampaignDebugPlayerToConvoyDepartureStaging(m_sCampaignDebugEarlyMissionInstanceId, "phase2 convoy departure staging"))
+			return "Partisan campaign debug | failed: could not stage outside convoy contact for departure probe";
 
 		return startResult + "\nPartisan campaign debug | convoy sample instance " + m_sCampaignDebugEarlyMissionInstanceId;
 	}
@@ -43981,6 +43983,18 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				context,
 				farPlayerEntity,
 				farPlayerSessionEvidence);
+		if (!context.m_bFarTeleport)
+			farPlayerSessionEvidence = "far teleport failed before controlled-player session validation";
+		AddCampaignDebugAssertion(
+			context.m_Case,
+			"render_bubble.mission_target.pre_admission.player_session",
+			"far teleport retains the exact controlled-player entity and replication identity before mission admission",
+			farPlayerSessionEvidence,
+			CampaignDebugStatus(context.m_bFarPlayerSessionExact),
+			"controlled-player session changed before mission-target admission",
+			"",
+			"",
+			context.m_sZoneId);
 		if (!context.m_bFarPlayerSessionExact)
 		{
 			context.m_sFailureReason
@@ -44038,11 +44052,28 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				CountCampaignDebugZoneActiveGroups(zone.m_sZoneId),
 				CountCampaignDebugZoneSpawnedActiveGroups(zone.m_sZoneId),
 				CountCampaignDebugZonePendingActiveGroups(zone.m_sZoneId))));
-		if (!context.m_bFarInactive
-			|| !context.m_bFarPlayerOutsideEventBubble
-			|| !context.m_bTargetOutsideAllPlayerEventBubbles
-			|| !context.m_bPreStartZoneRuntimeEmptyExact
-			|| !context.m_bPreStartZoneCompositionEmptyExact)
+		bool preAdmissionBaselineExact = context.m_bFarInactive
+			&& context.m_bFarPlayerOutsideEventBubble
+			&& context.m_bTargetOutsideAllPlayerEventBubbles
+			&& context.m_bPreStartZoneRuntimeEmptyExact
+			&& context.m_bPreStartZoneCompositionEmptyExact;
+		AddCampaignDebugAssertion(
+			context.m_Case,
+			"render_bubble.mission_target.pre_admission.baseline",
+			"far target is inactive, outside every player event bubble, and has exact empty runtime and composition registries before mission admission",
+			string.Format(
+				"inactive %1 | controlled/global outside %2/%3 | runtime/composition empty %4/%5",
+				context.m_bFarInactive,
+				context.m_bFarPlayerOutsideEventBubble,
+				context.m_bTargetOutsideAllPlayerEventBubbles,
+				context.m_bPreStartZoneRuntimeEmptyExact,
+				context.m_bPreStartZoneCompositionEmptyExact),
+			CampaignDebugStatus(preAdmissionBaselineExact),
+			"mission-target pre-admission baseline retained runtime or composition ownership",
+			"",
+			"",
+			context.m_sZoneId);
+		if (!preAdmissionBaselineExact)
 		{
 			context.m_sFailureReason
 				= "far target was not globally outside every player event bubble with exact empty runtime/composition baselines";
@@ -48650,7 +48681,18 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return null;
 	}
 
+	protected bool TeleportCampaignDebugPlayerToConvoyDepartureStaging(string instanceId, string reason)
+	{
+		vector stagingOffset = Vector(CAMPAIGN_DEBUG_CONVOY_DEPARTURE_STAGING_AXIS_METERS, 0.0, CAMPAIGN_DEBUG_CONVOY_DEPARTURE_STAGING_AXIS_METERS);
+		return TeleportCampaignDebugPlayerToConvoyOffset(instanceId, reason, stagingOffset);
+	}
+
 	protected bool TeleportCampaignDebugPlayerToConvoy(string instanceId, string reason)
+	{
+		return TeleportCampaignDebugPlayerToConvoyOffset(instanceId, reason, "18 0 18");
+	}
+
+	protected bool TeleportCampaignDebugPlayerToConvoyOffset(string instanceId, string reason, vector offset)
 	{
 		if (!m_State || instanceId.IsEmpty())
 			return false;
@@ -48668,7 +48710,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			if (IsZeroVector(assetPosition))
 				assetPosition = asset.m_vTargetPosition;
 			if (!IsZeroVector(assetPosition))
-				return TeleportCampaignDebugPlayer(assetPosition + "18 0 18", reason);
+				return TeleportCampaignDebugPlayer(assetPosition + offset, reason);
 		}
 
 		string groupPrefix = "mission_convoy_" + instanceId + "_";
@@ -48683,7 +48725,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			if (IsZeroVector(groupPosition))
 				groupPosition = group.m_vTargetPosition;
 			if (!IsZeroVector(groupPosition))
-				return TeleportCampaignDebugPlayer(groupPosition + "18 0 18", reason);
+				return TeleportCampaignDebugPlayer(groupPosition + offset, reason);
 		}
 
 		return false;
@@ -48830,7 +48872,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return true;
 		}
 		if (mission.m_sRuntimePrimitive == "convoy_intercept")
-			return TeleportCampaignDebugPlayerToConvoy(instanceId, "mission " + missionId);
+			return TeleportCampaignDebugPlayerToConvoyDepartureStaging(instanceId, "mission " + missionId + " departure staging");
 
 		vector target = mission.m_vTargetPosition;
 		if (IsZeroVector(target))

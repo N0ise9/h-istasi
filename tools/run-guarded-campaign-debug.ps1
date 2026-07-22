@@ -3979,6 +3979,48 @@ function Get-ShutdownCatalogDiagnosticRows {
     return $rows.ToArray()
 }
 
+function Get-IntentionalMissionConvoyDiagnosticRows {
+    param(
+        [AllowEmptyString()]
+        [Parameter(Mandatory = $true)][string]$Text,
+        [Parameter(Mandatory = $true)][string]$Source
+    )
+
+    $headerPattern =
+        '^\s*(?<timestamp>\d{2}:\d{2}:\d{2}\.\d+)\s+' +
+        'SCRIPT\s+\(E\):\s*' +
+        '(?<message>Partisan exact mission convoy \| .+)$'
+    $timestampPattern = '^\s*\d{2}:\d{2}:\d{2}\.\d+\s+'
+    $lines = @($Text -split "`r?`n")
+    $rows = New-Object Collections.Generic.List[object]
+    for ($index = 0; $index -lt $lines.Count; $index++) {
+        $match = [Regex]::Match([string]$lines[$index], $headerPattern)
+        if (-not $match.Success) {
+            continue
+        }
+        $body = New-Object Collections.Generic.List[string]
+        for ($bodyIndex = $index + 1; $bodyIndex -lt $lines.Count; $bodyIndex++) {
+            $bodyLine = [string]$lines[$bodyIndex]
+            if ($bodyLine -match $timestampPattern) {
+                break
+            }
+            $normalizedBodyLine = (($bodyLine -replace '\s+', ' ').Trim())
+            if (-not [string]::IsNullOrEmpty($normalizedBodyLine)) {
+                [void]$body.Add($normalizedBodyLine)
+            }
+        }
+        [void]$rows.Add([pscustomobject][ordered]@{
+            Index = $index
+            Timestamp = $match.Groups['timestamp'].Value
+            Channel = 'SCRIPT'
+            Message = $match.Groups['message'].Value.Trim()
+            Body = $body.ToArray()
+            Source = $Source
+        })
+    }
+    return $rows.ToArray()
+}
+
 function Get-CampaignDebugHardDiagnosticCensus {
     param(
         [AllowEmptyString()]
@@ -4476,7 +4518,9 @@ function Get-CampaignDebugHardDiagnosticCensus {
         }
         $crashMarkers += $maximumCount
     }
-    $partisanSeverityPattern = '(?i)\b(?:Partisan|HST(?:_|\b)).*\b(?:ERROR|FATAL)\s*:'
+    $partisanSeverityPattern =
+        '(?i)(?:\b(?:Partisan|HST(?:_|\b)).*\b(?:ERROR|FATAL)\s*:|' +
+        '\bPartisan campaign debug\s*\|\s*(?:ERROR|FATAL)\s*\|)'
     $partisanSeverityCountsBySource = @()
     foreach ($sourceText in @($ScriptText, $ConsoleText)) {
         $sourceCounts = New-Object 'Collections.Generic.Dictionary[string,int]' `
@@ -5203,7 +5247,8 @@ function Test-CampaignDebugHardDiagnosticCensus {
     }
     $normalChannelPartisanError = Get-CampaignDebugHardDiagnosticCensus `
         -ScriptText ($forceLifecycleText +
-            "`n17:00:04.000 SCRIPT : Partisan subsystem ERROR: synthetic") `
+            "`n17:00:04.000 SCRIPT : Partisan subsystem ERROR: synthetic" +
+            "`n17:00:04.100 SCRIPT : Partisan campaign debug | ERROR | fatal synthetic containment") `
         -Profile force_authority `
         -IntentionalMissionConvoyAdmissionDiagnosticsProven $false `
         -IntentionalMissionConvoySettlementDiagnosticProven $false `
@@ -5212,7 +5257,7 @@ function Test-CampaignDebugHardDiagnosticCensus {
     if ($normalChannelPartisanError.Valid -or
         $normalChannelPartisanError.HardDiagnosticFree -or
         $normalChannelPartisanError.HardDiagnosticCount -ne 0 -or
-        $normalChannelPartisanError.PartisanSeverityLineCount -ne 1) {
+        $normalChannelPartisanError.PartisanSeverityLineCount -ne 2) {
         throw 'Campaign Debug normal-channel Partisan severity rejection self-test failed.'
     }
     $mirroredFatalLine = '17:00:04.000 SCRIPT : FATAL: mirrored synthetic'
@@ -5501,6 +5546,60 @@ function Test-CampaignDebugHardDiagnosticCensus {
             $mirroredIdentity.UnapprovedHardDiagnosticCount -ne 0) {
             throw 'Campaign Debug canonical mirrored-diagnostic multiset self-test failed.'
         }
+
+        [IO.File]::WriteAllText(
+            $canonicalPath,
+            $intentionalText,
+            (New-Object Text.UTF8Encoding($false)))
+        [IO.File]::WriteAllText(
+            (Join-Path $logDirectory 'console.log'),
+            $intentionalText,
+            (New-Object Text.UTF8Encoding($false)))
+        [IO.File]::WriteAllText(
+            $errorPath,
+            ($intentionalLines.ToArray() -join "`r`n"),
+            (New-Object Text.UTF8Encoding($false)))
+        [IO.File]::WriteAllText(
+            $crashPath,
+            $safeAuxiliaryText,
+            (New-Object Text.UTF8Encoding($false)))
+        $mirroredIntentional = Get-GuardErrorCensus `
+            -GuardRoot $tempRoot `
+            -Profile full_certification `
+            -IntentionalMissionConvoyAdmissionDiagnosticsProven $true `
+            -IntentionalMissionConvoySettlementDiagnosticProven $true `
+            -IntentionalMissionConvoyCorruptionDiagnosticsProven $true `
+            -IntentionalMissionConvoyWatchdogDiagnosticProven $true
+        if (-not $mirroredIntentional.Valid -or
+            $mirroredIntentional.HardDiagnosticCount -ne 13 -or
+            $mirroredIntentional.ApprovedIntentionalDiagnosticCount -ne 13 -or
+            -not $mirroredIntentional.ErrorLogProjectionExact -or
+            -not $mirroredIntentional.CrashLogProjectionExact -or
+            $mirroredIntentional.AuxiliaryUnapprovedEventCount -ne 0) {
+            throw 'Campaign Debug intentional auxiliary projection self-test failed.'
+        }
+
+        $mutatedAuxiliaryIntentionalLines = @($intentionalLines.ToArray())
+        $mutatedAuxiliaryIntentionalLines[-1] =
+            $mutatedAuxiliaryIntentionalLines[-1].Replace(
+                '17:00:02.012',
+                '17:00:02.099')
+        [IO.File]::WriteAllText(
+            $errorPath,
+            ($mutatedAuxiliaryIntentionalLines -join "`n"),
+            (New-Object Text.UTF8Encoding($false)))
+        $mutatedAuxiliaryIntentional = Get-GuardErrorCensus `
+            -GuardRoot $tempRoot `
+            -Profile full_certification `
+            -IntentionalMissionConvoyAdmissionDiagnosticsProven $true `
+            -IntentionalMissionConvoySettlementDiagnosticProven $true `
+            -IntentionalMissionConvoyCorruptionDiagnosticsProven $true `
+            -IntentionalMissionConvoyWatchdogDiagnosticProven $true
+        if ($mutatedAuxiliaryIntentional.Valid -or
+            $mutatedAuxiliaryIntentional.ErrorLogProjectionExact -or
+            $mutatedAuxiliaryIntentional.AuxiliaryUnapprovedEventCount -ne 13) {
+            throw 'Campaign Debug intentional auxiliary mutation rejection self-test failed.'
+        }
         [IO.File]::WriteAllText(
             $canonicalPath,
             $forceLifecycleText,
@@ -5600,7 +5699,7 @@ function Test-CampaignDebugHardDiagnosticCensus {
         }
     }
 
-    return 55
+    return 57
 }
 
 function Get-AuxiliaryDiagnosticProjection {
@@ -5609,6 +5708,7 @@ function Get-AuxiliaryDiagnosticProjection {
         [Parameter(Mandatory = $true)][string]$Text,
         [Parameter(Mandatory = $true)][int]$ExpectedStockDiagnosticCount,
         [string[]]$ExpectedShutdownCatalogTimestamps = @(),
+        [object[]]$ExpectedIntentionalMissionConvoyRows = @(),
         [switch]$AllowShutdownCatalogPair
     )
 
@@ -5673,6 +5773,33 @@ function Get-AuxiliaryDiagnosticProjection {
         0
     }
 
+    $intentionalRows = @(Get-IntentionalMissionConvoyDiagnosticRows `
+        -Text $Text `
+        -Source 'auxiliary.log')
+    $intentionalProjectionExact =
+        $intentionalRows.Count -eq $ExpectedIntentionalMissionConvoyRows.Count
+    for ($index = 0;
+        $intentionalProjectionExact -and $index -lt $intentionalRows.Count;
+        $index++) {
+        $expected = $ExpectedIntentionalMissionConvoyRows[$index]
+        $actual = $intentionalRows[$index]
+        if ([string]$actual.Timestamp -cne [string]$expected.Timestamp -or
+            [string]$actual.Channel -cne 'SCRIPT' -or
+            [string]$expected.Channel -cne 'SCRIPT' -or
+            [string]$actual.Message -cne [string]$expected.Message -or
+            @($actual.Body).Count -ne 0 -or
+            @($expected.Body).Count -ne 0) {
+            $intentionalProjectionExact = $false
+        }
+    }
+    $approvedIntentionalMissionConvoyCount = if (
+        $intentionalProjectionExact) {
+        $intentionalRows.Count
+    }
+    else {
+        0
+    }
+
     $nonVmHardHeaders = @([regex]::Matches(
         $Text,
         '(?im)^[ \t]*(?:\d{2}:\d{2}:\d{2}\.\d+[ \t]+)?' +
@@ -5684,7 +5811,8 @@ function Get-AuxiliaryDiagnosticProjection {
             'assertion failed|segmentation fault|stack overflow|' +
             'out of memory|engine crash|minidump)\b')).Count
     $unapprovedEventCount +=
-        ($nonVmHardHeaders - $approvedShutdownCatalogCount) +
+        ($nonVmHardHeaders - $approvedShutdownCatalogCount -
+            $approvedIntentionalMissionConvoyCount) +
         $strongFatalMarkers
 
     $startupProjectionExact = $false
@@ -5700,12 +5828,18 @@ function Get-AuxiliaryDiagnosticProjection {
     }
     $projectionExact = $startupProjectionExact -and
         $shutdownProjectionExact -and
+        $intentionalProjectionExact -and
         $unapprovedEventCount -eq 0
 
     $eventKinds = New-Object Collections.Generic.List[string]
     $eventKinds.AddRange($kinds.ToArray())
     for ($index = 0; $index -lt $approvedShutdownCatalogCount; $index++) {
         [void]$eventKinds.Add('stock-shutdown-catalog')
+    }
+    for ($index = 0;
+        $index -lt $approvedIntentionalMissionConvoyCount;
+        $index++) {
+        [void]$eventKinds.Add('intentional-mission-convoy')
     }
 
     return [pscustomobject][ordered]@{
@@ -5714,6 +5848,9 @@ function Get-AuxiliaryDiagnosticProjection {
         StockDiagnosticCount = $kinds.Count + $approvedShutdownCatalogCount
         ShutdownCatalogDiagnosticCount = $approvedShutdownCatalogCount
         ShutdownCatalogPairValid = $shutdownProjectionExact
+        IntentionalMissionConvoyDiagnosticCount =
+            $approvedIntentionalMissionConvoyCount
+        IntentionalMissionConvoyProjectionExact = $intentionalProjectionExact
         UnapprovedEventCount = $unapprovedEventCount
         EventKinds = $eventKinds.ToArray()
     }
@@ -5899,10 +6036,20 @@ function Get-GuardErrorCensus {
                 -Source 'script.log' |
                 ForEach-Object { [string]$_.Timestamp })
     }
+    $expectedIntentionalMissionConvoyRows = @()
+    if ($census.IntentionalFixtureSetValid -and
+        [int]$census.ApprovedIntentionalDiagnosticCount -eq 13) {
+        $expectedIntentionalMissionConvoyRows = @(
+            Get-IntentionalMissionConvoyDiagnosticRows `
+                -Text $scriptText `
+                -Source 'script.log')
+    }
     $errorProjection = Get-AuxiliaryDiagnosticProjection `
         -Text (Read-SharedFileText -Path $errorLogs[0].FullName) `
         -ExpectedStockDiagnosticCount $expectedStartupStockDiagnosticCount `
         -ExpectedShutdownCatalogTimestamps $expectedShutdownCatalogTimestamps `
+        -ExpectedIntentionalMissionConvoyRows `
+            $expectedIntentionalMissionConvoyRows `
         -AllowShutdownCatalogPair
     $crashProjection = Get-AuxiliaryDiagnosticProjection `
         -Text (Read-SharedFileText -Path $crashLogs[0].FullName) `

@@ -69,6 +69,40 @@ that optional historical QA chain were explicitly resumed. Current Gate 1 uses
 the source-native sequence above, remains incomplete, and release remains
 `NO-GO`.
 
+- [x] Make the source Campaign Debug auxiliary census preserve the canonical
+  full-profile diagnostic policy. The 13 exact, proof-bound intentional convoy
+  fault-injection diagnostics may be mirrored into `error.log` only when their
+  order, timestamps, messages, channels, and empty bodies exactly match the
+  canonical approved rows; variants, partial sets, duplicates, bodies, and all
+  `crash.log` copies remain red. Count normal-channel
+  `Partisan campaign debug | ERROR |` rows as separate Partisan severity
+  signals even though they are not `SCRIPT (E)` hard events. The classifier now
+  passes 57 self-tests, including an exact auxiliary projection and a timestamp
+  mutation rejection.
+
+- [x] Close the first source-native Full attempt's fatal pre-admission cleanup
+  defect at the production ownership boundary. Runtime-group deletion now
+  removes the delayed-spawn listener and all five aligned pending-population
+  fields before deleting the native root. A monotonic registration generation
+  rejects delayed callbacks from a deleted or re-registered group while
+  remaining valid across a legitimate native-root replacement. The render-
+  bubble mission-target probe now publishes explicit player-session and exact
+  empty-baseline assertions before either pre-admission return.
+
+- [x] Close the Full attempt's two convoy source defects without converting
+  later combat dismounts into automatic reseating. Initial MOVING/CONTACT
+  seating recovery is bounded to 45 seconds and requires an explicit pre-driver
+  runtime stage. The first confirmed driver advances out of that state even if
+  route assignment then fails, and restored-runtime recovery is constrained to
+  the same explicit pre-driver/rebind states, so a later combat dismount cannot
+  reopen the bypass. Both control-pending gates preserve only the genuine
+  initial window against the same-frame static-fallback decision. A vehicle more
+  than 250 metres from its generated route retains the complete waypoint list
+  instead of advancing to a coincident final cursor. Campaign Debug stages
+  departure about 354 metres from the convoy and reserves the close teleport
+  for the explicit contact phase. Workbench and fresh runtime proof remain
+  required on the replacement source checkpoint.
+
 ## Historical Stamped Local-Candidate Checkpoint
 
 - [x] Close the source-level diagnostic boundary around 55 whole-file

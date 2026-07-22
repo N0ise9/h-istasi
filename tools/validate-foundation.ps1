@@ -10117,13 +10117,31 @@ if ([string]::IsNullOrEmpty($schema52RemainingRouteBlock) -or [string]::IsNullOr
 }
 foreach ($requiredSchema52ForwardRouteEntry in @(
 		'ClosestPointOnSegment2D(routeWaypoints[index - 1], routeWaypoints[index], currentPosition)',
-		'int firstForwardIndex = 1;',
+		'int firstForwardIndex = 0;',
+		'int closestForwardIndex = 1;',
+		'closestForwardIndex = index;',
+		'float cursorJoinRadiusSq = CONVOY_ROUTE_CURSOR_JOIN_RADIUS_METERS * CONVOY_ROUTE_CURSOR_JOIN_RADIUS_METERS;',
+		'if (bestDistanceSq <= cursorJoinRadiusSq)',
+		'firstForwardIndex = closestForwardIndex;',
 		'for (int forwardIndex = firstForwardIndex; forwardIndex < routeWaypoints.Count(); forwardIndex++)',
 		'remaining.Insert(routeWaypoints[forwardIndex]);'
 	)) {
 	if ($schema52RemainingRouteBlock -notmatch [regex]::Escape($requiredSchema52ForwardRouteEntry)) {
 		throw "Schema-52 convoy route must resume from the current route cursor: $requiredSchema52ForwardRouteEntry"
 	}
+}
+if ($physicalWarText -notmatch [regex]::Escape('CONVOY_ROUTE_CURSOR_JOIN_RADIUS_METERS = 250.0')) {
+	throw 'Schema-52 convoy route cursor must use a bounded 250m join radius before trimming generated waypoints'
+}
+$schema52CursorDefaultIndex = $schema52RemainingRouteBlock.IndexOf('int firstForwardIndex = 0;')
+$schema52CursorGateIndex = $schema52RemainingRouteBlock.IndexOf('if (bestDistanceSq <= cursorJoinRadiusSq)')
+$schema52CursorAdvanceIndex = $schema52RemainingRouteBlock.IndexOf('firstForwardIndex = closestForwardIndex;')
+$schema52CursorCopyIndex = $schema52RemainingRouteBlock.IndexOf('for (int forwardIndex = firstForwardIndex;')
+if ($schema52CursorDefaultIndex -lt 0 -or
+	$schema52CursorGateIndex -le $schema52CursorDefaultIndex -or
+	$schema52CursorAdvanceIndex -le $schema52CursorGateIndex -or
+	$schema52CursorCopyIndex -le $schema52CursorAdvanceIndex) {
+	throw 'Schema-52 convoy route cursor must retain every generated point while far from the route and trim only inside the bounded join radius'
 }
 foreach ($requiredSchema52CurrentCursorEntry in @(
 		'currentPosition = vehicleEntity.GetOrigin();',
@@ -16324,7 +16342,7 @@ if ($authorityLocalSeatIndex -lt 0 -or $ownerRpcSeatIndex -lt 0 -or $authorityLo
 foreach ($requiredPhase6RuntimeEntry in @(
 		"EnsureMissionConvoyCrewSeating",
 		"ShouldRetryMissionConvoyCrewSeating",
-		"IsMissionConvoyContactCrewSeatingRetryActive",
+		"IsMissionConvoyBoundedCrewSeatingRetryActive",
 		"changed = EnsureMissionConvoyCrewSeating(state, mission) || changed;",
 		"convoy_seating_pending",
 		"convoy_driver_available",
@@ -16390,31 +16408,135 @@ foreach ($requiredPhase7AdapterEntry in @(
 		throw "Missing Phase 7 convoy adapter waypoint-chain entry: $requiredPhase7AdapterEntry"
 	}
 }
-$contactSeatingRetryBlock = Get-ScriptMethodBlock $physicalWarServiceText 'protected bool IsMissionConvoyContactCrewSeatingRetryActive('
-foreach ($requiredContactSeatingRetryEntry in @(
-		'mission.m_sRuntimePhase != MISSION_CONVOY_CONTACT',
-		'!state.IsOperationalActiveGroup(activeGroup)',
+$boundedSeatingRetryBlock = Get-ScriptMethodBlock $physicalWarServiceText 'protected bool IsMissionConvoyBoundedCrewSeatingRetryActive('
+$initialSeatingTransitionBlock = Get-ScriptMethodBlock $physicalWarServiceText 'protected bool IsMissionConvoyInitialAuthoritativeSeatingTransitionPending('
+$restoredSeatingRebindBlock = Get-ScriptMethodBlock $physicalWarServiceText 'protected bool IsRestoredMissionConvoyRuntimeRebindPending('
+foreach ($requiredInitialSeatingTransitionEntry in @(
+		'activeGroup.m_sSpawnFallbackMode == "convoy_crew_population_pending"',
+		'activeGroup.m_sConvoyRuntimeStage == "CREW_GROUP_CREATED"',
+		'activeGroup.m_sSpawnFallbackMode == "convoy_seating_pending"',
+		'activeGroup.m_sSpawnFallbackMode == "convoy_vehicle_control_unavailable"',
+		'activeGroup.m_sConvoyRuntimeStage == "CREW_POPULATED"'
+	)) {
+	if ([string]::IsNullOrEmpty($initialSeatingTransitionBlock) -or
+		$initialSeatingTransitionBlock.IndexOf($requiredInitialSeatingTransitionEntry) -lt 0) {
+		throw "Initial convoy seating recovery must require an explicit pre-driver runtime stage: $requiredInitialSeatingTransitionEntry"
+	}
+}
+foreach ($requiredRestoredSeatingRebindEntry in @(
+		'state.m_iLastRestoreSecond + CONVOY_CREW_POPULATION_GRACE_SECONDS',
+		'activeGroup.m_sConvoyRuntimeStage == "CREW_GROUP_CREATED"',
+		'activeGroup.m_sConvoyRuntimeStage == "CREW_POPULATED"',
+		'if (!explicitPreDriverStage)',
+		'activeGroup.m_sSpawnFallbackMode == "restore_rebuild"',
 		'activeGroup.m_sSpawnFallbackMode == "convoy_crew_population_pending"',
 		'activeGroup.m_sSpawnFallbackMode == "convoy_seating_pending"',
 		'activeGroup.m_sSpawnFallbackMode == "convoy_vehicle_control_unavailable"',
+		'if (!explicitRebindFallback)'
+	)) {
+	if ([string]::IsNullOrEmpty($restoredSeatingRebindBlock) -or
+		$restoredSeatingRebindBlock.IndexOf($requiredRestoredSeatingRebindEntry) -lt 0) {
+		throw "Restored convoy seating recovery must require an explicit pre-driver rebind stage and fallback: $requiredRestoredSeatingRebindEntry"
+	}
+}
+foreach ($requiredBoundedSeatingRetryEntry in @(
+		'!IsMissionConvoyTravelPhase(mission)',
+		'!state.IsOperationalActiveGroup(activeGroup)',
+		'IsMissionConvoyInitialAuthoritativeSeatingTransitionPending(activeGroup)',
 		'IsRestoredMissionConvoyRuntimeRebindPending(state, activeGroup)',
+		'!initialSeatingTransitionPending && !restoredRuntimeRebindPending',
+		'IsMissionConvoyWaypointAssigned(activeGroup)',
+		'activeGroup.m_sConvoyRuntimeStage == "ROUTE_ASSIGNED"',
 		'GetRuntimeCrewGroupEntity(activeGroup.m_sGroupId)',
 		'GetRuntimeVehicleEntity(activeGroup.m_sGroupId)',
 		'CountAliveRuntimeCrewAgents(activeGroup) <= 0',
 		'HasLivingDriver(crewEntity, vehicleEntity)',
+		'activeGroup.m_sConvoyRuntimeStage = "DRIVER_BOUND"',
 		'Math.Max(activeGroup.m_iSpawnedAtSecond, state.m_iLastRestoreSecond)',
 		'CONVOY_CREW_SEATING_GRACE_SECONDS'
 	)) {
-	if ([string]::IsNullOrEmpty($contactSeatingRetryBlock) -or
-		$contactSeatingRetryBlock.IndexOf($requiredContactSeatingRetryEntry) -lt 0) {
-		throw "Bounded convoy-contact seating recovery is incomplete: $requiredContactSeatingRetryEntry"
+	if ([string]::IsNullOrEmpty($boundedSeatingRetryBlock) -or
+		$boundedSeatingRetryBlock.IndexOf($requiredBoundedSeatingRetryEntry) -lt 0) {
+		throw "Bounded convoy travel-phase seating recovery is incomplete: $requiredBoundedSeatingRetryEntry"
+	}
+}
+if ($boundedSeatingRetryBlock.IndexOf('activeGroup.m_sSpawnFallbackMode == "convoy_vehicle_control_unavailable"') -ge 0) {
+	throw 'Generic convoy vehicle-control failure must not independently authorize the bounded seating bypass'
+}
+$boundedDriverObservedIndex = $boundedSeatingRetryBlock.IndexOf('HasLivingDriver(crewEntity, vehicleEntity)')
+$boundedDriverClosedIndex = $boundedSeatingRetryBlock.IndexOf('activeGroup.m_sConvoyRuntimeStage = "DRIVER_BOUND"', $boundedDriverObservedIndex)
+$boundedDriverReturnIndex = $boundedSeatingRetryBlock.IndexOf('return false;', $boundedDriverObservedIndex)
+if ($boundedDriverObservedIndex -lt 0 -or
+	$boundedDriverClosedIndex -le $boundedDriverObservedIndex -or
+	$boundedDriverReturnIndex -le $boundedDriverClosedIndex) {
+	throw 'Observing an authoritative convoy driver must close the initial or restored seating window before returning'
+}
+$pendingConvoyCrewControlBlock = Get-ScriptMethodBlock $physicalWarServiceText 'protected bool HasPendingConvoyCrewControl('
+$missionConvoyControlPendingBlock = Get-ScriptMethodBlock $physicalWarServiceText 'protected bool HasMissionConvoyControlPending('
+foreach ($requiredBoundedControlPendingEntry in @(
+		'IsConvoyCrewControlPending(state, activeGroup)',
+		'IsMissionConvoyBoundedCrewSeatingRetryActive(state, mission, activeGroup)'
+	)) {
+	if ([string]::IsNullOrEmpty($pendingConvoyCrewControlBlock) -or
+		$pendingConvoyCrewControlBlock.IndexOf($requiredBoundedControlPendingEntry) -lt 0 -or
+		[string]::IsNullOrEmpty($missionConvoyControlPendingBlock) -or
+		$missionConvoyControlPendingBlock.IndexOf($requiredBoundedControlPendingEntry) -lt 0) {
+		throw "Mission-aware convoy control-pending gates must preserve the bounded asynchronous seating window: $requiredBoundedControlPendingEntry"
 	}
 }
 if ($physicalWarServiceText.IndexOf('state.m_iElapsedSeconds % CONVOY_PROGRESS_SYNC_SECONDS != 0') -lt 0 -or
-	([regex]::Matches($physicalWarServiceText, 'IsMissionConvoyContactCrewSeatingRetryActive\(')).Count -lt 4 -or
-	$physicalWarServiceText.IndexOf('!contactSeatingRetry && ShouldSuppressMissionConvoyCrewReseat') -lt 0 -or
-	$physicalWarServiceText.IndexOf('activeGroup.m_bEverHadLivingCrew && !contactSeatingRetry') -lt 0) {
-	throw 'Convoy-contact seating recovery must stay cadence-bound and be the sole reseat/live-history bypass'
+	([regex]::Matches($physicalWarServiceText, 'IsMissionConvoyBoundedCrewSeatingRetryActive\(')).Count -lt 6 -or
+	$physicalWarServiceText.IndexOf('!boundedSeatingRetry && ShouldSuppressMissionConvoyCrewReseat') -lt 0 -or
+	$physicalWarServiceText.IndexOf('activeGroup.m_bEverHadLivingCrew && !boundedSeatingRetry') -lt 0) {
+	throw 'Convoy travel-phase seating recovery must stay cadence-bound and be the sole reseat/live-history bypass'
+}
+$campaignDebugConvoyStartBlock = Get-ScriptMethodBlock $coordinatorForPreflightText 'protected string StartCampaignDebugConvoySample('
+$campaignDebugConvoyDepartureStagingBlock = Get-ScriptMethodBlock $coordinatorForPreflightText 'protected bool TeleportCampaignDebugPlayerToConvoyDepartureStaging('
+$campaignDebugConvoyContactTeleportBlock = Get-ScriptMethodBlock $coordinatorForPreflightText 'protected bool TeleportCampaignDebugPlayerToConvoy(string instanceId, string reason)'
+$campaignDebugConvoyOffsetTeleportBlock = Get-ScriptMethodBlock $coordinatorForPreflightText 'protected bool TeleportCampaignDebugPlayerToConvoyOffset('
+$campaignDebugConvoyPhase9Block = Get-ScriptMethodBlock $coordinatorForPreflightText 'protected string TeleportCampaignDebugPlayerToConvoySample('
+$campaignDebugMissionTeleportBlock = Get-ScriptMethodBlock $coordinatorForPreflightText 'protected bool TeleportCampaignDebugPlayerToMission('
+foreach ($requiredCampaignDebugConvoyStagingEntry in @(
+		'TeleportCampaignDebugPlayerToConvoyDepartureStaging(m_sCampaignDebugEarlyMissionInstanceId, "phase2 convoy departure staging")',
+		'Vector(CAMPAIGN_DEBUG_CONVOY_DEPARTURE_STAGING_AXIS_METERS, 0.0, CAMPAIGN_DEBUG_CONVOY_DEPARTURE_STAGING_AXIS_METERS)',
+		'TeleportCampaignDebugPlayerToConvoyOffset(instanceId, reason, stagingOffset)',
+		'TeleportCampaignDebugPlayerToConvoyOffset(instanceId, reason, "18 0 18")',
+		'TeleportCampaignDebugPlayerToConvoy(mission.m_sInstanceId, "phase9 convoy contact")',
+		'TeleportCampaignDebugPlayerToConvoyDepartureStaging(instanceId, "mission " + missionId + " departure staging")',
+		'TeleportCampaignDebugPlayer(assetPosition + offset, reason)',
+		'TeleportCampaignDebugPlayer(groupPosition + offset, reason)'
+	)) {
+	$campaignDebugConvoyTeleportCorpus = $campaignDebugConvoyStartBlock + "`n" +
+		$campaignDebugConvoyDepartureStagingBlock + "`n" +
+		$campaignDebugConvoyContactTeleportBlock + "`n" +
+		$campaignDebugConvoyOffsetTeleportBlock + "`n" +
+		$campaignDebugConvoyPhase9Block + "`n" +
+		$campaignDebugMissionTeleportBlock
+	if ($campaignDebugConvoyTeleportCorpus.IndexOf($requiredCampaignDebugConvoyStagingEntry) -lt 0) {
+		throw "Campaign Debug convoy departure/contact teleport separation is incomplete: $requiredCampaignDebugConvoyStagingEntry"
+	}
+}
+if ([string]::IsNullOrEmpty($campaignDebugConvoyStartBlock) -or
+	[string]::IsNullOrEmpty($campaignDebugConvoyDepartureStagingBlock) -or
+	[string]::IsNullOrEmpty($campaignDebugConvoyContactTeleportBlock) -or
+	[string]::IsNullOrEmpty($campaignDebugConvoyOffsetTeleportBlock) -or
+	[string]::IsNullOrEmpty($campaignDebugConvoyPhase9Block) -or
+	[string]::IsNullOrEmpty($campaignDebugMissionTeleportBlock) -or
+	$campaignDebugConvoyStartBlock.IndexOf('TeleportCampaignDebugPlayerToMission(') -ge 0) {
+	throw 'Campaign Debug convoy start must use a distinct departure-staging teleport rather than the close contact teleport'
+}
+$campaignDebugConvoyStagingAxisMatch = [regex]::Match(
+	$coordinatorForPreflightText,
+	'CAMPAIGN_DEBUG_CONVOY_DEPARTURE_STAGING_AXIS_METERS\s*=\s*(?<axis>[0-9]+(?:\.[0-9]+)?);')
+if (!$campaignDebugConvoyStagingAxisMatch.Success) {
+	throw 'Campaign Debug convoy departure-staging axis constant is missing'
+}
+$campaignDebugConvoyStagingAxis = [double]::Parse(
+	$campaignDebugConvoyStagingAxisMatch.Groups['axis'].Value,
+	[Globalization.CultureInfo]::InvariantCulture)
+$campaignDebugConvoyStagingDistance = [Math]::Sqrt(2.0 * $campaignDebugConvoyStagingAxis * $campaignDebugConvoyStagingAxis)
+if ($campaignDebugConvoyStagingDistance -lt 300.0 -or $campaignDebugConvoyStagingDistance -gt 400.0) {
+	throw "Campaign Debug convoy departure staging must remain 300-400m from the convoy; actual $campaignDebugConvoyStagingDistance"
 }
 $vehicleRegistrationProofStart = $convoyVehicleControlAdapterText.IndexOf("bool IsVehicleRegisteredWithGroup")
 $countLivingCrewStart = $convoyVehicleControlAdapterText.IndexOf("int CountLivingCrew")
@@ -16892,6 +17014,71 @@ foreach ($requiredActiveGroupPopulationRuntimeEntry in @(
 	if ($physicalWarServiceText -notmatch [regex]::Escape($requiredActiveGroupPopulationRuntimeEntry)) {
 		throw "Active AIGroup population must prove controlled native group spawning, route-proof recovery, and tagged direct fallback detection: $requiredActiveGroupPopulationRuntimeEntry"
 	}
+}
+$pendingPopulationRetryBlock = Get-ScriptMethodBlock $physicalWarServiceText 'protected void ConfirmSpawnedGroupAgents('
+$pendingPopulationRegistrationGuardBlock = Get-ScriptMethodBlock $physicalWarServiceText 'protected bool IsExactPendingActiveGroupPopulationRegistration('
+$pendingPopulationRegisterBlock = Get-ScriptMethodBlock $physicalWarServiceText 'protected int RegisterPendingActiveGroupPopulation('
+$pendingPopulationGenerationAllocatorBlock = Get-ScriptMethodBlock $physicalWarServiceText 'protected int AllocatePendingActiveGroupPopulationRegistrationGeneration('
+$pendingPopulationClearBlock = Get-ScriptMethodBlock $physicalWarServiceText 'protected void ClearPendingActiveGroupPopulation('
+$pendingPopulationClearByIdBlock = Get-ScriptMethodBlock $physicalWarServiceText 'protected void ClearPendingActiveGroupPopulationById('
+$pendingPopulationDebugClearBlock = Get-ScriptMethodBlock $physicalWarServiceText 'protected bool ClearPendingActiveGroupPopulationForDebug('
+$physicalCoreRegistryAuditBlock = Get-ScriptMethodBlock $physicalWarServiceText 'protected bool AuditCampaignDebugPhysicalCoreRuntimeRegistries('
+$runtimeGroupDeleteBlock = Get-ScriptMethodBlock $physicalWarServiceText 'protected bool DeleteRuntimeGroupEntity('
+foreach ($requiredPendingPopulationDeletionEntry in @(
+		'm_aPendingPopulationRegistrationGenerations',
+		'IsExactPendingActiveGroupPopulationRegistration(expectedGroupId, expectedRegistrationGeneration, activeGroup, requestedStatus, state)',
+		'FindPendingActiveGroupPopulationIndex(expectedGroupId)',
+		'm_aPendingPopulationRequestedStatuses[index] != requestedStatus',
+		'm_aPendingPopulationActiveGroups[index] != activeGroup',
+		'm_aPendingPopulationStates[index] != state',
+		'm_aPendingPopulationRegistrationGenerations[index] != expectedRegistrationGeneration',
+		'AllocatePendingActiveGroupPopulationRegistrationGeneration()',
+		'm_aPendingPopulationRegistrationGenerations.Insert(registrationGeneration)',
+		'm_aPendingPopulationRegistrationGenerations.Remove(i)',
+		'm_aPendingPopulationRegistrationGenerations.Remove(pendingIndex)',
+		'!= m_aPendingPopulationRegistrationGenerations.Count()',
+		'ClearPendingActiveGroupPopulationById(activeGroup.m_sGroupId)',
+		'group.GetOnAllDelayedEntitySpawned().Remove(OnDelayedActiveGroupMembersSpawned)',
+		'm_aPendingPopulationRequestedStatuses.Remove(i)',
+		'm_aPendingPopulationActiveGroups.Remove(i)',
+		'm_aPendingPopulationStates.Remove(i)',
+		'm_aPendingPopulationGroupIds.Remove(i)',
+		'ClearPendingActiveGroupPopulationById(groupId)'
+	)) {
+	$pendingPopulationDeletionCorpus = $pendingPopulationRetryBlock + "`n" +
+		$pendingPopulationRegistrationGuardBlock + "`n" +
+		$pendingPopulationRegisterBlock + "`n" +
+		$pendingPopulationGenerationAllocatorBlock + "`n" +
+		$pendingPopulationClearBlock + "`n" +
+		$pendingPopulationClearByIdBlock + "`n" +
+		$pendingPopulationDebugClearBlock + "`n" +
+		$physicalCoreRegistryAuditBlock + "`n" + $runtimeGroupDeleteBlock
+	if ($pendingPopulationDeletionCorpus.IndexOf($requiredPendingPopulationDeletionEntry) -lt 0) {
+		throw "Runtime-group deletion must cancel exact pending-population callbacks and aligned registry tuples: $requiredPendingPopulationDeletionEntry"
+	}
+}
+$pendingPopulationRetryGenerationCount = ([regex]::Matches(
+	$pendingPopulationRetryBlock,
+	[regex]::Escape('expectedGroupId, expectedRegistrationGeneration, activeGroup, requestedStatus, state, attempt + 1'))).Count
+if ($pendingPopulationRetryGenerationCount -ne 2 -or
+	$physicalWarServiceText.IndexOf('int pendingRegistrationGeneration = RegisterPendingActiveGroupPopulation(entity, activeGroup, requestedStatus, state)') -lt 0 -or
+	$physicalWarServiceText.IndexOf('activeGroup.m_sGroupId, pendingRegistrationGeneration, activeGroup, requestedStatus, state, 1') -lt 0) {
+	throw "Pending-population retries must carry one explicit registration generation across the initial and both recursive schedules"
+}
+$pendingPopulationDeleteClearIndex = $runtimeGroupDeleteBlock.IndexOf('ClearPendingActiveGroupPopulationById(groupId)')
+$pendingPopulationDeleteRootIndex = $runtimeGroupDeleteBlock.IndexOf('DeleteRuntimeCrewEntities(groupId)')
+if ([string]::IsNullOrEmpty($pendingPopulationRetryBlock) -or
+	[string]::IsNullOrEmpty($pendingPopulationRegistrationGuardBlock) -or
+	[string]::IsNullOrEmpty($pendingPopulationRegisterBlock) -or
+	[string]::IsNullOrEmpty($pendingPopulationGenerationAllocatorBlock) -or
+	[string]::IsNullOrEmpty($pendingPopulationClearBlock) -or
+	[string]::IsNullOrEmpty($pendingPopulationClearByIdBlock) -or
+	[string]::IsNullOrEmpty($pendingPopulationDebugClearBlock) -or
+	[string]::IsNullOrEmpty($physicalCoreRegistryAuditBlock) -or
+	[string]::IsNullOrEmpty($runtimeGroupDeleteBlock) -or
+	$pendingPopulationDeleteClearIndex -lt 0 -or
+	$pendingPopulationDeleteRootIndex -le $pendingPopulationDeleteClearIndex) {
+	throw "Runtime-group deletion must cancel pending-population ownership before deleting its native root"
 }
 $campaignDebugPopulationResolverMatch = [regex]::Match($physicalWarServiceText, "bool CampaignDebugResolvePendingActiveGroupPopulation[\s\S]*?bool CampaignDebugResolveActiveGroupRouteAssignment")
 if (!$campaignDebugPopulationResolverMatch.Success) {
@@ -37466,6 +37653,34 @@ foreach ($campaignDebugRenderBubbleOwnershipEntry in @(
 		throw "Render-bubble mission-target proof is missing exact new-instance ownership: $campaignDebugRenderBubbleOwnershipEntry"
 	}
 }
+foreach ($campaignDebugRenderBubblePreAdmissionEntry in @(
+		'"render_bubble.mission_target.pre_admission.player_session"',
+		'CampaignDebugStatus(context.m_bFarPlayerSessionExact)',
+		'bool preAdmissionBaselineExact = context.m_bFarInactive',
+		'context.m_bPreStartZoneRuntimeEmptyExact',
+		'context.m_bPreStartZoneCompositionEmptyExact',
+		'"render_bubble.mission_target.pre_admission.baseline"',
+		'CampaignDebugStatus(preAdmissionBaselineExact)',
+		'if (!preAdmissionBaselineExact)'
+	)) {
+	if ($campaignDebugRenderBubbleBeginBlock.IndexOf($campaignDebugRenderBubblePreAdmissionEntry) -lt 0) {
+		throw "Render-bubble mission-target proof must fail closed with an explicit pre-admission assertion: $campaignDebugRenderBubblePreAdmissionEntry"
+	}
+}
+$campaignDebugRenderBubblePlayerAssertionIndex = $campaignDebugRenderBubbleBeginBlock.IndexOf('"render_bubble.mission_target.pre_admission.player_session"')
+$campaignDebugRenderBubblePlayerFailureIndex = $campaignDebugRenderBubbleBeginBlock.IndexOf('if (!context.m_bFarPlayerSessionExact)', $campaignDebugRenderBubblePlayerAssertionIndex)
+$campaignDebugRenderBubbleBaselineAssertionIndex = $campaignDebugRenderBubbleBeginBlock.IndexOf('"render_bubble.mission_target.pre_admission.baseline"')
+$campaignDebugRenderBubbleBaselineFailureIndex = $campaignDebugRenderBubbleBeginBlock.IndexOf('if (!preAdmissionBaselineExact)', $campaignDebugRenderBubbleBaselineAssertionIndex)
+$campaignDebugRenderBubblePreAdmissionCompositeExact = [regex]::IsMatch(
+	$campaignDebugRenderBubbleBeginBlock,
+	'(?s)bool\s+preAdmissionBaselineExact\s*=\s*context\.m_bFarInactive\s*&&\s*context\.m_bFarPlayerOutsideEventBubble\s*&&\s*context\.m_bTargetOutsideAllPlayerEventBubbles\s*&&\s*context\.m_bPreStartZoneRuntimeEmptyExact\s*&&\s*context\.m_bPreStartZoneCompositionEmptyExact\s*;')
+if ($campaignDebugRenderBubblePlayerAssertionIndex -lt 0 -or
+	$campaignDebugRenderBubblePlayerFailureIndex -le $campaignDebugRenderBubblePlayerAssertionIndex -or
+	$campaignDebugRenderBubbleBaselineAssertionIndex -le $campaignDebugRenderBubblePlayerFailureIndex -or
+	$campaignDebugRenderBubbleBaselineFailureIndex -le $campaignDebugRenderBubbleBaselineAssertionIndex -or
+	-not $campaignDebugRenderBubblePreAdmissionCompositeExact) {
+	throw "Render-bubble mission-target pre-admission failures must publish their exact assertion before returning, with all five baseline predicates composed together"
+}
 $campaignDebugRenderBubbleStartIndex = $campaignDebugRenderBubbleBeginBlock.IndexOf('context.m_bStartAccepted = StartMission_S(')
 $campaignDebugRenderBubblePreCaptureIndex = $campaignDebugRenderBubbleBeginBlock.IndexOf('m_aPreStartMissionInstanceIds.Insert(')
 $campaignDebugRenderBubbleLookupIndex = $campaignDebugRenderBubbleBeginBlock.IndexOf('foreach (HST_ActiveMissionState postStartMission : m_State.m_aActiveMissions)', $campaignDebugRenderBubbleStartIndex)
@@ -55965,11 +56180,13 @@ foreach ($candidateCampaignDebugRunnerEntry in @(
 		'Campaign Debug mirrored fatal-marker multiset self-test failed.',
 		'Campaign Debug unique console SCRIPT-diagnostic self-test failed.',
 		'Campaign Debug canonical mirrored-diagnostic multiset self-test failed.',
+		'Campaign Debug intentional auxiliary projection self-test failed.',
+		'Campaign Debug intentional auxiliary mutation rejection self-test failed.',
 		'Campaign Debug canonical console ENGINE-diagnostic self-test failed.',
 		'Campaign Debug duplicate same-source ENGINE-diagnostic self-test failed.',
 		'Campaign Debug split canonical log-pair self-test failed.',
 		'Campaign Debug duplicate canonical log self-test failed.',
-		'return 55',
+		'return 57',
 		'if (-not $errorCensus.Valid)',
 		'HardDiagnosticClassifierChecks'
 	)) {
@@ -55988,9 +56205,12 @@ if ([string]::IsNullOrEmpty($campaignDebugAuxiliaryProjectionText)) {
 }
 foreach ($campaignDebugAuxiliaryProjectionEntry in @(
 		'[string[]]$ExpectedShutdownCatalogTimestamps = @()',
+		'[object[]]$ExpectedIntentionalMissionConvoyRows = @()',
 		'[switch]$AllowShutdownCatalogPair',
 		'$shutdownRows = @(Get-ShutdownCatalogDiagnosticRows',
+		'$intentionalRows = @(Get-IntentionalMissionConvoyDiagnosticRows',
 		'ShutdownCatalogDiagnosticCount = $approvedShutdownCatalogCount',
+		'IntentionalMissionConvoyProjectionExact = $intentionalProjectionExact',
 		'$nonVmHardHeaders = @([regex]::Matches(',
 		'''(?im)^[ \t]*(?:\d{2}:\d{2}:\d{2}\.\d+[ \t]+)?'' +',
 		'''(?:SCRIPT|ENGINE)[ \t]*\(E\):'' +',
@@ -57799,7 +58019,7 @@ foreach ($sourceCampaignDebugRunnerEntry in @(
 		'Test-SourceCampaignExactMultiset',
 		'ApprovedShutdownCatalogDiagnosticCount',
 		'ShutdownCatalogPairValid',
-		'$ClassifierChecks -eq 55',
+		'$ClassifierChecks -eq 57',
 		'Test-NativeJsonInteger -Value $finalOrphanProperty.Value',
 		'acceptanceChecks = 13',
 		'The optional shutdown catalog pair canary self-test failed.',

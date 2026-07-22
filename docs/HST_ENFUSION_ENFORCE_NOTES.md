@@ -9174,7 +9174,14 @@ authoritative.
   be empty. A valid canary may mirror the same approved stock exceptions already
   classified from the canonical script/console pair. Reparse those channels and
   require their hard-event multisets to be exact permitted projections with no
-  unique or unapproved event.
+  unique or unapproved event. The full profile also mirrors its 13 approved
+  intentional convoy fault-injection diagnostics into `error.log`. Admit those
+  auxiliary rows only when their order, timestamps, messages, channels, and
+  empty bodies exactly match the already approved canonical `script.log` rows;
+  never admit them from `crash.log`. A normal-channel
+  `Partisan campaign debug | ERROR |` row is not a `SCRIPT (E)` hard event, but
+  it is a separate Partisan severity signal and must keep the diagnostic census
+  red.
 - The state-diff contract is an ordered 18-row identity, not only a zero count:
   `elapsed`, `money`, `HR`, `training`, `war level`, `active missions`,
   `objectives`, `runtime vehicles`, `mission assets`, `active groups`,
@@ -9229,6 +9236,44 @@ authoritative.
   evidence, compare recorded tool hashes to immutable Git blobs and require
   ancestry, but do not require today's worktree to equal yesterday's tools.
   Preserve current-worktree equality for active evidence only.
+
+## Source Gate 1 Full-Profile Closure Findings
+
+- Treat pending AI population as an owned five-field registration: group ID,
+  requested status, active-group pointer, campaign-state pointer, and a
+  monotonic generation. A queued `CallLater` may survive native-root deletion,
+  and the same durable group object can be reused for a later spawn. Check the
+  exact generation and aligned tuple before consulting retained state. Keep the
+  generation across a deliberate native-root replacement, but remove it with
+  the listener and every other tuple field whenever runtime-group deletion owns
+  the lifecycle. Root identity alone is neither safe nor live enough for this
+  distinction.
+- An early Campaign Debug return must publish the exact failed assertion first.
+  The render-bubble mission-target probe records controlled-player session
+  identity after the far teleport, then separately composes inactive state,
+  controlled/global bubble exclusion, empty runtime ownership, and empty zone-
+  composition ownership before mission admission. A terminal containment error
+  without those assertions is not a passing case.
+- Convoy seating has one bounded initial recovery window. During the first 45
+  seconds after spawn or restore, MOVING/CONTACT groups with living crew, no
+  driver, no assigned route, and an explicit pre-driver runtime stage remain
+  control-pending even if a failed route attempt rewrites the fallback label.
+  The first confirmed driver advances the stage to `DRIVER_BOUND`; a subsequent
+  route failure must not reopen initial seating recovery through a generic
+  vehicle-control fallback. Later dismounts are combat behavior and must not be
+  auto-reseated through this bypass. Apply the same closure to restore grace:
+  require an explicit pre-driver stage plus an explicit rebuild/seating fallback,
+  and write `DRIVER_BOUND` as soon as the live adapter observes the authoritative
+  driver rather than waiting for a successful route assignment.
+- Do not trim a convoy's generated route to the nearest forward cursor unless
+  the live vehicle is within the bounded 250-metre join radius. A distant
+  vehicle can project equally onto several segments; choosing the last equal
+  segment collapses the chain to one waypoint. Retain the complete route while
+  distant, then let lead-ins connect the vehicle to it.
+- A movement probe must not cause the contact it intends to observe later.
+  Stage Campaign Debug convoy departure about 354 metres from the first convoy
+  asset, which is outside the contact radius but inside physicalization range;
+  reserve the close offset for the explicit contact phase.
 
 ## Native Reference Sources
 

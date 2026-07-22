@@ -2918,7 +2918,7 @@ function Get-SourceCampaignDebugAcceptance {
         $diagnosticIntegers.CanonicalCrashLogCount -eq 1 -and
         $diagnosticIntegers.AuxiliaryUnapprovedEventCount -eq 0 -and
         $diagnosticIntegers.UnapprovedHardDiagnosticCount -eq 0 -and
-        $ClassifierChecks -eq 55
+        $ClassifierChecks -eq 57
     if (-not $diagnosticCommon) {
         [void]$redAxes.Add('diagnostic-common')
     }
@@ -3259,7 +3259,7 @@ function Invoke-SourceRunnerSelfTest {
         -ClassifierPath $ClassifierPath `
         -IncludeSelfTests
     $classifierChecks = Test-CampaignDebugHardDiagnosticCensus
-    if ([int]$classifierChecks -ne 55) {
+    if ([int]$classifierChecks -ne 57) {
         throw 'The Campaign Debug diagnostic-classifier self-test count drifted.'
     }
     $tempRoot = Join-Path `
@@ -3440,7 +3440,7 @@ function Invoke-SourceRunnerSelfTest {
                 -Profile $Profile `
                 -ArtifactValidation $Validation `
                 -ErrorCensus $Census `
-                -ClassifierChecks 55 `
+                -ClassifierChecks 57 `
                 -CaptureAxesPassed $true
         }
 
@@ -4639,7 +4639,7 @@ $libraryBinding = Import-CampaignDebugClassifierLibrary `
     -ClassifierPath $classifierPath `
     -IncludeSelfTests
 $classifierChecks = Test-CampaignDebugHardDiagnosticCensus
-if ([int]$classifierChecks -ne 55) {
+if ([int]$classifierChecks -ne 57) {
     throw 'The Campaign Debug diagnostic classifier failed its preflight self-tests.'
 }
 $sourceBinding = Get-SourceBinding `
