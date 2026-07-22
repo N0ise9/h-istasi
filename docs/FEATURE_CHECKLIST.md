@@ -89,6 +89,13 @@ the source-native sequence above, remains incomplete, and release remains
   bubble mission-target probe now publishes explicit player-session and exact
   empty-baseline assertions before either pre-admission return.
 
+- [x] Make the source evidence consumer compare each publish worktree input
+  through its path-specific Git clean filter. A Windows CRLF checkout can be
+  byte-different from the LF Git blob while remaining the exact clean tracked
+  source; raw `hash-object --stdin-paths` therefore produced a false Foundation
+  failure. The consumer now uses the same `hash-object --path` policy as the
+  static runner, retains tamper detection, and exercises a clean CRLF fixture.
+
 - [x] Close the Full attempt's two convoy source defects without converting
   later combat dismounts into automatic reseating. Initial MOVING/CONTACT
   seating recovery is bounded to 45 seconds and requires an explicit pre-driver

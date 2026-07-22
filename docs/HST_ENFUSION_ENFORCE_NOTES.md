@@ -9239,6 +9239,12 @@ authoritative.
 
 ## Source Gate 1 Full-Profile Closure Findings
 
+- On Windows, frozen-source worktree equality must use Git's path-specific clean
+  filter, not raw filesystem bytes. With text normalization, a clean CRLF file
+  legitimately hashes to its LF blob only through `git hash-object --path`.
+  Apply the same policy in the producer and independent consumer, and keep a
+  CRLF self-test alongside the semantic-drift rejection so line-ending checkout
+  policy cannot create a false Foundation failure.
 - Treat pending AI population as an owned five-field registration: group ID,
   requested status, active-group pointer, campaign-state pointer, and a
   monotonic generation. A queued `CallLater` may survive native-root deletion,

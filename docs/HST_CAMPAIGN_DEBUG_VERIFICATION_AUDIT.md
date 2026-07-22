@@ -114,6 +114,20 @@ departure probe stages outside contact. These are source corrections, not
 retroactive evidence. Every prior green rung for the changed publish inputs is
 non-transferable; Gate 1 must restart from a new clean source checkpoint.
 
+The first formal Foundation attempt after the repair commit was invalid after
+every ordinary source contract passed for two separate reasons. The tracked
+release-status checkpoint still named the earlier publish-input tree and had to
+be reset before starting the new ladder. Independently, the static runner
+correctly verified all 436 current publish inputs with path-specific Git clean
+filters while the final evidence consumer rehashed raw worktree bytes in bulk.
+Files checked out as CRLF therefore differed from their canonical LF Git blobs
+despite a clean index. The consumer now applies `git hash-object --path` per
+portable input, matching the runner's declared clean-filter policy; its self-
+test admits a clean CRLF checkout and still rejects non-filter-equivalent
+content drift. The failed Foundation artifact remains failed and is not
+imported; the replacement checkpoint must be recorded with every rung pending
+before the formal rerun.
+
 The manually assembled local candidate/package runs audited below are retained
 historical QA only. They may support optional regression investigation, but they
 are not current Gate 1 prerequisites and are not a parallel publishing workflow.

@@ -640,21 +640,23 @@ function Assert-SourceGate1PublishWorktree {
         }
     }
     $paths = [string[]]@($PublishBinding.Rows | ForEach-Object { $_.Path })
-    foreach ($path in $paths) {
+    for ($indexNumber = 0; $indexNumber -lt $paths.Count; $indexNumber++) {
+        $path = $paths[$indexNumber]
         $resolved = Resolve-SourceGate1ContainedFile `
             -Root $RepositoryRoot `
             -PortablePath $path `
             -Label 'publish worktree input'
         Assert-SourceGate1NoReparseAncestry $resolved 'publish worktree input'
-    }
-    $hashOutput = @($paths | & git -C $RepositoryRoot hash-object --stdin-paths 2>&1)
-    if ($LASTEXITCODE -ne 0 -or $hashOutput.Count -ne $paths.Count) {
-        throw 'The publish worktree could not be hashed as one exact file set.'
-    }
-    for ($indexNumber = 0; $indexNumber -lt $paths.Count; $indexNumber++) {
-        if ([string]$hashOutput[$indexNumber] -cne
+        $hashOutput = Invoke-SourceGate1Git `
+            -RepositoryRoot $RepositoryRoot `
+            -Arguments @('hash-object', "--path=$path", '--', $resolved)
+        if ($hashOutput.Lines.Count -ne 1 -or
+            [string]$hashOutput.Lines[0] -cnotmatch '^[0-9a-f]{40}$') {
+            throw "The publish worktree input could not be clean-filter hashed: $path"
+        }
+        if ([string]$hashOutput.Lines[0] -cne
             [string]$PublishBinding.Rows[$indexNumber].Oid) {
-            throw 'A publish worktree input differs from the frozen source Git blob.'
+            throw "A publish worktree input differs from the frozen source Git blob: $path"
         }
     }
 
@@ -2173,8 +2175,11 @@ function Initialize-SourceGate1SelfTestFixture {
         'Partisan Source Gate1 Selftest'))
     [void](Invoke-SourceGate1Git $Root @('config', 'user.email',
         'source-gate1-selftest.invalid'))
+    Write-SourceGate1SelfTestText `
+        (Join-Path $Root '.gitattributes') "addon.gproj text eol=lf`n"
     Write-SourceGate1SelfTestText (Join-Path $Root 'addon.gproj') "selftest`n"
-    [void](Invoke-SourceGate1Git $Root @('add', '--', 'addon.gproj'))
+    [void](Invoke-SourceGate1Git `
+        $Root @('add', '--', '.gitattributes', 'addon.gproj'))
     [void](Invoke-SourceGate1Git $Root @('commit', '-q', '-m', 'source'))
     $sourceHead = (Invoke-SourceGate1Git `
         $Root @('rev-parse', 'HEAD')).Lines[0].Trim()
@@ -2299,6 +2304,29 @@ function Invoke-SourceGate1EvidenceSelfTest {
                 $valid.ResourceDatabase.Length -eq 4) `
             'the complete five-stage fixture was not admitted'
         $passed++
+
+        [IO.File]::WriteAllText(
+            (Join-Path $fixture.Root 'addon.gproj'),
+            "selftest`r`n",
+            $script:SourceGate1Utf8)
+        $crlfRaw = (Invoke-SourceGate1Git `
+            -RepositoryRoot $fixture.Root `
+            -Arguments @('hash-object', '--no-filters', '--', 'addon.gproj')).Lines[0]
+        $crlfClean = (Invoke-SourceGate1Git `
+            -RepositoryRoot $fixture.Root `
+            -Arguments @('hash-object', '--path=addon.gproj', '--', 'addon.gproj')).Lines[0]
+        $crlfBlob = (Invoke-SourceGate1Git `
+            -RepositoryRoot $fixture.Root `
+            -Arguments @('rev-parse', ($fixture.SourceHead + ':addon.gproj'))).Lines[0]
+        $cleanFiltered = Assert-PartisanSourceGate1Evidence `
+            -RepositoryRoot $fixture.Root
+        Assert-SourceGate1SelfTest `
+            ($cleanFiltered.GateStatus -ceq 'passed' -and
+                $crlfRaw -cne $crlfBlob -and
+                $crlfClean -ceq $crlfBlob) `
+            'a clean-filter-equivalent CRLF worktree was not admitted'
+        $passed++
+        Reset-SourceGate1SelfTestFixture $fixture
 
         $pendingStatus = $fixture.StatusText | ConvertFrom-Json
         $pendingStatus.gate1Source.status = 'in-progress'
@@ -2494,7 +2522,7 @@ function Invoke-SourceGate1EvidenceSelfTest {
             shutdownDiagnosticContractChecks = 2
             resourceDatabaseChecks = 1
             chronologyChecks = 1
-            publishWorktreeChecks = 2
+            publishWorktreeChecks = 3
             utf8Checks = 1
         } | ConvertTo-Json -Compress))
     }
