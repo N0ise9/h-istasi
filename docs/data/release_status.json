@@ -1,15 +1,59 @@
 {
-  "schemaVersion": 3,
-  "statusAsOfUtc": "2026-07-22T15:23:58Z",
+  "schemaVersion": 4,
+  "statusAsOfUtc": "2026-07-22T16:49:50Z",
   "releaseStage": "development alpha",
   "releaseDecision": "NO-GO",
-  "auditedRevision": "25dedb3e82ad516c28826830bc1e06a2d3940f53",
+  "auditedRevision": "f380eee8d1ce8fe547607d24636a9687ce47abea",
   "baseline": {
     "campaignSchema": 71,
     "runtimeSettingsSchema": 24,
     "embeddedImplementationSha": "7fdf3988797edeb747f5d6a6951ad0382bd93db3",
     "embeddedBuildUtc": "2026-07-21T19:36:22Z",
     "embeddedBuildLabel": "schema71-settings24-gate1-release-surface"
+  },
+  "gate1Source": {
+    "status": "in-progress",
+    "checkpoint": {
+      "sourceGitHead": "f380eee8d1ce8fe547607d24636a9687ce47abea",
+      "frozenUtc": "2026-07-22T15:28:31Z",
+      "dirty": false,
+      "publishInputPolicy": "git-ls-tree-sha256-v1",
+      "publishInputTreeSha256": "c5877e744fdaafdfc65da1ce77ef56918456bd2cb1f551ad6d73f5f9c2b3cac3",
+      "publishInputRowCount": 436,
+      "addonGuid": "698532771130111D",
+      "campaignSchema": 71,
+      "runtimeSettingsSchema": 24,
+      "embeddedImplementationSha": "7fdf3988797edeb747f5d6a6951ad0382bd93db3",
+      "embeddedBuildUtc": "2026-07-21T19:36:22Z",
+      "embeddedBuildLabel": "schema71-settings24-gate1-release-surface"
+    },
+    "evidence": {
+      "foundation": {
+        "status": "pending",
+        "summaryPath": null,
+        "summarySha256": null
+      },
+      "workbenchAllTargets": {
+        "status": "pending",
+        "summaryPath": null,
+        "summarySha256": null
+      },
+      "focusedFiveSuite": {
+        "status": "pending",
+        "summaryPath": null,
+        "summarySha256": null
+      },
+      "forceAuthorityCanary": {
+        "status": "pending",
+        "summaryPath": null,
+        "summarySha256": null
+      },
+      "fullCampaignDebug": {
+        "status": "pending",
+        "summaryPath": null,
+        "summarySha256": null
+      }
+    }
   },
   "artifact": {
     "releaseCandidateBuilt": true,
@@ -36,7 +80,7 @@
       "status": "passed",
       "sourceSha": "5b1f2e98f93137230e686312c6e99cea7630dae4",
       "referenceCount": 985,
-      "summary": "The source/resource contract gate passed for the exact frozen source checkpoint."
+    "summary": "The source/resource contract gate passed for the retained historical validation snapshot."
     },
     "workbench": {
       "status": "passed",
@@ -529,8 +573,8 @@
     {
       "id": "deterministic-service",
       "label": "Deterministic service contracts",
-      "status": "partial",
-      "summary": "A direct loose-source QRF probe passed all six named cases at JUnit 6/0/0/0 with an empty failed list and no packed Partisan mount. All five source-native suites and their full 91-case census remain required on one clean checkpoint; rejected package-bound leaves do not transfer."
+      "status": "not-run",
+      "summary": "A loose-source QRF feasibility probe passed 6/0/0/0, but it is not structured Gate 1 evidence and does not advance this rung. The maintained five-suite 91-case source run is pending."
     },
     {
       "id": "native-engine-world",

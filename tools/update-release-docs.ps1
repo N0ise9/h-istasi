@@ -131,6 +131,9 @@ $statusDataPath = Join-Path $root "docs/data/release_status.json"
 $parityDataPath = Join-Path $root "docs/data/antistasi_ce311_parity.json"
 $currentStatusPath = Join-Path $root "docs/CURRENT_STATUS.md"
 $parityMatrixPath = Join-Path $root "docs/ANTISTASI_CE311_PARITY_MATRIX.md"
+$sourceGate1EvidenceConsumerPath = Join-Path `
+	$PSScriptRoot `
+	"test-partisan-source-gate1-evidence.ps1"
 
 function Read-JsonFile {
 	param([string] $Path)
@@ -9255,6 +9258,240 @@ function Assert-ReleaseBuildTransition {
 	}
 }
 
+function Get-PartisanSourcePublishInputBinding {
+	param(
+		[Parameter(Mandatory = $true)][string] $RepositoryRoot,
+		[Parameter(Mandatory = $true)][string] $GitHead
+	)
+
+	if ($GitHead -cnotmatch '^[0-9a-f]{40}$') {
+		throw 'Gate 1 publish-input identity requires a lowercase full Git SHA.'
+	}
+	$scope = @(
+		'Assets',
+		'Configs',
+		'Missions',
+		'Prefabs',
+		'Scripts',
+		'UI',
+		'Worlds',
+		'addon.gproj',
+		'thumbnail.png')
+	Push-Location $RepositoryRoot
+	try {
+		$resolvedHead = (& git rev-parse "$GitHead^{commit}").Trim()
+		if ($LASTEXITCODE -ne 0 -or $resolvedHead -cne $GitHead) {
+			throw "Unable to resolve Gate 1 source Git HEAD $GitHead."
+		}
+		$rawRows = @(& git ls-tree -r --full-tree $GitHead -- $scope)
+		if ($LASTEXITCODE -ne 0 -or $rawRows.Count -eq 0) {
+			throw "Unable to enumerate Gate 1 publish inputs at $GitHead."
+		}
+	}
+	finally {
+		Pop-Location
+	}
+
+	$rows = New-Object Collections.Generic.List[object]
+	$canonicalByPath = New-Object `
+		'Collections.Generic.Dictionary[string,string]' `
+		([StringComparer]::Ordinal)
+	$seenPaths = New-Object 'Collections.Generic.HashSet[string]' `
+		([StringComparer]::Ordinal)
+	$seenPathsIgnoreCase = New-Object 'Collections.Generic.HashSet[string]' `
+		([StringComparer]::OrdinalIgnoreCase)
+	foreach ($rawRow in $rawRows) {
+		if ($rawRow -cnotmatch
+				'^(?<mode>[0-9]{6}) (?<type>blob) (?<oid>[0-9a-f]{40})\t(?<path>.+)$') {
+			throw "Gate 1 publish-input row is malformed: $rawRow"
+		}
+		$mode = $Matches.mode
+		$type = $Matches.type
+		$oid = $Matches.oid
+		$path = $Matches.path.Replace('\', '/')
+		$inScope = $path -ceq 'addon.gproj' -or
+			$path -ceq 'thumbnail.png' -or
+			$path -cmatch '^(Assets|Configs|Missions|Prefabs|Scripts|UI|Worlds)/.+'
+		if (-not $inScope -or
+			-not $seenPaths.Add($path) -or
+			-not $seenPathsIgnoreCase.Add($path)) {
+			throw "Gate 1 publish-input path is invalid or duplicated: $path"
+		}
+		$canonical = $mode + ' ' + $type + ' ' + $oid + "`t" + $path
+		$rows.Add([pscustomobject]@{
+			Path = $path
+			Canonical = $canonical
+		})
+		$canonicalByPath.Add($path, $canonical)
+	}
+	$sortedPaths = [string[]]@($canonicalByPath.Keys)
+	[Array]::Sort($sortedPaths, [StringComparer]::Ordinal)
+	$canonicalText = (@($sortedPaths | ForEach-Object {
+		$canonicalByPath[$_]
+	}) -join "`n") + "`n"
+	$hasher = [Security.Cryptography.SHA256]::Create()
+	try {
+		$hashBytes = $hasher.ComputeHash(
+			(New-Object Text.UTF8Encoding($false)).GetBytes($canonicalText))
+	}
+	finally {
+		$hasher.Dispose()
+	}
+	$sha256 = -join @($hashBytes | ForEach-Object { $_.ToString('x2') })
+	return [pscustomobject]@{
+		Policy = 'git-ls-tree-sha256-v1'
+		GitHead = $GitHead
+		Sha256 = $sha256
+		RowCount = $rows.Count
+	}
+}
+
+function Assert-PartisanGate1PendingEvidenceReference {
+	param(
+		[Parameter(Mandatory = $true)][object] $Reference,
+		[Parameter(Mandatory = $true)][string] $Label
+	)
+
+	Assert-ExactObjectProperties $Reference @(
+		'status', 'summaryPath', 'summarySha256') $Label
+	if ([string] (Get-ObjectPropertyValue $Reference 'status') -cne 'pending' -or
+		$null -ne (Get-ObjectPropertyValue $Reference 'summaryPath') -or
+		$null -ne (Get-ObjectPropertyValue $Reference 'summarySha256')) {
+		throw "$Label must remain pending with null summary identity until structured evidence is retained."
+	}
+}
+
+function Assert-PartisanGate1SourceState {
+	param(
+		[Parameter(Mandatory = $true)][object] $Gate1Source,
+		[Parameter(Mandatory = $true)][string] $RepositoryRoot,
+		[Parameter(Mandatory = $true)][string] $CheckoutHead,
+		[Parameter(Mandatory = $true)][string] $AuditedRevision,
+		[Parameter(Mandatory = $true)][DateTimeOffset] $StatusAsOfUtc,
+		[Parameter(Mandatory = $true)][object] $Baseline
+	)
+
+	Assert-ExactObjectProperties $Gate1Source @(
+		'status', 'checkpoint', 'evidence') 'release_status.gate1Source'
+	$state = Require-Text `
+		(Get-ObjectPropertyValue $Gate1Source 'status') `
+		'release_status.gate1Source.status'
+	if ($state -cnotin @('pending', 'in-progress', 'failed', 'passed')) {
+		throw 'release_status.gate1Source.status is unsupported.'
+	}
+	$checkpoint = Get-ObjectPropertyValue $Gate1Source 'checkpoint'
+	$evidence = Get-ObjectPropertyValue $Gate1Source 'evidence'
+	if ($null -eq $evidence) {
+		throw 'release_status.gate1Source.evidence is required.'
+	}
+	$evidenceNames = @(
+		'foundation',
+		'workbenchAllTargets',
+		'focusedFiveSuite',
+		'forceAuthorityCanary',
+		'fullCampaignDebug')
+	Assert-ExactObjectProperties $evidence $evidenceNames `
+		'release_status.gate1Source.evidence'
+
+	if ($state -ceq 'pending') {
+		if ($null -ne $checkpoint) {
+			throw 'A pending Gate 1 source state must not freeze a checkpoint.'
+		}
+		foreach ($name in $evidenceNames) {
+			Assert-PartisanGate1PendingEvidenceReference `
+				-Reference (Get-ObjectPropertyValue $evidence $name) `
+				-Label "release_status.gate1Source.evidence.$name"
+		}
+		return [pscustomobject]@{
+			Status = $state
+			Checkpoint = $null
+			Evidence = $evidence
+		}
+	}
+
+	if ($null -eq $checkpoint) {
+		throw 'An active Gate 1 source state requires a frozen checkpoint.'
+	}
+	Assert-ExactObjectProperties $checkpoint @(
+		'sourceGitHead', 'frozenUtc', 'dirty', 'publishInputPolicy',
+		'publishInputTreeSha256', 'publishInputRowCount', 'addonGuid',
+		'campaignSchema', 'runtimeSettingsSchema',
+		'embeddedImplementationSha', 'embeddedBuildUtc',
+		'embeddedBuildLabel') 'release_status.gate1Source.checkpoint'
+	$sourceHead = Require-Text $checkpoint.sourceGitHead `
+		'release_status.gate1Source.checkpoint.sourceGitHead'
+	if ($sourceHead -cnotmatch '^[0-9a-f]{40}$' -or
+		$sourceHead -cne $AuditedRevision) {
+		throw 'The Gate 1 source HEAD must be the audited revision.'
+	}
+	if ($checkpoint.dirty -isnot [bool] -or [bool] $checkpoint.dirty) {
+		throw 'The Gate 1 source checkpoint must be clean.'
+	}
+	$frozenUtc = Require-UtcTimestamp $checkpoint.frozenUtc `
+		'release_status.gate1Source.checkpoint.frozenUtc'
+	if ($frozenUtc -gt $StatusAsOfUtc) {
+		throw 'The Gate 1 source freeze time exceeds release status time.'
+	}
+	if ([string] $checkpoint.addonGuid -cne '698532771130111D' -or
+		[int] $checkpoint.campaignSchema -ne [int] $Baseline.campaignSchema -or
+		[int] $checkpoint.runtimeSettingsSchema -ne
+			[int] $Baseline.runtimeSettingsSchema -or
+		[string] $checkpoint.embeddedImplementationSha -cne
+			[string] $Baseline.embeddedImplementationSha -or
+		[string] $checkpoint.embeddedBuildUtc -cne
+			[string] $Baseline.embeddedBuildUtc -or
+		[string] $checkpoint.embeddedBuildLabel -cne
+			[string] $Baseline.embeddedBuildLabel) {
+		throw 'The Gate 1 source checkpoint identity differs from the current addon baseline.'
+	}
+	if ([string] $checkpoint.publishInputPolicy -cne
+		'git-ls-tree-sha256-v1' -or
+		[string] $checkpoint.publishInputTreeSha256 -cnotmatch
+			'^[0-9a-f]{64}$' -or
+		[int] $checkpoint.publishInputRowCount -le 0) {
+		throw 'The Gate 1 publish-input identity is invalid.'
+	}
+
+	Assert-GitAncestor $sourceHead $CheckoutHead `
+		'The Gate 1 source checkpoint is not an ancestor of checkout HEAD'
+	$sourceBinding = Get-PartisanSourcePublishInputBinding `
+		-RepositoryRoot $RepositoryRoot `
+		-GitHead $sourceHead
+	$currentBinding = Get-PartisanSourcePublishInputBinding `
+		-RepositoryRoot $RepositoryRoot `
+		-GitHead $CheckoutHead
+	foreach ($binding in @($sourceBinding, $currentBinding)) {
+		if ($binding.Policy -cne [string] $checkpoint.publishInputPolicy -or
+			$binding.Sha256 -cne [string] $checkpoint.publishInputTreeSha256 -or
+			$binding.RowCount -ne [int] $checkpoint.publishInputRowCount) {
+			throw 'The frozen Gate 1 publish-input tree differs from source or current HEAD.'
+		}
+	}
+	Push-Location $RepositoryRoot
+	try {
+		$dirtyPublishRows = @(& git status --porcelain --untracked-files=all -- `
+			Assets Configs Missions Prefabs Scripts UI Worlds addon.gproj thumbnail.png)
+		if ($LASTEXITCODE -ne 0) {
+			throw 'Unable to inspect the Gate 1 publish-input worktree.'
+		}
+	}
+	finally {
+		Pop-Location
+	}
+	if ($dirtyPublishRows.Count -ne 0) {
+		throw 'The Gate 1 publish-input worktree is dirty.'
+	}
+
+	# The dedicated source-evidence consumer validates every non-pending
+	# reference, its producer-specific result, and the ordered state machine.
+	return [pscustomobject]@{
+		Status = $state
+		Checkpoint = $checkpoint
+		Evidence = $evidence
+		SourceBinding = $sourceBinding
+	}
+}
+
 function Assert-HistoricalExternalRuntimeEvidence {
 	param(
 		[object] $Evidence,
@@ -10837,8 +11074,8 @@ Assert-JsonObjectPropertiesUnique `
 $status = Read-JsonFile $statusDataPath
 $parity = Read-JsonFile $parityDataPath
 
-if ([int] (Get-ObjectPropertyValue $status "schemaVersion") -ne 3) {
-	throw "release_status.json must use schemaVersion 3 with ordered historical candidate evidence."
+if ([int] (Get-ObjectPropertyValue $status "schemaVersion") -ne 4) {
+	throw "release_status.json must use schemaVersion 4 with a frozen Gate 1 source checkpoint and ordered historical evidence."
 }
 $historicalCandidatePropertyMatches = [regex]::Matches(
 	$statusDataText,
@@ -10889,6 +11126,9 @@ $releaseDecision = Require-Text $status.releaseDecision "release_status.releaseD
 if ($releaseDecision -cnotin @("GO", "NO-GO")) {
 	throw "release_status.releaseDecision must be GO or NO-GO."
 }
+$statusAsOfUtc = Require-UtcTimestamp `
+	$status.statusAsOfUtc `
+	"release_status.statusAsOfUtc"
 
 Push-Location $root
 try {
@@ -10908,14 +11148,66 @@ finally {
 	Pop-Location
 }
 
+$gate1SourceValidation = Assert-PartisanGate1SourceState `
+	-Gate1Source $status.gate1Source `
+	-RepositoryRoot $root `
+	-CheckoutHead $checkoutHead `
+	-AuditedRevision $auditedRevision `
+	-StatusAsOfUtc $statusAsOfUtc `
+	-Baseline $status.baseline
+
+if (-not (Test-Path -LiteralPath $sourceGate1EvidenceConsumerPath -PathType Leaf)) {
+	throw 'The source Gate 1 evidence consumer is missing.'
+}
+$sourceGate1EvidenceValidationRows = @(& {
+	. $sourceGate1EvidenceConsumerPath -LibraryOnly
+	Assert-PartisanSourceGate1Evidence `
+		-RepositoryRoot $root `
+		-ReleaseStatusPath $statusDataPath
+})
+if ($sourceGate1EvidenceValidationRows.Count -ne 1) {
+	throw 'The source Gate 1 evidence consumer returned an invalid result count.'
+}
+$sourceGate1EvidenceValidation = $sourceGate1EvidenceValidationRows[0]
+if ([string] $sourceGate1EvidenceValidation.GateStatus -cne
+		[string] $gate1SourceValidation.Status -or
+	[string] $sourceGate1EvidenceValidation.SourceGitHead -cne
+		[string] $gate1SourceValidation.Checkpoint.sourceGitHead -or
+	[string] $sourceGate1EvidenceValidation.PublishInputTreeSha256 -cne
+		[string] $gate1SourceValidation.Checkpoint.publishInputTreeSha256 -or
+	[int] $sourceGate1EvidenceValidation.PublishInputRowCount -ne
+		[int] $gate1SourceValidation.Checkpoint.publishInputRowCount) {
+	throw 'The source Gate 1 evidence consumer disagrees with the release state.'
+}
+$sourceGate1EvidenceByKey = @{}
+foreach ($sourceEvidenceRow in @($sourceGate1EvidenceValidation.Evidence)) {
+	$sourceEvidenceKey = [string] $sourceEvidenceRow.Key
+	if ([string]::IsNullOrWhiteSpace($sourceEvidenceKey) -or
+		$sourceGate1EvidenceByKey.ContainsKey($sourceEvidenceKey)) {
+		throw 'The consumed source Gate 1 evidence keys are invalid.'
+	}
+	$sourceGate1EvidenceByKey[$sourceEvidenceKey] = $sourceEvidenceRow
+}
+foreach ($sourceEvidenceKey in @(
+		'foundation',
+		'workbenchAllTargets',
+		'focusedFiveSuite',
+		'forceAuthorityCanary',
+		'fullCampaignDebug')) {
+	if (-not $sourceGate1EvidenceByKey.ContainsKey($sourceEvidenceKey)) {
+		throw "The consumed source Gate 1 evidence is missing $sourceEvidenceKey."
+	}
+}
+
 $releaseCandidateBuiltValue = Get-ObjectPropertyValue `
 	$status.artifact "releaseCandidateBuilt"
 if ($releaseCandidateBuiltValue -isnot [bool] -or
 	-not [bool] $releaseCandidateBuiltValue) {
-	throw "Schema-3 release status requires releaseCandidateBuilt true."
+	throw "Release status requires the retained historical validation snapshot metadata."
 }
 $releaseCandidateBuilt = [bool] $releaseCandidateBuiltValue
 $runtimeUseDisposition = ""
+$usingSourceGate1Authority = $false
 $candidateId = ""
 $candidateSourceHead = ""
 $candidateManifestPath = ""
@@ -10962,6 +11254,9 @@ if ($releaseCandidateBuilt) {
 			"rejected-after-runtime")) {
 		throw "release_status.artifact.runtimeUseDisposition is unsupported."
 	}
+	$usingSourceGate1Authority = $runtimeUseDisposition -cin @(
+		"historical-local-qa",
+		"supersede-before-runtime")
 
 	$candidateId = Require-Text $status.artifact.candidateId "release_status.artifact.candidateId"
 	if ($candidateId -cnotmatch '^[A-Za-z0-9][A-Za-z0-9._-]*$') {
@@ -11000,9 +11295,6 @@ if ($releaseCandidateBuilt) {
 	$activeCandidateIdentity = Get-RetainedCandidateIdentity `
 		$status.artifact `
 		"release_status.artifact"
-	$statusAsOfUtc = Require-UtcTimestamp `
-		$status.statusAsOfUtc `
-		"release_status.statusAsOfUtc"
 	if ($activeCandidateIdentity.CreatedUtc -gt $statusAsOfUtc) {
 		throw "The active candidate creation time cannot exceed release_status.statusAsOfUtc."
 	}
@@ -11089,13 +11381,27 @@ if ($releaseCandidateBuilt) {
 		-SourceBuildUtc $sourceBuildUtc `
 		-SourceBuildLabel $sourceBuildLabel `
 		-CheckoutHead $checkoutHead
+	$manifestAuditedRevision = Require-Text `
+		(Get-ObjectPropertyValue $manifestSource 'auditedGameplayRevision') `
+		'candidate manifest source.auditedGameplayRevision'
+	$manifestAuditMatchesStatus = $manifestAuditedRevision -ceq $auditedRevision
+	if ($runtimeUseDisposition -cin @(
+			'historical-local-qa',
+			'supersede-before-runtime')) {
+		if ($manifestAuditedRevision -cnotmatch '^[0-9a-f]{40}$') {
+			throw 'The historical candidate audited revision is invalid.'
+		}
+		Assert-GitAncestor $manifestAuditedRevision $candidateSourceHead `
+			'The historical candidate audited revision is not an ancestor of its source HEAD'
+		$manifestAuditMatchesStatus = $true
+	}
 	if ([string] (Get-ObjectPropertyValue $manifestCandidate "id") -cne $candidateId -or
 		[string] (Get-ObjectPropertyValue $manifestCandidate "version") -cne $packageVersion -or
 		[string] (Get-ObjectPropertyValue $manifestCandidate "state") -cne "retained-uncertified" -or
 		[string] (Get-ObjectPropertyValue $manifestSource "gitHead") -cne $candidateSourceHead -or
 		(Get-ObjectPropertyValue $manifestSource "dirty") -isnot [bool] -or
 		[bool] (Get-ObjectPropertyValue $manifestSource "dirty") -or
-		[string] (Get-ObjectPropertyValue $manifestSource "auditedGameplayRevision") -cne $auditedRevision -or
+		-not $manifestAuditMatchesStatus -or
 		[int] (Get-ObjectPropertyValue $manifestSource "campaignSchema") -ne $sourceCampaignSchema -or
 		[int] (Get-ObjectPropertyValue $manifestSource "runtimeSettingsSchema") -ne $sourceSettingsSchema -or
 		[string] (Get-ObjectPropertyValue $manifestAddon "guid") -cne $addonGuid -or
@@ -11204,15 +11510,17 @@ if ($releaseCandidateBuilt) {
 		$deterministicServiceRungs[0] `
 		"status")
 	if ($null -eq $activePackagedFocused) {
-		$allowedMissingFocusedRungStatuses = @("not-run")
-		if ($runtimeUseDisposition -cin @(
-				"historical-local-qa",
-				"supersede-before-runtime")) {
-			$allowedMissingFocusedRungStatuses += "partial"
-		}
-		if ($deterministicServiceRungStatus -cnotin
-				$allowedMissingFocusedRungStatuses) {
-			throw "A missing active packaged focused result has an unsupported deterministic-service rung."
+		if (-not $usingSourceGate1Authority) {
+			$allowedMissingFocusedRungStatuses = @("not-run")
+			if ($runtimeUseDisposition -cin @(
+					"historical-local-qa",
+					"supersede-before-runtime")) {
+				$allowedMissingFocusedRungStatuses += "partial"
+			}
+			if ($deterministicServiceRungStatus -cnotin
+					$allowedMissingFocusedRungStatuses) {
+				throw "A missing active packaged focused result has an unsupported deterministic-service rung."
+			}
 		}
 	}
 	else {
@@ -11238,7 +11546,8 @@ if ($releaseCandidateBuilt) {
 	$nativeEngineWorldRungStatus = [string] (Get-ObjectPropertyValue `
 		$nativeEngineWorldRungs[0] `
 		"status")
-	if ($null -eq $activeCorrectedCanary -and $null -eq $activeFullCampaignDebug -and
+	if (-not $usingSourceGate1Authority -and
+		$null -eq $activeCorrectedCanary -and $null -eq $activeFullCampaignDebug -and
 		$nativeEngineWorldRungStatus -cne "not-run") {
 		throw "Missing active Campaign Debug evidence requires a not-run native-engine-world rung."
 	}
@@ -11562,10 +11871,16 @@ if ($releaseCandidateBuilt) {
 		}
 	}
 
+	$packageHistoryAuditAnchor = $auditedRevision
+	if ($runtimeUseDisposition -cin @(
+			'historical-local-qa',
+			'supersede-before-runtime')) {
+		$packageHistoryAuditAnchor = $manifestAuditedRevision
+	}
 	Assert-GitAncestor `
-		$auditedRevision `
+		$packageHistoryAuditAnchor `
 		$activeCandidateIdentity.CandidateSourceHead `
-		"The audited revision is not an ancestor of the active candidate source HEAD"
+		"The package-history audit anchor is not an ancestor of the retained candidate source HEAD"
 	Assert-GitAncestor `
 		$activeCandidateIdentity.CandidateSourceHead `
 		$checkoutHead `
@@ -11573,9 +11888,9 @@ if ($releaseCandidateBuilt) {
 	foreach ($historicalCandidateResult in $historicalCandidateResults) {
 		$historicalIdentity = $historicalCandidateResult.Identity
 		Assert-GitAncestor `
-			$auditedRevision `
+			$packageHistoryAuditAnchor `
 			$historicalIdentity.CandidateSourceHead `
-			"The audited revision is not an ancestor of historical candidate $($historicalIdentity.CandidateId)"
+			"The package-history audit anchor is not an ancestor of historical candidate $($historicalIdentity.CandidateId)"
 		Assert-GitAncestor `
 			$historicalIdentity.CandidateSourceHead `
 			$historicalCandidateResult.PackagedFocusedValidation.HarnessGitHead `
@@ -11671,6 +11986,52 @@ foreach ($rung in $status.proofRungs) {
 	}
 }
 Assert-UniqueStrings $proofRungIds "Proof rung IDs"
+if ($usingSourceGate1Authority) {
+	$foundationSourceStatus = [string] `
+		$sourceGate1EvidenceByKey['foundation'].Status
+	$workbenchSourceStatus = [string] `
+		$sourceGate1EvidenceByKey['workbenchAllTargets'].Status
+	$focusedSourceStatus = [string] `
+		$sourceGate1EvidenceByKey['focusedFiveSuite'].Status
+	$canarySourceStatus = [string] `
+		$sourceGate1EvidenceByKey['forceAuthorityCanary'].Status
+	$fullSourceStatus = [string] `
+		$sourceGate1EvidenceByKey['fullCampaignDebug'].Status
+	$expectedSourceProofStatuses = [ordered]@{
+		'static-source-resource' = if ($foundationSourceStatus -ceq 'failed') {
+			'failed'
+		} elseif ($foundationSourceStatus -ceq 'passed') {
+			'passed'
+		} else { 'not-run' }
+		'compile-configuration' = if ($workbenchSourceStatus -ceq 'failed') {
+			'failed'
+		} elseif ($workbenchSourceStatus -ceq 'passed') {
+			'passed'
+		} else { 'not-run' }
+		'deterministic-service' = if ($focusedSourceStatus -ceq 'failed') {
+			'failed'
+		} elseif ($focusedSourceStatus -ceq 'passed-noncertifying') {
+			'passed-noncertifying'
+		} else { 'not-run' }
+		'native-engine-world' = if (
+			$canarySourceStatus -ceq 'failed' -or
+			$fullSourceStatus -ceq 'failed') {
+			'failed'
+		} elseif ($fullSourceStatus -cin @('passed', 'passed-noncertifying')) {
+			'passed-noncertifying'
+		} elseif ($canarySourceStatus -ceq 'passed-noncertifying') {
+			'partial'
+		} else { 'not-run' }
+	}
+	foreach ($sourceProofId in $expectedSourceProofStatuses.Keys) {
+		if (-not $proofRungById.ContainsKey($sourceProofId) -or
+			[string] (Get-ObjectPropertyValue `
+				$proofRungById[$sourceProofId] 'status') -cne
+				[string] $expectedSourceProofStatuses[$sourceProofId]) {
+			throw "Proof rung $sourceProofId does not match consumed source Gate 1 evidence."
+		}
+	}
+}
 $activePackageChainIncomplete = $null -eq $activePackagedFocused -or
 	$null -eq $activeCorrectedCanary -or
 	$null -eq $activeFullCampaignDebug
@@ -11855,6 +12216,10 @@ Add-Line $statusBuilder
 Add-Line $statusBuilder "**$releaseDecision - $($status.releaseStage).** No Workshop release is certified."
 Add-Line $statusBuilder
 if ($releaseCandidateBuilt) {
+	if ($null -ne $gate1SourceValidation.Checkpoint) {
+		Add-Line $statusBuilder "Gate 1 is $mdTick$($gate1SourceValidation.Status)$mdTick on frozen source checkpoint $mdTick$($gate1SourceValidation.Checkpoint.sourceGitHead)${mdTick}. No rung advances without a tracked, hash-bound source-evidence summary."
+		Add-Line $statusBuilder
+	}
 	Add-Line $statusBuilder "The retained local-validation snapshot below is historical QA evidence, not source, a publishing input, or a distributable. The generator still verifies its exact source HEAD, manifest, package index, addon identity, and validation tools. Workbench publishing and Workshop/in-game delivery are the supported release path."
 }
 else {
@@ -11867,10 +12232,37 @@ Add-Line $statusBuilder "| Field | Current value |"
 Add-Line $statusBuilder "| --- | --- |"
 Add-Line $statusBuilder "| Status data as of | $mdTick$($status.statusAsOfUtc)$mdTick |"
 Add-Line $statusBuilder "| Audited gameplay Git HEAD | $mdTick$auditedRevision$mdTick |"
+Add-Line $statusBuilder "| Gate 1 source state | $mdTick$($gate1SourceValidation.Status)$mdTick |"
+if ($null -ne $gate1SourceValidation.Checkpoint) {
+	Add-Line $statusBuilder "| Frozen publish-source HEAD | $mdTick$($gate1SourceValidation.Checkpoint.sourceGitHead)$mdTick |"
+	Add-Line $statusBuilder "| Publish-input tree | $mdTick$($gate1SourceValidation.Checkpoint.publishInputTreeSha256)$mdTick / $($gate1SourceValidation.Checkpoint.publishInputRowCount) rows / $mdTick$($gate1SourceValidation.Checkpoint.publishInputPolicy)$mdTick |"
+}
 Add-Line $statusBuilder "| Embedded implementation identity | $mdTick$sourceBuildSha$mdTick |"
 Add-Line $statusBuilder "| Embedded build UTC / label | $mdTick$sourceBuildUtc$mdTick / $mdTick$sourceBuildLabel$mdTick |"
 Add-Line $statusBuilder "| Campaign / runtime-settings schema | $mdTick$sourceCampaignSchema$mdTick / $mdTick$sourceSettingsSchema$mdTick |"
-Add-Line $statusBuilder "| Workbench CRC | $mdTick$($status.evidence.workbench.crc)$mdTick |"
+$currentSourceWorkbenchSummary = Get-ObjectPropertyValue `
+	$sourceGate1EvidenceByKey['workbenchAllTargets'] `
+	'Summary'
+if ($null -ne $currentSourceWorkbenchSummary) {
+	$currentSourceWorkbenchTool = $currentSourceWorkbenchSummary.toolchain.workbench
+	$currentSourceResourceDatabase = `
+		$currentSourceWorkbenchSummary.toolchain.sourceResourceDatabase
+	Add-Line $statusBuilder "| Current Gate 1 Workbench CRC | $mdTick$($currentSourceWorkbenchSummary.result.commonCrc)$mdTick |"
+	Add-Line $statusBuilder "| Current Gate 1 Workbench/tool identity | version $mdTick$(Escape-MarkdownCell $currentSourceWorkbenchTool.productVersion)$mdTick / SHA-256 $mdTick$($currentSourceWorkbenchTool.sha256)$mdTick |"
+	Add-Line $statusBuilder "| Current Gate 1 source resource database | $mdTick$($currentSourceResourceDatabase.sha256)$mdTick / $($currentSourceResourceDatabase.length) bytes (generated cache, not source) |"
+}
+else {
+	Add-Line $statusBuilder "| Current Gate 1 Workbench/tool identity | pending |"
+}
+$currentSourceFocusedSummary = Get-ObjectPropertyValue `
+	$sourceGate1EvidenceByKey['focusedFiveSuite'] `
+	'Summary'
+if ($null -ne $currentSourceFocusedSummary) {
+	$currentSourceRuntimeTool = `
+		$currentSourceFocusedSummary.toolchain.diagnosticExecutable
+	Add-Line $statusBuilder "| Current Gate 1 diagnostic runtime identity | version $mdTick$(Escape-MarkdownCell $currentSourceRuntimeTool.productVersion)$mdTick / SHA-256 $mdTick$($currentSourceRuntimeTool.sha256)$mdTick |"
+}
+Add-Line $statusBuilder "| Historical snapshot Workbench CRC | $mdTick$($status.evidence.workbench.crc)$mdTick |"
 if ($releaseCandidateBuilt) {
 	Add-Line $statusBuilder "| Retained validation snapshot / source HEAD | $mdTick$(Escape-MarkdownCell $candidateId)$mdTick / $mdTick$candidateSourceHead$mdTick |"
 	Add-Line $statusBuilder "| Snapshot embedded implementation identity | $mdTick$($activeCandidateIdentity.EmbeddedSha)$mdTick |"
@@ -11879,9 +12271,9 @@ if ($releaseCandidateBuilt) {
 	Add-Line $statusBuilder "| Retained snapshot manifest | $mdTick$(Escape-MarkdownCell $candidateManifestPath)$mdTick |"
 	Add-Line $statusBuilder "| Historical manifest / ready-seal SHA-256 | $mdTick$candidateManifestSha$mdTick / $mdTick$candidateReadySha$mdTick |"
 	Add-Line $statusBuilder "| Historical snapshot package SHA-256 | $mdTick$packageSha$mdTick ($packageHashAlgorithm over the canonical four-file package index) |"
-	Add-Line $statusBuilder "| Addon GUID / revision / version | $mdTick$addonGuid$mdTick / $mdTick$(Escape-MarkdownCell $addonRevision)$mdTick / $mdTick$(Escape-MarkdownCell $packageVersion)$mdTick |"
-	Add-Line $statusBuilder "| Workbench/tool identity | version $mdTick$(Escape-MarkdownCell $workbenchVersion)$mdTick / SHA-256 $mdTick$workbenchSha$mdTick / validation CRC $mdTick$workbenchCrc$mdTick |"
-	Add-Line $statusBuilder "| Server / client versions | $mdTick$(Escape-MarkdownCell $serverVersion)$mdTick / $mdTick$(Escape-MarkdownCell $clientVersion)$mdTick |"
+	Add-Line $statusBuilder "| Historical snapshot addon GUID / revision / version | $mdTick$addonGuid$mdTick / $mdTick$(Escape-MarkdownCell $addonRevision)$mdTick / $mdTick$(Escape-MarkdownCell $packageVersion)$mdTick |"
+	Add-Line $statusBuilder "| Historical snapshot Workbench/tool identity | version $mdTick$(Escape-MarkdownCell $workbenchVersion)$mdTick / SHA-256 $mdTick$workbenchSha$mdTick / validation CRC $mdTick$workbenchCrc$mdTick |"
+	Add-Line $statusBuilder "| Historical snapshot server / client versions | $mdTick$(Escape-MarkdownCell $serverVersion)$mdTick / $mdTick$(Escape-MarkdownCell $clientVersion)$mdTick |"
 }
 else {
 	Add-Line $statusBuilder "| Release package SHA-256 | not built |"
@@ -11905,9 +12297,9 @@ Add-Line $statusBuilder "- Historical snapshot Workbench: **$($status.evidence.w
 if ($runtimeUseDisposition -cin @(
 		"historical-local-qa",
 		"supersede-before-runtime")) {
+	$sourceEvidence = $gate1SourceValidation.Evidence
+	Add-Line $statusBuilder "- Current Gate 1 source evidence: Foundation **$($sourceEvidence.foundation.status)**; all-target Workbench **$($sourceEvidence.workbenchAllTargets.status)**; five-suite focused **$($sourceEvidence.focusedFiveSuite.status)**; force-authority canary **$($sourceEvidence.forceAuthorityCanary.status)**; Full Campaign Debug **$($sourceEvidence.fullCampaignDebug.status)**."
 	Add-Line $statusBuilder "- Historical local-package QA: snapshot $mdTick$candidateId${mdTick}, its manifest/seal, release-surface/runtime-retention pair, and rejected focused batches remain immutable forensic evidence. They are not active Gate 1 or Workshop release authority and are not required to match current source-workflow tool bytes."
-	Add-Line $statusBuilder "- Source-native focused evidence: **partial**. A direct loose-source QRF probe ran this checkout's ${mdTick}addon.gproj${mdTick} without a packed Partisan mount and passed all six named cases at JUnit **6/0/0/0** with an empty failed list. The complete five-suite 91-case run remains pending on a clean source checkpoint."
-	Add-Line $statusBuilder "- Source-native Campaign Debug: **not run** for the revised Gate 1 source checkpoint. The corrected canary and full profile follow the accepted five-suite source run."
 }
 else {
 if ($null -eq $activeGate1EvidencePairValidation -or
@@ -12053,7 +12445,7 @@ if ($releaseCandidateBuilt) {
 	if ($runtimeUseDisposition -cin @(
 			"historical-local-qa",
 			"supersede-before-runtime")) {
-		Add-Line $statusBuilder "The local package snapshot $mdTick$(Escape-MarkdownCell $candidateId)$mdTick is retained only as historical QA evidence. Do not build a replacement or use it as release authority. Gate 1 now freezes a clean source checkpoint, runs Foundation and all-target Workbench validation, then runs focused and Campaign Debug evidence directly from that source. Workbench publishes the final source revision to Workshop, and the game downloads it."
+		Add-Line $statusBuilder "The local package snapshot $mdTick$(Escape-MarkdownCell $candidateId)$mdTick is retained only as historical QA evidence. Do not build a replacement or use it as release authority. Gate 1 is frozen at source checkpoint $mdTick$($gate1SourceValidation.Checkpoint.sourceGitHead)${mdTick}; run Foundation next, then all-target Workbench validation, the five source-native focused suites, the force-authority canary, and Full Campaign Debug in order. Workbench publishes an accepted final revision to Workshop, and the game downloads it."
 	}
 	elseif ($runtimeUseDisposition -ceq "rejected-after-runtime") {
 		if ($null -ne $activeFullCampaignDebug) {

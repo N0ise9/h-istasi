@@ -22,6 +22,13 @@ chronological package hashes and outcomes below remain evidence of those past
 runs; they do not authorize publication or replace the frozen-source Gate 1
 checks.
 
+The source checkpoint uses an ordinal tracked-blob digest over the nine Workshop
+publish scopes. Current Gate 1 runners additionally compare the files actually
+executed with their committed blobs, reject ignored/untracked publish-scope
+extras and case variants of `.pak`, and bind the ignored, Workbench-generated
+`resourceDatabase.rdb` by portable hash/length across Workbench, focused, and
+Campaign Debug evidence. That database remains generated cache, not source.
+
 Campaign Schema 71 and runtime-settings Schema 24 are current. The retired
 local-QA checkpoint used candidate
 `partisan-rc-5b1f2e98f931-20260721T193941Z`, version

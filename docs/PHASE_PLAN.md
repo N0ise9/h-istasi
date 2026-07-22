@@ -128,6 +128,20 @@ named focused suite against the source-native project with aggregate JUnit
 Full Campaign Debug. Recheck that HEAD and the worktree did not change. No
 `.pak` output is admitted to the repository or required as Gate 1 evidence.
 
+The frozen identity is the ordinal `git-ls-tree-sha256-v1` digest of the nine
+Workshop publish scopes. Each runner must also prove that the executed worktree
+files equal those Git blobs and that no ignored/untracked file extends a publish
+scope. The ignored Workbench `resourceDatabase.rdb` is not source; because the
+engine consumes it during a source launch, Workbench evidence records its
+nonempty hash/length and the focused/Debug runners require those bytes to remain
+stable and cross-correlate them in the evidence consumer.
+
+Raw logs and runtime artifacts remain outside the checkout so their local paths
+cannot leak into source. The tracked portable summaries bind their canonical
+inventories, but the current repository consumer does not reopen those external
+bytes; Gate 1 execution must independently rehash and retain them before the
+summary is admitted.
+
 Once Gate 1 is accepted, publish through Workbench to the Workshop. The game is
 responsible for downloading the published addon. A locally packed candidate is
 neither the publication artifact nor an additional release step.

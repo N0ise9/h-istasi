@@ -1,3 +1,8 @@
+[CmdletBinding()]
+param(
+	[switch] $IncludeHistoricalPackageSelfTests
+)
+
 $ErrorActionPreference = "Stop"
 $MaximumVariableCount = 16384
 
@@ -55076,6 +55081,18 @@ $focusedAutotestAggregateSelfTestPath = Join-Path `
 $focusedMountAttestationSelfTestPath = Join-Path `
 	$PSScriptRoot `
 	'test-partisan-focused-mount-attestation.ps1'
+$sourceStaticGateRunnerPath = Join-Path `
+	$PSScriptRoot `
+	'run-source-static-gates.ps1'
+$sourceFocusedGateRunnerPath = Join-Path `
+	$PSScriptRoot `
+	'run-source-focused-autotest.ps1'
+$sourceCampaignDebugRunnerPath = Join-Path `
+	$PSScriptRoot `
+	'run-source-campaign-debug.ps1'
+$sourceGate1EvidenceConsumerPath = Join-Path `
+	$PSScriptRoot `
+	'test-partisan-source-gate1-evidence.ps1'
 foreach ($releaseToolPath in @(
 		$releaseCandidateBuilderPath,
 		$releaseManifestPath,
@@ -55099,6 +55116,24 @@ foreach ($releaseToolPath in @(
 		[ref]$releaseToolParseErrors)
 	if ($releaseToolParseErrors.Count -ne 0) {
 		throw "Release-candidate tooling has PowerShell parse errors: $(Split-Path -Leaf $releaseToolPath)"
+	}
+}
+foreach ($sourceGateToolPath in @(
+		$sourceStaticGateRunnerPath,
+		$sourceFocusedGateRunnerPath,
+		$sourceCampaignDebugRunnerPath,
+		$sourceGate1EvidenceConsumerPath
+	)) {
+	if (-not (Test-Path -LiteralPath $sourceGateToolPath -PathType Leaf)) {
+		throw "Source Gate 1 tooling is missing: $(Split-Path -Leaf $sourceGateToolPath)"
+	}
+	$sourceGateParseErrors = $null
+	[void][System.Management.Automation.Language.Parser]::ParseFile(
+		$sourceGateToolPath,
+		[ref]$null,
+		[ref]$sourceGateParseErrors)
+	if ($sourceGateParseErrors.Count -ne 0) {
+		throw "Source Gate 1 tooling has PowerShell parse errors: $(Split-Path -Leaf $sourceGateToolPath)"
 	}
 }
 $releaseCandidateBuilderText = Get-Content -Raw $releaseCandidateBuilderPath
@@ -55138,18 +55173,32 @@ foreach ($releaseCandidateBuilderEntry in @(
 		throw "Guarded release-candidate builder contract is incomplete: $releaseCandidateBuilderEntry"
 	}
 }
-$trackedPakFiles = @(& git -C $root ls-files -- '*.pak' 2>$null)
-if ($LASTEXITCODE -ne 0) {
-	throw 'Unable to verify the tracked generated-package boundary.'
+$pakPathspecs = @(
+	':(icase,glob)*.pak',
+	':(icase,glob)**/*.pak')
+$trackedPakFiles = @(& git -C $root ls-files -- $pakPathspecs 2>$null)
+$trackedPakExit = $LASTEXITCODE
+$untrackedPakFiles = @(& git -C $root ls-files --others `
+	--exclude-standard -- $pakPathspecs 2>$null)
+$untrackedPakExit = $LASTEXITCODE
+$ignoredPakFiles = @(& git -C $root ls-files --others --ignored `
+	--exclude-standard -- $pakPathspecs 2>$null)
+$ignoredPakExit = $LASTEXITCODE
+if ($trackedPakExit -ne 0 -or $untrackedPakExit -ne 0 -or
+	$ignoredPakExit -ne 0) {
+	throw 'Unable to verify the checkout generated-package boundary.'
 }
-if ($trackedPakFiles.Count -ne 0) {
-	throw "Generated .pak files must not be tracked: $($trackedPakFiles -join ', ')"
+$checkoutPakFiles = @(
+	$trackedPakFiles + $untrackedPakFiles + $ignoredPakFiles |
+	Sort-Object -Unique)
+if ($checkoutPakFiles.Count -ne 0) {
+	throw "Generated .pak files must not exist in the source checkout: $($checkoutPakFiles -join ', ')"
 }
 $gitIgnoreText = Get-Content -Raw (Join-Path $root '.gitignore')
 if ($gitIgnoreText -notmatch '(?m)^\*\.pak\s*$') {
 	throw 'The source checkout must ignore generated .pak output.'
 }
-Write-Host 'Workbench/Workshop publishing boundary OK: zero tracked .pak files and legacy local packing is explicit opt-in'
+Write-Host 'Workbench/Workshop publishing boundary OK: zero checkout .pak files and legacy local packing is explicit opt-in'
 if ($releaseCandidateBuilderText.IndexOf(
 		'validate-foundation.ps1") *>&1',
 		[StringComparison]::Ordinal) -ge 0) {
@@ -55280,12 +55329,12 @@ $releaseStatusDeterministicRungs = @($releaseStatusData.proofRungs |
 	Where-Object { [string] $_.id -ceq 'deterministic-service' })
 $releaseStatusNativeRungs = @($releaseStatusData.proofRungs |
 	Where-Object { [string] $_.id -ceq 'native-engine-world' })
-if ([int] $releaseStatusData.schemaVersion -ne 3 -or
+if ([int] $releaseStatusData.schemaVersion -ne 4 -or
 	$releaseStatusData.artifact.releaseCandidateBuilt -isnot [bool] -or
 	-not [bool] $releaseStatusData.artifact.releaseCandidateBuilt -or
 	$releaseStatusHistory -isnot [Array] -or
 	@($releaseStatusHistory).Count -lt 1) {
-	throw 'Release status must retain a built candidate and schema-3 ordered historical candidate evidence.'
+	throw 'Release status must retain schema-4 source authority and ordered historical candidate evidence.'
 }
 if ($releaseStatusDeterministicRungs.Count -ne 1 -or
 	[string]::IsNullOrWhiteSpace(
@@ -55293,7 +55342,7 @@ if ($releaseStatusDeterministicRungs.Count -ne 1 -or
 	$releaseStatusNativeRungs.Count -ne 1 -or
 	[string]::IsNullOrWhiteSpace(
 		[string] $releaseStatusNativeRungs[0].status)) {
-	throw 'Schema-3 release status must retain one deterministic-service and one native-engine-world proof rung.'
+	throw 'Schema-4 release status must retain one deterministic-service and one native-engine-world proof rung.'
 }
 foreach ($releaseStatusActiveEvidence in @(
 		$releaseStatusActiveFocused,
@@ -55314,8 +55363,8 @@ foreach ($releaseDocsBuildTransitionEntry in @(
 		'An active runtime candidate must match the live embedded implementation identity.',
 		'The live embedded implementation build did not advance from the retained candidate source HEAD',
 		'The live embedded build UTC must advance after the retained candidate embedded build UTC.',
-		'Candidate embedded implementation identity',
-		'Candidate embedded build UTC / label'
+		'Snapshot embedded implementation identity',
+		'Snapshot embedded build UTC / label'
 	)) {
 	if ($releaseDocsGeneratorText.IndexOf(
 		$releaseDocsBuildTransitionEntry,
@@ -55337,11 +55386,11 @@ foreach ($releaseDocsRejectedRuntimeEntry in @(
 }
 
 foreach ($releaseDocsHistoryEntry in @(
-		'schemaVersion 3 with ordered historical candidate evidence.',
+		'schemaVersion 4 with a frozen Gate 1 source checkpoint and ordered historical evidence.',
 		'release_status.historicalCandidateEvidence must be a JSON array property.',
 		'release_status.historicalCandidateEvidence must parse as a JSON array.',
 		'release_status.historicalCandidateEvidence must contain one or more ordered entries.',
-		'Schema-3 release status requires releaseCandidateBuilt true.',
+		'Release status requires the retained historical validation snapshot metadata.',
 		'function Assert-HistoricalCandidateEvidenceEntry',
 		'"retirementDisposition", "candidate", "evidence"',
 		'"rejected-after-full-profile"',
@@ -55375,7 +55424,7 @@ foreach ($releaseDocsHistoryEntry in @(
 	if ($releaseDocsGeneratorText.IndexOf(
 		$releaseDocsHistoryEntry,
 		[StringComparison]::Ordinal) -lt 0) {
-		throw "Release-document schema-3 history contract is incomplete: $releaseDocsHistoryEntry"
+		throw "Release-document schema-4 history contract is incomplete: $releaseDocsHistoryEntry"
 	}
 }
 
@@ -56812,7 +56861,7 @@ foreach ($focusedAutotestAggregateSelfTestEntry in @(
 		'''candidate_tampering''',
 		'''policy_drift''',
 		'''run-id-start-second-drift''',
-		'''.9995401Z''',
+		'.9995401Z',
 		'$startedInstant.UtcDateTime.ToString(',
 		'$runSecondDriftEnvelope.startedUtc',
 		'''raw_junit_tampering''',
@@ -57404,8 +57453,6 @@ foreach ($focusedParentBarrierEntry in @(
 	}
 }
 
-& $releaseCandidateBuilderPath -SelfTest
-& $releaseManifestPath -SelfTest
 Write-Host 'Running release-surface source-audit self-tests'
 & (Join-Path $PSScriptRoot 'test-partisan-release-surface-audit.ps1')
 Write-Host 'Release-surface source-audit self-tests OK'
@@ -57413,33 +57460,34 @@ Write-Host 'Running release-surface guard validation'
 & (Join-Path $PSScriptRoot 'validate-release-surface-guards.ps1') |
 	Out-Null
 Write-Host 'Release-surface guard validation OK'
-Write-Host 'Running paired retail/diagnostic release-surface runner self-test'
-& (Join-Path $PSScriptRoot 'run-guarded-release-surface-audit.ps1') `
-	-SelfTest
-Write-Host 'Paired retail/diagnostic release-surface runner self-test OK'
-Write-Host 'Running release-surface audit index self-test'
-& (Join-Path $PSScriptRoot 'test-partisan-release-surface-audit-index.ps1')
-Write-Host 'Release-surface audit index self-test OK'
-Write-Host 'Running Gate 1 runtime-retention index self-test'
-& (Join-Path $PSScriptRoot 'test-partisan-gate1-runtime-retention-index.ps1')
-Write-Host 'Gate 1 runtime-retention index self-test OK'
-Write-Host 'Running full-profile Campaign Debug release-index self-test'
-& $campaignDebugReleaseIndexSelfTestPath
-Write-Host 'Full-profile Campaign Debug release-index self-test OK'
-Write-Host 'Running corrected-canary Campaign Debug release-index self-test'
-& $campaignDebugCorrectedCanarySelfTestPath
-Write-Host 'Corrected-canary Campaign Debug release-index self-test OK'
-Write-Host 'Running focused-autotest aggregate self-test'
-& $focusedAutotestAggregateSelfTestPath
-Write-Host 'Focused-autotest aggregate self-test OK'
-Write-Host 'Running focused mount-attestation self-test'
-& $focusedMountAttestationSelfTestPath
-Write-Host 'Focused mount-attestation self-test OK'
-Write-Host 'Running portable focused-evidence consumer self-test'
-& (Join-Path $PSScriptRoot "update-release-docs.ps1") -FocusedConsumerSelfTest
-Write-Host 'Portable focused-evidence consumer self-test OK'
-& (Join-Path $PSScriptRoot "update-release-docs.ps1") -SelfTest
-Write-Host "All-target Workbench retention and historical local-package evidence integrity contract OK"
+Write-Host 'Running source Gate 1 runner self-tests'
+& $sourceStaticGateRunnerPath -SelfTest | Out-Host
+& $sourceFocusedGateRunnerPath -SelfTest | Out-Host
+& $sourceCampaignDebugRunnerPath -SelfTest | Out-Host
+& $sourceGate1EvidenceConsumerPath -SelfTest | Out-Host
+& $sourceGate1EvidenceConsumerPath `
+	-RepositoryRoot $root | Out-Null
+Write-Host 'Source Gate 1 runner and evidence-consumer self-tests OK'
+if ($IncludeHistoricalPackageSelfTests) {
+	Write-Host 'Running optional historical local-package integrity self-tests'
+	& $releaseCandidateBuilderPath -SelfTest
+	& $releaseManifestPath -SelfTest
+	& (Join-Path $PSScriptRoot 'run-guarded-release-surface-audit.ps1') `
+		-SelfTest
+	& (Join-Path $PSScriptRoot 'test-partisan-release-surface-audit-index.ps1')
+	& (Join-Path $PSScriptRoot 'test-partisan-gate1-runtime-retention-index.ps1')
+	& $campaignDebugReleaseIndexSelfTestPath
+	& $campaignDebugCorrectedCanarySelfTestPath
+	& $focusedAutotestAggregateSelfTestPath
+	& $focusedMountAttestationSelfTestPath
+	& (Join-Path $PSScriptRoot 'update-release-docs.ps1') `
+		-FocusedConsumerSelfTest
+	& (Join-Path $PSScriptRoot 'update-release-docs.ps1') -SelfTest
+	Write-Host 'Optional historical local-package integrity self-tests OK'
+}
+else {
+	Write-Host 'Historical local-package integrity self-tests skipped (opt in with -IncludeHistoricalPackageSelfTests)'
+}
 
 & {
 	Set-StrictMode -Version Latest

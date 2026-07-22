@@ -20,6 +20,30 @@
 - Treat every manually staged local candidate/package procedure below as
   retained optional historical QA. Its evidence remains immutable, but it is not
   a current Gate 1 prerequisite.
+- Bind Workshop publish input with `git-ls-tree-sha256-v1`: enumerate tracked
+  blobs below `Assets`, `Configs`, `Missions`, `Prefabs`, `Scripts`, `UI`, and
+  `Worlds`, plus `addon.gproj` and `thumbnail.png`; normalize separators; sort
+  paths with `StringComparer.Ordinal`; then hash UTF-8/LF rows of
+  `mode type oid<TAB>path`. PowerShell `Sort-Object -CaseSensitive` is
+  culture-sensitive and is not an ordinal substitute.
+- A clean Git status is insufficient for an exact source run. Compare every
+  executed publish-input file and runner/helper against its committed blob,
+  reject untracked or ignored extras inside the publish scopes, and reject every
+  case variant of `.pak` in the checkout. This also closes
+  assume-unchanged/skip-worktree and ignore-rule gaps.
+- `resourceDatabase.rdb` remains ignored Workbench output, not source and not a
+  repository deliverable. Workbench creates/updates it and a direct source game
+  launch loads it, so record its portable hash/length after Workbench and require
+  the same nonempty bytes throughout focused and Campaign Debug execution.
+- Keep raw engine evidence outside the source checkout because raw logs can
+  contain machine-local paths. Before admitting a portable tracked summary,
+  independently reopen and rehash the retained raw inventory. The tracked
+  source-evidence consumer deliberately reports `RawArtifactsReopened:false`;
+  it validates the canonical manifest and summary bytes, not the external files.
+- The source Campaign Debug wrapper isolates its profile, logs, working, temp,
+  and addon-temp roots and proves exact process cleanup. It does not claim a
+  snapshot of every ordinary external log/profile root; add explicit watched
+  roots before using it for a stronger no-spill claim.
 
 Campaign Schema 71 and runtime-settings Schema 24 are current. The retained
 external prepublish QA candidate is
