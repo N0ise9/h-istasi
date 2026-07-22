@@ -1,9 +1,9 @@
 {
   "schemaVersion": 4,
-  "statusAsOfUtc": "2026-07-22T16:49:50Z",
+  "statusAsOfUtc": "2026-07-22T18:58:23Z",
   "releaseStage": "development alpha",
   "releaseDecision": "NO-GO",
-  "auditedRevision": "f380eee8d1ce8fe547607d24636a9687ce47abea",
+  "auditedRevision": "d42fa687b123aab1acfb49f6b2c29893bda33d50",
   "baseline": {
     "campaignSchema": 71,
     "runtimeSettingsSchema": 24,
@@ -14,11 +14,11 @@
   "gate1Source": {
     "status": "in-progress",
     "checkpoint": {
-      "sourceGitHead": "f380eee8d1ce8fe547607d24636a9687ce47abea",
-      "frozenUtc": "2026-07-22T15:28:31Z",
+      "sourceGitHead": "d42fa687b123aab1acfb49f6b2c29893bda33d50",
+      "frozenUtc": "2026-07-22T18:57:54Z",
       "dirty": false,
       "publishInputPolicy": "git-ls-tree-sha256-v1",
-      "publishInputTreeSha256": "c5877e744fdaafdfc65da1ce77ef56918456bd2cb1f551ad6d73f5f9c2b3cac3",
+      "publishInputTreeSha256": "19f65112f243fd18fb79d6226dfc3d5feefa821b937ecac6a162f86231624ab7",
       "publishInputRowCount": 436,
       "addonGuid": "698532771130111D",
       "campaignSchema": 71,
@@ -562,13 +562,13 @@
       "id": "static-source-resource",
       "label": "Static/source/resource contracts",
       "status": "not-run",
-      "summary": "Historical Foundation evidence remains green for the retired snapshot source, but it does not advance the revised Gate 1. Current Foundation must run after the Workbench/Workshop boundary commit."
+      "summary": "Historical Foundation evidence remains green for the retired snapshot source, but it does not advance the revised Gate 1. The clean replacement source checkpoint is frozen and current Foundation is pending."
     },
     {
       "id": "compile-configuration",
       "label": "Enforce compile and configuration",
       "status": "not-run",
-      "summary": "Historical all-target Workbench evidence remains green for the retired snapshot source, but it does not advance the revised Gate 1. Current source validation compiles directly and does not require a repository package artifact."
+      "summary": "Historical all-target Workbench evidence remains green for the retired snapshot source, but it does not advance the revised Gate 1. Current all-target source validation follows Foundation and compiles directly without a repository package artifact."
     },
     {
       "id": "deterministic-service",
@@ -628,7 +628,7 @@
     {
       "id": "STATUS-002",
       "category": "TEST",
-      "summary": "Commit the revised Workbench/Workshop boundary, rerun current Foundation and all-target Workbench validation, then run all five focused suites and Campaign Debug directly from the same clean source checkpoint. Do not build or stage a replacement package."
+      "summary": "Run current Foundation and all-target Workbench validation, then all five focused suites and Campaign Debug directly from the frozen clean source checkpoint. Do not build or stage a replacement package."
     },
     {
       "id": "STATUS-003",

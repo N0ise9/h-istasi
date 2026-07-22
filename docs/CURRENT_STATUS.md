@@ -6,7 +6,7 @@
 
 **NO-GO - development alpha.** No Workshop release is certified.
 
-Gate 1 is `in-progress` on frozen source checkpoint `f380eee8d1ce8fe547607d24636a9687ce47abea`. No rung advances without a tracked, hash-bound source-evidence summary.
+Gate 1 is `in-progress` on frozen source checkpoint `d42fa687b123aab1acfb49f6b2c29893bda33d50`. No rung advances without a tracked, hash-bound source-evidence summary.
 
 The retained local-validation snapshot below is historical QA evidence, not source, a publishing input, or a distributable. The generator still verifies its exact source HEAD, manifest, package index, addon identity, and validation tools. Workbench publishing and Workshop/in-game delivery are the supported release path.
 
@@ -14,11 +14,11 @@ The retained local-validation snapshot below is historical QA evidence, not sour
 
 | Field | Current value |
 | --- | --- |
-| Status data as of | `2026-07-22T16:49:50Z` |
-| Audited gameplay Git HEAD | `f380eee8d1ce8fe547607d24636a9687ce47abea` |
+| Status data as of | `2026-07-22T18:58:23Z` |
+| Audited gameplay Git HEAD | `d42fa687b123aab1acfb49f6b2c29893bda33d50` |
 | Gate 1 source state | `in-progress` |
-| Frozen publish-source HEAD | `f380eee8d1ce8fe547607d24636a9687ce47abea` |
-| Publish-input tree | `c5877e744fdaafdfc65da1ce77ef56918456bd2cb1f551ad6d73f5f9c2b3cac3` / 436 rows / `git-ls-tree-sha256-v1` |
+| Frozen publish-source HEAD | `d42fa687b123aab1acfb49f6b2c29893bda33d50` |
+| Publish-input tree | `19f65112f243fd18fb79d6226dfc3d5feefa821b937ecac6a162f86231624ab7` / 436 rows / `git-ls-tree-sha256-v1` |
 | Embedded implementation identity | `7fdf3988797edeb747f5d6a6951ad0382bd93db3` |
 | Embedded build UTC / label | `2026-07-21T19:36:22Z` / `schema71-settings24-gate1-release-surface` |
 | Campaign / runtime-settings schema | `71` / `24` |
@@ -41,8 +41,8 @@ A pass never inherits upward. `partial` means some scoped evidence exists but th
 
 | Rung | Status | Honest scope |
 | --- | --- | --- |
-| Static/source/resource contracts | `not-run` | Historical Foundation evidence remains green for the retired snapshot source, but it does not advance the revised Gate 1. Current Foundation must run after the Workbench/Workshop boundary commit. |
-| Enforce compile and configuration | `not-run` | Historical all-target Workbench evidence remains green for the retired snapshot source, but it does not advance the revised Gate 1. Current source validation compiles directly and does not require a repository package artifact. |
+| Static/source/resource contracts | `not-run` | Historical Foundation evidence remains green for the retired snapshot source, but it does not advance the revised Gate 1. The clean replacement source checkpoint is frozen and current Foundation is pending. |
+| Enforce compile and configuration | `not-run` | Historical all-target Workbench evidence remains green for the retired snapshot source, but it does not advance the revised Gate 1. Current all-target source validation follows Foundation and compiles directly without a repository package artifact. |
 | Deterministic service contracts | `not-run` | A loose-source QRF feasibility probe passed 6/0/0/0, but it is not structured Gate 1 evidence and does not advance this rung. The maintained five-suite 91-case source run is pending. |
 | Native engine-world behavior | `not-run` | Historical package-bound surface/retention evidence remains noncertifying history. The corrected force-authority canary and Full Campaign Debug must run from the same frozen source checkpoint as the accepted source-native focused set. |
 | Workshop-installed dedicated server | `not-run` | A final Workbench-published, Workshop-downloaded revision has not entered the standard dedicated-server certification gate. |
@@ -84,7 +84,7 @@ Coverage means the surface is named and classified. It does not mean the behavio
 | ID | Category | Blocker |
 | --- | --- | --- |
 | `STATUS-001` | `AUTH` | Gate 1 authority is now the clean addon source checkpoint plus its Workbench and source-native evidence. The external package snapshot and every package-bound result are retained historical/local QA only; they are not source or Workshop release authority. |
-| `STATUS-002` | `TEST` | Commit the revised Workbench/Workshop boundary, rerun current Foundation and all-target Workbench validation, then run all five focused suites and Campaign Debug directly from the same clean source checkpoint. Do not build or stage a replacement package. |
+| `STATUS-002` | `TEST` | Run current Foundation and all-target Workbench validation, then all five focused suites and Campaign Debug directly from the frozen clean source checkpoint. Do not build or stage a replacement package. |
 | `STATUS-003` | `UI` | Known command-menu and modal-map defects remain open until source correction plus rendered Workshop-installed client proof. |
 | `STATUS-004` | `MOVE` | Natural sustained infantry and convoy travel, identical-waypoint suppression, and measured no-stutter behavior are not proven. |
 | `STATUS-005` | `PROJ` | Campaign read-model convergence is not proven with host, two clients, reconnect, JIP, restart, and marker-cap boundaries. |
@@ -93,4 +93,4 @@ Coverage means the surface is named and classified. It does not mean the behavio
 
 ## Next release-closure step
 
-The local package snapshot `partisan-rc-5b1f2e98f931-20260721T193941Z` is retained only as historical QA evidence. Do not build a replacement or use it as release authority. Gate 1 is frozen at source checkpoint `f380eee8d1ce8fe547607d24636a9687ce47abea`; run Foundation next, then all-target Workbench validation, the five source-native focused suites, the force-authority canary, and Full Campaign Debug in order. Workbench publishes an accepted final revision to Workshop, and the game downloads it.
+The local package snapshot `partisan-rc-5b1f2e98f931-20260721T193941Z` is retained only as historical QA evidence. Do not build a replacement or use it as release authority. Gate 1 is frozen at source checkpoint `d42fa687b123aab1acfb49f6b2c29893bda33d50`; run Foundation next, then all-target Workbench validation, the five source-native focused suites, the force-authority canary, and Full Campaign Debug in order. Workbench publishes an accepted final revision to Workshop, and the game downloads it.
