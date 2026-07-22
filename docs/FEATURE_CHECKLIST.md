@@ -24,17 +24,17 @@ Ledger `history[2]` preserves former candidate
 `partisan-rc-ee0e8add2a29-20260719T063815Z` as
 `rejected-after-full-profile`, including its package-bound focused and corrected-
 canary passes and rejected full-profile result. None of that runtime evidence
-transfers. The passed `52c7e2b` and `e2c38d2` surface/retention pairs remain
-immutable historical evidence under their recorded tool bytes, and both
-rejected focused leaves remain immutable rejected forensic evidence. Fresh
-41-file surface leaf `20260722T114802Z-1fb5e08619ef45b2aae20f2c5938b56c`
-and 251-file retention leaf `20260722T115003Z-4e159a24384c` passed under clean
-encoding-stable harness `7e2fe71d9619fd60cfe393d2776b4ed49f75186b`, independently
-reverified read-only, and were jointly consumed against the unchanged package.
-Candidate, package, gameplay, Foundation, and Workbench evidence are unchanged.
-`STATUS-008` is closed again. Next run all five focused suites and their 91-case
-aggregate, the corrected canary, and Full Campaign Debug only after an accepted
-canary. Gate 1 remains incomplete, and release remains `NO-GO`.
+transfers. The passed `52c7e2b`, `e2c38d2`, and CRI-101 surface/retention pairs
+remain immutable history under their recorded tool bytes, but CRI-102 changes
+the profile-diagnostic current-consumer binding. The first `87b5ad4` focused
+batch is preserved as superseded/rejected forensic evidence: four service
+suites passed JUnit 50/0/0/0, while the profile wrapper rejected despite JUnit
+41/0/0/0 because it incorrectly required a dedicated singleton seam detail in
+all 41 intervals. Candidate, package, gameplay, Foundation, and Workbench
+evidence are unchanged. `STATUS-008` is open. Next run a fresh same-package
+surface/retention pair, all five focused suites, the corrected canary, and Full
+Campaign Debug only after an accepted canary. Gate 1 remains incomplete, and
+release remains `NO-GO`.
 
 ## Stamped Gate 1 Release-Surface and Retention Checkpoint
 
@@ -90,7 +90,7 @@ canary. Gate 1 remains incomplete, and release remains `NO-GO`.
   seals, synthetic-publication, receipt-reuse, role-relabel, launch-vector,
   journal, and reparse negatives. The ledger consumer reuses both exact
   Git-bound publisher validators and passes 3 valid/optional plus 53 adversarial
-  cases; the focused-aggregate self-test passes 741 checks. No engine process
+  cases; the focused-aggregate self-test passes 917 checks. No engine process
   starts during these tooling tests.
 - [x] Commit the runtime-evidence log correction, then retry the paired audit.
   Every probe must retain `console.log`, `script.log`, and `error.log`; permit
@@ -327,6 +327,23 @@ canary. Gate 1 remains incomplete, and release remains `NO-GO`.
   uncertified. Both trees and seals rehashed read-only and the shared consumer
   accepted them together. `STATUS-008` is closed again without certification
   promotion.
+- [x] Preserve the first `87b5ad4` five-suite attempt byte-for-byte as one
+  superseded/rejected forensic batch. Counterattack, garrison rebuild, planning
+  commitment, and QRF passed JUnit 50/0/0/0 in total. Profile leaf
+  `20260722T121803Z-ada938901086420ea9d51844b3cf4b2f`, `run.json` SHA-256
+  `c451a8aa07c3c62fb105a3268800625ad711ba472021afdc7d7f5ffb99fac66a`,
+  failed closed in the wrapper despite exit zero, exact 2/2/1/0 mounts, an empty
+  failed list, and JUnit 41/0/0/0. Do not transfer the four green leaves or
+  retrofit the red leaf across corrected tool bytes.
+- [x] Make the profile intentional-diagnostic classifier source-faithful. Each
+  of 41 testcase intervals requires exactly one intentional error followed by
+  one `failed native callback non-mutating 1` summary before success. Require
+  exactly one `setup/seam/request/bytes/journal 1/1/1/1/1` detail only in the
+  dedicated failed-callback interval, after its summary and before its success;
+  reject missing, duplicate, misordered, wrong-case, or additive evidence.
+- [x] Preserve the CRI-101 pair as immutable passed history after CRI-102 changes
+  the bound release consumer. Reopen `STATUS-008`; a fresh same-package pair is
+  required before all five focused suites are rerun.
 
 - [x] Source-fix the obsolete intentional-convoy classifier boundary in
   `12f87e9`: the active and future candidates require exactly 13 diagnostics grouped as 9
@@ -2360,7 +2377,7 @@ projections of campaign state and must be restorable, foldable, or disposable.
 | Authoritative client projection and JIP | Host, clients, reconnects, and late joiners converge on the same snapshot watermark and ordered revisioned create/update/delete stream. | Implemented Foundation for marker records / Needs Runtime Proof | Schema 61 supplies delivery/ACK; Schema 62 adds source revision; Schema 66 protects native campaign-marker ownership without changing the wire protocol. Prove host/two-client/late-join equality, ownership revision correlation, immutable/self-healing campaign markers, editable player markers, native rendering, and restart. Menu snapshots, campaign tasks, general notifications, and dynamic player markers remain outside this protocol. | Highest |
 | Modal map targeting | Target selection owns map/input/cursor/modal state through one idempotent state machine. | Broad Alpha / Needs Runtime Proof | Normal map targeting and confirmation flows exist with ESC handling and duplicate-click guards. Prove Closed -> Selecting -> Confirming -> Submitting/Closing behavior, Choose Again re-arm after pointer release, cursor/modal layering, and atomic ESC teardown at supported resolutions. | Highest |
 | Map/War information model | Players see contacted town pressure and resistance territory without redundant or misleading rows. | Sealed in Schema-64 Source/Workbench / Needs Runtime Verification | Zone Pressure contains only explicitly contacted valid canonical towns; the player's current contacted town sorts first, then remaining towns by ascending FIA basis points and stable name/ID ties. Resistance Territory includes every published resistance-owned strategic zone except mission bookkeeping, ordered deterministically by type/name/ID with no arbitrary six-row cap. Current ownership receipt authority is respected. Prove rendered output, paging/scale, restart, reconnect, and JIP. | High |
-| Full Campaign Debug | One button runs a true runtime certification suite and writes structured artifacts without changing the campaign under test. | Active 5b candidate / Encoding-stable surface-retention pair accepted / Focused pending / Historical ee0 full rejected | Active candidate `partisan-rc-5b1f2e98f931-20260721T193941Z`, package SHA-256 `af22d6322a215dbef466e49041fc07395cbb5ed7a5951fd3e0cee5f4a101f530`, has green Foundation and all-target Workbench evidence. The passed `52c7e2b` and `e2c38d2` surface/retention pairs remain immutable history under their recorded tool bytes. Fresh 41-file surface leaf `20260722T114802Z-1fb5e08619ef45b2aae20f2c5938b56c` and 251-file retention leaf `20260722T115003Z-4e159a24384c` passed under clean encoding-stable harness `7e2fe71d9619fd60cfe393d2776b4ed49f75186b`, independently reverified read-only, and were jointly consumed against the unchanged package; `STATUS-008` is closed again without certification promotion. Focused leaves `20260722T084353Z-03d78e016b244d8fb1aea42f307af1d6` and `20260722T105628Z-68bd71de0fea40f68b533feee1c9e86a` remain immutable rejected history. Historical ee0 is ledger `history[2]` with `rejected-after-full-profile`; its focused and corrected canary passed noncertifying and its Full Campaign Debug boundary was rejected red at 598/47/26/13/1 and 5,630/5,695 with 24 unapproved diagnostics. No historical result transfers. Against the unchanged active package, next run all five focused suites and their 91-case aggregate, the corrected force-authority canary, and Full Campaign Debug only after an accepted canary. Dedicated/live server-client, network/JIP, migration, marker/UI, performance, and soak gates remain separate; Gate 1 is incomplete and release remains `NO-GO`. | Highest |
+| Full Campaign Debug | One button runs a true runtime certification suite and writes structured artifacts without changing the campaign under test. | Active 5b candidate / Fresh current-tool pair pending / Focused rerun pending / Historical ee0 full rejected | Active candidate `partisan-rc-5b1f2e98f931-20260721T193941Z`, package SHA-256 `af22d6322a215dbef466e49041fc07395cbb5ed7a5951fd3e0cee5f4a101f530`, has green Foundation and all-target Workbench evidence. The passed `52c7e2b`, `e2c38d2`, and CRI-101 surface/retention pairs remain immutable history under their recorded tool bytes, but none satisfies the CRI-102 profile-diagnostic current-consumer binding. The first `87b5ad4` focused batch remains immutable superseded/rejected evidence: four service suites passed JUnit 50/0/0/0 and the profile wrapper rejected despite JUnit 41/0/0/0. Historical ee0 is ledger `history[2]` with `rejected-after-full-profile`; its focused and corrected canary passed noncertifying and its Full Campaign Debug boundary was rejected red at 598/47/26/13/1 and 5,630/5,695 with 24 unapproved diagnostics. No historical result transfers. `STATUS-008` is open. Against the unchanged active package, next run a fresh same-package pair, all five focused suites and their 91-case aggregate, the corrected force-authority canary, and Full Campaign Debug only after an accepted canary. Dedicated/live server-client, network/JIP, migration, marker/UI, performance, and soak gates remain separate; Gate 1 is incomplete and release remains `NO-GO`. | Highest |
 | Scoped debug profiles | Smaller profiles isolate feature families for fast iteration. | Implemented Foundation | Keep profiles explicit and never treat external/restart/soak gaps as PASS. | Keep |
 | Build provenance | Runtime logs and artifacts identify the exact code build from one authoritative source. | Implemented Foundation / Needs Packaged Proof | Runtime, menu, admin, and debug artifact summaries now consume `HST_BuildInfo`; prove the stamped identity in a packaged dedicated-server/client run. | High |
 
@@ -2381,23 +2398,22 @@ The active package is candidate
 `5b1f2e98f93137230e686312c6e99cea7630dae4`. Foundation passed 985 references,
 all five Workbench targets passed at 5,849 files/12,022 classes and CRC
 `aeddce9b`, and the four-file package is sealed. The passed `52c7e2b` and
-`e2c38d2` surface/retention pairs remain immutable historical evidence under
-their recorded tool bytes. Fresh encoding-stable surface leaf
-`20260722T114802Z-1fb5e08619ef45b2aae20f2c5938b56c` and retention leaf
-`20260722T115003Z-4e159a24384c` passed under clean harness
-`7e2fe71d9619fd60cfe393d2776b4ed49f75186b`, independently reverified read-only,
-and were jointly consumed. Both rejected focused leaves remain immutable
-rejected forensic evidence.
+`e2c38d2` and CRI-101 surface/retention pairs remain immutable historical
+evidence under their recorded tool bytes, but none satisfies the corrected
+profile-diagnostic current-consumer binding. The first `87b5ad4` focused batch
+is immutable superseded/rejected forensic evidence: four service suites were
+green at 50/0/0/0, while the profile wrapper rejected despite JUnit 41/0/0/0.
 Preserve historical 0e as
 `history[0]`, e11 as `history[1]`, and ee0 as `history[2]` with
 `rejected-after-full-profile`; no historical package or state-only result
 transfers. Candidate, package, gameplay, Foundation, and Workbench evidence are
-unchanged. `STATUS-008` is closed again; release remains `NO-GO`.
+unchanged. `STATUS-008` is open; release remains `NO-GO`.
 
-The immediate candidate-bound order is: run all five focused suites and consume
-their 91-case aggregate, run the corrected `force_authority` canary, then Full
-Campaign Debug only after an accepted canary. Each step must pass and be
-independently consumed before the next starts.
+The immediate candidate-bound order is: capture and consume a fresh same-package
+surface/retention pair, rerun all five focused suites and consume their 91-case
+aggregate, run the corrected `force_authority` canary, then Full Campaign Debug
+only after an accepted canary. Each step must pass and be independently consumed
+before the next starts.
 
 1. Prove broader active-world records, Workshop/live server-client use, and
    networking/JIP/reconnect. Abrupt termination remains

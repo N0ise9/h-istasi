@@ -37,7 +37,7 @@ $script:FocusedCandidateState = 'retained-uncertified'
 $script:FocusedAcceptedDisposition = 'accepted-noncertifying'
 $script:FocusedReplacementDisposition = 'replacement-required'
 $script:FocusedAggregateResultStatus = 'passed-noncertifying'
-$script:FocusedHardDiagnosticClassifierChecks = 12
+$script:FocusedHardDiagnosticClassifierChecks = 25
 $script:FocusedDiagnosticLocalPathToken = '<local-path>'
 $script:FocusedCampaignSchema = 71
 $script:FocusedRuntimeSettingsSchema = 24
@@ -3057,6 +3057,8 @@ function Get-PartisanFocusedRawDiagnosticCensus {
 
     $profileJournalCase = $ExpectedProfile -ceq
         'HST_CampaignProfileJournalAuthorityAutotestSuite'
+    $profileExactSeamCase =
+        'HST_TEST_CampaignProfileJournalAuthority_FailedNativeCallbackNonMutating'
     $expectedIntentional = if ($profileJournalCase) {
         $expectedCases.Count
     }
@@ -3088,9 +3090,10 @@ function Get-PartisanFocusedRawDiagnosticCensus {
         $profileExactSeamTokenCount -eq 0 -and
         $intentionalIndices.Count -eq 0
     if ($profileJournalCase -and
+        $expectedCases.Count -eq 41 -and
         $successfulCaseRows.Count -eq $expectedCases.Count -and
         $profileNonMutatingTokenCount -eq $expectedCases.Count -and
-        $profileExactSeamTokenCount -eq $expectedCases.Count -and
+        $profileExactSeamTokenCount -eq 1 -and
         $intentionalIndices.Count -eq $expectedCases.Count) {
         $profileProofTokensSeen = $true
         $intervalFloor = $suiteStartedIndex
@@ -3109,9 +3112,18 @@ function Get-PartisanFocusedRawDiagnosticCensus {
                 })
             if ($intervalIntentional.Count -ne 1 -or
                 $intervalNonMutating.Count -ne 1 -or
-                $intervalExactSeam.Count -ne 1 -or
-                $intervalIntentional[0] -ge $intervalNonMutating[0] -or
-                $intervalIntentional[0] -ge $intervalExactSeam[0]) {
+                $intervalIntentional[0] -ge $intervalNonMutating[0]) {
+                $profileProofTokensSeen = $false
+                break
+            }
+            $requiresExactSeam = [string]$successRow.Name -ceq
+                $profileExactSeamCase
+            if (($requiresExactSeam -and
+                    ($intervalExactSeam.Count -ne 1 -or
+                        $intervalNonMutating[0] -ge
+                            $intervalExactSeam[0])) -or
+                (-not $requiresExactSeam -and
+                    $intervalExactSeam.Count -ne 0)) {
                 $profileProofTokensSeen = $false
                 break
             }

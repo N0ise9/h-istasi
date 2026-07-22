@@ -363,9 +363,13 @@ function New-SelfTestFixture {
                 [void]$consoleLines.Add(
                     "00:02:01.000 SCRIPT (E): string failureDetail = 'Partisan persistence | native save callback failure | sequence/type/flags 1/0/0 | manager/enabled/allowed/busy/active/playthrough 1/1/1/0/0/0 | types/persistence/state/loaded/tracked/config/staged 5/1/2/0/0/0/1 | replication mode 0 | snapshot fingerprint '")
                 [void]$consoleLines.Add(
-                    '00:02:02.000 SCRIPT : failed native callback non-mutating 1')
-                [void]$consoleLines.Add(
-                    '00:02:03.000 SCRIPT : setup/seam/request/bytes/journal 1/1/1/1/1')
+                    ('00:02:02.000 SCRIPT : failed native callback ' +
+                        'non-mutating 1 | case ' + $expectedTestCase))
+                if ($expectedTestCase -ceq
+                        'HST_TEST_CampaignProfileJournalAuthority_FailedNativeCallbackNonMutating') {
+                    [void]$consoleLines.Add(
+                        '00:02:03.000 SCRIPT : setup/seam/request/bytes/journal 1/1/1/1/1')
+                }
             }
             [void]$consoleLines.Add(
                 ("00:02:04.000 SCRIPT : " + $successMarker + ' ' +
@@ -490,7 +494,7 @@ $junitCases
             RequiredPatternsSeen = $true
             BuildProvenanceSeen = $true
             ConsoleTestCaseSeen = $true
-            HardDiagnosticClassifierChecks = 12
+            HardDiagnosticClassifierChecks = 25
             HardDiagnosticClassificationValid = $true
             HardDiagnosticFree = $false
             HardDiagnosticCount = $hardCount
@@ -1376,7 +1380,7 @@ try {
     Assert-SelfTest `
         -Condition ([string]$aggregate.aggregateId -ceq
                 (Get-SelfTestAggregateId -Aggregate $aggregate) -and
-            [long]$aggregate.result.hardDiagnosticClassifierChecksPerRun -eq 12 -and
+            [long]$aggregate.result.hardDiagnosticClassifierChecksPerRun -eq 25 -and
             [long]$aggregate.result.hardDiagnosticCount -eq 51 -and
             [long]$aggregate.result.approvedStockFilterDiagnosticCount -eq 10 -and
             [long]$aggregate.result.approvedIntentionalFaultDiagnosticCount -eq 41 -and
@@ -2127,6 +2131,177 @@ try {
         -RepositoryRoot $repository.Root
     Assert-SelfTestRejected `
         $rawDiagnosticTamper $repository.OutputPath 'raw_diagnostic_tampering'
+
+    $profileDiagnosticMutations = @(
+        'missing-singleton-seam',
+        'duplicate-singleton-seam',
+        'wrong-seam-interval',
+        'seam-before-summary',
+        'seam-after-success',
+        'seam-before-error',
+        'summary-before-error',
+        'missing-interval-summary',
+        'duplicate-interval-summary',
+        'missing-interval-intentional',
+        'duplicate-interval-intentional'
+    )
+    foreach ($profileDiagnosticMutation in $profileDiagnosticMutations) {
+        $profileDiagnosticCase = New-SelfTestCaseFixture `
+            -PristineEvidence $pristine.EvidenceRoot `
+            -CaseRoot (Join-Path $tempRoot `
+                ('profile-diagnostic-' + $profileDiagnosticMutation))
+        $profileDiagnosticRunPath = $profileDiagnosticCase.RunPaths[4]
+        $profileDiagnosticRun = Read-SelfTestJson `
+            -Path $profileDiagnosticRunPath
+        $profileDiagnosticPortable = [string](@(
+            $profileDiagnosticRun.files | Where-Object {
+                $_.path -cmatch '/console\.log$'
+            })[0].path)
+        $profileDiagnosticFull = Join-Path `
+            (Split-Path -Parent $profileDiagnosticRunPath) `
+            $profileDiagnosticPortable.Replace('/', '\')
+        $profileDiagnosticText = [IO.File]::ReadAllText(
+            $profileDiagnosticFull)
+        $profileDiagnosticLines = @($profileDiagnosticText -split "`r?`n")
+        $profileSeamLines = @($profileDiagnosticLines | Where-Object {
+            ([string]$_).Contains(
+                'setup/seam/request/bytes/journal 1/1/1/1/1')
+        })
+        $profileSummaryLines = @($profileDiagnosticLines | Where-Object {
+            ([string]$_).Contains('failed native callback non-mutating 1')
+        })
+        $profileIntentionalLines = @($profileDiagnosticLines | Where-Object {
+            ([string]$_).Contains(
+                "string failureDetail = 'Partisan persistence | native save callback failure")
+        })
+        $profileSeamCase =
+            'HST_TEST_CampaignProfileJournalAuthority_FailedNativeCallbackNonMutating'
+        $profileFirstCase = [string]$testCasesByProfile[
+            'HST_CampaignProfileJournalAuthorityAutotestSuite'][0]
+        $profileSeamSummaryLines = @($profileSummaryLines | Where-Object {
+            ([string]$_).Contains($profileSeamCase)
+        })
+        $profileFirstSummaryLines = @($profileSummaryLines | Where-Object {
+            ([string]$_).Contains($profileFirstCase)
+        })
+        $profileSeamSuccessLines = @($profileDiagnosticLines | Where-Object {
+            ([string]$_).Contains($profileSeamCase + ': SUCCESS')
+        })
+        $profileFirstSuccessLines = @($profileDiagnosticLines | Where-Object {
+            ([string]$_).Contains($profileFirstCase + ': SUCCESS')
+        })
+        if ($profileSeamLines.Count -ne 1 -or
+            $profileSummaryLines.Count -ne 41 -or
+            $profileIntentionalLines.Count -ne 41 -or
+            $profileSeamSummaryLines.Count -ne 1 -or
+            $profileFirstSummaryLines.Count -ne 1 -or
+            $profileSeamSuccessLines.Count -ne 1 -or
+            $profileFirstSuccessLines.Count -ne 1) {
+            throw 'Focused profile-diagnostic negative fixture is not exact.'
+        }
+        $profileSeamLine = [string]$profileSeamLines[0]
+        $profileSeamSummaryLine = [string]$profileSeamSummaryLines[0]
+        $profileFirstSummaryLine = [string]$profileFirstSummaryLines[0]
+        $profileIntentionalLine = [string]$profileIntentionalLines[0]
+        $profileSeamSuccessLine = [string]$profileSeamSuccessLines[0]
+        $profileFirstSuccessLine = [string]$profileFirstSuccessLines[0]
+        switch ($profileDiagnosticMutation) {
+            'missing-singleton-seam' {
+                $profileDiagnosticMutated = $profileDiagnosticText.Replace(
+                    $profileSeamLine + "`n",
+                    '')
+            }
+            'duplicate-singleton-seam' {
+                $profileDiagnosticMutated = $profileDiagnosticText.Replace(
+                    $profileSeamLine,
+                    $profileSeamLine + "`n" + $profileSeamLine)
+            }
+            'wrong-seam-interval' {
+                $profileDiagnosticMutated = $profileDiagnosticText.Replace(
+                    $profileSeamLine + "`n",
+                    '').Replace(
+                        $profileFirstSuccessLine,
+                        $profileSeamLine + "`n" + $profileFirstSuccessLine)
+            }
+            'seam-before-summary' {
+                $profileDiagnosticMutated = $profileDiagnosticText.Replace(
+                    $profileSeamSummaryLine + "`n" + $profileSeamLine,
+                    $profileSeamLine + "`n" + $profileSeamSummaryLine)
+            }
+            'seam-after-success' {
+                $profileDiagnosticMutated = $profileDiagnosticText.Replace(
+                    $profileSeamLine + "`n" + $profileSeamSuccessLine,
+                    $profileSeamSuccessLine + "`n" + $profileSeamLine)
+            }
+            'seam-before-error' {
+                $profileSeamBlock = $profileIntentionalLine + "`n" +
+                    $profileSeamSummaryLine + "`n" + $profileSeamLine
+                $profileDiagnosticMutated = $profileDiagnosticText.Replace(
+                    $profileSeamBlock,
+                    $profileSeamLine + "`n" + $profileIntentionalLine + "`n" +
+                        $profileSeamSummaryLine)
+            }
+            'summary-before-error' {
+                $profileSummaryBlock = $profileIntentionalLine + "`n" +
+                    $profileFirstSummaryLine
+                $profileDiagnosticMutated = $profileDiagnosticText.Replace(
+                    $profileSummaryBlock,
+                    $profileFirstSummaryLine + "`n" +
+                        $profileIntentionalLine)
+            }
+            'missing-interval-summary' {
+                $profileDiagnosticMutated = $profileDiagnosticText.Replace(
+                    $profileFirstSummaryLine + "`n",
+                    '')
+            }
+            'duplicate-interval-summary' {
+                $profileDiagnosticMutated = $profileDiagnosticText.Replace(
+                    $profileFirstSummaryLine,
+                    $profileFirstSummaryLine + "`n" +
+                        $profileFirstSummaryLine)
+            }
+            'missing-interval-intentional' {
+                $intentionalNeedle = $profileIntentionalLine + "`n"
+                $intentionalIndex = $profileDiagnosticText.IndexOf(
+                    $intentionalNeedle,
+                    [StringComparison]::Ordinal)
+                $profileDiagnosticMutated = $profileDiagnosticText.Remove(
+                    $intentionalIndex,
+                    $intentionalNeedle.Length)
+            }
+            'duplicate-interval-intentional' {
+                $intentionalNeedle = $profileIntentionalLine + "`n"
+                $intentionalIndex = $profileDiagnosticText.IndexOf(
+                    $intentionalNeedle,
+                    [StringComparison]::Ordinal)
+                $profileDiagnosticMutated = $profileDiagnosticText.Insert(
+                    $intentionalIndex,
+                    $intentionalNeedle)
+            }
+            default {
+                throw 'Unknown focused profile-diagnostic mutation.'
+            }
+        }
+        if ($profileDiagnosticMutated -ceq $profileDiagnosticText) {
+            throw 'Focused profile-diagnostic mutation did not change the fixture.'
+        }
+        Write-SelfTestText `
+            -Path $profileDiagnosticFull `
+            -Text $profileDiagnosticMutated
+        Update-SelfTestRunIndex `
+            -RunPath $profileDiagnosticRunPath `
+            -PortablePath $profileDiagnosticPortable
+        Reset-SelfTestOutput -OutputPath $repository.OutputPath
+        $profileDiagnosticRejected = Invoke-SelfTestProducer `
+            -EvidenceRoot $profileDiagnosticCase.EvidenceRoot `
+            -RunPaths $profileDiagnosticCase.RunPaths `
+            -OutputPath $repository.OutputPath `
+            -RepositoryRoot $repository.Root
+        Assert-SelfTestRejected `
+            $profileDiagnosticRejected `
+            $repository.OutputPath `
+            'raw_diagnostic_tampering'
+    }
 
     $duplicateMarkerCase = New-SelfTestCaseFixture `
         -PristineEvidence $pristine.EvidenceRoot `

@@ -41,10 +41,15 @@ tracked index/ready SHA-256 values are
 Both halves independently reverified read-only and were jointly consumed against
 the unchanged package and candidate binding
 `06b5fa23ccd10bfd1f8621f6b03c25d9c36719cc9c7d08ebcc73dabbba8c9f5f`.
-`STATUS-008` is closed again. Candidate, package, gameplay, Foundation, and
-Workbench facts are unchanged. No 91-case focused, corrected-canary, or full-
-profile runtime evidence has yet been accepted for these bytes. Gate 1 is
-incomplete, and release remains `NO-GO`.
+CRI-102 changes the profile-diagnostic current-consumer binding, so this pair is
+now immutable passed history rather than active evidence. The first `87b5ad4`
+focused batch is preserved as superseded/rejected forensic evidence: four
+service suites passed JUnit 50/0/0/0, while the profile wrapper rejected despite
+JUnit 41/0/0/0 because it expected a dedicated singleton seam detail in every
+testcase interval. `STATUS-008` is open. Candidate, package, gameplay,
+Foundation, and Workbench facts are unchanged. No 91-case focused, corrected-
+canary, or full-profile runtime evidence has yet been accepted for these bytes.
+Gate 1 is incomplete, and release remains `NO-GO`.
 
 Focused counterattack leaf
 `20260722T105628Z-68bd71de0fea40f68b533feee1c9e86a`, `run.json` SHA-256
@@ -2529,6 +2534,22 @@ Debug and packaged-runtime gates remain open.
   reverified read-only and were jointly consumed, closing `STATUS-008` again.
   Both earlier pairs remain immutable passed history, and both rejected focused
   leaves remain immutable rejected history.
+- [x] Preserve the first `87b5ad4` five-suite attempt as one byte-exact
+  superseded/rejected forensic batch. Counterattack, garrison rebuild, planning
+  commitment, and QRF passed JUnit 50/0/0/0 in total. Profile leaf
+  `20260722T121803Z-ada938901086420ea9d51844b3cf4b2f` failed closed in the
+  wrapper despite exit zero, exact 2/2/1/0 mounts, an empty failed list, and
+  JUnit 41/0/0/0; its `run.json` SHA-256 is
+  `c451a8aa07c3c62fb105a3268800625ad711ba472021afdc7d7f5ffb99fac66a`.
+- [x] Correct the profile diagnostic contract to exact 41/41/1 topology: one
+  intentional native-save error and later non-mutating summary in every named
+  testcase interval, plus one detailed seam token only in the dedicated failed-
+  callback interval after its summary and before success. Reject missing,
+  duplicate, misordered, wrong-case, or additive evidence.
+- [x] Preserve the CRI-101 pair as immutable passed history after the corrected
+  runner/producer/consumer changes its active binding. Reopen `STATUS-008`.
+- [ ] Run and jointly consume a fresh same-package surface/retention pair under
+  the corrected committed tools.
 - [ ] Run the five-suite focused aggregate with exactly 91 individually named
   cases and JUnit 91/0/0/0 against the unchanged active package.
 - [ ] Run the corrected canary only after the focused aggregate is accepted.

@@ -1184,6 +1184,20 @@ function Get-FocusedHardDiagnosticCensus {
             'HST_TEST_CampaignProfileJournalAuthority' -or
         $ExpectedTestCase -ceq
             'HST_CampaignProfileJournalAuthorityAutotestSuite'
+    $profileExpectedCaseCount = if ($ExpectedTestCase -ceq
+            'HST_TEST_CampaignProfileJournalAuthority') {
+        1
+    }
+    else {
+        41
+    }
+    $profileExactSeamCase = if ($ExpectedTestCase -ceq
+            'HST_TEST_CampaignProfileJournalAuthority') {
+        'HST_TEST_CampaignProfileJournalAuthority'
+    }
+    else {
+        'HST_TEST_CampaignProfileJournalAuthority_FailedNativeCallbackNonMutating'
+    }
     $expectedIntentionalFaultCount = if ($profileJournalCase) {
         $expectedCases.Count
     }
@@ -1215,9 +1229,10 @@ function Get-FocusedHardDiagnosticCensus {
         $profileExactSeamTokenCount -eq 0 -and
         $intentionalIndices.Count -eq 0
     if ($profileJournalCase -and
+        $expectedCases.Count -eq $profileExpectedCaseCount -and
         $successfulCaseRows.Count -eq $expectedCases.Count -and
         $profileNonMutatingTokenCount -eq $expectedCases.Count -and
-        $profileExactSeamTokenCount -eq $expectedCases.Count -and
+        $profileExactSeamTokenCount -eq 1 -and
         $intentionalIndices.Count -eq $expectedCases.Count) {
         $profileProofTokensSeen = $true
         $intervalFloor = $suiteStartedIndex
@@ -1236,9 +1251,18 @@ function Get-FocusedHardDiagnosticCensus {
                 })
             if ($intervalIntentional.Count -ne 1 -or
                 $intervalNonMutating.Count -ne 1 -or
-                $intervalExactSeam.Count -ne 1 -or
-                $intervalIntentional[0] -ge $intervalNonMutating[0] -or
-                $intervalIntentional[0] -ge $intervalExactSeam[0]) {
+                $intervalIntentional[0] -ge $intervalNonMutating[0]) {
+                $profileProofTokensSeen = $false
+                break
+            }
+            $requiresExactSeam = [string]$successRow.Name -ceq
+                $profileExactSeamCase
+            if (($requiresExactSeam -and
+                    ($intervalExactSeam.Count -ne 1 -or
+                        $intervalNonMutating[0] -ge
+                            $intervalExactSeam[0])) -or
+                (-not $requiresExactSeam -and
+                    $intervalExactSeam.Count -ne 0)) {
                 $profileProofTokensSeen = $false
                 break
             }
@@ -1352,11 +1376,17 @@ function Test-FocusedHardDiagnosticCensus {
         throw 'Focused success-marker prefix rejection self-test failed.'
     }
 
+    $profileErrorLine =
+        "17:00:00.001 SCRIPT    (E): string failureDetail = 'Partisan persistence | native save callback failure | sequence/type/flags 1/0/0 | manager/enabled/allowed/busy/active/playthrough 1/1/1/0/0/0 | types/persistence/state/loaded/tracked/config/staged 5/1/2/0/0/0/1 | replication mode 0 | snapshot fingerprint '"
+    $profileSummaryLine =
+        '17:00:00.002 SCRIPT       : exact | failed native callback non-mutating 1 | exact'
+    $profileSeamLine =
+        '17:00:00.003 SCRIPT       : setup/seam/request/bytes/journal 1/1/1/1/1 | exact'
     $profileText = @(
         '17:00:00.000 SCRIPT       : TestSuite #Profile started',
-        "17:00:00.001 SCRIPT    (E): string failureDetail = 'Partisan persistence | native save callback failure | sequence/type/flags 1/0/0 | manager/enabled/allowed/busy/active/playthrough 1/1/1/0/0/0 | types/persistence/state/loaded/tracked/config/staged 5/1/2/0/0/0/1 | replication mode 0 | snapshot fingerprint '",
-        '17:00:00.002 SCRIPT       : setup/seam/request/bytes/journal 1/1/1/1/1 | exact',
-        '17:00:00.003 SCRIPT       : exact | failed native callback non-mutating 1 | exact',
+        $profileErrorLine,
+        $profileSummaryLine,
+        $profileSeamLine,
         ('17:00:00.004 SCRIPT       : ' + $profileCase + ': SUCCESS'),
         '17:00:00.005 SCRIPT       : SCR_TestRunner has finished running',
         '17:00:00.006 SCRIPT       : Autotest JUnit XML saved to: $logs:/junit.xml',
@@ -1371,6 +1401,191 @@ function Test-FocusedHardDiagnosticCensus {
         $profileValid.HardDiagnosticCount -ne 3 -or
         $profileValid.ApprovedIntentionalFaultCount -ne 1) {
         throw 'Focused hard-diagnostic intentional-fault classification self-test failed.'
+    }
+
+    $profileSuite = 'HST_CampaignProfileJournalAuthorityAutotestSuite'
+    $profileSuiteSeamCase =
+        'HST_TEST_CampaignProfileJournalAuthority_FailedNativeCallbackNonMutating'
+    $profileSuiteCases = @($script:FocusedSuiteTestCases[$profileSuite])
+    $profileSuiteLines = New-Object Collections.Generic.List[string]
+    [void]$profileSuiteLines.Add(
+        '17:01:00.000 SCRIPT       : TestSuite #' + $profileSuite + ' started')
+    $profileSuiteSeamLine =
+        '17:01:00.003 SCRIPT       : setup/seam/request/bytes/journal 1/1/1/1/1 | exact'
+    $profileSuiteErrorLine = $profileErrorLine.Replace(
+        '17:00:00.001',
+        '17:01:00.001')
+    $firstProfileSuiteSummaryLine = ''
+    $firstProfileSuiteSuccessLine = ''
+    $profileSuiteSeamSummaryLine = ''
+    $profileSuiteSeamSuccessLine = ''
+    foreach ($profileSuiteCase in $profileSuiteCases) {
+        $summaryLine = '17:01:00.002 SCRIPT       : exact | ' +
+            'failed native callback non-mutating 1 | case ' +
+            $profileSuiteCase
+        $successLine = '17:01:00.004 SCRIPT       : ' +
+            $successMarker + ' ' + $profileSuiteCase + ': SUCCESS'
+        if ([string]::IsNullOrEmpty($firstProfileSuiteSummaryLine)) {
+            $firstProfileSuiteSummaryLine = $summaryLine
+            $firstProfileSuiteSuccessLine = $successLine
+        }
+        [void]$profileSuiteLines.Add($profileSuiteErrorLine)
+        [void]$profileSuiteLines.Add($summaryLine)
+        if ($profileSuiteCase -ceq $profileSuiteSeamCase) {
+            $profileSuiteSeamSummaryLine = $summaryLine
+            $profileSuiteSeamSuccessLine = $successLine
+            [void]$profileSuiteLines.Add($profileSuiteSeamLine)
+        }
+        [void]$profileSuiteLines.Add($successLine)
+    }
+    [void]$profileSuiteLines.Add(
+        '17:01:00.005 SCRIPT       : SCR_TestRunner has finished running')
+    [void]$profileSuiteLines.Add(
+        '17:01:00.006 SCRIPT       : Autotest JUnit XML saved to: $logs:/junit.xml')
+    [void]$profileSuiteLines.Add(
+        '17:01:00.007 SCRIPT       : Autotest failed list saved to: $logs:/autotest_failed.log')
+    [void]$profileSuiteLines.Add($stockLine)
+    [void]$profileSuiteLines.Add($stockLine)
+    $profileSuiteText = $profileSuiteLines.ToArray() -join "`n"
+    $profileSuiteValid = Get-FocusedHardDiagnosticCensus `
+        -ConsoleText $profileSuiteText `
+        -ExpectedTestCase $profileSuite
+    if (-not $profileSuiteValid.Valid -or
+        -not $profileSuiteValid.ProfileProofTokensSeen -or
+        $profileSuiteValid.HardDiagnosticCount -ne 43 -or
+        $profileSuiteValid.ApprovedStockFilterCount -ne 2 -or
+        $profileSuiteValid.ApprovedIntentionalFaultCount -ne 41 -or
+        $profileSuiteValid.UnapprovedHardDiagnosticCount -ne 0) {
+        throw 'Focused 41-case profile diagnostic classification self-test failed.'
+    }
+
+    $missingSuiteSeam = Get-FocusedHardDiagnosticCensus `
+        -ConsoleText $profileSuiteText.Replace(
+            $profileSuiteSeamLine + "`n",
+            '') `
+        -ExpectedTestCase $profileSuite
+    if ($missingSuiteSeam.Valid -or
+        $missingSuiteSeam.ProfileProofTokensSeen -or
+        $missingSuiteSeam.UnapprovedHardDiagnosticCount -ne 41) {
+        throw 'Focused singleton profile-seam omission rejection self-test failed.'
+    }
+    $duplicateSuiteSeam = Get-FocusedHardDiagnosticCensus `
+        -ConsoleText $profileSuiteText.Replace(
+            $profileSuiteSeamLine,
+            $profileSuiteSeamLine + "`n" + $profileSuiteSeamLine) `
+        -ExpectedTestCase $profileSuite
+    if ($duplicateSuiteSeam.Valid -or
+        $duplicateSuiteSeam.ProfileProofTokensSeen -or
+        $duplicateSuiteSeam.UnapprovedHardDiagnosticCount -ne 41) {
+        throw 'Focused duplicate profile-seam rejection self-test failed.'
+    }
+    $wrongSuiteSeamIntervalText = $profileSuiteText.Replace(
+        $profileSuiteSeamLine + "`n",
+        '').Replace(
+            $firstProfileSuiteSuccessLine,
+            $profileSuiteSeamLine + "`n" + $firstProfileSuiteSuccessLine)
+    $wrongSuiteSeamInterval = Get-FocusedHardDiagnosticCensus `
+        -ConsoleText $wrongSuiteSeamIntervalText `
+        -ExpectedTestCase $profileSuite
+    if ($wrongSuiteSeamInterval.Valid -or
+        $wrongSuiteSeamInterval.ProfileProofTokensSeen -or
+        $wrongSuiteSeamInterval.UnapprovedHardDiagnosticCount -ne 41) {
+        throw 'Focused wrong profile-seam interval rejection self-test failed.'
+    }
+    $earlySuiteSeam = Get-FocusedHardDiagnosticCensus `
+        -ConsoleText $profileSuiteText.Replace(
+            $profileSuiteSeamSummaryLine + "`n" + $profileSuiteSeamLine,
+            $profileSuiteSeamLine + "`n" + $profileSuiteSeamSummaryLine) `
+        -ExpectedTestCase $profileSuite
+    if ($earlySuiteSeam.Valid -or
+        $earlySuiteSeam.ProfileProofTokensSeen -or
+        $earlySuiteSeam.UnapprovedHardDiagnosticCount -ne 41) {
+        throw 'Focused early profile-seam rejection self-test failed.'
+    }
+    $lateSuiteSeam = Get-FocusedHardDiagnosticCensus `
+        -ConsoleText $profileSuiteText.Replace(
+            $profileSuiteSeamLine + "`n" + $profileSuiteSeamSuccessLine,
+            $profileSuiteSeamSuccessLine + "`n" + $profileSuiteSeamLine) `
+        -ExpectedTestCase $profileSuite
+    if ($lateSuiteSeam.Valid -or
+        $lateSuiteSeam.ProfileProofTokensSeen -or
+        $lateSuiteSeam.UnapprovedHardDiagnosticCount -ne 41) {
+        throw 'Focused late profile-seam rejection self-test failed.'
+    }
+    $missingSuiteSummary = Get-FocusedHardDiagnosticCensus `
+        -ConsoleText $profileSuiteText.Replace(
+            $firstProfileSuiteSummaryLine + "`n",
+            '') `
+        -ExpectedTestCase $profileSuite
+    if ($missingSuiteSummary.Valid -or
+        $missingSuiteSummary.ProfileProofTokensSeen -or
+        $missingSuiteSummary.UnapprovedHardDiagnosticCount -ne 41) {
+        throw 'Focused missing per-interval profile summary rejection self-test failed.'
+    }
+    $duplicateSuiteSummary = Get-FocusedHardDiagnosticCensus `
+        -ConsoleText $profileSuiteText.Replace(
+            $firstProfileSuiteSummaryLine,
+            $firstProfileSuiteSummaryLine + "`n" +
+                $firstProfileSuiteSummaryLine) `
+        -ExpectedTestCase $profileSuite
+    if ($duplicateSuiteSummary.Valid -or
+        $duplicateSuiteSummary.ProfileProofTokensSeen -or
+        $duplicateSuiteSummary.UnapprovedHardDiagnosticCount -ne 41) {
+        throw 'Focused duplicate per-interval profile summary rejection self-test failed.'
+    }
+    $firstProfileSuiteErrorNeedle = $profileSuiteErrorLine + "`n"
+    $firstProfileSuiteErrorIndex = $profileSuiteText.IndexOf(
+        $firstProfileSuiteErrorNeedle,
+        [StringComparison]::Ordinal)
+    if ($firstProfileSuiteErrorIndex -lt 0) {
+        throw 'Focused profile-suite error fixture is unavailable.'
+    }
+    $missingSuiteIntentionalText = $profileSuiteText.Remove(
+        $firstProfileSuiteErrorIndex,
+        $firstProfileSuiteErrorNeedle.Length)
+    $missingSuiteIntentional = Get-FocusedHardDiagnosticCensus `
+        -ConsoleText $missingSuiteIntentionalText `
+        -ExpectedTestCase $profileSuite
+    if ($missingSuiteIntentional.Valid -or
+        $missingSuiteIntentional.ProfileProofTokensSeen -or
+        $missingSuiteIntentional.UnapprovedHardDiagnosticCount -ne 40) {
+        throw 'Focused missing per-interval intentional fault rejection self-test failed.'
+    }
+    $duplicateSuiteIntentionalText = $profileSuiteText.Insert(
+        $firstProfileSuiteErrorIndex,
+        $firstProfileSuiteErrorNeedle)
+    $duplicateSuiteIntentional = Get-FocusedHardDiagnosticCensus `
+        -ConsoleText $duplicateSuiteIntentionalText `
+        -ExpectedTestCase $profileSuite
+    if ($duplicateSuiteIntentional.Valid -or
+        $duplicateSuiteIntentional.ProfileProofTokensSeen -or
+        $duplicateSuiteIntentional.UnapprovedHardDiagnosticCount -ne 42) {
+        throw 'Focused duplicate per-interval intentional fault rejection self-test failed.'
+    }
+    $profileSuiteSeamBlock = $profileSuiteErrorLine + "`n" +
+        $profileSuiteSeamSummaryLine + "`n" + $profileSuiteSeamLine
+    $seamBeforeSuiteError = Get-FocusedHardDiagnosticCensus `
+        -ConsoleText $profileSuiteText.Replace(
+            $profileSuiteSeamBlock,
+            $profileSuiteSeamLine + "`n" + $profileSuiteErrorLine + "`n" +
+                $profileSuiteSeamSummaryLine) `
+        -ExpectedTestCase $profileSuite
+    if ($seamBeforeSuiteError.Valid -or
+        $seamBeforeSuiteError.ProfileProofTokensSeen -or
+        $seamBeforeSuiteError.UnapprovedHardDiagnosticCount -ne 41) {
+        throw 'Focused pre-error profile-seam rejection self-test failed.'
+    }
+    $summaryBeforeSuiteErrorBlock = $profileSuiteErrorLine + "`n" +
+        $firstProfileSuiteSummaryLine
+    $summaryBeforeSuiteError = Get-FocusedHardDiagnosticCensus `
+        -ConsoleText $profileSuiteText.Replace(
+            $summaryBeforeSuiteErrorBlock,
+            $firstProfileSuiteSummaryLine + "`n" + $profileSuiteErrorLine) `
+        -ExpectedTestCase $profileSuite
+    if ($summaryBeforeSuiteError.Valid -or
+        $summaryBeforeSuiteError.ProfileProofTokensSeen -or
+        $summaryBeforeSuiteError.UnapprovedHardDiagnosticCount -ne 41) {
+        throw 'Focused pre-error profile summary rejection self-test failed.'
     }
 
     $unknown = Get-FocusedHardDiagnosticCensus `
@@ -1460,7 +1675,7 @@ function Test-FocusedHardDiagnosticCensus {
     if ($successAfterCompletion.Valid) {
         throw 'Focused hard-diagnostic completion-order rejection self-test failed.'
     }
-    return 12
+    return 25
 }
 
 function Test-FocusedSuiteSelectorContract {

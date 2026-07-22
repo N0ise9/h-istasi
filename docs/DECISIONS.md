@@ -5373,3 +5373,67 @@ Consequences:
   both rejected focused leaves as immutable rejected forensic evidence.
 - The exact next order is all five focused suites and their 91-case aggregate,
   the corrected canary, and Full Campaign Debug only after an accepted canary.
+
+## CRI-102 - Make the Profile Intentional-Diagnostic Contract Source-Faithful
+
+- Status: Accepted as a tooling correction; runtime evidence recapture required
+- Date: 2026-07-22
+
+Context: The first five-suite attempt under clean harness `87b5ad4` stopped
+before aggregation. Four service suites were fully green at JUnit 50/0/0/0:
+
+- Counterattack leaf `20260722T121635Z-77171d61a6434ff1a923122155fefd7d`,
+  JUnit 14/0/0/0, `run.json` SHA-256
+  `4bb519bd1d92c24c83fab138efac6d39b6d2d7d72734a47ecf5575c215fafa85`.
+- Garrison-rebuild leaf
+  `20260722T121701Z-34505d25f4a4430e93357a4dfc8f3bc5`, JUnit 13/0/0/0,
+  `run.json` SHA-256
+  `0ca066328c15a4172e8b670a8cdddbe0416b58fa68f12b01408255ffe574797b`.
+- Planning-commitment leaf
+  `20260722T121720Z-6c80964f0cd14c0d9142d97589014c36`, JUnit 17/0/0/0,
+  `run.json` SHA-256
+  `087a7e6713d3c37b2abdb3776c8a4cf3dfcef15508241b5c176181ae574b427a`.
+- QRF leaf `20260722T121742Z-acab14de0fc94dd2a06569d7182ed525`,
+  JUnit 6/0/0/0, `run.json` SHA-256
+  `240f1d936ccb6140d3f9fc1b54fe0405c0495c08a8ce67bab31e999c8c49f382`.
+
+Profile leaf `20260722T121803Z-ada938901086420ea9d51844b3cf4b2f`
+then failed closed in the wrapper despite an exact candidate boundary, exact
+2/2/1/0 mount attestation, exit zero, empty failed list, and JUnit 41/0/0/0.
+Its `run.json` and console SHA-256 values are
+`c451a8aa07c3c62fb105a3268800625ad711ba472021afdc7d7f5ffb99fac66a` and
+`f12ce122ef085f18fe5db3a941259f162b481da2c46bcd5ce8def7287a58879b`.
+The raw census contained 43 hard diagnostics: two approved stock events and 41
+intentional native-save failure rows. The old classifier approved none of the
+41 intentional rows because it required the detailed seam token 41 times, even
+though the suite intentionally emits that detail only for its dedicated case.
+
+The runtime source contract is exact: each of the 41 named testcase intervals
+must contain one intentional native-save failure row followed by one
+`failed native callback non-mutating 1` proof summary before its success marker.
+Exactly one `setup/seam/request/bytes/journal 1/1/1/1/1` detail must occur in the
+`HST_TEST_CampaignProfileJournalAuthority_FailedNativeCallbackNonMutating`
+interval, after that interval's non-mutating summary and before its success; no
+other interval may contain the detail. Missing, duplicate, misordered,
+wrong-case, or additive tokens fail closed. The 41 intentional events are
+approved only when the entire global and per-interval topology is exact; the
+two post-suite stock events remain separately classified.
+
+Decision: Correct all three raw consumers and their adversarial fixtures to
+enforce that 41/41/1 topology. Do not weaken the seam to an optional global
+substring, and do not retroactively promote any pre-correction leaf. Preserve
+all five leaves byte-for-byte as one superseded/rejected forensic batch: the
+four green runs cannot transfer across changed runner/producer/consumer bytes,
+and the profile wrapper remains an immutable rejected result under its recorded
+classifier.
+
+Consequences:
+
+- The CRI-101 pair remains immutable passed history under its recorded tool
+  bytes but no longer satisfies the active current-consumer binding.
+- Reopen `STATUS-008` and remove the CRI-101 pair from active release-status
+  evidence. Candidate, package, gameplay, Foundation, and Workbench evidence
+  remain unchanged.
+- The exact next order is a fresh same-package surface/retention pair, all five
+  focused suites and their 91-case aggregate, the corrected canary, and Full
+  Campaign Debug only after an accepted canary.

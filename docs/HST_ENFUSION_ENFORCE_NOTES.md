@@ -134,7 +134,7 @@ The embedded implementation stamp is
   verification, scalar confusion, canonical byte drift, terminal seals, fail-
   closed synthetic publication, receipt reuse, role relabeling, launch vectors,
   journals, and reparse points. They start no engine and are tooling proof only.
-- The focused-aggregate self-test passes 741 checks. Together with the 15/15
+- The focused-aggregate self-test passes 917 checks. Together with the 15/15
   source guard, 56-check runner, 74-check surface publisher, 73/73 retention
   publisher, and 3-plus-53 shared consumer, this is the stationary corrected
   tool boundary; it is not package-runtime or gameplay certification.
@@ -316,8 +316,10 @@ The embedded implementation stamp is
   bytes. CRI-100 later changed bound current-consumer bytes; both pairs remain
   immutable passed history under their recorded tool bytes, but neither now
   satisfies the active current-consumer binding. `STATUS-008` was reopened.
-  CRI-101 subsequently accepts a fresh encoding-stable pair and closes
-  `STATUS-008` again. Gate 1 remains incomplete and release remains `NO-GO`.
+  CRI-101 subsequently accepted a fresh encoding-stable pair. CRI-102 changes
+  the bound profile-diagnostic consumer, preserves that pair as immutable passed
+  history, and reopens `STATUS-008`. Gate 1 remains incomplete and release
+  remains `NO-GO`.
 - Parse mount evidence as structured timestamped `ENGINE : gproj:` records, not
   as arbitrary lines containing a GUID. Select the exact case-sensitive
   candidate GUID, require the exact guard-owned candidate path, and require
@@ -383,6 +385,30 @@ The embedded implementation stamp is
   `06b5fa23ccd10bfd1f8621f6b03c25d9c36719cc9c7d08ebcc73dabbba8c9f5f`.
   This closes `STATUS-008` without certifying save restoration or changing
   candidate, package, gameplay, Foundation, or Workbench facts.
+- CRI-102 preserves the first `87b5ad4` five-suite attempt byte-for-byte as one
+  superseded/rejected forensic batch. The four service suites passed JUnit
+  50/0/0/0 in total. Profile leaf
+  `20260722T121803Z-ada938901086420ea9d51844b3cf4b2f`, `run.json` SHA-256
+  `c451a8aa07c3c62fb105a3268800625ad711ba472021afdc7d7f5ffb99fac66a`,
+  failed closed in the wrapper despite exact package/mount identity, exit zero,
+  an empty failed list, and JUnit 41/0/0/0. Its console SHA-256 is
+  `f12ce122ef085f18fe5db3a941259f162b481da2c46bcd5ce8def7287a58879b`.
+  Do not transfer the four green leaves across changed tool bytes or retrofit
+  the profile result.
+- The profile intentional-diagnostic topology is 41/41/1, not 41/41/41. Every
+  named testcase interval must contain exactly one intentional native-save
+  failure followed by one `failed native callback non-mutating 1` summary before
+  its success marker. Exactly one
+  `setup/seam/request/bytes/journal 1/1/1/1/1` detail belongs only to
+  `HST_TEST_CampaignProfileJournalAuthority_FailedNativeCallbackNonMutating`,
+  after that case's summary and before its success; forbid it in every other
+  interval. Missing, duplicate, misordered, wrong-case, and additive tokens must
+  fail closed. Approve all 41 intentional events only when the whole topology is
+  exact, then classify the two post-suite stock events separately.
+- Correcting the runner, aggregate producer, and release consumer makes the
+  CRI-101 pair immutable passed history instead of active current-tool evidence.
+  Reopen `STATUS-008`, capture a fresh pair, then rerun all five focused suites.
+  Candidate, package, gameplay, Foundation, and Workbench facts do not change.
 - Treat tracked release indexes as canonical LF evidence, not native PowerShell
   text. A successful retention run exposed that `ConvertTo-Json` on Windows had
   written CRLF internally while the tracked evidence paths require LF; Git would
@@ -842,19 +868,16 @@ The embedded implementation stamp is
   `20260722T103329Z-edea9d8417884dd8a2d2b313c4543ad0` and retention leaf
   `20260722T103514Z-436f331b8659` passed, independently reverified read-only, and
   were jointly consumed under harness `e2c38d2770d8ebaaa675326d1b8a91068db989e5`.
-  CRI-100 also keeps that pair as immutable passed history under its recorded
-  tool bytes, but neither pair satisfies the active encoding-stable current-
-  consumer binding. CRI-101 accepts surface leaf
-  `20260722T114802Z-1fb5e08619ef45b2aae20f2c5938b56c` and retention leaf
-  `20260722T115003Z-4e159a24384c` under clean harness
-  `7e2fe71d9619fd60cfe393d2776b4ed49f75186b`; both independently reverified
-  read-only and were jointly consumed against the unchanged package.
-  `STATUS-008` is closed again. Its next evidence order is all five focused
-  suites and their 91-case aggregate, the corrected canary, and Full Campaign
-  Debug only after an accepted canary. Both earlier pairs remain immutable
-  passed history, and both rejected focused leaves remain immutable rejected
-  history. Candidate, package, gameplay, Foundation, and Workbench facts are
-  unchanged. Gate 1 is incomplete, and release remains `NO-GO`.
+  CRI-100 keeps that pair as immutable passed history under its recorded tool
+  bytes. CRI-101's later pair also remains immutable passed history after
+  CRI-102 changes the profile-diagnostic current-consumer binding. The first
+  `87b5ad4` focused batch is preserved as superseded/rejected evidence: four
+  service suites passed JUnit 50/0/0/0 and the profile wrapper rejected despite
+  JUnit 41/0/0/0. `STATUS-008` is open. Its next evidence order is a fresh same-
+  package pair, all five focused suites and their 91-case aggregate, the
+  corrected canary, and Full Campaign Debug only after an accepted canary.
+  Candidate, package, gameplay, Foundation, and Workbench facts are unchanged.
+  Gate 1 is incomplete, and release remains `NO-GO`.
 - The historical ordered `history[2]` `rejected-after-full-profile` candidate is
   `partisan-rc-ee0e8add2a29-20260719T063815Z`, version
   `0.1.0-rc.20260719T063815Z.ee0e8add`, from clean source HEAD
@@ -8881,27 +8904,28 @@ This file is for practical engine/script behavior, not project planning. Keep en
   It is non-certifying and does not advance native-engine/world, canary-release,
   or stable certification. This package's next canary rejected, so its chain is
   closed and Full Campaign Debug must not run. For the active immutable
-  candidate, CRI-100 reopened the current-consumer release-surface/runtime-
-  retention boundary; both earlier passed pairs remain immutable history under
-  their recorded tool bytes. CRI-101 accepts the fresh encoding-stable pair
-  under clean harness `7e2fe71d9619fd60cfe393d2776b4ed49f75186b` and closes
-  `STATUS-008` again without certification promotion. Preserve the remaining
-  serial order: the 91-case focused aggregate, the corrected canary, and then
-  full only after an accepted canary. Both rejected focused leaves remain
-  immutable rejected history, and evidence bound to superseded tool bytes does
-  not satisfy the active pair boundary.
+  candidate, CRI-102 reopened the current-consumer release-surface/runtime-
+  retention boundary; the CRI-101 pair and both earlier pairs remain immutable
+  history under their recorded tool bytes. Preserve the serial order: a fresh
+  same-package pair, all five focused suites and their 91-case aggregate, the
+  corrected canary, and then full only after an accepted canary. The first
+  `87b5ad4` five-suite batch remains superseded/rejected history, and evidence
+  bound to superseded tool bytes does not satisfy the active pair boundary.
 - A passing focused JUnit result does not classify the surrounding engine error
   channel. Bind a separate hard-diagnostic census into the runner's success
   predicate. For the current diagnostic client, exactly two stock filter-
   constructor errors per suite launch are allowed only after the runner-finished,
   JUnit-saved, and failed-list-saved markers. The profile-journal suite also
   requires exactly 41 in-suite native-save failure diagnostics, one bound to
-  each named testcase interval. Every intentional diagnostic is approved only
-  when both the `failed native callback non-mutating 1` and
-  `setup/seam/request/bytes/journal 1/1/1/1/1` proof tokens are present. Reject
-  unknown messages, a third stock message, wrong ordering, the wrong testcase,
-  or missing proof tokens. Record the approved and unapproved counts and mark
-  these successful runs as not hard-diagnostic-free.
+  each named testcase interval. Require one later
+  `failed native callback non-mutating 1` summary in every interval. Require the
+  `setup/seam/request/bytes/journal 1/1/1/1/1` detail exactly once, only in the
+  dedicated failed-callback case after its summary and before success; require
+  zero in every other interval. Approve the 41 intentional diagnostics only
+  when the entire 41/41/1 topology is exact. Reject unknown messages, a third
+  stock message, wrong ordering, the wrong testcase, missing/duplicate proof
+  tokens, or additive tokens. Record the approved and unapproved counts and
+  mark these successful runs as not hard-diagnostic-free.
 - Publish the five packaged focused suite launches through the schema-2 focused
   aggregate contract before attaching them to release status. The aggregate must reopen
   exactly five canonical run envelopes in gate order, require the exact

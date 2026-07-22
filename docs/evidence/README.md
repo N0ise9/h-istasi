@@ -410,6 +410,51 @@ unchanged. Next run all five focused suites and their 91-case aggregate, then
 the corrected canary, then Full Campaign Debug only after an accepted canary.
 Gate 1 remains incomplete and release remains `NO-GO`.
 
+CRI-102 preserves the first focused batch under clean harness `87b5ad4` as one
+byte-exact superseded/rejected forensic set. The four green service leaves are:
+
+- `20260722T121635Z-77171d61a6434ff1a923122155fefd7d`, counterattack JUnit
+  14/0/0/0, `run.json` SHA-256
+  `4bb519bd1d92c24c83fab138efac6d39b6d2d7d72734a47ecf5575c215fafa85`;
+- `20260722T121701Z-34505d25f4a4430e93357a4dfc8f3bc5`, garrison-rebuild
+  JUnit 13/0/0/0, `run.json` SHA-256
+  `0ca066328c15a4172e8b670a8cdddbe0416b58fa68f12b01408255ffe574797b`;
+- `20260722T121720Z-6c80964f0cd14c0d9142d97589014c36`, planning-commitment
+  JUnit 17/0/0/0, `run.json` SHA-256
+  `087a7e6713d3c37b2abdb3776c8a4cf3dfcef15508241b5c176181ae574b427a`;
+- `20260722T121742Z-acab14de0fc94dd2a06569d7182ed525`, QRF JUnit 6/0/0/0,
+  `run.json` SHA-256
+  `240f1d936ccb6140d3f9fc1b54fe0405c0495c08a8ce67bab31e999c8c49f382`.
+
+Profile leaf `20260722T121803Z-ada938901086420ea9d51844b3cf4b2f`
+retains `run.json` SHA-256
+`c451a8aa07c3c62fb105a3268800625ad711ba472021afdc7d7f5ffb99fac66a` and
+console SHA-256
+`f12ce122ef085f18fe5db3a941259f162b481da2c46bcd5ce8def7287a58879b`.
+It had exact package and 2/2/1/0 mount identity, exit zero, an empty failed list,
+and JUnit 41/0/0/0, but the wrapper rejected. The raw hard census was 43: two
+stock plus 41 intentional native-save failures. The old classifier approved
+none of those 41 because its fixture incorrectly taught all 41 testcase
+intervals to contain a detailed seam row that production emits only once.
+
+The corrected contract is exact 41/41/1. Every named interval requires one
+intentional native-save failure followed by one
+`failed native callback non-mutating 1` summary before success. Exactly one
+`setup/seam/request/bytes/journal 1/1/1/1/1` detail is required only in the
+dedicated failed-callback interval, after its summary and before success, and is
+forbidden in all other intervals. Missing, duplicate, misordered, wrong-case,
+or additive evidence fails closed. All 41 intentional events are approved only
+when the whole topology is exact; the two post-suite stock events remain
+separate.
+
+Changing the runner, aggregate producer, and release consumer means none of the
+five batch leaves can transfer. It also makes the CRI-101 pair immutable passed
+history rather than active current-tool evidence. `STATUS-008` is open;
+candidate, package, gameplay, Foundation, and Workbench facts are unchanged.
+The exact next order is a fresh same-package surface/retention pair, all five
+focused suites and their 91-case aggregate, the corrected canary, and Full
+Campaign Debug only after an accepted canary.
+
 ## Release-Ledger Schema 3 Historical Evidence
 
 Release-ledger Schema 3 is distinct from Campaign Schema 71. Its
@@ -456,17 +501,16 @@ Foundation passed 985 references. All five Workbench targets passed at 5,849
 files/12,022 classes with common CRC `aeddce9b`; the seal binds four package
 files and 50 evidence files. The tracked manifest and ready seal are the portable
 identity records; the package and complete raw evidence bundle remain external,
-immutable, and untracked. The passed `52c7e2b` and `e2c38d2` surface/retention
-pairs remain immutable history under their recorded tool bytes. Fresh 41-file
-surface leaf `20260722T114802Z-1fb5e08619ef45b2aae20f2c5938b56c` and 251-file
-retention leaf `20260722T115003Z-4e159a24384c` passed under clean encoding-stable
-harness `7e2fe71d9619fd60cfe393d2776b4ed49f75186b`, independently reverified
-read-only, and were jointly consumed against the unchanged package. Both
-rejected focused leaves remain immutable rejected history. Candidate, package,
-gameplay, Foundation, and Workbench evidence are unchanged. `STATUS-008` is
-closed again. Next run all five focused suites and their 91-case aggregate, the
-corrected canary, and Full Campaign Debug only after an accepted canary. Gate 1
-remains incomplete and release remains `NO-GO`.
+immutable, and untracked. The passed `52c7e2b`, `e2c38d2`, and CRI-101 surface/
+retention pairs remain immutable history under their recorded tool bytes, but
+none satisfies the corrected profile-diagnostic consumer. The first `87b5ad4`
+focused batch is preserved as superseded/rejected history: four service suites
+passed JUnit 50/0/0/0 and the profile wrapper rejected despite JUnit 41/0/0/0.
+Candidate, package, gameplay, Foundation, and Workbench evidence are unchanged.
+`STATUS-008` is open. Next run a fresh same-package surface/retention pair, all
+five focused suites and their 91-case aggregate, the corrected canary, and Full
+Campaign Debug only after an accepted canary. Gate 1 remains incomplete and
+release remains `NO-GO`.
 
 Historical ledger `history[2]`, retired as `rejected-after-full-profile`, is
 `partisan-rc-ee0e8add2a29-20260719T063815Z`, version

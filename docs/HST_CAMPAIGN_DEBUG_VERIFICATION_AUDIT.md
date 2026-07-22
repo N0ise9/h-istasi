@@ -43,8 +43,8 @@ foundation status, and read-only campaign/persistence inspection. The source
 audit self-test passes 15/15.
 
 The paired release-surface runner's 56-check structural self-test also passes.
-Its accepted CRI-101 package-bound run compared standard and diagnostic
-processes against one exact candidate. The member plan is rederived from that candidate
+Its now-historical accepted CRI-101 package-bound run compared standard and
+diagnostic processes against one exact candidate. The member plan is rederived from that candidate
 commit, then the loaded package is probed for all 67 forbidden and 91
 production-observability members. Inert `ScriptModule.CompileScript` snippets
 cover methods, constants, and the guarded `forceDebug` signature; typename
@@ -77,8 +77,9 @@ retained engine logs are authoritative. Every probe must retain `console.log`,
 `script.log`, and `error.log`. Zero or one `crash.log` is valid; if emitted it
 must be retained and classified, and if absent it must never be synthesized.
 The active package's all-target Workbench evidence establishes common CRC
-`aeddce9b` for its exact source, but does not substitute for the accepted CRI-101
-paired runtime-surface evidence; neither scoped result promotes certification.
+`aeddce9b` for its exact source, but does not substitute for a fresh pair under
+the CRI-102 current-consumer binding. CRI-101 remains immutable passed history;
+neither scoped result promotes certification.
 
 The first real retail probe against the active package produced exactly the
 three required logs and no crash log. The overall attempt failed closed on the
@@ -431,6 +432,39 @@ and their 91-case aggregate, then the corrected canary, then Full Campaign Debug
 only after an accepted canary. Gate 1 remains incomplete and release remains
 `NO-GO`.
 
+## Profile Diagnostic Topology Corrected
+
+CRI-102 preserves the first `87b5ad4` five-suite attempt as one immutable
+superseded/rejected forensic batch. Counterattack, garrison rebuild, planning
+commitment, and QRF passed JUnit 50/0/0/0 in total. Profile leaf
+`20260722T121803Z-ada938901086420ea9d51844b3cf4b2f`, with `run.json` SHA-256
+`c451a8aa07c3c62fb105a3268800625ad711ba472021afdc7d7f5ffb99fac66a` and
+console SHA-256
+`f12ce122ef085f18fe5db3a941259f162b481da2c46bcd5ce8def7287a58879b`,
+failed only at the wrapper classifier despite exact package/mount identity,
+exit zero, an empty failed list, and JUnit 41/0/0/0. Its 43 hard events were two
+stock events plus 41 intentional native-save failures; the old classifier
+approved none because it expected the detailed seam evidence 41 times.
+
+The source-faithful contract instead requires exactly one intentional failure
+and one `failed native callback non-mutating 1` summary inside each of the 41
+named testcase intervals, ordered before that interval's success. Exactly one
+`setup/seam/request/bytes/journal 1/1/1/1/1` detail is required only inside
+`HST_TEST_CampaignProfileJournalAuthority_FailedNativeCallbackNonMutating`,
+after its summary and before its success; every other interval must contain
+zero. Missing, duplicate, misordered, wrong-case, or additive evidence fails
+closed. Approval of all 41 intentional events is atomic across this topology,
+and the two post-suite stock events remain separate.
+
+The corrected runner, producer, and consumer bytes make the CRI-101 pair
+immutable passed history rather than the active pair. The four green leaves do
+not transfer, the profile wrapper remains rejected under its recorded
+classifier, and no aggregate is published from this batch. `STATUS-008` is open.
+Candidate, package, gameplay, Foundation, and Workbench facts are unchanged.
+Next capture a fresh same-package pair, rerun all five focused suites, publish
+and consume their 91-case aggregate, run the corrected canary, and run Full
+Campaign Debug only after an accepted canary.
+
 The release-index publishers and focused aggregate bind their relevant
 producer and consumer worktree bytes to immutable Git blobs. The
 release-document consumers reverify those bindings, while Foundation pins the
@@ -499,16 +533,14 @@ aggregate, focused-consumer, general-consumer, generated-document check, and
 Foundation commands to pass serially in independently started PowerShell
 processes on one clean unchanged commit. No command may overlap another, and
 any HEAD or bound-hash drift restarts the sequence.
-This checkpoint retains portable tooling proof. CRI-100 changed the active
-current-consumer binding, so neither immutable passed historical surface/
-retention pair satisfies the current boundary. CRI-101 accepts fresh same-package
-surface leaf `20260722T114802Z-1fb5e08619ef45b2aae20f2c5938b56c` and retention
-leaf `20260722T115003Z-4e159a24384c` under clean harness
-`7e2fe71d9619fd60cfe393d2776b4ed49f75186b`; both independently reverified
-read-only and were jointly consumed, closing `STATUS-008` again without
-certification promotion. The five-suite 91-case focused aggregate, corrected
-native canary, full profile, dedicated multiplayer, restart, and soak remain
-pending; release remains `NO-GO`.
+This checkpoint retains portable tooling proof. CRI-101 accepted fresh same-
+package surface leaf `20260722T114802Z-1fb5e08619ef45b2aae20f2c5938b56c`
+and retention leaf `20260722T115003Z-4e159a24384c`, but CRI-102 later changed
+the profile-diagnostic current-consumer binding. That pair remains immutable
+passed history rather than active evidence, and `STATUS-008` is open. A fresh
+same-package pair, the five-suite 91-case focused aggregate, corrected native
+canary, full profile, dedicated multiplayer, restart, and soak remain pending;
+release remains `NO-GO`.
 
 ## Unsealed Phase 20 Ownership Repair
 
@@ -886,12 +918,15 @@ fail-closed evidence for that correction. CRI-101 then accepts surface run
 independently reverified read-only and were jointly consumed against the
 unchanged package and binding
 `06b5fa23ccd10bfd1f8621f6b03c25d9c36719cc9c7d08ebcc73dabbba8c9f5f`.
-`STATUS-008` is closed again. Both earlier pairs remain immutable passed history,
-and both rejected focused leaves remain immutable rejected history. All five
-focused suites and their 91-case aggregate, corrected-canary evidence, and full-
-profile evidence remain pending in that order; Full runs only after an accepted canary. Candidate,
-package, gameplay, Foundation, and Workbench facts are unchanged. Gate 1 is
-incomplete and release remains `NO-GO`.
+CRI-102 later makes this pair immutable passed history by changing the bound
+profile-diagnostic consumer. The first `87b5ad4` focused attempt is preserved as
+one superseded/rejected batch: four suites were green at JUnit 50/0/0/0, while
+the profile wrapper rejected despite JUnit 41/0/0/0. `STATUS-008` is open. A
+fresh pair, all five focused suites and their 91-case aggregate, corrected-
+canary evidence, and full-profile evidence remain pending in that order; Full
+runs only after an accepted canary. Candidate, package, gameplay, Foundation,
+and Workbench facts are unchanged. Gate 1 is incomplete and release remains
+`NO-GO`.
 
 The first candidate, `partisan-rc-c2b16c4a2d85-20260718T201442Z`, remains sealed
 with digest `8f60260331c6c7473465dc4517b1063a179a8f4efeffdcfe3d5eccac9af476db`

@@ -2193,6 +2193,20 @@ function Get-FocusedRawDiagnosticCensus {
 			'HST_TEST_CampaignProfileJournalAuthority' -or
 		$ExpectedProfile -ceq
 			'HST_CampaignProfileJournalAuthorityAutotestSuite'
+	$profileExpectedCaseCount = if ($ExpectedProfile -ceq
+			'HST_TEST_CampaignProfileJournalAuthority') {
+		1
+	}
+	else {
+		41
+	}
+	$profileExactSeamCase = if ($ExpectedProfile -ceq
+			'HST_TEST_CampaignProfileJournalAuthority') {
+		'HST_TEST_CampaignProfileJournalAuthority'
+	}
+	else {
+		'HST_TEST_CampaignProfileJournalAuthority_FailedNativeCallbackNonMutating'
+	}
 	$hardPattern = '\b(?:SCRIPT|ENGINE)\s+\(E\):'
 	$stockPattern = "^\s*\d{2}:\d{2}:\d{2}\.\d+\s+SCRIPT\s+\(E\): Can't instantiate class 'SCR_FilterCategory', constructor is not public\s*$"
 	$intentionalPattern = "^\s*\d{2}:\d{2}:\d{2}\.\d+\s+SCRIPT\s+\(E\): string failureDetail = 'Partisan persistence \| native save callback failure \| sequence/type/flags 1/0/0 \| manager/enabled/allowed/busy/active/playthrough 1/1/1/0/0/0 \| types/persistence/state/loaded/tracked/config/staged 5/1/2/0/0/0/1 \| replication mode 0 \| snapshot fingerprint '\s*$"
@@ -2207,9 +2221,10 @@ function Get-FocusedRawDiagnosticCensus {
 	$proofTokens = -not $isJournal -and $nonMutatingCount -eq 0 -and
 		$exactSeamCount -eq 0 -and $intentionalIndices.Count -eq 0
 	if ($isJournal -and
+		$expectedCases.Count -eq $profileExpectedCaseCount -and
 		$successfulCaseRows.Count -eq $expectedCases.Count -and
 		$nonMutatingCount -eq $expectedCases.Count -and
-		$exactSeamCount -eq $expectedCases.Count -and
+		$exactSeamCount -eq 1 -and
 		$intentionalIndices.Count -eq $expectedCases.Count) {
 		$proofTokens = $true
 		$intervalFloor = $suiteStartedIndex
@@ -2226,9 +2241,18 @@ function Get-FocusedRawDiagnosticCensus {
 			})
 			if ($intervalIntentional.Count -ne 1 -or
 				$intervalNonMutating.Count -ne 1 -or
-				$intervalExactSeam.Count -ne 1 -or
-				$intervalIntentional[0] -ge $intervalNonMutating[0] -or
-				$intervalIntentional[0] -ge $intervalExactSeam[0]) {
+				$intervalIntentional[0] -ge $intervalNonMutating[0]) {
+				$proofTokens = $false
+				break
+			}
+			$requiresExactSeam = [string] $successRow.Name -ceq
+				$profileExactSeamCase
+			if (($requiresExactSeam -and
+					($intervalExactSeam.Count -ne 1 -or
+						$intervalNonMutating[0] -ge
+							$intervalExactSeam[0])) -or
+				(-not $requiresExactSeam -and
+					$intervalExactSeam.Count -ne 0)) {
 				$proofTokens = $false
 				break
 			}
@@ -3286,7 +3310,7 @@ function Assert-PortablePackagedFocusedEvidence {
 			(Require-IntegerProperty $result "FailedListBytes" `
 				"$Label failed-list bytes") -ne 0 -or
 			(Require-IntegerProperty $result "HardDiagnosticClassifierChecks" `
-				"$Label classifier checks") -ne 12 -or
+				"$Label classifier checks") -ne 25 -or
 			$resultHardFree -isnot [bool] -or
 			[bool] $resultHardFree -ne [bool] $diagnostic.HardDiagnosticFree -or
 			(Require-IntegerProperty $result "HardDiagnosticCount" `
@@ -3308,7 +3332,7 @@ function Assert-PortablePackagedFocusedEvidence {
 		$caseIntegerBindings = [ordered] @{
 			junitTests = $expectedCaseCount
 			junitFailures = 0; junitErrors = 0; junitSkipped = 0
-			hardDiagnosticClassifierChecks = 12
+			hardDiagnosticClassifierChecks = 25
 			hardDiagnosticCount = [int] $diagnostic.HardDiagnosticCount
 			approvedStockFilterDiagnosticCount =
 				[int] $diagnostic.ApprovedStockFilterCount
@@ -3404,7 +3428,7 @@ function Assert-PortablePackagedFocusedEvidence {
 		caseCount = 5; passedCases = 5
 		junitTests = $expectedJUnitTotal; junitFailures = 0
 		junitErrors = 0; junitSkipped = 0; envelopeFileCount = 40
-		hardDiagnosticClassifierChecksPerRun = 12
+		hardDiagnosticClassifierChecksPerRun = 25
 		hardDiagnosticCount = $totalHard
 		approvedStockFilterDiagnosticCount = $totalStock
 		approvedIntentionalFaultDiagnosticCount = $totalIntentional
@@ -3454,7 +3478,7 @@ function Assert-PortablePackagedFocusedEvidence {
 		caseCount = 5; passedCases = 5
 		junitTests = $expectedJUnitTotal; junitFailures = 0
 		junitErrors = 0; junitSkipped = 0; envelopeFileCount = 40
-		hardDiagnosticClassifierChecksPerRun = 12
+		hardDiagnosticClassifierChecksPerRun = 25
 		hardDiagnosticCount = $totalHard
 		approvedStockFilterDiagnosticCount = $totalStock
 		approvedIntentionalFaultDiagnosticCount = $totalIntentional

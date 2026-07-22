@@ -1,6 +1,6 @@
 {
   "schemaVersion": 3,
-  "statusAsOfUtc": "2026-07-22T12:00:15Z",
+  "statusAsOfUtc": "2026-07-22T12:27:13Z",
   "releaseStage": "development alpha",
   "releaseDecision": "NO-GO",
   "auditedRevision": "25dedb3e82ad516c28826830bc1e06a2d3940f53",
@@ -29,7 +29,7 @@
     "workbenchCrc": "aeddce9b",
     "serverVersion": "1.7.0.54",
     "clientVersion": "1.7.0.54",
-    "note": "This immutable Gate 1 package is the active runtime candidate. Foundation passed 985 references and all five Workbench targets passed at 5,849 files/12,022 classes with common CRC aeddce9b for its exact source HEAD and four-file package. The encoding-stable release-surface/runtime-retention pair passed noncertifying under clean committed harness 7e2fe71 and was independently reverified and jointly consumed. The passed 52c7e2b and e2c38d2 pairs remain immutable history under their recorded tool bytes, and both rejected focused leaves remain immutable rejected forensic evidence. Candidate, package, and gameplay bytes are unchanged; the 91-case focused aggregate, corrected canary, Full Campaign Debug, and all later package-bound gates remain pending. No historical result transfers. Release remains NO-GO."
+    "note": "This immutable Gate 1 package is the active runtime candidate. Foundation passed 985 references and all five Workbench targets passed at 5,849 files/12,022 classes with common CRC aeddce9b for its exact source HEAD and four-file package. The 52c7e2b, e2c38d2, and CRI-101 release-surface/runtime-retention pairs remain immutable passed history under their recorded tool bytes, but none satisfies the corrected profile-diagnostic current-consumer binding. The first 87b5ad4 focused batch is preserved as superseded/rejected forensic evidence: four service suites were green at 50/0/0/0, while the profile wrapper rejected despite JUnit 41/0/0/0 because its classifier incorrectly required the dedicated singleton seam detail once per testcase. Candidate, package, gameplay, Foundation, and Workbench bytes are unchanged; a fresh pair, all five focused suites, the corrected canary, Full Campaign Debug, and all later package-bound gates remain pending. No historical result transfers. Release remains NO-GO."
   },
   "evidence": {
     "foundation": {
@@ -55,43 +55,6 @@
       "passedConditions": 87,
       "certificationPassed": false,
       "summary": "State-only combat-presence, ownership-transition, and town-influence fixtures passed; native world, package, network, restart breadth, performance, and soak remain outside this result."
-    },
-    "releaseSurfaceAudit": {
-      "status": "passed-noncertifying",
-      "summaryPath": "docs/evidence/release-surface-audit/partisan-rc-5b1f2e98f931-20260721T193941Z-20260722T114802Z-1fb5e08619ef45b2aae20f2c5938b56c.json",
-      "summarySha256": "832c91705120f54de5c2afa974492efdf23cb11f4f1ef9b8f2395c8ecf2399e8",
-      "runReadySha256": "84079df17dc4293e23706f36e3a4eb6efefae29cf709396ecbee2530441dded0",
-      "candidateId": "partisan-rc-5b1f2e98f931-20260721T193941Z",
-      "candidateSourceHead": "5b1f2e98f93137230e686312c6e99cea7630dae4",
-      "packageSha256": "af22d6322a215dbef466e49041fc07395cbb5ed7a5951fd3e0cee5f4a101f530",
-      "candidateBindingSha256": "06b5fa23ccd10bfd1f8621f6b03c25d9c36719cc9c7d08ebcc73dabbba8c9f5f",
-      "harnessGitHead": "7e2fe71d9619fd60cfe393d2776b4ed49f75186b",
-      "runId": "release_surface_20260722T114802Z_1fb5e08619ef45b2aae2",
-      "runLeafId": "20260722T114802Z-1fb5e08619ef45b2aae20f2c5938b56c",
-      "startedUtc": "2026-07-22T11:48:02.4105472Z",
-      "completedUtc": "2026-07-22T11:48:44.3786578Z",
-      "disposition": "passed-noncertifying-release-surface-audit",
-      "certificationPromotion": "none",
-      "summary": "The exact candidate package passed paired retail and diagnostic surface inspection with all contracted production controls present, retail proof/debug surfaces absent, exact structured 2/2/1/0 candidate-mount attestation in both modes, one exact approved 6-raw/2-event stock cluster, zero unapproved diagnostics, a complete 41-file census, exact cleanup, and read-only independent verification. This inert/read-only surface result is noncertifying."
-    },
-    "gate1RuntimeRetention": {
-      "status": "passed-noncertifying",
-      "summaryPath": "docs/evidence/gate1-runtime-retention/partisan-rc-5b1f2e98f931-20260721T193941Z-20260722T115003Z-4e159a24384c.json",
-      "summarySha256": "5989778fef9a560b94dff311e8fa82547166f10ac2b0598504a56489163f5a4e",
-      "runReadySha256": "023f17a4e36f73627fbe64bb456165991b7a66f3100908d5343f49ded00d4504",
-      "candidateId": "partisan-rc-5b1f2e98f931-20260721T193941Z",
-      "candidateSourceHead": "5b1f2e98f93137230e686312c6e99cea7630dae4",
-      "packageSha256": "af22d6322a215dbef466e49041fc07395cbb5ed7a5951fd3e0cee5f4a101f530",
-      "candidateBindingSha256": "06b5fa23ccd10bfd1f8621f6b03c25d9c36719cc9c7d08ebcc73dabbba8c9f5f",
-      "harnessGitHead": "7e2fe71d9619fd60cfe393d2776b4ed49f75186b",
-      "runId": "gate1_20260722T115003Z_4e159a24384c4808aee0",
-      "runLeafId": "20260722T115003Z-4e159a24384c",
-      "startedUtc": "2026-07-22T11:50:03.6835003Z",
-      "completedUtc": "2026-07-22T11:55:56.7758898Z",
-      "disposition": "passed-noncertifying-retention",
-      "certificationClaim": "none",
-      "standardSaveRestorationCertified": false,
-      "summary": "The exact candidate package completed five diagnostic save-lineage stages and five disjoint standard load/start/log observations with 251 retained files, exact candidate/tool/launch bindings, stable retained save bytes, exact cleanup, and read-only independent verification. It is raw retention evidence and does not certify standard native save restoration."
     }
   },
   "historicalCandidateEvidence": [
@@ -536,7 +499,7 @@
       "id": "native-engine-world",
       "label": "Native engine-world behavior",
       "status": "not-run",
-      "summary": "The encoding-stable same-package release-surface/runtime-retention pair passed and was independently reverified and jointly consumed as noncertifying evidence. The 91-case focused aggregate, corrected force-authority canary, and Full Campaign Debug remain pending; historical runtime results do not transfer."
+      "summary": "No release-surface/runtime-retention pair satisfies the corrected profile-diagnostic current-consumer binding. The CRI-101 pair remains immutable passed history under its recorded tool bytes; a fresh same-package pair, the 91-case focused aggregate, corrected force-authority canary, and Full Campaign Debug remain pending, and historical runtime results do not transfer."
     },
     {
       "id": "packaged-dedicated",
@@ -572,19 +535,19 @@
       "id": "stable-certification",
       "label": "Stable certification",
       "status": "blocked",
-      "summary": "No current matrix row is certified. The active package passed its first noncertifying current-consumer runtime boundary, while focused, canary, full-profile, and later external gates remain open."
+      "summary": "No current matrix row is certified. The active package has no pair satisfying the corrected current-consumer boundary; fresh paired, focused, canary, full-profile, and later external gates remain open."
     }
   ],
   "activeBlockers": [
     {
       "id": "STATUS-001",
       "category": "AUTH",
-      "summary": "The active Gate 1 candidate has green Foundation, all-target Workbench, and encoding-stable same-package paired release-surface/runtime-retention evidence. The passed 52c7e2b and e2c38d2 pairs remain immutable history under their recorded tool bytes; both rejected focused leaves remain immutable rejected evidence, and no historical result transfers."
+      "summary": "The active Gate 1 candidate has green Foundation and all-target Workbench evidence, but no release-surface/runtime-retention pair satisfies the corrected profile-diagnostic current-consumer binding. The 52c7e2b, e2c38d2, and CRI-101 pairs remain immutable passed history under their recorded tool bytes; the superseded/rejected 87b5ad4 focused batch remains immutable forensic evidence, and no historical result transfers."
     },
     {
       "id": "STATUS-002",
       "category": "TEST",
-      "summary": "Run and independently consume the 91-case packaged focused set against the unchanged candidate, then the corrected force-authority canary, and only after an accepted canary run Full Campaign Debug."
+      "summary": "Run and independently consume a fresh same-package release-surface/runtime-retention pair under the corrected tools, rerun all five packaged focused suites and consume their 91-case aggregate, then run the corrected force-authority canary, and only after an accepted canary run Full Campaign Debug."
     },
     {
       "id": "STATUS-003",
@@ -610,6 +573,11 @@
       "id": "STATUS-007",
       "category": "MISSION",
       "summary": "Configured mission breadth still exceeds mission-specific CE 3.11.1 behavioral parity and proof."
+    },
+    {
+      "id": "STATUS-008",
+      "category": "SEC",
+      "summary": "Source-level diagnostic separation remains implemented, but correcting the profile-journal intentional-diagnostic classifier changes the bound release-document consumer. The CRI-101 pair remains immutable passed history and a fresh same-package pair must pass and be independently consumed before this boundary closes again."
     }
   ]
 }
