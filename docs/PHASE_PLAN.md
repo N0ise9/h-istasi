@@ -166,9 +166,20 @@ as three stock backend-identity diagnostics plus one stock editor disconnect-
 teardown event; the optional crash log remains retained and hashed, and the
 stage is not described as exception-free.
 
-Because the identity fix changes a shared tool blob bound by the surface audit,
-the next attempt must rerun both surface and retention before pair consumption.
-Candidate package bytes and seals remain unchanged.
+Fresh surface attempt `20260722T041412Z-12c9176117444c9cb734fbb80ed0e31f`
+then finalized retail and produced a passing diagnostic probe followed by normal
+game destruction. Its final global census queried the image path of the
+ledger-owned process after exit and failed about 132 milliseconds after the last
+log. The run has a terminal failure seal, exact harness cleanup, no success
+controls, and no live residue. The V2 census now resolves the ledger entry first,
+accepts a known process that becomes dead during inspection, and rejects live
+inspection failure, mismatch, or any unclaimed PID. The 36/36 guarded-runtime
+suite covers this caller boundary.
+
+Both identity corrections change the shared tool blob bound by surface evidence,
+so the next attempt must rerun both surface and retention before pair consumption.
+Candidate package bytes and seals remain unchanged; the failed fresh attempt is
+permanent-NO-GO evidence and does not transfer.
 
 1. Run and independently accept fresh standard/diagnostic release-surface and
    diagnostic-write/standard-read runtime-retention evidence under the corrected

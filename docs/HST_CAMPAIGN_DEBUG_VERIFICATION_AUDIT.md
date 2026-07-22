@@ -195,6 +195,21 @@ surface result. That result remains immutable evidence under its recorded tool
 bytes but cannot be paired with current retention. Fresh surface and retention
 runs are therefore both required against the unchanged package.
 
+Fresh surface attempt `20260722T041412Z-12c9176117444c9cb734fbb80ed0e31f`
+under clean harness `e22da19` finalized retail at exact zero hard diagnostics and
+produced a passing diagnostic probe/result before replication finished and the
+game was destroyed. About 132 milliseconds after the last diagnostic log line,
+the final global engine census queried an image path for the now-exited
+ledger-owned process. Diagnostic receipt/mode finalization therefore did not
+occur. The runner wrote its exact failure seal and cleanup record, published no
+run envelope, index, or ready seal, and left no engine, listener, mount, or
+runtime-addon residue. The V2 census correction resolves the ledger entry first,
+accepts dead only for exactly one known entry, and retains fail-closed behavior
+for live inspection failure, mismatch, and every unclaimed PID. Caller-level
+coverage is included in the still-passing 36-check guarded-runtime suite. This
+attempt remains permanent-NO-GO and the changed tool bytes require another fresh
+surface run before retention.
+
 The release-surface publisher passes 65 self-test checks, and the retention
 publisher passes 67/67, including terminal failure-boundary placement,
 ready/failure mutual exclusion, sealing, zero-write
@@ -667,9 +682,10 @@ Foundation passed all 985 references. PC, PS4, PS5, XBOX_ONE, and XBOX_SERIES
 each passed at 5,849 files, 12,022 classes, and common CRC `aeddce9b`. The seal
 binds exactly four package files and 50 evidence files. Seventh release-surface
 run `20260722T025639Z-ee290ff3af0f46908593dbf3002050bb` is accepted for these
-bytes. Runtime retention, the resulting accepted pair, 91-case focused,
-corrected-canary, and full-profile evidence remain pending. `STATUS-008` remains
-open, Gate 1 is incomplete, and release remains `NO-GO`.
+bytes under its recorded tool binding, but later guarded-runtime corrections
+prevent current pair consumption. A fresh current-tool surface/retention pair,
+91-case focused, corrected-canary, and full-profile evidence remain pending.
+`STATUS-008` remains open, Gate 1 is incomplete, and release remains `NO-GO`.
 
 The first candidate, `partisan-rc-c2b16c4a2d85-20260718T201442Z`, remains sealed
 with digest `8f60260331c6c7473465dc4517b1063a179a8f4efeffdcfe3d5eccac9af476db`

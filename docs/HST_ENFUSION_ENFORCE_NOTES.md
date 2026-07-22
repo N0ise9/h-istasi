@@ -150,6 +150,16 @@ The embedded implementation stamp is
   retrofit an older unsealed directory. The no-engine regressions prove create-
   only failure publication, exact preservation of bytes present at finalization,
   path-free output, ready/failure mutual exclusion, and absence of success output.
+- A global engine census has a second normal-exit window after its process
+  snapshot. Resolve the exact ledger entry before recapturing identity. For one
+  ledger-known observed process, reuse the process-object status core and accept
+  dead when that same observed handle exits during inspection. A live inspection
+  failure or mismatch remains unknown, and an observed PID without exactly one
+  ledger entry remains unclaimed even if it has already exited. Caller-level
+  regressions must cover all four branches. Surface attempt
+  `20260722T041412Z-12c9176117444c9cb734fbb80ed0e31f` reached a passing
+  diagnostic result and normal destruction before this race, then failure-sealed
+  with exact cleanup and no success controls; it is permanent-NO-GO evidence.
 - Retention may retain a bounded nonempty optional `crash.log`; unlike the
   release-surface contract, its existence alone is not rejection. Classify its
   contents and preserve the exact bytes. The observed shutdown checkpoint held
@@ -8714,10 +8724,11 @@ This file is for practical engine/script behavior, not project planning. Keep en
   It is non-certifying and does not advance native-engine/world, canary-release,
   or stable certification. This package's next canary rejected, so its chain is
   closed and Full Campaign Debug must not run. For the active immutable
-  candidate preserve the serial gate order: the release-surface half is now
-  accepted; runtime retention must complete the first paired boundary before the
-  91-case focused aggregate, followed by the corrected canary and then full only
-  after an accepted canary.
+  candidate preserve the serial gate order: a fresh current-tool release-surface
+  and runtime-retention pair must complete the first boundary before the 91-case
+  focused aggregate, followed by the corrected canary and then full only after an
+  accepted canary. An older surface pass bound to superseded tool bytes cannot
+  pair with current retention.
 - A passing focused JUnit result does not classify the surrounding engine error
   channel. Bind a separate hard-diagnostic census into the runner's success
   predicate. For the current diagnostic client, exactly two stock filter-

@@ -280,6 +280,7 @@ try {
             )
 
             $probe = [pscustomobject][ordered]@{
+                Id = [int]$IdentityValue.ProcessId
                 HasExited = $HasExited
                 RefreshFails = $RefreshFails
                 RefreshCount = 0
@@ -337,6 +338,98 @@ try {
         $stateFailure = Get-PartisanProcessIdentityStatusCore `
             $IdentityValue $stateFailureProbe $stateFailureInspector
 
+        $newLedgerRecord = {
+            param([ValidateRange(0, 2)][int]$IdentityCount)
+
+            $ledger = New-Object Collections.Generic.List[object]
+            for ($index = 0; $index -lt $IdentityCount; $index++) {
+                [void]$ledger.Add([pscustomobject][ordered]@{
+                    Role = 'server'
+                    Identity = $IdentityValue
+                    RecordedUtc = [DateTime]::UtcNow
+                })
+            }
+            return [pscustomobject][ordered]@{ Ledger = $ledger }
+        }
+
+        $ownershipRaceProbe = & $newProbe $false $false
+        $ownershipRaceInspector = {
+            param([int]$TargetProcessId)
+            [void]($ownershipRaceProbe.InspectionCount++)
+            $ownershipRaceProbe.HasExited = $true
+            throw 'Injected ownership-census exit race.'
+        }.GetNewClosure()
+        $ownershipRaceError = $null
+        try {
+            Assert-PartisanV2EngineOwnershipCore `
+                -Record (& $newLedgerRecord 1) `
+                -ObservedProcesses @($ownershipRaceProbe) `
+                -IdentityInspector $ownershipRaceInspector
+        }
+        catch { $ownershipRaceError = $_.Exception.Message }
+
+        $ownershipLiveProbe = & $newProbe $false $false
+        $ownershipLiveInspector = {
+            param([int]$TargetProcessId)
+            [void]($ownershipLiveProbe.InspectionCount++)
+            throw 'Injected live ownership-census inspection failure.'
+        }.GetNewClosure()
+        $ownershipLiveError = $null
+        try {
+            Assert-PartisanV2EngineOwnershipCore `
+                -Record (& $newLedgerRecord 1) `
+                -ObservedProcesses @($ownershipLiveProbe) `
+                -IdentityInspector $ownershipLiveInspector
+        }
+        catch { $ownershipLiveError = $_.Exception.Message }
+
+        $ownershipMismatchProbe = & $newProbe $false $false
+        $ownershipMismatchActual = $IdentityValue.PSObject.Copy()
+        $ownershipMismatchActual.Arguments = [string[]]@('changed')
+        $ownershipMismatchInspector = {
+            param([int]$TargetProcessId)
+            [void]($ownershipMismatchProbe.InspectionCount++)
+            return $ownershipMismatchActual
+        }.GetNewClosure()
+        $ownershipMismatchError = $null
+        try {
+            Assert-PartisanV2EngineOwnershipCore `
+                -Record (& $newLedgerRecord 1) `
+                -ObservedProcesses @($ownershipMismatchProbe) `
+                -IdentityInspector $ownershipMismatchInspector
+        }
+        catch { $ownershipMismatchError = $_.Exception.Message }
+
+        $unclaimedProbe = & $newProbe $true $false
+        $unclaimedInspector = {
+            param([int]$TargetProcessId)
+            [void]($unclaimedProbe.InspectionCount++)
+            return $IdentityValue
+        }.GetNewClosure()
+        $unclaimedError = $null
+        try {
+            Assert-PartisanV2EngineOwnershipCore `
+                -Record (& $newLedgerRecord 0) `
+                -ObservedProcesses @($unclaimedProbe) `
+                -IdentityInspector $unclaimedInspector
+        }
+        catch { $unclaimedError = $_.Exception.Message }
+
+        $duplicateProbe = & $newProbe $true $false
+        $duplicateInspector = {
+            param([int]$TargetProcessId)
+            [void]($duplicateProbe.InspectionCount++)
+            return $IdentityValue
+        }.GetNewClosure()
+        $duplicateError = $null
+        try {
+            Assert-PartisanV2EngineOwnershipCore `
+                -Record (& $newLedgerRecord 2) `
+                -ObservedProcesses @($duplicateProbe) `
+                -IdentityInspector $duplicateInspector
+        }
+        catch { $duplicateError = $_.Exception.Message }
+
         return [pscustomobject][ordered]@{
             Race = $race
             LiveFailure = $liveFailure
@@ -346,6 +439,16 @@ try {
             LiveFailureProbe = $liveFailureProbe
             MismatchProbe = $mismatchProbe
             StateFailureProbe = $stateFailureProbe
+            OwnershipRaceError = $ownershipRaceError
+            OwnershipRaceProbe = $ownershipRaceProbe
+            OwnershipLiveError = $ownershipLiveError
+            OwnershipLiveProbe = $ownershipLiveProbe
+            OwnershipMismatchError = $ownershipMismatchError
+            OwnershipMismatchProbe = $ownershipMismatchProbe
+            UnclaimedError = $unclaimedError
+            UnclaimedProbe = $unclaimedProbe
+            DuplicateError = $duplicateError
+            DuplicateProbe = $duplicateProbe
         }
     } $expectedIdentity
     Assert-Condition `
@@ -376,6 +479,39 @@ try {
             [int]$identityPolicy.StateFailureProbe.RefreshCount -eq 1 -and
             [int]$identityPolicy.StateFailureProbe.InspectionCount -eq 0) `
         -Label 'process state inspection failure remains unknown'
+    Assert-Condition `
+        -Condition ($null -eq $identityPolicy.OwnershipRaceError -and
+            [int]$identityPolicy.OwnershipRaceProbe.RefreshCount -eq 2 -and
+            [int]$identityPolicy.OwnershipRaceProbe.InspectionCount -eq 1) `
+        -Label 'owned engine exit during ownership census accepted'
+    Assert-Condition `
+        -Condition ($identityPolicy.OwnershipLiveError -clike
+                '*[[]PGR_ENGINE_IDENTITY_UNKNOWN[]]*' -and
+            $identityPolicy.OwnershipLiveError -clike
+                '*reason=identity-inspection-failed*' -and
+            [int]$identityPolicy.OwnershipLiveProbe.RefreshCount -eq 2 -and
+            [int]$identityPolicy.OwnershipLiveProbe.InspectionCount -eq 1) `
+        -Label 'live ownership-census inspection failure rejected'
+    Assert-Condition `
+        -Condition ($identityPolicy.OwnershipMismatchError -clike
+                '*[[]PGR_ENGINE_IDENTITY_UNKNOWN[]]*' -and
+            $identityPolicy.OwnershipMismatchError -clike
+                '*reason=identity-mismatch*' -and
+            [int]$identityPolicy.OwnershipMismatchProbe.RefreshCount -eq 1 -and
+            [int]$identityPolicy.OwnershipMismatchProbe.InspectionCount -eq 1) `
+        -Label 'ownership-census identity mismatch rejected'
+    Assert-Condition `
+        -Condition ($identityPolicy.UnclaimedError -clike
+                '*[[]PGR_UNCLAIMED_ENGINE[]]*' -and
+            [int]$identityPolicy.UnclaimedProbe.RefreshCount -eq 0 -and
+            [int]$identityPolicy.UnclaimedProbe.InspectionCount -eq 0) `
+        -Label 'unclaimed exited engine remains rejected'
+    Assert-Condition `
+        -Condition ($identityPolicy.DuplicateError -clike
+                '*[[]PGR_UNCLAIMED_ENGINE[]]*' -and
+            [int]$identityPolicy.DuplicateProbe.RefreshCount -eq 0 -and
+            [int]$identityPolicy.DuplicateProbe.InspectionCount -eq 0) `
+        -Label 'duplicate engine ledger entries remain rejected'
     [void]$checks.Add('process-identity-normal-exit-race-policy')
 
     $jsonRoot = Join-Path $tempRoot 'json'

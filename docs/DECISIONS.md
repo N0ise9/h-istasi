@@ -4844,3 +4844,46 @@ Consequences:
   unchanged candidate and consume only that fresh pair.
 - Candidate and package bytes remain unchanged. `STATUS-008` remains open, Gate
   1 remains incomplete, and release remains `NO-GO`.
+
+## CRI-091 - Resolve the Surface Ownership-Census Exit Race
+
+- Status: Accepted as a fail-closed evidence-tooling correction; fresh paired
+  runtime evidence remains pending
+- Date: 2026-07-22
+
+Context: Fresh release-surface attempt
+`20260722T041412Z-12c9176117444c9cb734fbb80ed0e31f` ran under clean harness
+`e22da19378a53c560fdb24c728de08e3be4cb0fa`. Retail finalized successfully with
+zero hard diagnostics. Diagnostic produced a passing probe and result, finished
+replication, and destroyed the game. About 132 milliseconds after its last log
+line, the final global engine census attempted to recapture that ledger-owned
+process image after exit. `QueryFullProcessImageName` failed, so the diagnostic
+guard became permanent-NO-GO before receipt and mode finalization.
+
+The runner wrote a create-only failure seal and exact cleanup record. It wrote no
+run envelope, release index, or ready seal, and left no engine, port listener,
+runtime-addon mount, harness residue, or reparse point. Preserve this unique run
+as failed forensic evidence. Its retail mode and raw passing diagnostic result do
+not transfer and cannot be published or paired.
+
+Decision: In the live V2 global engine census, resolve the observed PID against
+the private ledger before attempting identity recapture. An observed process
+without exactly one ledger entry is immediately unclaimed, even if it exits
+before inspection. For one ledger-known process, apply the existing
+process-object identity-status core: accept exact alive or dead-after-observation,
+but reject live inspection failure and identity mismatch as
+`PGR_ENGINE_IDENTITY_UNKNOWN`. Keep the shadowed legacy implementation outside
+this focused patch.
+
+Consequences:
+
+- The guarded-runtime suite remains 36/36 and now exercises the caller boundary:
+  owned exit during inspection passes, while live inspection failure, mismatch,
+  and an already-exited unclaimed process all fail closed. The retention
+  publisher remains 67/67.
+- This correction changes the shared guarded-runtime blob again. The failed
+  attempt is immutable permanent-NO-GO evidence; rerun release-surface from the
+  committed clean tool bytes, then run retention and consume only that fresh
+  pair.
+- Candidate and package bytes remain unchanged. `STATUS-008` stays open, Gate 1
+  remains incomplete, and release remains `NO-GO`.

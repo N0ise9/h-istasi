@@ -4498,24 +4498,49 @@ function Assert-PartisanV2ExecutableBindings {
     }
 }
 
-function Assert-PartisanV2EngineOwnership {
-    param([Parameter(Mandatory = $true)]$Record)
+function Assert-PartisanV2EngineOwnershipCore {
+    param(
+        [Parameter(Mandatory = $true)]$Record,
+        [AllowEmptyCollection()]
+        [Parameter(Mandatory = $true)][object[]]$ObservedProcesses,
+        [Parameter(Mandatory = $true)][scriptblock]$IdentityInspector
+    )
 
-    Sync-PartisanV2Ledger -Record $Record
-    foreach ($process in @(Get-PartisanEngineProcesses)) {
-        $identity = Get-PartisanProcessIdentity -ProcessId ([int]$process.Id)
-        $entry = @(Get-PartisanV2LedgerEntry `
-            -Record $Record `
-            -ProcessId ([int]$process.Id))
-        if ($entry.Count -ne 1 -or
-            -not (Test-PartisanProcessIdentity `
-                -Expected $entry[0].Identity `
-                -Actual $identity)) {
+    foreach ($process in $ObservedProcesses) {
+        $entry = @($Record.Ledger.ToArray() | Where-Object {
+            [int]$_.Identity.ProcessId -eq [int]$process.Id
+        })
+        if ($entry.Count -ne 1) {
             Throw-PartisanV2 `
                 -Identifier 'PGR_UNCLAIMED_ENGINE' `
                 -Message 'Engine process exists outside the private job ledger.'
         }
+        $status = Get-PartisanProcessIdentityStatusCore `
+            -Identity $entry[0].Identity `
+            -Process $process `
+            -IdentityInspector $IdentityInspector
+        if ([string]$status.Status -ceq 'dead' -or
+            [string]$status.Status -ceq 'alive') {
+            continue
+        }
+        Throw-PartisanV2 `
+            -Identifier 'PGR_ENGINE_IDENTITY_UNKNOWN' `
+            -Message ('Private engine identity is unknown: pid=' +
+                [int]$process.Id + ';reason=' + [string]$status.Reason + '.')
     }
+}
+
+function Assert-PartisanV2EngineOwnership {
+    param([Parameter(Mandatory = $true)]$Record)
+
+    Sync-PartisanV2Ledger -Record $Record
+    Assert-PartisanV2EngineOwnershipCore `
+        -Record $Record `
+        -ObservedProcesses @(Get-PartisanEngineProcesses) `
+        -IdentityInspector {
+            param([int]$TargetProcessId)
+            Get-PartisanProcessIdentity -ProcessId $TargetProcessId
+        }
 }
 
 function Invoke-PartisanV2PrivateAudit {

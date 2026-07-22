@@ -176,10 +176,21 @@ canary passes and rejected full-profile result. None of that runtime evidence
   records partial-publication state, and writes a read-only cleanup audit plus
   create-only failure seal. It adds no ready seal or success output; partial
   `run.json` or release-index files may remain and are recorded. The old unsealed
-  directory remains forensic evidence. Its shutdown stage's three stock backend-identity and one
-  stock editor-teardown exceptions are classified retained events, not a
+  directory remains forensic evidence. Its shutdown stage's three stock backend-
+  identity and one stock editor-teardown exceptions are classified retained, not a
   candidate defect or an exception-free stage. This shared-tool correction
   requires a fresh surface run before retention.
+- [x] Resolve the surface ownership-census normal-exit race. Fresh attempt
+  `20260722T041412Z-12c9176117444c9cb734fbb80ed0e31f` finalized retail and
+  produced a passing diagnostic probe plus normal game destruction before its
+  final global census queried an already-exited ledger-owned process. The exact
+  failure seal and cleanup passed; no run envelope, index, ready seal, live
+  engine, port listener, or runtime-addon residue remained. The V2 census now
+  resolves the ledger entry before inspection, accepts dead only for exactly one
+  known entry, and keeps live failure, mismatch, or any unclaimed PID fail-closed.
+  The guarded-runtime suite remains 36/36 with caller-level coverage. This failed
+  attempt is permanent-NO-GO evidence, and the new tool bytes require another
+  fresh surface run before retention.
 - [x] Replace the five aggregate JUnit wrappers with five suite launches that
   validate 91 individually named cases in exact counts 14/13/17/6/41. The
   forward aggregate contract requires JUnit 91/0/0/0, 40 retained files, and

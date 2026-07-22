@@ -193,6 +193,20 @@ halves require a fresh current-tool run against the unchanged package. The activ
 candidate still has no accepted pair, `STATUS-008` remains open, and release
 remains `NO-GO`.
 
+The next fresh surface attempt,
+`20260722T041412Z-12c9176117444c9cb734fbb80ed0e31f`, bound clean harness
+`e22da19`. Retail finalized as a pass. Diagnostic wrote a passing 321/4 type,
+71/3 command, and 67/91 member probe/result, then completed replication and game
+destruction. Roughly 132 milliseconds after the final log, the global ownership
+census queried the now-exited ledger-owned process image and failed before the
+diagnostic receipt/mode record. The create-only failure seal and cleanup record
+are exact; there is no run envelope, release index, ready seal, live engine,
+listener, runtime-addon mount, or reparse residue. The V2 census now resolves the
+ledger entry first and accepts dead only for that known observed process; live
+inspection failure, mismatch, and all unclaimed PIDs still fail closed. This
+attempt is permanent-NO-GO forensic evidence. The repair changes the shared tool
+binding again, so another fresh surface run is mandatory before retention.
+
 ## Release-Ledger Schema 3 Historical Evidence
 
 Release-ledger Schema 3 is distinct from Campaign Schema 71. Its

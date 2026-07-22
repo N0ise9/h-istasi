@@ -44,6 +44,18 @@ pass. Its four shutdown-stage VM exceptions are classified stock backend/editor
 teardown events retained in the optional crash channel, not a candidate defect
 or an exception-free claim.
 
+Fresh current-tool surface attempt
+`20260722T041412Z-12c9176117444c9cb734fbb80ed0e31f` finalized retail and wrote a
+passing diagnostic probe before normal game destruction. Its final global engine
+census then raced an already-exited ledger-owned process and failed image-path
+inspection about 132 milliseconds after the last log. The run is failure-sealed,
+cleanup is exact, and no run envelope, index, ready seal, engine, listener, or
+runtime-addon residue remains. The V2 census now accepts dead only after finding
+exactly one ledger entry; live inspection failure, identity mismatch, and any
+unclaimed PID still fail closed. The 36/36 suite covers this caller boundary.
+Because these tool bytes changed again, another fresh surface run is required;
+the failed attempt cannot pair or transfer.
+
 The former ee0 candidate is immutable ordered `history[2]` with
 `rejected-after-full-profile`. Its package-bound focused and corrected-canary
 results remain scoped historical passes, and its full-profile result remains
