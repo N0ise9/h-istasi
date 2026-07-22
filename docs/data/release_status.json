@@ -1,6 +1,6 @@
 {
   "schemaVersion": 4,
-  "statusAsOfUtc": "2026-07-22T20:35:29Z",
+  "statusAsOfUtc": "2026-07-22T20:45:24Z",
   "releaseStage": "development alpha",
   "releaseDecision": "NO-GO",
   "auditedRevision": "33642bd8a84d8a692f7fe9920510ab97cb890383",
@@ -39,9 +39,9 @@
         "summarySha256": "ede6c77ab92bfcafc079224d13b66176501df600d090ae3ecc01d0c798e7972e"
       },
       "focusedFiveSuite": {
-        "status": "pending",
-        "summaryPath": null,
-        "summarySha256": null
+        "status": "passed-noncertifying",
+        "summaryPath": "docs/evidence/source-gate1/33642bd8a84d8a692f7fe9920510ab97cb890383/focusedFiveSuite.json",
+        "summarySha256": "e3a6b2a01130d0bba6e1bc57d1d88a7571e28cc421d6528dba12b6ba6a9db4a6"
       },
       "forceAuthorityCanary": {
         "status": "pending",
@@ -573,8 +573,8 @@
     {
       "id": "deterministic-service",
       "label": "Deterministic service contracts",
-      "status": "not-run",
-      "summary": "A loose-source QRF feasibility probe passed 6/0/0/0, but it is not structured Gate 1 evidence and does not advance this rung. The maintained five-suite 91-case source run is pending."
+      "status": "passed-noncertifying",
+      "summary": "The current five-suite source-native deterministic run passed all 5 suites and 91 named cases with zero failures, errors, or skips, stable frozen-source, publish-input, and resource-database bindings, and zero final engine processes. It is intentionally noncertifying and does not prove ordinary campaign-world, multiplayer, or Workshop-installed behavior."
     },
     {
       "id": "native-engine-world",
@@ -628,7 +628,7 @@
     {
       "id": "STATUS-002",
       "category": "TEST",
-      "summary": "Foundation and all-target Workbench validation pass for the frozen clean source checkpoint. Run all five source-native focused suites next, followed by the force-authority canary and Full Campaign Debug. Do not generate or stage a repository package artifact."
+      "summary": "Foundation, all-target Workbench validation, and all five source-native focused suites pass for the frozen clean source checkpoint. Run the force-authority canary next, followed by Full Campaign Debug. Do not generate or stage a repository package artifact."
     },
     {
       "id": "STATUS-003",
