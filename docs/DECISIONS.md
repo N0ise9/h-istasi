@@ -5437,3 +5437,73 @@ Consequences:
 - The exact next order is a fresh same-package surface/retention pair, all five
   focused suites and their 91-case aggregate, the corrected canary, and Full
   Campaign Debug only after an accepted canary.
+
+## CRI-103 - Accept the Corrected-Consumer Same-Package Gate 1 Pair
+
+- Status: Accepted as the active noncertifying paired Gate 1 boundary
+- Date: 2026-07-22
+
+Context: CRI-102 changed the profile-diagnostic runner, aggregate producer, and
+release-document consumer without changing candidate, package, or gameplay
+bytes. The CRI-101 pair and both earlier pairs remain immutable passed history
+under their recorded tool bytes, but none can satisfy the corrected current-
+consumer binding. The first five-suite attempt remains immutable
+superseded/rejected forensic evidence and no leaf from it transfers.
+
+A preflight surface leaf
+`20260722T133437Z-5f9e9e76145145fab1ff11c2de59943d` failed closed before any
+engine process or audit mode completed because its watched and spill boundaries
+overlapped. Cleanup was exact. Its 13 files totaling 215,925 bytes, including
+the failure record with SHA-256
+`c6943808fcdd2ff4a63806868310be0d92c16ba67bcf68f6a6f85c3ade8a98d6`, were
+moved byte-for-byte into rejected forensic storage. This preflight rejection
+does not invalidate or contribute evidence to the later successful pair.
+
+Clean harness `07e71c12159f5287c6af2dd7901a392ef9c16bb9` then produced
+41-file surface leaf
+`20260722T133630Z-928aa875113841838469f7222a9c11fb`. Its tracked-index and
+ready-seal SHA-256 values are
+`68a74d91208e1873c83258c9c15158f972914f40d4a1713d2f25c56d0ef7ad73` and
+`9286c28a7b14b2a3b11b205e74a61c036a92097a763205aef914ba27412a273c`.
+Retail and diagnostic modes each carried exact 2/2/1/0 candidate-mount
+attestation, zero hard diagnostics, zero unapproved diagnostics, and exact
+cleanup.
+
+The same harness then produced 251-file retention leaf
+`20260722T133757Z-45b0703ae767`. Its tracked-index and ready-seal SHA-256 values
+are `f4170f2afd1342a958aaaf5daaacc968d66508324069f73dca3350c819a36e75`
+and `9906f74c168ec99d98a6d8dbd5368b925fae03a19265485a3b5ed28cd1326bb8`.
+It completed all five diagnostic lineage stages and five disjoint standard
+load/start/log contexts with stable retained bytes. Its certification claim is
+`none`, and `standardSaveRestorationCertified` remains `false`.
+Retention identity is formalized by the exact candidate tuple, canonical digest,
+ten guarded receipts, and exact argument topology rather than projected mount
+counts. As a raw-log nuance, one shutdown-checkpoint diagnostic-client log has
+a 3/3/2/0 whole-file census because the same process re-enumerates availability
+after `Game destroyed.`; this is not a second active launch or a blocker.
+
+Decision: Accept only these exact corrected-consumer indexes as the active
+pair. Each external tree and terminal seal was independently rehashed
+read-only, the tracked indexes matched their sealed copies byte-for-byte, and
+the shared release consumer accepted both records together against unchanged
+package
+`af22d6322a215dbef466e49041fc07395cbb5ed7a5951fd3e0cee5f4a101f530`
+and candidate binding
+`06b5fa23ccd10bfd1f8621f6b03c25d9c36719cc9c7d08ebcc73dabbba8c9f5f`.
+The immutable candidate package remains external, untracked prepublish
+validation input, not a repository or source deliverable. Normal
+Workbench/Workshop compilation and distribution remain authoritative.
+Do not promote either scoped result into gameplay, native save-restoration,
+multiplayer, restart, performance, soak, or certification claims.
+
+Consequences:
+
+- `STATUS-008` is closed again. Gate 1 remains incomplete and release remains
+  `NO-GO`.
+- Candidate, package, gameplay, Foundation, and Workbench evidence are
+  unchanged.
+- Preserve the CRI-101 and earlier pairs as immutable passed history, the
+  preflight leaf as immutable rejected evidence, and the first five-suite batch
+  as immutable superseded/rejected evidence.
+- The exact next order is all five focused suites and their 91-case aggregate,
+  the corrected canary, and Full Campaign Debug only after an accepted canary.

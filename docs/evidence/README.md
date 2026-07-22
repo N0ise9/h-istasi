@@ -455,6 +455,28 @@ The exact next order is a fresh same-package surface/retention pair, all five
 focused suites and their 91-case aggregate, the corrected canary, and Full
 Campaign Debug only after an accepted canary.
 
+CRI-103 accepts fresh current-tool surface leaf
+`20260722T133630Z-928aa875113841838469f7222a9c11fb` and retention leaf
+`20260722T133757Z-45b0703ae767` under clean harness
+`07e71c12159f5287c6af2dd7901a392ef9c16bb9`. The surface tracked-index and
+ready-seal SHA-256 values are
+`68a74d91208e1873c83258c9c15158f972914f40d4a1713d2f25c56d0ef7ad73` and
+`9286c28a7b14b2a3b11b205e74a61c036a92097a763205aef914ba27412a273c`;
+the retention values are
+`f4170f2afd1342a958aaaf5daaacc968d66508324069f73dca3350c819a36e75` and
+`9906f74c168ec99d98a6d8dbd5368b925fae03a19265485a3b5ed28cd1326bb8`.
+Surface retained 41 files with exact per-mode 2/2/1/0 mount attestation, zero
+hard diagnostics, and zero unapproved diagnostics. Retention retained 251 files
+with exact candidate tuple, canonical digest, ten guarded receipts, and argument
+topology across five diagnostic plus five standard contexts; it does not
+project mount counts. Both halves independently reverified read-only and were
+jointly consumed, closing `STATUS-008` again without certification promotion.
+The immutable candidate package remains external, untracked prepublish
+validation input rather than a repository/source deliverable; Workbench/Workshop
+remains the normal compilation and distribution path. Next run all five focused
+suites and their 91-case aggregate, then the corrected canary, then Full Campaign
+Debug only after an accepted canary.
+
 ## Release-Ledger Schema 3 Historical Evidence
 
 Release-ledger Schema 3 is distinct from Campaign Schema 71. Its
@@ -502,15 +524,16 @@ files/12,022 classes with common CRC `aeddce9b`; the seal binds four package
 files and 50 evidence files. The tracked manifest and ready seal are the portable
 identity records; the package and complete raw evidence bundle remain external,
 immutable, and untracked. The passed `52c7e2b`, `e2c38d2`, and CRI-101 surface/
-retention pairs remain immutable history under their recorded tool bytes, but
-none satisfies the corrected profile-diagnostic consumer. The first `87b5ad4`
-focused batch is preserved as superseded/rejected history: four service suites
-passed JUnit 50/0/0/0 and the profile wrapper rejected despite JUnit 41/0/0/0.
-Candidate, package, gameplay, Foundation, and Workbench evidence are unchanged.
-`STATUS-008` is open. Next run a fresh same-package surface/retention pair, all
-five focused suites and their 91-case aggregate, the corrected canary, and Full
-Campaign Debug only after an accepted canary. Gate 1 remains incomplete and
-release remains `NO-GO`.
+retention pairs remain immutable history under their recorded tool bytes. The
+first `87b5ad4` focused batch is preserved as superseded/rejected history.
+CRI-103 accepts current-tool surface leaf
+`20260722T133630Z-928aa875113841838469f7222a9c11fb` and retention leaf
+`20260722T133757Z-45b0703ae767`; both independently reverified read-only and were
+jointly consumed. Candidate, package, gameplay, Foundation, and Workbench
+evidence are unchanged. `STATUS-008` is closed again. Next run all five focused
+suites and their 91-case aggregate, the corrected canary, and Full Campaign
+Debug only after an accepted canary. Gate 1 remains incomplete and release
+remains `NO-GO`.
 
 Historical ledger `history[2]`, retired as `rejected-after-full-profile`, is
 `partisan-rc-ee0e8add2a29-20260719T063815Z`, version

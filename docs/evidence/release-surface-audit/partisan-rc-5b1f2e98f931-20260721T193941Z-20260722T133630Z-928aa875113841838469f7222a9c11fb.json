@@ -1,0 +1,516 @@
+{
+    "schemaVersion":  2,
+    "contractId":  "partisan.release-surface-audit.index.v2",
+    "evidenceKind":  "partisan_release_surface_runtime_audit_index_v2",
+    "runId":  "release_surface_20260722T133630Z_928aa875113841838469",
+    "runLeafId":  "20260722T133630Z-928aa875113841838469f7222a9c11fb",
+    "runNonce":  "928aa875113841838469f7222a9c11fb",
+    "source":  {
+                   "bundleRelativePath":  "partisan-rc-5b1f2e98f931-20260721T193941Z/release-surface-audit/20260722T133630Z-928aa875113841838469f7222a9c11fb",
+                   "candidateGitHead":  "5b1f2e98f93137230e686312c6e99cea7630dae4",
+                   "harnessGitHead":  "07e71c12159f5287c6af2dd7901a392ef9c16bb9",
+                   "checkoutClean":  true,
+                   "candidateAncestor":  true,
+                   "executionMode":  "paired-native-engine-audit"
+               },
+    "candidate":  {
+                      "candidateId":  "partisan-rc-5b1f2e98f931-20260721T193941Z",
+                      "candidateVersion":  "0.1.0-rc.20260721T193941Z.5b1f2e98",
+                      "runtimeUseDisposition":  "active-runtime-candidate",
+                      "gitHead":  "5b1f2e98f93137230e686312c6e99cea7630dae4",
+                      "embeddedBuildSha":  "7fdf3988797edeb747f5d6a6951ad0382bd93db3",
+                      "embeddedBuildUtc":  "2026-07-21T19:36:22Z",
+                      "embeddedBuildLabel":  "schema71-settings24-gate1-release-surface",
+                      "campaignSchema":  71,
+                      "runtimeSettingsSchema":  24,
+                      "addonId":  "histasi",
+                      "addonGuid":  "698532771130111D",
+                      "packageHashAlgorithm":  "sha256-manifest-v1",
+                      "packageSha256":  "af22d6322a215dbef466e49041fc07395cbb5ed7a5951fd3e0cee5f4a101f530",
+                      "manifestSha256":  "bef040090557ca1403d6505e2bd1150452ba467225a29adc4295641f5aa3c80c",
+                      "readySha256":  "173434122dce60dde8ff1dc939e2d5a916094bdb31096a641850772aa9853ad3",
+                      "workbenchCrc":  "aeddce9b",
+                      "runtimeRole":  "server",
+                      "diagnosticExecutable":  {
+                                                   "fileName":  "ArmaReforgerServerDiag.exe",
+                                                   "fileVersion":  "1.7.0.54",
+                                                   "productVersion":  "1.7.0.54",
+                                                   "length":  36324400,
+                                                   "sha256":  "7f0b2b653b4c1c1f3af4059da532c27f0b65d875fce8bdbd4768da1825e6d4e6"
+                                               },
+                      "recordedDiagnosticExecutable":  {
+                                                           "fileName":  "ArmaReforgerServerDiag.exe",
+                                                           "fileVersion":  "1.7.0.54",
+                                                           "productVersion":  "1.7.0.54",
+                                                           "length":  36324400,
+                                                           "sha256":  "7f0b2b653b4c1c1f3af4059da532c27f0b65d875fce8bdbd4768da1825e6d4e6"
+                                                       },
+                      "recordedRuntimeExecutable":  {
+                                                        "fileName":  "ArmaReforgerServer.exe",
+                                                        "fileVersion":  "1.7.0.54",
+                                                        "productVersion":  "1.7.0.54",
+                                                        "length":  35064376,
+                                                        "sha256":  "9ddb9d55211c86aba32682f4372ff72a1f3aa7188c32e4348d82d7ca154f03e1"
+                                                    }
+                  },
+    "candidateBindingSha256":  "06b5fa23ccd10bfd1f8621f6b03c25d9c36719cc9c7d08ebcc73dabbba8c9f5f",
+    "run":  {
+                "path":  "run.json",
+                "length":  7657,
+                "sha256":  "4eb0f060d875a78090d479022bdb1e8f8920409f334da083b840d08c70768e91"
+            },
+    "evidenceIndex":  {
+                          "path":  "evidence-index.json",
+                          "length":  11155,
+                          "sha256":  "ae8301d38d75af441beb16260c34d97deca384b08e1e61e655bd7bbcc7fed4f0",
+                          "fileCount":  41,
+                          "filesAggregateSha256":  "717331de178706d6993f060e0dd83a27d319837dcbc7f2118e957a1e27de913e"
+                      },
+    "contract":  {
+                     "path":  "identity/release_surface_contract.json",
+                     "length":  62146,
+                     "sha256":  "b6a3630c83bd35f97912656cf827df4f3d77d90a3fe6e988db730c8d34a95a0c",
+                     "forbiddenTypeCount":  321,
+                     "forbiddenCommandCount":  71,
+                     "productionTypeCount":  4,
+                     "productionCommandCount":  3,
+                     "forbiddenMemberSurfaceCount":  67,
+                     "forbiddenLiteralSurfaceCount":  9,
+                     "productionObservabilityMemberSurfaceCount":  91
+                 },
+    "harness":  {
+                    "id":  "PartisanReleaseSurfaceAudit",
+                    "guid":  "928AA87511384183",
+                    "aggregateSha256":  "82cf4c92b02a55679f3413d229fb6ad5edff6a4e062de3f62a5ab9626274308d",
+                    "files":  [
+                                  {
+                                      "path":  ".partisan-release-surface-audit-owner.json",
+                                      "length":  285,
+                                      "sha256":  "315eb78ff99dd82953cca08990603d6b870db1335197029bc94ba45799ff1aba"
+                                  },
+                                  {
+                                      "path":  "addon.gproj",
+                                      "length":  155,
+                                      "sha256":  "44caa41c6b2f3fa47af2f72611bcd98ca2afd5f66ebd0c14013ed71e666bc510"
+                                  },
+                                  {
+                                      "path":  "Scripts/Game/PartisanReleaseSurfaceAudit.c",
+                                      "length":  113349,
+                                      "sha256":  "c60996940e7f25f67c7bd04817fb584ff604334acd77d28349410fdfe3054f2c"
+                                  }
+                              ],
+                    "tools":  [
+                                  {
+                                      "role":  "runner",
+                                      "path":  "tools/run-guarded-release-surface-audit.ps1",
+                                      "length":  164881,
+                                      "sha256":  "e7953045865449ec044b125d75087ab48e4c3f03563b35a7cf39204c17165642"
+                                  },
+                                  {
+                                      "role":  "releaseIndexProducer",
+                                      "path":  "tools/New-PartisanReleaseSurfaceAuditIndex.ps1",
+                                      "length":  153840,
+                                      "sha256":  "16dd0d5b75789cbb98f4c1d255f19ba5e1b7788e8de76df6521a020128ece210"
+                                  },
+                                  {
+                                      "role":  "releaseCandidateModule",
+                                      "path":  "tools/Partisan.ReleaseCandidate.psm1",
+                                      "length":  33814,
+                                      "sha256":  "22d2f7367d122ca9307140ef6400e5b1646bdf6b12922257811b6185fe345ba7"
+                                  },
+                                  {
+                                      "role":  "guardedRuntimeModule",
+                                      "path":  "tools/Partisan.GuardedRuntime.psm1",
+                                      "length":  252906,
+                                      "sha256":  "d1a1b5ecb1c086bb3765fddc4d9bd10f20dbed92a651214e96ed672f1d43315e"
+                                  },
+                                  {
+                                      "role":  "gate1EvidenceConsumer",
+                                      "path":  "tools/Partisan.Gate1EvidenceConsumer.psm1",
+                                      "length":  111553,
+                                      "sha256":  "c7e63556dd4253e9da327cedfb6f96179397f85da9f1434e0f3f739af8bdf384"
+                                  },
+                                  {
+                                      "role":  "releaseDocsConsumer",
+                                      "path":  "tools/update-release-docs.ps1",
+                                      "length":  568590,
+                                      "sha256":  "d0f6c34f550f1d62fb06230dfb9f597b5aad8bd8bbb3c75beb132c41fc798860"
+                                  },
+                                  {
+                                      "role":  "contract",
+                                      "path":  "docs/data/release_surface_contract.json",
+                                      "length":  62146,
+                                      "sha256":  "b6a3630c83bd35f97912656cf827df4f3d77d90a3fe6e988db730c8d34a95a0c"
+                                  },
+                                  {
+                                      "role":  "harnessProjectTemplate",
+                                      "path":  "tools/release-surface-audit-harness-template/addon.gproj.template",
+                                      "length":  144,
+                                      "sha256":  "557b532f8ddf4721759c44c635b3f11aa0135630a4e4771559bb47a4d13af508"
+                                  },
+                                  {
+                                      "role":  "harnessSourceTemplate",
+                                      "path":  "tools/release-surface-audit-harness-template/Scripts/Game/PartisanReleaseSurfaceAudit.c.template",
+                                      "length":  17156,
+                                      "sha256":  "ef871d2ffadb0c5971d3098d05af80881caecaf9e342dc9df2b36c92581e4dcb"
+                                  }
+                              ]
+                },
+    "capture":  {
+                    "startedUtc":  "2026-07-22T13:36:30.2744507Z",
+                    "completedUtc":  "2026-07-22T13:37:13.0462025Z",
+                    "modeCount":  2,
+                    "pairedOrder":  [
+                                        "retail",
+                                        "diagnostic"
+                                    ]
+                },
+    "modes":  [
+                  {
+                      "mode":  "retail",
+                      "path":  "modes/retail.json",
+                      "signature":  {
+                                        "length":  7321,
+                                        "sha256":  "61e5841f4277c50d5339f9e9f50203ed1e1418e44cd992fe2de8b946af0a4abe"
+                                    },
+                      "executable":  {
+                                         "fileName":  "ArmaReforgerServer.exe",
+                                         "fileVersion":  "1.7.0.54",
+                                         "productVersion":  "1.7.0.54",
+                                         "length":  35064376,
+                                         "sha256":  "9ddb9d55211c86aba32682f4372ff72a1f3aa7188c32e4348d82d7ca154f03e1"
+                                     },
+                      "contextId":  "98ac68413a7740da9ea1e491dccff482",
+                      "candidateBindingSha256":  "06b5fa23ccd10bfd1f8621f6b03c25d9c36719cc9c7d08ebcc73dabbba8c9f5f",
+                      "forbiddenTypeCount":  321,
+                      "productionTypeCount":  4,
+                      "forbiddenCommandCount":  71,
+                      "productionCommandCount":  3,
+                      "forbiddenMemberCount":  67,
+                      "productionMemberCount":  91,
+                      "hardDiagnosticPolicy":  "script-engine-and-process-fatal-v1",
+                      "hardDiagnosticFree":  true,
+                      "hardDiagnosticRawLineCount":  0,
+                      "hardDiagnosticEventCount":  0,
+                      "approvedStockDiagnosticClusterPresent":  false,
+                      "approvedStockDiagnosticClusterExact":  true,
+                      "approvedStockDiagnosticLifecycleExact":  true,
+                      "approvedStockDiagnosticRawLineCount":  0,
+                      "approvedStockDiagnosticEventCount":  0,
+                      "unapprovedHardDiagnosticRawLineCount":  0,
+                      "unapprovedHardDiagnosticEventCount":  0,
+                      "hardDiagnosticAccountingExact":  true,
+                      "candidateMountAttestation":  {
+                                                        "valid":  true,
+                                                        "recordCount":  2,
+                                                        "exactPathCount":  2,
+                                                        "packedCount":  1,
+                                                        "invalidModeCount":  0,
+                                                        "guidExact":  true,
+                                                        "packed":  true
+                                                    },
+                      "harnessMountLineCount":  21,
+                      "uniqueResultMarkerCount":  1,
+                      "resultMarkerOccurrenceCount":  2,
+                      "crashLogContentValid":  true,
+                      "crashArtifactCount":  0,
+                      "passed":  true
+                  },
+                  {
+                      "mode":  "diagnostic",
+                      "path":  "modes/diagnostic.json",
+                      "signature":  {
+                                        "length":  7382,
+                                        "sha256":  "18e60a86ff55911929b66bf0ab326454a90b55f5158c2a6e4f40f1ccd0964142"
+                                    },
+                      "executable":  {
+                                         "fileName":  "ArmaReforgerServerDiag.exe",
+                                         "fileVersion":  "1.7.0.54",
+                                         "productVersion":  "1.7.0.54",
+                                         "length":  36324400,
+                                         "sha256":  "7f0b2b653b4c1c1f3af4059da532c27f0b65d875fce8bdbd4768da1825e6d4e6"
+                                     },
+                      "contextId":  "b2ce8fd5938e426d93b945cdd51a9806",
+                      "candidateBindingSha256":  "06b5fa23ccd10bfd1f8621f6b03c25d9c36719cc9c7d08ebcc73dabbba8c9f5f",
+                      "forbiddenTypeCount":  321,
+                      "productionTypeCount":  4,
+                      "forbiddenCommandCount":  71,
+                      "productionCommandCount":  3,
+                      "forbiddenMemberCount":  67,
+                      "productionMemberCount":  91,
+                      "hardDiagnosticPolicy":  "script-engine-and-process-fatal-v1",
+                      "hardDiagnosticFree":  true,
+                      "hardDiagnosticRawLineCount":  0,
+                      "hardDiagnosticEventCount":  0,
+                      "approvedStockDiagnosticClusterPresent":  false,
+                      "approvedStockDiagnosticClusterExact":  true,
+                      "approvedStockDiagnosticLifecycleExact":  true,
+                      "approvedStockDiagnosticRawLineCount":  0,
+                      "approvedStockDiagnosticEventCount":  0,
+                      "unapprovedHardDiagnosticRawLineCount":  0,
+                      "unapprovedHardDiagnosticEventCount":  0,
+                      "hardDiagnosticAccountingExact":  true,
+                      "candidateMountAttestation":  {
+                                                        "valid":  true,
+                                                        "recordCount":  2,
+                                                        "exactPathCount":  2,
+                                                        "packedCount":  1,
+                                                        "invalidModeCount":  0,
+                                                        "guidExact":  true,
+                                                        "packed":  true
+                                                    },
+                      "harnessMountLineCount":  21,
+                      "uniqueResultMarkerCount":  1,
+                      "resultMarkerOccurrenceCount":  2,
+                      "crashLogContentValid":  true,
+                      "crashArtifactCount":  0,
+                      "passed":  true
+                  }
+              ],
+    "cleanup":  {
+                    "schemaVersion":  1,
+                    "evidenceKind":  "partisan_release_surface_runtime_audit_v2",
+                    "harnessRemoved":  true,
+                    "harnessResidueCount":  0,
+                    "exactOwnerVerifiedBeforeRemoval":  true,
+                    "passed":  true
+                },
+    "validation":  {
+                       "candidateTupleExact":  true,
+                       "packageCanonicalDigestExact":  true,
+                       "executableProvenanceExact":  true,
+                       "harnessSourceAndToolsExact":  true,
+                       "guardedReceiptsComplete":  true,
+                       "candidateBindingShared":  true,
+                       "pairedModeOrderExact":  true,
+                       "contractSetsExact":  true,
+                       "positiveControlsPresent":  true,
+                       "hardDiagnosticAccountingExact":  true,
+                       "approvedStockDiagnosticClustersExact":  true,
+                       "unapprovedHardDiagnosticsAbsent":  true,
+                       "crashArtifactsAbsent":  true,
+                       "harnessResidueAbsent":  true,
+                       "portablePathsExact":  true,
+                       "duplicateJsonKeysAbsent":  true,
+                       "fullFileCensusExact":  true
+                   },
+    "files":  [
+                  {
+                      "path":  "cleanup.json",
+                      "length":  228,
+                      "sha256":  "bdbb163fbcc43da3a078d3604ee559b81e79f8ffb2c4abbd53c53c271f748c00"
+                  },
+                  {
+                      "path":  "harness/source/.partisan-release-surface-audit-owner.json",
+                      "length":  285,
+                      "sha256":  "315eb78ff99dd82953cca08990603d6b870db1335197029bc94ba45799ff1aba"
+                  },
+                  {
+                      "path":  "harness/source/addon.gproj",
+                      "length":  155,
+                      "sha256":  "44caa41c6b2f3fa47af2f72611bcd98ca2afd5f66ebd0c14013ed71e666bc510"
+                  },
+                  {
+                      "path":  "harness/source/Scripts/Game/PartisanReleaseSurfaceAudit.c",
+                      "length":  113349,
+                      "sha256":  "c60996940e7f25f67c7bd04817fb584ff604334acd77d28349410fdfe3054f2c"
+                  },
+                  {
+                      "path":  "identity/bindings.json",
+                      "length":  11022,
+                      "sha256":  "81371b122f47c3848e14d834572f33cf4cfe3db478171a3855427ffef6fdac54"
+                  },
+                  {
+                      "path":  "identity/candidate.json",
+                      "length":  26756,
+                      "sha256":  "bef040090557ca1403d6505e2bd1150452ba467225a29adc4295641f5aa3c80c"
+                  },
+                  {
+                      "path":  "identity/candidate.ready.json",
+                      "length":  334,
+                      "sha256":  "173434122dce60dde8ff1dc939e2d5a916094bdb31096a641850772aa9853ad3"
+                  },
+                  {
+                      "path":  "identity/release_surface_contract.json",
+                      "length":  62146,
+                      "sha256":  "b6a3630c83bd35f97912656cf827df4f3d77d90a3fe6e988db730c8d34a95a0c"
+                  },
+                  {
+                      "path":  "modes/diagnostic.json",
+                      "length":  7382,
+                      "sha256":  "18e60a86ff55911929b66bf0ab326454a90b55f5158c2a6e4f40f1ccd0964142"
+                  },
+                  {
+                      "path":  "modes/retail.json",
+                      "length":  7321,
+                      "sha256":  "61e5841f4277c50d5339f9e9f50203ed1e1418e44cd992fe2de8b946af0a4abe"
+                  },
+                  {
+                      "path":  "raw/diagnostic/arguments.portable.json",
+                      "length":  1981,
+                      "sha256":  "1b745f4ff264ad2973100386f132877b383991452fcb694d0b19a205b6641698"
+                  },
+                  {
+                      "path":  "raw/diagnostic/arguments.raw.json",
+                      "length":  2926,
+                      "sha256":  "5e1ee5360d6ef7f56a90d62ff454b1c9f6f5b2bafa8ec2fcfdec691a0a4c43a6"
+                  },
+                  {
+                      "path":  "raw/diagnostic/guarded-runtime/.PartisanGuardedRuntime_b2ce8fd5938e426d93b945cdd51a9806.completion.json",
+                      "length":  1076,
+                      "sha256":  "5cd723b00d5ab32abfaf10889d6acf8e8b1961069f785c396fe47344e9697ca4"
+                  },
+                  {
+                      "path":  "raw/diagnostic/guarded-runtime/.PartisanGuardedRuntime_b2ce8fd5938e426d93b945cdd51a9806.journal.json",
+                      "length":  487,
+                      "sha256":  "a85c1589506eaaa65d93fbc1044c6e1b976fcc8576f92d4a5615f436da6c7886"
+                  },
+                  {
+                      "path":  "raw/diagnostic/guarded-runtime/.PartisanGuardedRuntime_b2ce8fd5938e426d93b945cdd51a9806.receipt.json",
+                      "length":  26440,
+                      "sha256":  "05e7d6e9d381f8c9661f44b3cd900f622ef726e7a6bdfb47f1e05530417f8d57"
+                  },
+                  {
+                      "path":  "raw/diagnostic/logs/console.log",
+                      "length":  34231,
+                      "sha256":  "fd7cfcd6ae6beedb778933a1469f651a32bc2d81c98bb15a627c4109b56835ee"
+                  },
+                  {
+                      "path":  "raw/diagnostic/logs/error.log",
+                      "length":  15928,
+                      "sha256":  "22641f98ae37bfe7b7aac3e5998de112be30a8b5012b9bb59a237d0ef1df0e58"
+                  },
+                  {
+                      "path":  "raw/diagnostic/logs/script.log",
+                      "length":  8952,
+                      "sha256":  "ab5a9694e0f686afa79d39ea1e697132d5831f911f1536e8b2b6a829230433d6"
+                  },
+                  {
+                      "path":  "raw/diagnostic/profile/profile/.save/settings/ReforgerEngineSettings.conf",
+                      "length":  2817,
+                      "sha256":  "efcbfca2fe1c76023aaf832d5654707ca5336ae7d8c55e27efd25188ab18f11a"
+                  },
+                  {
+                      "path":  "raw/diagnostic/profile/profile/.save/settings/ReforgerGameSettings.conf",
+                      "length":  20,
+                      "sha256":  "1656680640c178239490ffbf9b3ddae04d3ac0993cd84471c0d27b28b76abf13"
+                  },
+                  {
+                      "path":  "raw/diagnostic/profile/profile/Partisan/HST_Settings.json",
+                      "length":  15376,
+                      "sha256":  "9d7105a463a9d53c64b953b0090fcea7794fccfea2a278f43424dd0b747e8265"
+                  },
+                  {
+                      "path":  "raw/diagnostic/profile/profile/PartisanReleaseSurfaceAudit/probe.result.json",
+                      "length":  72790,
+                      "sha256":  "d54aecca59ceb7e55f7d7ca3fa2b446a18f52b2e5649c2ab568167070358603e"
+                  },
+                  {
+                      "path":  "raw/diagnostic/stderr.raw.txt",
+                      "length":  0,
+                      "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+                  },
+                  {
+                      "path":  "raw/diagnostic/stdout.raw.txt",
+                      "length":  0,
+                      "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+                  },
+                  {
+                      "path":  "raw/diagnostic/stream-capture.json",
+                      "length":  284,
+                      "sha256":  "366d3763484ddec3c5459cee220aae4e9fb5451b20312ae172e2aa4cc4afd761"
+                  },
+                  {
+                      "path":  "raw/retail/arguments.portable.json",
+                      "length":  1882,
+                      "sha256":  "d1551919bb14e7e0c175fe0e4ff3dea44f160ffa9dc8971b930394e6eda5a75d"
+                  },
+                  {
+                      "path":  "raw/retail/arguments.raw.json",
+                      "length":  2819,
+                      "sha256":  "c86aec5c71a369f4f46701441c631581fb36a1ecc5e5ecc2ebfe6f8d86a8ec57"
+                  },
+                  {
+                      "path":  "raw/retail/guarded-runtime/.PartisanGuardedRuntime_98ac68413a7740da9ea1e491dccff482.completion.json",
+                      "length":  1068,
+                      "sha256":  "d22108e593ecb5f564ded42f5c2fd0511f6e69bc758ae1496c0205e3444adc1c"
+                  },
+                  {
+                      "path":  "raw/retail/guarded-runtime/.PartisanGuardedRuntime_98ac68413a7740da9ea1e491dccff482.journal.json",
+                      "length":  487,
+                      "sha256":  "827358625f99dec384c4b5caabe994bfb416c3528d968476ae1c502f61ced813"
+                  },
+                  {
+                      "path":  "raw/retail/guarded-runtime/.PartisanGuardedRuntime_98ac68413a7740da9ea1e491dccff482.receipt.json",
+                      "length":  25780,
+                      "sha256":  "621699d17ec2d76f8057c0e0aa380e0656a3517e3642306ca66fad815d49159d"
+                  },
+                  {
+                      "path":  "raw/retail/logs/console.log",
+                      "length":  25989,
+                      "sha256":  "35fa40959197497c825e4eb4c423a70cc1784cc3d8855a59446ccacb9784c387"
+                  },
+                  {
+                      "path":  "raw/retail/logs/error.log",
+                      "length":  7906,
+                      "sha256":  "1faef77646aca05ab9dd8bc2c78c23f954601078ce8b1718a2e4836de71c1a3e"
+                  },
+                  {
+                      "path":  "raw/retail/logs/script.log",
+                      "length":  8890,
+                      "sha256":  "f8830b3f45e79279ef98b98375524694c14ca6cf43dea5f376bd9a8abdd856e6"
+                  },
+                  {
+                      "path":  "raw/retail/profile/profile/.save/settings/ReforgerEngineSettings.conf",
+                      "length":  2817,
+                      "sha256":  "269546c0474f3984a494ba7839e4b8342e03f87e0df8abb95ee5955d0b7c685c"
+                  },
+                  {
+                      "path":  "raw/retail/profile/profile/.save/settings/ReforgerGameSettings.conf",
+                      "length":  20,
+                      "sha256":  "1656680640c178239490ffbf9b3ddae04d3ac0993cd84471c0d27b28b76abf13"
+                  },
+                  {
+                      "path":  "raw/retail/profile/profile/Partisan/HST_Settings.json",
+                      "length":  15376,
+                      "sha256":  "9d7105a463a9d53c64b953b0090fcea7794fccfea2a278f43424dd0b747e8265"
+                  },
+                  {
+                      "path":  "raw/retail/profile/profile/PartisanReleaseSurfaceAudit/probe.result.json",
+                      "length":  73318,
+                      "sha256":  "4adbb6c2bffec82376eee187751a12520d9bd6af010c9a57736da03bff9a8f42"
+                  },
+                  {
+                      "path":  "raw/retail/stderr.raw.txt",
+                      "length":  0,
+                      "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+                  },
+                  {
+                      "path":  "raw/retail/stdout.raw.txt",
+                      "length":  0,
+                      "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+                  },
+                  {
+                      "path":  "raw/retail/stream-capture.json",
+                      "length":  280,
+                      "sha256":  "16bbcb1a1ea4b20933b340c0855cb1ff524e10a89c2d54d1b7831bc138a9a960"
+                  },
+                  {
+                      "path":  "run.owner.json",
+                      "length":  584,
+                      "sha256":  "051e28d00962d6efff05601ee1c7cd9167bb0ad3230c02033380a42cd921da8b"
+                  }
+              ],
+    "filesAggregateSha256":  "717331de178706d6993f060e0dd83a27d319837dcbc7f2118e957a1e27de913e",
+    "limitations":  [
+                        "This audit uses inert compiler and metadata probes for contracted member-surface presence; separately, it deliberately invokes production menu generation and read-only per-command availability inspection, but it does not execute command actions or mutate campaign gameplay state.",
+                        "Forbidden literal surfaces are proven by the candidate-bound source guard analysis, not by an unreliable package-byte string scan.",
+                        "It is not gameplay, multiplayer, persistence, restart, soak, or performance certification.",
+                        "The guarded launcher deliberately gives the child no inherited standard streams; authoritative engine output is retained in the three required logs and in crash.log when the engine emits it.",
+                        "The machine-bound hard-diagnostic policy is script-engine-and-process-fatal-v1: SCRIPT or ENGINE error severity, access violations, unhandled exceptions, fatal/application-crash signals, and audit ERROR markers. Other retained engine-channel severities are outside this narrow release-surface predicate. A successful crash.log must be absent or empty.",
+                        "A mode may contain either no hard diagnostic or one exact stock Eden shutdown cluster: two underlying support-station catalog-manager events mirrored once across console.log, script.log, and error.log after replication finishes and before game destruction. Every partial, extra, variant, misplaced, crash-channel, or unrelated hard event fails closed."
+                    ],
+    "disposition":  "passed-noncertifying-release-surface-audit",
+    "certificationPromotion":  "none",
+    "passed":  true
+}

@@ -76,10 +76,10 @@ The guarded child deliberately has no inherited standard streams, so its
 retained engine logs are authoritative. Every probe must retain `console.log`,
 `script.log`, and `error.log`. Zero or one `crash.log` is valid; if emitted it
 must be retained and classified, and if absent it must never be synthesized.
-The active package's all-target Workbench evidence establishes common CRC
-`aeddce9b` for its exact source, but does not substitute for a fresh pair under
-the CRI-102 current-consumer binding. CRI-101 remains immutable passed history;
-neither scoped result promotes certification.
+The active candidate's all-target Workbench evidence establishes common CRC
+`aeddce9b` for its exact source. CRI-103 now accepts the fresh corrected-consumer
+pair; CRI-101 remains immutable passed history, and neither scoped result
+promotes certification.
 
 The first real retail probe against the active package produced exactly the
 three required logs and no crash log. The overall attempt failed closed on the
@@ -465,6 +465,32 @@ Next capture a fresh same-package pair, rerun all five focused suites, publish
 and consume their 91-case aggregate, run the corrected canary, and run Full
 Campaign Debug only after an accepted canary.
 
+## Corrected-Consumer Pair Accepted
+
+CRI-103 accepts surface leaf
+`20260722T133630Z-928aa875113841838469f7222a9c11fb` and retention leaf
+`20260722T133757Z-45b0703ae767` under clean harness
+`07e71c12159f5287c6af2dd7901a392ef9c16bb9`. Their tracked-index/ready-seal
+SHA-256 pairs are respectively
+`68a74d91208e1873c83258c9c15158f972914f40d4a1713d2f25c56d0ef7ad73` /
+`9286c28a7b14b2a3b11b205e74a61c036a92097a763205aef914ba27412a273c`
+and `f4170f2afd1342a958aaaf5daaacc968d66508324069f73dca3350c819a36e75` /
+`9906f74c168ec99d98a6d8dbd5368b925fae03a19265485a3b5ed28cd1326bb8`.
+The surface retained 41 files, exact per-mode 2/2/1/0 mount attestation, zero
+hard diagnostics, and zero unapproved diagnostics. Retention retained 251 files
+across five diagnostic and five standard contexts with stable bytes and no
+certification promotion. Retention identity rests on its exact candidate tuple,
+canonical digest, ten guarded receipts, and exact argument topology; it does not
+project mount counts. One shutdown-checkpoint diagnostic-client whole-file
+census includes a post-`Game destroyed.` availability re-enumeration, which is
+raw-log nuance rather than a blocker.
+
+Both halves independently reverified read-only and were jointly consumed against
+the unchanged external, untracked prepublish validation input. `STATUS-008` is
+closed again. Candidate, package, gameplay, Foundation, and Workbench facts are
+unchanged. Next run all five focused suites and their 91-case aggregate, then
+the corrected canary, then Full Campaign Debug only after an accepted canary.
+
 The release-index publishers and focused aggregate bind their relevant
 producer and consumer worktree bytes to immutable Git blobs. The
 release-document consumers reverify those bindings, while Foundation pins the
@@ -533,14 +559,14 @@ aggregate, focused-consumer, general-consumer, generated-document check, and
 Foundation commands to pass serially in independently started PowerShell
 processes on one clean unchanged commit. No command may overlap another, and
 any HEAD or bound-hash drift restarts the sequence.
-This checkpoint retains portable tooling proof. CRI-101 accepted fresh same-
-package surface leaf `20260722T114802Z-1fb5e08619ef45b2aae20f2c5938b56c`
-and retention leaf `20260722T115003Z-4e159a24384c`, but CRI-102 later changed
-the profile-diagnostic current-consumer binding. That pair remains immutable
-passed history rather than active evidence, and `STATUS-008` is open. A fresh
-same-package pair, the five-suite 91-case focused aggregate, corrected native
-canary, full profile, dedicated multiplayer, restart, and soak remain pending;
-release remains `NO-GO`.
+This checkpoint retains portable tooling proof. CRI-101 remains immutable passed
+history after CRI-102 changed the profile-diagnostic consumer. CRI-103 accepts
+fresh current-tool surface leaf
+`20260722T133630Z-928aa875113841838469f7222a9c11fb` and retention leaf
+`20260722T133757Z-45b0703ae767`; both independently reverified read-only and were
+jointly consumed, closing `STATUS-008` again. The five-suite 91-case focused
+aggregate, corrected native canary, full profile, dedicated multiplayer,
+restart, and soak remain pending; release remains `NO-GO`.
 
 ## Unsealed Phase 20 Ownership Repair
 
@@ -920,13 +946,14 @@ unchanged package and binding
 `06b5fa23ccd10bfd1f8621f6b03c25d9c36719cc9c7d08ebcc73dabbba8c9f5f`.
 CRI-102 later makes this pair immutable passed history by changing the bound
 profile-diagnostic consumer. The first `87b5ad4` focused attempt is preserved as
-one superseded/rejected batch: four suites were green at JUnit 50/0/0/0, while
-the profile wrapper rejected despite JUnit 41/0/0/0. `STATUS-008` is open. A
-fresh pair, all five focused suites and their 91-case aggregate, corrected-
-canary evidence, and full-profile evidence remain pending in that order; Full
-runs only after an accepted canary. Candidate, package, gameplay, Foundation,
-and Workbench facts are unchanged. Gate 1 is incomplete and release remains
-`NO-GO`.
+one superseded/rejected batch. CRI-103 accepts current-tool surface leaf
+`20260722T133630Z-928aa875113841838469f7222a9c11fb` and retention leaf
+`20260722T133757Z-45b0703ae767`; both independently reverified read-only and were
+jointly consumed. `STATUS-008` is closed again. All five focused suites and
+their 91-case aggregate, corrected-canary evidence, and full-profile evidence
+remain pending in that order; Full runs only after an accepted canary.
+Candidate, package, gameplay, Foundation, and Workbench facts are unchanged.
+Gate 1 is incomplete and release remains `NO-GO`.
 
 The first candidate, `partisan-rc-c2b16c4a2d85-20260718T201442Z`, remains sealed
 with digest `8f60260331c6c7473465dc4517b1063a179a8f4efeffdcfe3d5eccac9af476db`

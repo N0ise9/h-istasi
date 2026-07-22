@@ -17,39 +17,30 @@ seal SHA-256 values are respectively
 `173434122dce60dde8ff1dc939e2d5a916094bdb31096a641850772aa9853ad3`.
 Foundation passed 985 references; PC, PS4, PS5, XBOX_ONE, and XBOX_SERIES each
 passed at 5,849 files/12,022 classes with common CRC `aeddce9b`; the seal binds
-four package files and 50 evidence files. The `52c7e2b` pair remains immutable
-passed history. Fresh 41-file surface leaf
-`20260722T103329Z-edea9d8417884dd8a2d2b313c4543ad0` and 251-file retention
-leaf `20260722T103514Z-436f331b8659` passed under corrected harness
-`e2c38d2770d8ebaaa675326d1b8a91068db989e5`, independently reverified read-only,
-and were jointly consumed against the unchanged package. CRI-100 keeps both
-pairs as immutable passed history under their recorded tool bytes, but neither
-satisfies the active encoding-stable current-consumer binding. CRI-101 accepts
-surface leaf `20260722T114802Z-1fb5e08619ef45b2aae20f2c5938b56c` and retention
-leaf `20260722T115003Z-4e159a24384c` under clean harness
-`7e2fe71d9619fd60cfe393d2776b4ed49f75186b`. The surface retains 41 files,
-per-mode exact 2/2/1/0 mounts, retail's exact approved 6 raw/2 events,
-diagnostic's exact 0/0, and zero unapproved diagnostics. Its tracked index/ready
-SHA-256 values are
-`832c91705120f54de5c2afa974492efdf23cb11f4f1ef9b8f2395c8ecf2399e8` and
-`84079df17dc4293e23706f36e3a4eb6efefae29cf709396ecbee2530441dded0`.
+four package files and 50 evidence files. The `52c7e2b`, `e2c38d2`, and CRI-101
+pairs remain immutable passed history under their recorded tool bytes. CRI-102
+preserves the first `87b5ad4` focused batch as superseded/rejected forensic
+evidence. CRI-103 accepts fresh current-tool surface leaf
+`20260722T133630Z-928aa875113841838469f7222a9c11fb` and retention leaf
+`20260722T133757Z-45b0703ae767` under clean harness
+`07e71c12159f5287c6af2dd7901a392ef9c16bb9`. The surface retains 41 files,
+per-mode exact 2/2/1/0 mounts, zero hard diagnostics, and zero unapproved
+diagnostics. Its tracked index/ready SHA-256 values are
+`68a74d91208e1873c83258c9c15158f972914f40d4a1713d2f25c56d0ef7ad73` and
+`9286c28a7b14b2a3b11b205e74a61c036a92097a763205aef914ba27412a273c`.
 Retention retains 251 files across five diagnostic plus five standard contexts,
-with `standardSaveRestorationCertified: false` and `certificationClaim: none`; its
-tracked index/ready SHA-256 values are
-`5989778fef9a560b94dff311e8fa82547166f10ac2b0598504a56489163f5a4e` and
-`023f17a4e36f73627fbe64bb456165991b7a66f3100908d5343f49ded00d4504`.
+with `standardSaveRestorationCertified: false` and `certificationClaim: none`;
+its tracked index/ready SHA-256 values are
+`f4170f2afd1342a958aaaf5daaacc968d66508324069f73dca3350c819a36e75` and
+`9906f74c168ec99d98a6d8dbd5368b925fae03a19265485a3b5ed28cd1326bb8`.
 Both halves independently reverified read-only and were jointly consumed against
-the unchanged package and candidate binding
+the unchanged external, untracked prepublish validation input and candidate
+binding
 `06b5fa23ccd10bfd1f8621f6b03c25d9c36719cc9c7d08ebcc73dabbba8c9f5f`.
-CRI-102 changes the profile-diagnostic current-consumer binding, so this pair is
-now immutable passed history rather than active evidence. The first `87b5ad4`
-focused batch is preserved as superseded/rejected forensic evidence: four
-service suites passed JUnit 50/0/0/0, while the profile wrapper rejected despite
-JUnit 41/0/0/0 because it expected a dedicated singleton seam detail in every
-testcase interval. `STATUS-008` is open. Candidate, package, gameplay,
-Foundation, and Workbench facts are unchanged. No 91-case focused, corrected-
-canary, or full-profile runtime evidence has yet been accepted for these bytes.
-Gate 1 is incomplete, and release remains `NO-GO`.
+`STATUS-008` is closed again. Candidate, package, gameplay, Foundation, and
+Workbench facts are unchanged. No 91-case focused, corrected-canary, or full-
+profile runtime evidence has yet been accepted for these bytes. Gate 1 is
+incomplete, and release remains `NO-GO`.
 
 Focused counterattack leaf
 `20260722T105628Z-68bd71de0fea40f68b533feee1c9e86a`, `run.json` SHA-256
@@ -2548,8 +2539,14 @@ Debug and packaged-runtime gates remain open.
   duplicate, misordered, wrong-case, or additive evidence.
 - [x] Preserve the CRI-101 pair as immutable passed history after the corrected
   runner/producer/consumer changes its active binding. Reopen `STATUS-008`.
-- [ ] Run and jointly consume a fresh same-package surface/retention pair under
-  the corrected committed tools.
+- [x] Run and jointly consume the fresh corrected-consumer pair under clean
+  harness `07e71c12159f5287c6af2dd7901a392ef9c16bb9`. Surface leaf
+  `20260722T133630Z-928aa875113841838469f7222a9c11fb` retained 41 files, exact
+  per-mode 2/2/1/0 mounts, zero hard diagnostics, and zero unapproved
+  diagnostics. Retention leaf `20260722T133757Z-45b0703ae767` retained 251
+  files across five diagnostic plus five standard contexts with no
+  certification promotion. Both independently reverified read-only and were
+  jointly consumed, closing `STATUS-008` again.
 - [ ] Run the five-suite focused aggregate with exactly 91 individually named
   cases and JUnit 91/0/0/0 against the unchanged active package.
 - [ ] Run the corrected canary only after the focused aggregate is accepted.
