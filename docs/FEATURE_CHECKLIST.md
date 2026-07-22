@@ -6,9 +6,26 @@
 > generated behavioral specification. Chronological checkpoints below retain
 > scoped evidence but do not supersede those generated files.
 
-Campaign Schema 71 and runtime-settings Schema 24 are current. Active Gate 1
-candidate `partisan-rc-5b1f2e98f931-20260721T193941Z`, version
-`0.1.0-rc.20260721T193941Z.5b1f2e98`, is sealed from clean source HEAD
+## Current Gate 1 Source Checkpoint
+
+Gate 1 binds one clean, frozen source commit, in order, to Foundation,
+all-target Workbench validation/compilation, the five individually named
+source-native focused suites at JUnit 91/0/0/0, the corrected source-native
+force-authority canary, and source-native Full Campaign Debug. Generated `.pak`
+files, including `data.pak`, are not source artifacts, are not checked in, and
+are not a separate repository-managed release deliverable.
+
+Publication is Workbench to Workshop, after which the game downloads the addon.
+The former external candidate pack and package-bound audit are retired as
+release authority and may be retained only as optional historical QA. The
+chronological package hashes and outcomes below remain evidence of those past
+runs; they do not authorize publication or replace the frozen-source Gate 1
+checks.
+
+Campaign Schema 71 and runtime-settings Schema 24 are current. The retired
+local-QA checkpoint used candidate
+`partisan-rc-5b1f2e98f931-20260721T193941Z`, version
+`0.1.0-rc.20260721T193941Z.5b1f2e98`, sealed from clean source HEAD
 `5b1f2e98f93137230e686312c6e99cea7630dae4`. Its package, manifest, and
 ready-seal SHA-256 values are
 `af22d6322a215dbef466e49041fc07395cbb5ed7a5951fd3e0cee5f4a101f530`,
@@ -26,18 +43,26 @@ Ledger `history[2]` preserves former candidate
 canary passes and rejected full-profile result. None of that runtime evidence
 transfers. The passed `52c7e2b`, `e2c38d2`, and CRI-101 surface/retention pairs
 remain immutable history under their recorded tool bytes. CRI-102 preserves the
-first `87b5ad4` focused batch as superseded/rejected forensic evidence. CRI-103
-accepts fresh current-tool surface leaf
+first `87b5ad4` focused batch as superseded/rejected forensic evidence. Within
+the retired local-QA chain, CRI-103 accepted fresh then-current-tool surface leaf
 `20260722T133630Z-928aa875113841838469f7222a9c11fb` and retention leaf
 `20260722T133757Z-45b0703ae767`; both independently reverified read-only and were
 jointly consumed against the unchanged external, untracked prepublish validation
 input. Candidate, package, gameplay, Foundation, and Workbench evidence are
-unchanged. `STATUS-008` is closed again. Next run all five focused suites and
-their 91-case aggregate, the corrected canary, and Full Campaign Debug only
-after an accepted canary. Gate 1 remains incomplete, and release remains
+unchanged. At that historical checkpoint, `STATUS-008` was closed and the
+planned next order was all five package-bound focused suites and their 91-case
+aggregate, the corrected canary, and Full Campaign Debug only after an accepted
+canary. CRI-104 preserves the intervening `71b276f` five-suite
+attempt as rejected forensic evidence: raw JUnit 91/0/0/0, exact mounts,
+51 = 10 stock + 41 intentional + 0 unapproved diagnostics, and zero residue did
+not override two leaf/start-second mismatches. The aggregate rejected
+`policy_drift` and published no aggregate or durable receipt. All five
+package-bound suites would have to rerun after the one-clock correction only if
+that optional historical QA chain were explicitly resumed. Current Gate 1 uses
+the source-native sequence above, remains incomplete, and release remains
 `NO-GO`.
 
-## Stamped Gate 1 Release-Surface and Retention Checkpoint
+## Historical Stamped Local-Candidate Checkpoint
 
 - [x] Close the source-level diagnostic boundary around 55 whole-file
   `ENABLE_DIAG` carriers and 39 mixed production/diagnostic files. The exact
@@ -355,20 +380,38 @@ after an accepted canary. Gate 1 remains incomplete, and release remains
   Both independently reverified read-only and were jointly consumed, closing
   `STATUS-008` again. Candidate, package, gameplay, Foundation, and Workbench
   facts remain unchanged.
+- [x] Preserve the complete CRI-104 five-suite attempt as rejected forensic
+  batch `batch-71b276f-run-id-start-second-drift`: 45 files/1,365,323 bytes,
+  JUnit 91/0/0/0, exact 2/2/1/0 mounts per suite, diagnostics 51 = 10 approved
+  stock + 41 approved intentional + 0 unapproved, and zero cleanup/spill
+  residue. Counterattack and QRF leaf prefixes crossed into the UTC second after
+  their retained start instant, so the strict aggregate correctly rejected
+  `policy_drift` and published neither an aggregate nor a durable receipt.
+- [x] Use one authoritative `evidenceStartUtc` for both the focused leaf prefix
+  and `run.json.startedUtc`. Keep strict consumer identity/chronology checks and
+  cover both a near-second-boundary aligned run and an explicit mismatch. Do not
+  retrofit or transfer any of the five rejected leaves.
+- [x] Retire the former unconditional package-bound five-suite rerun from Gate
+  1. If the optional historical local-QA chain is explicitly resumed, rerun all
+  five package-bound suites after the one-clock correction and independently
+  consume their replacement 91-case aggregate. None of that optional evidence
+  advances the current source-native Gate 1 sequence.
 
 - [x] Source-fix the obsolete intentional-convoy classifier boundary in
-  `12f87e9`: the active and future candidates require exactly 13 diagnostics grouped as 9
-  admission, 3 corruption, and 1 watchdog, with 36 self-tests and no settlement
-  diagnostic dependency. Historical 33-check evidence remains immutable.
+  `12f87e9`: under the retired workflow, later candidate records required exactly
+  13 diagnostics grouped as 9 admission, 3 corruption, and 1 watchdog, with 36
+  self-tests and no settlement diagnostic dependency. Historical 33-check
+  evidence remains immutable.
 - [x] Source-fix exact HQ arsenal teardown identification in `12f87e9`: cache
   exact prefab identity during post-init and use the cache for the narrow
-  null-catalog early return. Active-package runtime proof remains required.
+  null-catalog early return. Workshop-installed runtime proof remains required.
 - [x] Source-fix compacted paid-support confirmation replay in `64d1f70`: prove
   the sealed tombstone path with null live planning dependencies while retaining
   exact actor/fingerprint validation.
 - [x] Source-fix convoy-contact driver recovery in `ebaaeca`: permit reseating
   only for exact degraded/rebind groups with real roots, living unseated crew,
-  five-second cadence, and the 45-second grace. Native package proof is pending.
+  five-second cadence, and the 45-second grace. Workshop-installed native
+  runtime proof is pending.
 - [x] Freeze and commit the implemented portable evidence-tool checkpoint:
   strict
   assertion-derived corrected-canary runner, schema-2 Campaign Debug release
@@ -392,16 +435,20 @@ after an accepted canary. Gate 1 remains incomplete, and release remains
   the clean, non-overlapping, fresh-process serial
   full/canary/aggregate/focused-consumer/general-consumer/check/Foundation
   sequence after every bound tool hash matches its committed Git blob. The
-  clean active-candidate build passed Foundation at 985 references against the
+  then-active candidate build passed Foundation at 985 references against the
   committed tool set; this closes the portable tool checkpoint without claiming
   package-bound runtime proof.
-- [ ] Publish the active package's five focused suite launches through the exact
-  schema-2 5-suite/91-testcase/40-blob/35-policy-assertion aggregate. Reopen the
-  external raw tree
-  during release-doc consumption; do not transfer the retained schema-1 focused
-  summary or count aggregate-policy assertions as Campaign Debug assertions.
-- [ ] Run the corrected `force_authority` canary on that unchanged package and
-  publish a portable schema-2 ten-file release index. Require the exact
+- [x] Retire publication of an active package's focused suite launches as a
+  current Gate 1 task. The exact schema-2 5-suite/91-testcase/40-blob/
+  35-policy-assertion aggregate remains an optional historical-QA contract; if
+  that chain is explicitly resumed, reopen the external raw tree during
+  release-doc consumption, do not transfer the retained schema-1 focused
+  summary, and do not count aggregate-policy assertions as Campaign Debug
+  assertions.
+- [x] Retire the unchanged-package corrected `force_authority` canary as a
+  current Gate 1 task. If the optional historical-QA chain is explicitly
+  resumed, publish its portable schema-2 ten-file release index and require the
+  exact
   9 PASS/1 WARN/0 FAIL/1 BLOCKED/0 SKIPPED case census,
   assertion/certification census, zero hidden assertion failure/skip, the sole
   non-certifying `cleanup.player_marker.live` warning, the sole explicitly
@@ -409,16 +456,17 @@ after an accepted canary. Gate 1 remains incomplete, and release remains
   `cleanup.state_isolation_restore`, rejection of any unexpected or
   certification-counting blocker, 18/0 state restoration, final orphan cleanup,
   accepted diagnostic census, committed four-tool Git-blob binding, and
-  independent raw-bundle consumption before the full profile may start.
-- [ ] Require exact four-file package-digest rederivation, global focused-console
+  independent raw-bundle consumption before that optional full profile may
+  start.
+- [x] Retain exact four-file package-digest rederivation, global focused-console
   suite/pass marker census, complete four-field candidate binding for every RED
   receipt, schema-aware legacy canary history, and durable historical Git-blob
-  verification before accepting each active runtime result. The
+  verification only for optional historical local-candidate results. The
   schema-2 producer, consumer, and self-test boundaries now pin these checks,
   immutable first-publication conflicts, late drift, publication-window locks,
   concurrent rollback, exact retained-tree censuses, and cleanup before PASS.
 
-## Release-Ledger Schema 3 Checklist
+## Historical Local-Candidate Release-Ledger Schema 3 Checklist
 
 - [x] Keep release-ledger Schema 3 separate from Campaign Schema 71 and
   runtime-settings Schema 24. Require `historicalCandidateEvidence` to be a
@@ -447,7 +495,7 @@ after an accepted canary. Gate 1 remains incomplete, and release remains
   or duplicate identity. No historical runtime evidence transfers; release
   remains `NO-GO`.
 
-## Current Release-Closure Gate 0
+## Release-Closure Gate 0 And Historical Local-Candidate Chronology
 
 - [x] Freeze Campaign Schema 71 and runtime-settings Schema 24 for
   stabilization work. A later schema change requires a data-loss, hard
@@ -465,15 +513,18 @@ after an accepted canary. Gate 1 remains incomplete, and release remains
   and the retained prior-package preliminary Full Campaign Debug capture; keep
   the failed report and release decision `NO-GO` distinct from evidence
   acceptance.
-- [x] Add one guarded Gate-1 build entry point that requires a clean checkout,
+- [x] Historical local QA: add one guarded build entry point that requires a
+  clean checkout,
   runs Foundation and separate PC/XBOX_ONE/XBOX_SERIES/PS4/PS5 Workbench
   validations, retains raw per-target evidence, and packs exactly four native
   release files under one external partial-to-final candidate boundary.
-- [x] Define the portable package identity as `sha256-manifest-v1`: sorted
+- [x] Historical local QA: define the portable package identity as
+  `sha256-manifest-v1`: sorted
   relative path, byte length, and per-file SHA-256 rows for `addon.gproj`,
   `data.pak`, `resourceDatabase.rdb`, and `thumbnail.png`, hashed as one
   aggregate digest.
-- [x] Require the candidate manifest to bind exact Git and embedded-build
+- [x] Historical local QA: require the candidate manifest to bind exact Git
+  and embedded-build
   relationship, dirty state, schemas, source/packed addon identity, diagnostic
   Workbench and all-five results, standard and diagnostic server/client
   identities for active runtime candidates, package hashes, and every retained
@@ -2388,7 +2439,7 @@ projections of campaign state and must be restorable, foldable, or disposable.
 | Authoritative client projection and JIP | Host, clients, reconnects, and late joiners converge on the same snapshot watermark and ordered revisioned create/update/delete stream. | Implemented Foundation for marker records / Needs Runtime Proof | Schema 61 supplies delivery/ACK; Schema 62 adds source revision; Schema 66 protects native campaign-marker ownership without changing the wire protocol. Prove host/two-client/late-join equality, ownership revision correlation, immutable/self-healing campaign markers, editable player markers, native rendering, and restart. Menu snapshots, campaign tasks, general notifications, and dynamic player markers remain outside this protocol. | Highest |
 | Modal map targeting | Target selection owns map/input/cursor/modal state through one idempotent state machine. | Broad Alpha / Needs Runtime Proof | Normal map targeting and confirmation flows exist with ESC handling and duplicate-click guards. Prove Closed -> Selecting -> Confirming -> Submitting/Closing behavior, Choose Again re-arm after pointer release, cursor/modal layering, and atomic ESC teardown at supported resolutions. | Highest |
 | Map/War information model | Players see contacted town pressure and resistance territory without redundant or misleading rows. | Sealed in Schema-64 Source/Workbench / Needs Runtime Verification | Zone Pressure contains only explicitly contacted valid canonical towns; the player's current contacted town sorts first, then remaining towns by ascending FIA basis points and stable name/ID ties. Resistance Territory includes every published resistance-owned strategic zone except mission bookkeeping, ordered deterministically by type/name/ID with no arbitrary six-row cap. Current ownership receipt authority is respected. Prove rendered output, paging/scale, restart, reconnect, and JIP. | High |
-| Full Campaign Debug | One button runs a true runtime certification suite and writes structured artifacts without changing the campaign under test. | Active 5b candidate / Current-tool pair accepted / Focused rerun pending / Historical ee0 full rejected | Active candidate `partisan-rc-5b1f2e98f931-20260721T193941Z`, external untracked validation-input SHA-256 `af22d6322a215dbef466e49041fc07395cbb5ed7a5951fd3e0cee5f4a101f530`, has green Foundation and all-target Workbench evidence. It is prepublish evidence input, not a repository/source deliverable; Workbench/Workshop remains the normal compilation and distribution path. The passed `52c7e2b`, `e2c38d2`, and CRI-101 surface/retention pairs remain immutable history under their recorded tool bytes. The first `87b5ad4` focused batch remains immutable superseded/rejected evidence. CRI-103 accepts current-tool surface leaf `20260722T133630Z-928aa875113841838469f7222a9c11fb` and retention leaf `20260722T133757Z-45b0703ae767`; both independently reverified read-only and were jointly consumed. Historical ee0 is ledger `history[2]` with `rejected-after-full-profile`; its focused and corrected canary passed noncertifying and its Full Campaign Debug boundary was rejected red at 598/47/26/13/1 and 5,630/5,695 with 24 unapproved diagnostics. No historical result transfers. `STATUS-008` is closed again. Against the unchanged validation input, next run all five focused suites and their 91-case aggregate, the corrected force-authority canary, and Full Campaign Debug only after an accepted canary. Dedicated/live server-client, network/JIP, migration, marker/UI, performance, and soak gates remain separate; Gate 1 is incomplete and release remains `NO-GO`. | Highest |
+| Full Campaign Debug | One button runs a true runtime certification suite and writes structured artifacts without changing the campaign under test. | Frozen source checkpoint pending / Historical local-candidate QA retained / Historical ee0 full rejected | Former 5b and CRI-103 candidate/package results remain optional historical QA only; they are not Gate 1 or publication authority. Historical ee0 remains `rejected-after-full-profile`, with its exact focused/canary/full outcomes retained under that old boundary. Current Gate 1 requires one new clean frozen source checkpoint with Foundation, Workbench validation/compilation, the source-native 91-case focused aggregate, corrected source-native force-authority canary, and source-native Full Campaign Debug bound to it in order. No generated `.pak` or package-bound rerun is required. Publish afterward only through Workbench to the Workshop; the game downloads the addon. Dedicated/live server-client, network/JIP, migration, marker/UI, performance, and soak gates remain separate; Gate 1 is incomplete and release remains `NO-GO`. | Highest |
 | Scoped debug profiles | Smaller profiles isolate feature families for fast iteration. | Implemented Foundation | Keep profiles explicit and never treat external/restart/soak gaps as PASS. | Keep |
 | Build provenance | Runtime logs and artifacts identify the exact code build from one authoritative source. | Implemented Foundation / Needs Packaged Proof | Runtime, menu, admin, and debug artifact summaries now consume `HST_BuildInfo`; prove the stamped identity in a packaged dedicated-server/client run. | High |
 
@@ -2404,29 +2455,19 @@ projections of campaign state and must be restorable, foldable, or disposable.
 
 ## Highest-Impact Next Tasks
 
-The active external, untracked prepublish validation input is candidate
-`partisan-rc-5b1f2e98f931-20260721T193941Z`, sealed from clean source HEAD
-`5b1f2e98f93137230e686312c6e99cea7630dae4`. Foundation passed 985 references,
-all five Workbench targets passed at 5,849 files/12,022 classes and CRC
-`aeddce9b`, and the four-file validation input is sealed. It is not a repository
-or source deliverable; Workbench/Workshop remains the normal compilation and
-distribution path. The passed `52c7e2b`, `e2c38d2`, and CRI-101 surface/
-retention pairs remain immutable historical evidence under their recorded tool
-bytes. The first `87b5ad4` focused batch is immutable superseded/rejected
-forensic evidence. CRI-103 accepts current-tool surface leaf
-`20260722T133630Z-928aa875113841838469f7222a9c11fb` and retention leaf
-`20260722T133757Z-45b0703ae767`; both independently reverified read-only and were
-jointly consumed.
-Preserve historical 0e as
-`history[0]`, e11 as `history[1]`, and ee0 as `history[2]` with
-`rejected-after-full-profile`; no historical package or state-only result
-transfers. Candidate, package, gameplay, Foundation, and Workbench evidence are
-unchanged. `STATUS-008` is closed again; release remains `NO-GO`.
+Freeze one new clean source checkpoint. Bind Foundation and Workbench
+validation/compilation to it, then run all individually named source-native
+focused tests and consume their 91/0/0/0 aggregate, run the corrected
+source-native `force_authority` canary, and run source-native Full Campaign
+Debug only after the canary is accepted. Each step must pass before the next
+starts.
 
-The immediate candidate-bound order is: run all five focused suites and consume
-their 91-case aggregate, run the corrected `force_authority` canary, then Full Campaign Debug
-only after an accepted canary. Each step must pass and be independently consumed
-before the next starts.
+Former candidate `partisan-rc-5b1f2e98f931-20260721T193941Z`, CRI-103, and the
+earlier 0e/e11/ee0 package-bound chains remain optional historical QA. They do
+not satisfy the new checkpoint or authorize publication. No generated `.pak`
+belongs in source and no bespoke package rerun is part of this sequence. After
+the source gate is accepted, publish through Workbench to the Workshop; the
+game downloads the addon. Release remains `NO-GO` until the gate closes.
 
 1. Prove broader active-world records, Workshop/live server-client use, and
    networking/JIP/reconnect. Abrupt termination remains

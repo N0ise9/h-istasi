@@ -35019,6 +35019,9 @@ foreach ($schema69FocusedAutotestLauncherEntry in @(
 	'ConsoleTestCaseSeen',
 	'Copy-FocusedAutotestEvidence',
 	'evidenceKind = ''packaged-focused-autotest''',
+	'$evidenceStartUtc = [DateTime]::UtcNow',
+	'$evidenceLeaf = ($evidenceStartUtc.ToString(',
+	'startedUtc = $evidenceStartUtc.ToString(',
 	'function ConvertTo-SafeDiagnosticText',
 	'<email>',
 	'<identity>',
@@ -35043,6 +35046,10 @@ foreach ($schema69FocusedAutotestLauncherEntry in @(
 		$schema69FocusedAutotestLauncherEntry) -lt 0) {
 		throw "Guarded focused-autotest launcher contract is incomplete: $schema69FocusedAutotestLauncherEntry"
 	}
+}
+if ($schema69FocusedAutotestLauncherText.IndexOf(
+		'$evidenceLeaf = ([DateTime]::UtcNow.ToString(') -ge 0) {
+	throw 'Guarded focused-autotest leaf identity must reuse the exact retained start instant'
 }
 $schema69FocusedAutotestJobIndex = $schema69FocusedAutotestLauncherText.IndexOf(
 	'$job = New-Object PartisanFocusedAutotestJob')
@@ -55096,6 +55103,10 @@ foreach ($releaseToolPath in @(
 }
 $releaseCandidateBuilderText = Get-Content -Raw $releaseCandidateBuilderPath
 foreach ($releaseCandidateBuilderEntry in @(
+		'[switch]$LegacyLocalValidationOnly',
+		'This local package-snapshot workflow is retired from the supported release path.',
+		'Workbench publishes the source addon to Workshop, and the game downloads it.',
+		'No generated .pak belongs in this repository.',
 		'run-ordinary-campaign-persistence-proof.ps1',
 		'-LibraryOnly',
 		'Invoke-GuardedProcess',
@@ -55127,6 +55138,18 @@ foreach ($releaseCandidateBuilderEntry in @(
 		throw "Guarded release-candidate builder contract is incomplete: $releaseCandidateBuilderEntry"
 	}
 }
+$trackedPakFiles = @(& git -C $root ls-files -- '*.pak' 2>$null)
+if ($LASTEXITCODE -ne 0) {
+	throw 'Unable to verify the tracked generated-package boundary.'
+}
+if ($trackedPakFiles.Count -ne 0) {
+	throw "Generated .pak files must not be tracked: $($trackedPakFiles -join ', ')"
+}
+$gitIgnoreText = Get-Content -Raw (Join-Path $root '.gitignore')
+if ($gitIgnoreText -notmatch '(?m)^\*\.pak\s*$') {
+	throw 'The source checkout must ignore generated .pak output.'
+}
+Write-Host 'Workbench/Workshop publishing boundary OK: zero tracked .pak files and legacy local packing is explicit opt-in'
 if ($releaseCandidateBuilderText.IndexOf(
 		'validate-foundation.ps1") *>&1',
 		[StringComparison]::Ordinal) -ge 0) {
@@ -55390,6 +55413,9 @@ foreach ($releaseDocsPortableFocusedEntry in @(
 		'$failedListSavedCount -eq 1 -and',
 		'$requiredPatternContract = Get-PartisanFocusedRequiredPatternContract',
 		'$rawMount = Get-PartisanFocusedRawMountAttestation',
+		'$runId.StartsWith(',
+		'$started.UtcDateTime.ToString(''yyyyMMddTHHmmssZ'')',
+		'focused run chronology is invalid.',
 		'function ConvertTo-PartisanFocusedSafeDiagnosticText',
 		'function Assert-PortablePackagedFocusedEvidence',
 		'$requireCurrentWorktree = $ExpectedStatus -ceq "passed-noncertifying"',
@@ -56677,6 +56703,10 @@ foreach ($focusedAutotestAggregateEntry in @(
 		'$process.StandardInput.Close()',
 		'allWorktreeHashesMatchGitBlobs = $true',
 		'function Get-PartisanFocusedCandidateBinding',
+		'function Get-PartisanFocusedRunBinding',
+		'$runId.StartsWith(',
+		'$startedUtc.UtcDateTime.ToString(',
+		'The focused run time window is invalid.',
 		'function Get-PartisanFocusedCanonicalPackageSha256',
 		'candidateSealReopenRequired = $true',
 		'historicalBlobImmutabilityRequired = $true',
@@ -56781,6 +56811,10 @@ foreach ($focusedAutotestAggregateSelfTestEntry in @(
 		'''index_tampering''',
 		'''candidate_tampering''',
 		'''policy_drift''',
+		'''run-id-start-second-drift''',
+		'''.9995401Z''',
+		'$startedInstant.UtcDateTime.ToString(',
+		'$runSecondDriftEnvelope.startedUtc',
 		'''raw_junit_tampering''',
 		'''aggregation_tool_drift''',
 		'function Copy-SelfTestWritableFile',
@@ -57405,7 +57439,7 @@ Write-Host 'Running portable focused-evidence consumer self-test'
 & (Join-Path $PSScriptRoot "update-release-docs.ps1") -FocusedConsumerSelfTest
 Write-Host 'Portable focused-evidence consumer self-test OK'
 & (Join-Path $PSScriptRoot "update-release-docs.ps1") -SelfTest
-Write-Host "Guarded build-once, all-target Workbench retention, exact package index, and portable release-manifest contract OK"
+Write-Host "All-target Workbench retention and historical local-package evidence integrity contract OK"
 
 & {
 	Set-StrictMode -Version Latest

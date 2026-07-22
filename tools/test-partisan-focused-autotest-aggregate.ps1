@@ -310,9 +310,17 @@ function New-SelfTestFixture {
         $suite = [string]$suiteByProfile[$profile]
         $expectedTestCases = @($testCasesByProfile[$profile])
         $second = 10 + ($index * 10)
-        $started = '2026-07-19T00:02:{0:D2}.0000000Z' -f $second
+        $started = '2026-07-19T00:02:{0:D2}.9995401Z' -f $second
         $completed = '2026-07-19T00:02:{0:D2}.5000000Z' -f ($second + 5)
-        $runId = '20260719T0002{0:D2}Z-{1}' -f $second, ($index + 1).ToString('x32')
+        $startedInstant = [DateTimeOffset]::Parse(
+            $started,
+            [Globalization.CultureInfo]::InvariantCulture,
+            [Globalization.DateTimeStyles]::AssumeUniversal -bor
+                [Globalization.DateTimeStyles]::AdjustToUniversal)
+        $runId = $startedInstant.UtcDateTime.ToString(
+            'yyyyMMddTHHmmssZ',
+            [Globalization.CultureInfo]::InvariantCulture) + '-' +
+            ($index + 1).ToString('x32')
         $runNonce = $runId.Substring($runId.Length - 32)
         $candidateProject = 'fixture/PartisanFocusedAutotest/' + $runNonce +
             '/candidate-addons/Partisan/addon.gproj'
@@ -1629,6 +1637,24 @@ try {
         -RepositoryRoot $repository.Root
     Assert-SelfTestRejected `
         $missing $repository.OutputPath 'profile_set_invalid' -NoReceipt
+
+    $runSecondDriftCase = New-SelfTestCaseFixture `
+        -PristineEvidence $pristine.EvidenceRoot `
+        -CaseRoot (Join-Path $tempRoot 'run-id-start-second-drift')
+    $runSecondDriftEnvelope = Read-SelfTestJson `
+        -Path $runSecondDriftCase.RunPaths[0]
+    $runSecondDriftEnvelope.startedUtc = '2026-07-19T00:02:09.9995401Z'
+    Write-SelfTestJson `
+        -Path $runSecondDriftCase.RunPaths[0] `
+        -Value $runSecondDriftEnvelope
+    Reset-SelfTestOutput -OutputPath $repository.OutputPath
+    $runSecondDrift = Invoke-SelfTestProducer `
+        -EvidenceRoot $runSecondDriftCase.EvidenceRoot `
+        -RunPaths $runSecondDriftCase.RunPaths `
+        -OutputPath $repository.OutputPath `
+        -RepositoryRoot $repository.Root
+    Assert-SelfTestRejected `
+        $runSecondDrift $repository.OutputPath 'policy_drift'
 
     $extraRunCase = New-SelfTestCaseFixture `
         -PristineEvidence $pristine.EvidenceRoot `

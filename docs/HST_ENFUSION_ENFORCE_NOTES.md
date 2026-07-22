@@ -6,8 +6,23 @@
 > generated behavioral specification. Mechanics below remain implementation
 > guidance and scoped evidence, not an upward certification claim.
 
-Campaign Schema 71 and runtime-settings Schema 24 are current. The active
-immutable runtime candidate is
+## Current Source and Workshop Boundary
+
+- Never add a `.pak` file to source. It is generated output owned by Workbench,
+  not an authored repository input.
+- Use one clean committed source checkpoint for Gate 1. Bind its identity, pass
+  Foundation and all-target Workbench validation, run the individually named
+  source-native focused suites and aggregate, then run the source-native
+  corrected canary and Full Campaign Debug in order.
+- Workbench compile/publish is the authoritative Workshop build path. Workshop
+  and in-game download are the authoritative distribution path; do not maintain a
+  parallel manual package-distribution workflow.
+- Treat every manually staged local candidate/package procedure below as
+  retained optional historical QA. Its evidence remains immutable, but it is not
+  a current Gate 1 prerequisite.
+
+Campaign Schema 71 and runtime-settings Schema 24 are current. The retained
+external prepublish QA candidate is
 `partisan-rc-5b1f2e98f931-20260721T193941Z`, from clean source HEAD
 `5b1f2e98f93137230e686312c6e99cea7630dae4`. Its package, manifest, and ready-
 seal SHA-256 values are respectively
@@ -23,7 +38,7 @@ The embedded implementation stamp is
 `2026-07-21T19:36:22Z`, label
 `schema71-settings24-gate1-release-surface`.
 
-## Standard/Diagnostic Release-Surface Boundary
+## Standard/Diagnostic Source Boundary
 
 - Put a file that exists only to carry proof or developer runtime types wholly
   inside `#ifdef ENABLE_DIAG` / `#endif`. The current exact inventory has 55
@@ -50,6 +65,13 @@ The embedded implementation stamp is
   read-only campaign/persistence inspection, and the safe command-surface
   availability query used by the runtime audit. They must compile in standard
   and diagnostic mode but must not execute a developer command.
+
+### Historical Candidate-Pack Surface and Retention QA (Optional)
+
+The remaining candidate/package publisher mechanics in this section document
+the retired manual local QA workflow. Preserve their recorded facts and use them
+only when an optional regression investigation explicitly needs that boundary.
+
 - A runtime-surface self-test is harness proof, not engine proof. The paired
   runner currently passes 56 structural checks; the real gate still requires
   standard and diagnostic processes to inspect the same sealed package and
@@ -320,7 +342,10 @@ The embedded implementation stamp is
   the bound profile-diagnostic consumer, preserves that pair as immutable passed
   history, and reopens `STATUS-008`. CRI-103 accepts the fresh corrected-
   consumer pair and closes `STATUS-008` again. Gate 1 remains incomplete and
-  release remains `NO-GO`.
+  release remains `NO-GO`. CRI-104 preserves the next five-suite batch as
+  timestamp-identity-rejected evidence and corrects the runner to use one
+  retained start instant for leaf identity and `startedUtc`; all five suites
+  must rerun, while the active pair and closed `STATUS-008` remain unchanged.
 - Parse mount evidence as structured timestamped `ENGINE : gproj:` records, not
   as arbitrary lines containing a GUID. Select the exact case-sensitive
   candidate GUID, require the exact guard-owned candidate path, and require
@@ -423,6 +448,28 @@ The embedded implementation stamp is
   Foundation, or Workbench facts. The immutable validation input remains
   external and untracked; Workbench/Workshop remains the normal compilation and
   distribution path.
+- CRI-104 preserves the next clean-harness five-suite attempt under
+  `71b276fa9d34a1100c1ba2a27ff509a37619dbe0` and focused-runner SHA-256
+  `095ccd952e9eaaaa6f94c40053299ed5c2c8e7147ce390a29b5bd14f14da0e93`.
+  Its 45 files/1,365,323 bytes contain green JUnit 91/0/0/0, exact 2/2/1/0
+  mounts per suite, diagnostics 51 = 10 stock + 41 intentional + 0 unapproved,
+  and zero cleanup/spill residue. Those observations are rejected forensic
+  evidence, not an accepted focused result: counterattack leaf prefix
+  `20260722T140834Z` disagrees with retained start
+  `2026-07-22T14:08:33.9995401Z`, and QRF prefix `20260722T141031Z` disagrees
+  with `2026-07-22T14:10:30.9860749Z`. The aggregate correctly rejects
+  `policy_drift`, emits `RED/replacement-required`, and publishes no aggregate
+  or durable receipt. Preserve the batch as
+  `batch-71b276f-run-id-start-second-drift`; none of its five leaves transfers.
+- A focused evidence leaf and its retained start time must share one clock read.
+  Capture `evidenceStartUtc` once, derive the leaf's `yyyyMMddTHHmmssZ` prefix
+  from that exact instant, and serialize the same instant to
+  `run.json.startedUtc`. Do not introduce a tolerance or weaken the consumer:
+  its prefix/start-second and chronology checks must remain exact. Test a real
+  near-boundary aligned start such as `.9995401Z`, and separately mutate the
+  retained start across a second to prove fail-closed rejection. After this
+  tooling-only correction is committed cleanly, rerun all five suites; do not
+  salvage the three leaves that happened to align.
 - Treat tracked release indexes as canonical LF evidence, not native PowerShell
   text. A successful retention run exposed that `ConvertTo-Json` on Windows had
   written CRLF internally while the tracked evidence paths require LF; Git would
@@ -451,7 +498,11 @@ The embedded implementation stamp is
   `075558ac7b6c14d1bb3e5829a2b87f3dbb608351`; never promote it through the
   active 91-testcase contract.
 
-## Portable Evidence Publication and Scalar Projection
+## Historical Portable Candidate Evidence Publication (Optional QA)
+
+This publication machinery belongs to the retired manual local candidate-pack
+workflow. It remains documented for forensic reproducibility, not as a current
+Gate 1 or Workshop publishing requirement.
 
 - Use ordinary hidden PowerShell child processes for corrected-canary
   publication-race fixtures. Pass a UTF-8 JSON payload through a process-scoped
@@ -699,7 +750,8 @@ The embedded implementation stamp is
 
 ## Current and Historical Workbench Compiler Boundary
 
-- The active 5b1f candidate is the current all-target Workbench boundary: all
+- The retained 5b1f QA candidate records the current all-target Workbench
+  boundary for that historical run: all
   five targets pass at 5,849 files/12,022 classes and common CRC `aeddce9b`,
   with zero hard errors and exact-zero cleanup. The sealed ee0 tree remains the
   immediately preceding historical all-target result.
@@ -729,10 +781,29 @@ The embedded implementation stamp is
   Foundation source-shape checks and passed guarded PC, XBOX_ONE, XBOX_SERIES,
   PS4, and PS5 validation at 5,849 files, 11,926 classes, common CRC
   `51464603`, zero hard errors, and exact-zero owned cleanup. Later source
-  changes supersede that snapshot; the active immutable candidate carries the
-  replacement compile boundary while package-bound runtime proof remains open.
+  changes supersede that snapshot; the retained 5b1f QA record carries the
+  replacement compile result for that workflow.
 
 ## Current Release-Closure Mechanics
+
+- No `.pak` is source, and no locally assembled package is a current Gate 1
+  input. Work from one clean committed source checkpoint through Foundation,
+  all-target Workbench validation, source-native focused proof, the source-native
+  corrected canary, and source-native Full Campaign Debug.
+- After Gate 1 and later release gates are satisfied, publish with Workbench and
+  let Workshop/in-game download distribute the generated add-on. Do not copy or
+  track generated package output in this repository.
+- The immediate Gate 1 step is to establish that clean checkpoint and run the
+  source-native validation sequence. The one-clock correction remains useful to
+  the optional historical candidate QA harness, but resuming that package chain
+  is not required for Gate 1.
+
+## Historical Manual Candidate-Pack QA Mechanics (Retired)
+
+The ledger, packing, manifest, staging, and package-bound runtime rules below
+preserve the old local QA workflow and its evidence. They are optional forensic
+controls only; they do not override the current source/Workbench/Workshop
+boundary above.
 
 - Release-ledger Schema 3 is unrelated to the persisted Campaign Schema 71 and
   runtime-settings Schema 24. Parse `historicalCandidateEvidence` as a true
@@ -867,7 +938,7 @@ The embedded implementation stamp is
   Foundation and all five Workbench targets pass at 5,847 files, 11,900
   classes, common CRC `3a399db1`, zero hard errors, and exact-zero cleanup. The
   sealed inventories contain four package files and 50 evidence files.
-- The active immutable candidate is
+- The retained 5b1f manual-QA candidate is
   `partisan-rc-5b1f2e98f931-20260721T193941Z`, version
   `0.1.0-rc.20260721T193941Z.5b1f2e98`, from clean source HEAD
   `5b1f2e98f93137230e686312c6e99cea7630dae4`. Its package, manifest, and ready-
@@ -889,11 +960,12 @@ The embedded implementation stamp is
   accepts current-tool surface leaf
   `20260722T133630Z-928aa875113841838469f7222a9c11fb` and retention leaf
   `20260722T133757Z-45b0703ae767`; both independently reverified read-only and
-  were jointly consumed. `STATUS-008` is closed again. Its next evidence order
-  is all five focused suites and their 91-case aggregate, the corrected canary,
-  and Full Campaign Debug only after an accepted canary.
+  were jointly consumed. Within that historical QA chain, `STATUS-008` is closed
+  again. If the optional chain is resumed, its next evidence order is all five
+  package-bound focused suites and their 91-case aggregate, the corrected
+  canary, and Full Campaign Debug only after an accepted canary.
   Candidate, package, gameplay, Foundation, and Workbench facts are unchanged.
-  Gate 1 is incomplete, and release remains `NO-GO`.
+  Current source-native Gate 1 is incomplete, and release remains `NO-GO`.
 - The historical ordered `history[2]` `rejected-after-full-profile` candidate is
   `partisan-rc-ee0e8add2a29-20260719T063815Z`, version
   `0.1.0-rc.20260719T063815Z.ee0e8add`, from clean source HEAD
@@ -8787,7 +8859,12 @@ This file is for practical engine/script behavior, not project planning. Keep en
   networking, or soak proof. Keep exact per-run totals in the Campaign Debug
   audit.
 
-## Sealed Candidate Runtime Consumption
+## Historical Sealed Candidate Runtime Consumption (Optional QA)
+
+This section records the retired manual packed-candidate launch procedure. It is
+not the current Gate 1 path and does not place `data.pak` or any other `.pak` in
+source. Workbench compile/publish and Workshop/in-game download remain
+authoritative.
 
 - `-gproj` selects the project being executed. Supplying a packed add-on root
   while leaving `-gproj` on the checkout is still a loose-source run and cannot

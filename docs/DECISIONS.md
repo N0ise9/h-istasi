@@ -5507,3 +5507,123 @@ Consequences:
   as immutable superseded/rejected evidence.
 - The exact next order is all five focused suites and their 91-case aggregate,
   the corrected canary, and Full Campaign Debug only after an accepted canary.
+
+## CRI-104 - Bind Focused Leaf Identity to the Retained Start Instant
+
+- Status: Accepted tooling correction; five-suite batch rejected and replacement required
+- Date: 2026-07-22
+
+Context: After CRI-103 closed the paired boundary, clean harness
+`71b276fa9d34a1100c1ba2a27ff509a37619dbe0` launched all five focused suites
+with focused-runner SHA-256
+`095ccd952e9eaaaa6f94c40053299ed5c2c8e7147ce390a29b5bd14f14da0e93`.
+The retained batch contains 45 files totaling 1,365,323 bytes. Raw engine
+results were JUnit 91/0/0/0; every suite had exact 2/2/1/0 candidate-mount
+attestation, diagnostics totaled 51 = 10 approved stock + 41 approved
+intentional + 0 unapproved, and every cleanup/spill counter was zero.
+
+Those green runtime facts do not make the batch publishable. Counterattack leaf
+`20260722T140834Z-a147cc36e35d4d43ba48b5f89f59de9e` retained start
+`2026-07-22T14:08:33.9995401Z`, while QRF leaf
+`20260722T141031Z-06a4861e909b4794951b7aac82d052c2` retained start
+`2026-07-22T14:10:30.9860749Z`. In both cases a second clock read used for the
+leaf crossed into the next UTC second. The other three leaves happened to align,
+but the five-run aggregate is one common tool/harness boundary and no individual
+leaf may transfer across its correction.
+
+The canonical retained `run.json` SHA-256 values are:
+
+- counterattack:
+  `f68f7a9185c687d61121ee0a0e8c71a3f877347c7861017a591ac5cff8c82853`;
+- garrison rebuild:
+  `ef773327a415f376e61fff6fcdb5863d34c049f627ed0f5b5443f38d87b869f2`;
+- planning commitment:
+  `eb1279d4ee750b003342ed82b89b3e9453addffc0636320931a21d60d090dea8`;
+- QRF:
+  `d20d4ceedc23a98763fe230d2bc916b443cb16254d2a2338e36b01c8a7c4801a`;
+- profile journal authority:
+  `4c69f6bd7a91120d5783d59a476146f0de302bd0d8a8c08307fb64d1c00624ae`.
+
+The strict aggregate producer correctly rejected `policy_drift`, reported
+`RED/replacement-required`, and published neither an aggregate nor a durable
+receipt. The complete byte-exact batch is preserved as rejected forensic
+evidence under batch identity `batch-71b276f-run-id-start-second-drift`; it is
+not active focused evidence.
+
+Decision: Capture one authoritative `evidenceStartUtc` and reuse that exact
+instant for both the leaf's UTC-second prefix and `run.json.startedUtc`. Keep
+the aggregate and release consumers strict: the leaf prefix must equal the
+retained start second, and chronology must remain valid. Add a near-second-
+boundary positive fixture plus an explicit leaf/start mismatch negative. Do not
+weaken the identity rule or retrofit the retained batch.
+
+Consequences:
+
+- The runner correction changes evidence-tool bytes only. Candidate, package,
+  gameplay, Foundation, Workbench, and the active CRI-103 pair are unchanged.
+- `STATUS-008` stays closed. `STATUS-002` stays open and requires all five
+  focused suites to rerun after the correction is committed cleanly.
+- The immutable package remains external, untracked prepublish validation input,
+  not a repository/source deliverable; Workbench/Workshop compilation and
+  distribution remain authoritative.
+- Gate 1 remains incomplete and release remains `NO-GO`. Do not start the
+  corrected canary until the replacement 91-case aggregate is accepted.
+
+## CRI-105 - Put Workbench And Workshop Back On The Release Boundary
+
+- Status: Accepted; supersedes the forward package-build requirements of
+  CRI-058 through CRI-104
+- Date: 2026-07-22
+
+Context: The literal Gate 1 blueprint asked the repository workflow to build,
+seal, stage, and reuse one local `data.pak`. That is not Partisan's publishing
+model. The repository contains the unpacked addon source. Workbench compiles and
+publishes that source to Workshop, and the game obtains the published addon
+through Workshop. A generated `.pak` is neither source nor a file that this
+repository should distribute. The checkout already ignores `*.pak` and contains
+zero tracked `.pak` files, but current status and runners still made an external
+four-file package snapshot the active release authority.
+
+The package-centric rule was also unsuitable for the larger blueprint: later
+gates intentionally change source, so one pre-Gate-2 package cannot remain the
+authoritative artifact through every later gate.
+
+Decision: Gate 1 establishes a clean, frozen publish-source checkpoint. Bind
+Git HEAD, embedded implementation identity, schemas, addon identity, Workbench
+and game versions, all-target Workbench results, and evidence-tool identities.
+Run Foundation, Workbench validation, the five focused suites, the corrected
+canary, and Full Campaign Debug directly from that source checkpoint. A compiled
+addon-input change invalidates affected runtime evidence; documentation or
+evidence-tool changes may use a later clean harness commit only when compiled
+addon inputs are proven unchanged.
+
+No active repository workflow builds, stages, seals, or distributes a `.pak` as
+a release deliverable. `tools/new-guarded-release-candidate.ps1` is retired from
+the supported release path and now requires explicit
+`-LegacyLocalValidationOnly` opt-in before any historical/local package snapshot
+operation. Existing candidate manifests, seals, indexes, hashes, and raw results
+remain byte-exact historical QA/forensic evidence. They are not deleted,
+rewritten, or promoted into source-checkpoint or Workshop certification.
+
+The actual distributable boundary is Workbench -> Workshop -> in-game download.
+Later Workshop-installed dedicated, multiplayer/JIP, restart, performance, soak,
+and canary gates bind the published Workshop revision and embedded source
+identity. If source changes, Workbench publishes a new revision and only the
+affected cumulative evidence is rerun; no manual repack or side distribution is
+introduced.
+
+Consequences:
+
+- The external `5b1f2e98` package snapshot and CRI-103 pair become retained
+  noncertifying history. The two rejected focused batches remain rejected
+  forensic history. No package-bound leaf transfers into the revised Gate 1.
+- CRI-104's one-clock evidence fix remains correct, but it no longer triggers a
+  rerun of the obsolete package-bound focused/canary/full chain.
+- A direct loose-source QRF probe proves the standard diagnostic Game runtime
+  can load this checkout's `addon.gproj` without a packed Partisan mount and run
+  all six named QRF cases at JUnit 6/0/0/0 with an empty failed list.
+- Gate 1 remains `NO-GO` until current Foundation, all-target Workbench, all five
+  source-native focused suites, the corrected source-native canary, and the
+  source-native Full Campaign Debug result meet their acceptance rules.
+- No `.pak` belongs in source. Workbench/Workshop publishing and in-game
+  delivery are authoritative.

@@ -1,30 +1,47 @@
-# Release-Candidate Identity Evidence
+# Historical Local-Candidate Identity Evidence
 
-This directory retains portable, byte-identical copies of each published
-candidate's `candidate.json` manifest and `candidate.ready.json` seal. The
+## Current Authority Boundary
+
+This directory is a historical and optional-QA evidence archive. It does not
+contain or authorize a source `data.pak`, and no generated `.pak` belongs in the
+repository. Current Gate 1 authority is the frozen clean source checkpoint plus,
+in order, its Foundation result, all-target Workbench validation/compilation,
+the five individually named source-native focused suites at JUnit 91/0/0/0, the
+corrected source-native force-authority canary, and source-native Full Campaign
+Debug.
+
+The supported publication path is Workbench to Workshop; the game downloads
+the published addon. The bespoke local candidate pack, manifest, ready seal,
+and package digest retained here are not release authority and are not a manual
+distribution workflow.
+
+This directory retains portable, byte-identical copies of each historical
+local candidate's `candidate.json` manifest and `candidate.ready.json` seal. The
 generated current-status check verifies their hashes and cross-checks their
 source, package, addon, toolchain, Workbench, and ready-seal identities.
 
 These small tracked records are not substitutes for the immutable package and
-raw evidence bundle. Proof attached to an active runtime candidate must consume
-the exact candidate ID and aggregate package SHA-256 named by its manifest.
-Rebuilding starts a new candidate directory and evidence chain; existing
-records are not rewritten.
+raw evidence bundle. Under that workflow, proof attached to an active runtime
+candidate had to consume the exact candidate ID and aggregate package SHA-256
+named by its manifest. Rebuilding started a new candidate directory and
+evidence chain; existing records are not rewritten.
 Repository attributes keep both JSON records on canonical LF endings so their
 byte hashes remain stable across checkouts.
 
-## Portable Schema-2 Runtime Evidence
+## Historical Portable Schema-2 Runtime Evidence
 
-New packaged focused evidence is published as one tracked schema-2 aggregate
+The retired local-candidate workflow published focused evidence as one tracked
+schema-2 aggregate
 under `focused-autotest/`. The tracked JSON is only the portable index: the raw
 five-suite/40-blob tree remains in the immutable external evidence root. Each
 `sourceRuns[].runEnvelopePath` is relative to that supplied root and must use
 `<candidate-id>/focused-autotest/<profile>/<run-leaf>/run.json`. Publication and
 release-doc consumption independently reopen the five envelopes, exact eight-
 blob inventories, candidate manifests/seals, JUnit results, logs, and hashes.
-The exact suite testcase counts are 14, 13, 17, 6, and 41. The active contract
-requires all 91 individually named testcases at JUnit 91/0/0/0, while preserving
-individual-case and whole-suite selection. The journal suite binds its 51
+The exact suite testcase counts are 14, 13, 17, 6, and 41. The final local-
+candidate contract required all 91 individually named testcases at JUnit
+91/0/0/0, while preserving individual-case and whole-suite selection. The
+journal suite binds its 51
 aggregate diagnostics to exact testcase intervals: 10 stock plus 41 intentional
 native-save diagnostics.
 The index binds the focused-run harness Git blobs plus the committed aggregate
@@ -45,8 +62,8 @@ Historical five-testcase JUnit evidence remains valid only for candidate
 ancestry at or before `075558ac7b6c14d1bb3e5829a2b87f3dbb608351`; it remains
 history and cannot satisfy the active 91-testcase contract.
 
-New corrected `force_authority` canaries and full Campaign Debug runs share the
-portable schema-2 Campaign Debug release-index envelope. Their tracked
+That workflow's corrected `force_authority` canaries and full Campaign Debug
+runs share the portable schema-2 Campaign Debug release-index envelope. Their tracked
 `release-index.json` remains byte-identical to the copy in the external raw
 bundle, whose canonical ten files are reopened and rehashed by the consumer.
 The corrected-canary policy additionally derives the exact case/assertion
@@ -60,23 +77,24 @@ red. The evidence closes only as scoped `passed-noncertifying` or red
 `failed-corrected-canary`. Existing schema-1 summaries remain immutable
 historical evidence and are not rewritten into the new format.
 
-The consumer chooses Schema 1 or Schema 2 from the retained summary schema and
-evidence kind, not from the shared `passed-noncertifying` status. Active Schema-2
+The historical consumer chooses Schema 1 or Schema 2 from the retained summary
+schema and evidence kind, not from the shared `passed-noncertifying` status. Active Schema-2
 evidence requires stationary current tool bytes. Historical Schema-2 evidence
 instead reopens the recorded immutable Git blobs and ancestry so later legitimate
 tool changes do not invalidate already accepted history.
 
-Tool hashes in schema-2 evidence are admission boundaries. Run publication and
+Tool hashes in schema-2 evidence were admission boundaries. Run publication and
 consumer self-tests only from a stationary committed tool set; dirty producer,
 runner, candidate-module, or consumer bytes correctly fail closed.
 
-## Gate 1 Release-Surface And Retention Evidence
+## Historical Local-Candidate Release-Surface And Retention Evidence
 
-An active candidate may attach one paired Gate 1 evidence set under
-`release-surface-audit/` and `gate1-runtime-retention/`. Each tracked file is a
-portable `release-index.json`; the complete raw run remains in the immutable
-external evidence root. The release-doc consumer requires an explicit evidence
-root, reopens the raw `run.json` and terminal `run.ready.json`, rehashes their
+Under the retired workflow, an active candidate could attach one paired
+evidence set under `release-surface-audit/` and `gate1-runtime-retention/`.
+Each tracked file is a portable `release-index.json`; the complete raw run
+remains in the immutable external evidence root. The release-doc consumer
+requires an explicit evidence root, reopens the raw `run.json` and terminal
+`run.ready.json`, rehashes their
 complete file census, verifies the clean harness Git ancestry and tool blobs,
 and exact-matches the candidate ID, source HEAD, manifest and ready hashes,
 package digest, and candidate binding. It then invokes each exact Git-bound
@@ -366,10 +384,11 @@ PowerShell 5.1 before regex construction. The ASCII-source `\u2705` correction
 and runtime `[string][char]0x2705` fixture are tooling-only; the failed envelope
 remains rejected forensic evidence. Because the correction changes the bound
 release-document consumer, both the `52c7e2b` and `e2c38d2` pairs remain
-immutable passed history under their recorded tool bytes but neither satisfies
-the active current-consumer boundary. `STATUS-008` is reopened. Next run a fresh
-same-package pair, all five focused suites, the corrected canary, and Full
-Campaign Debug only after an accepted canary.
+immutable passed history under their recorded tool bytes but neither satisfied
+the then-active current-consumer boundary. At that historical checkpoint,
+`STATUS-008` reopened and the planned next order was a fresh same-package pair,
+all five package-bound focused suites, the corrected canary, and Full Campaign
+Debug only after an accepted canary.
 
 CRI-101 accepts the fresh encoding-stable pair under clean harness
 `7e2fe71d9619fd60cfe393d2776b4ed49f75186b`. Surface run
@@ -406,9 +425,10 @@ passed history, and focused leaves
 `20260722T084353Z-03d78e016b244d8fb1aea42f307af1d6` and
 `20260722T105628Z-68bd71de0fea40f68b533feee1c9e86a` remain immutable rejected
 history. Candidate, package, gameplay, Foundation, and Workbench facts are
-unchanged. Next run all five focused suites and their 91-case aggregate, then
-the corrected canary, then Full Campaign Debug only after an accepted canary.
-Gate 1 remains incomplete and release remains `NO-GO`.
+unchanged. At that historical checkpoint, the planned next order was all five
+package-bound focused suites and their 91-case aggregate, then the corrected
+canary, then Full Campaign Debug only after an accepted canary. Current
+source-native Gate 1 remains incomplete and release remains `NO-GO`.
 
 CRI-102 preserves the first focused batch under clean harness `87b5ad4` as one
 byte-exact superseded/rejected forensic set. The four green service leaves are:
@@ -449,13 +469,14 @@ separate.
 
 Changing the runner, aggregate producer, and release consumer means none of the
 five batch leaves can transfer. It also makes the CRI-101 pair immutable passed
-history rather than active current-tool evidence. `STATUS-008` is open;
-candidate, package, gameplay, Foundation, and Workbench facts are unchanged.
-The exact next order is a fresh same-package surface/retention pair, all five
-focused suites and their 91-case aggregate, the corrected canary, and Full
-Campaign Debug only after an accepted canary.
+history rather than then-active current-tool evidence. `STATUS-008` was open;
+candidate, package, gameplay, Foundation, and Workbench facts were unchanged.
+At that historical checkpoint, the exact planned order was a fresh same-package
+surface/retention pair, all five package-bound focused suites and their 91-case
+aggregate, the corrected canary, and Full Campaign Debug only after an accepted
+canary.
 
-CRI-103 accepts fresh current-tool surface leaf
+CRI-103 accepted fresh then-current-tool surface leaf
 `20260722T133630Z-928aa875113841838469f7222a9c11fb` and retention leaf
 `20260722T133757Z-45b0703ae767` under clean harness
 `07e71c12159f5287c6af2dd7901a392ef9c16bb9`. The surface tracked-index and
@@ -471,11 +492,54 @@ with exact candidate tuple, canonical digest, ten guarded receipts, and argument
 topology across five diagnostic plus five standard contexts; it does not
 project mount counts. Both halves independently reverified read-only and were
 jointly consumed, closing `STATUS-008` again without certification promotion.
-The immutable candidate package remains external, untracked prepublish
-validation input rather than a repository/source deliverable; Workbench/Workshop
-remains the normal compilation and distribution path. Next run all five focused
-suites and their 91-case aggregate, then the corrected canary, then Full Campaign
-Debug only after an accepted canary.
+The immutable candidate package remains external and untracked as historical,
+optional QA rather than a repository/source deliverable or release authority.
+Workbench-to-Workshop remains the compilation and publication path, and the game
+downloads the resulting addon. The former plan would next have run all five
+focused suites and their 91-case aggregate, then the corrected canary, then Full
+Campaign Debug only after an accepted canary.
+
+CRI-104 preserves that next five-suite attempt as rejected forensic batch
+`batch-71b276f-run-id-start-second-drift`. Clean harness
+`71b276fa9d34a1100c1ba2a27ff509a37619dbe0` used focused-runner SHA-256
+`095ccd952e9eaaaa6f94c40053299ed5c2c8e7147ce390a29b5bd14f14da0e93`.
+The complete byte-exact set contains 45 files totaling 1,365,323 bytes. Raw
+JUnit was 91/0/0/0, each suite carried exact 2/2/1/0 candidate-mount
+attestation, hard diagnostics were exactly 51 = 10 approved stock + 41 approved
+intentional + 0 unapproved, and cleanup/spill counters were zero.
+
+The five leaf identities and canonical `run.json` SHA-256 values are:
+
+- counterattack
+  `20260722T140834Z-a147cc36e35d4d43ba48b5f89f59de9e`:
+  `f68f7a9185c687d61121ee0a0e8c71a3f877347c7861017a591ac5cff8c82853`;
+- garrison rebuild
+  `20260722T140940Z-a3bd4c5a9f874e7f85a19553ca3435e3`:
+  `ef773327a415f376e61fff6fcdb5863d34c049f627ed0f5b5443f38d87b869f2`;
+- planning commitment
+  `20260722T141005Z-065cb0af71874e3f9ee9f137b7381b70`:
+  `eb1279d4ee750b003342ed82b89b3e9453addffc0636320931a21d60d090dea8`;
+- QRF `20260722T141031Z-06a4861e909b4794951b7aac82d052c2`:
+  `d20d4ceedc23a98763fe230d2bc916b443cb16254d2a2338e36b01c8a7c4801a`;
+- profile journal authority
+  `20260722T141058Z-f74ed174600d436ba089f7060de5038a`:
+  `4c69f6bd7a91120d5783d59a476146f0de302bd0d8a8c08307fb64d1c00624ae`.
+
+Counterattack records start `2026-07-22T14:08:33.9995401Z`, one second before
+its `140834Z` prefix. QRF records start `2026-07-22T14:10:30.9860749Z`, one
+second before its `141031Z` prefix. A second clock read used for leaf naming
+crossed the boundary. The other three leaves aligned by timing chance but still
+share one rejected tool/harness batch and cannot transfer.
+
+The aggregate producer correctly rejected `policy_drift`, returned
+`RED/replacement-required`, and created no aggregate or durable receipt. The
+runner now derives the leaf prefix and `run.json.startedUtc` from one exact
+`evidenceStartUtc`; strict consumers remain unchanged and retain both
+near-boundary positive and explicit mismatch-negative coverage. If the optional
+historical package-QA chain is explicitly resumed, all five package-bound suites
+must rerun after that fix is committed cleanly. The historical CRI-103 pair and
+closed `STATUS-008` remain unchanged within that chain; current source-native
+Gate 1 and release `NO-GO` remain open.
 
 ## Release-Ledger Schema 3 Historical Evidence
 
@@ -509,7 +573,7 @@ rejected full-profile evidence remain attached only to that package. The
 activation replaced the complete current-candidate surface with the 5b identity
 without duplication or evidence transfer. The `NO-GO` decision remains unchanged.
 
-The active Gate 1 candidate is
+The then-active Gate 1 candidate under the retired local-QA workflow was
 `partisan-rc-5b1f2e98f931-20260721T193941Z`, version
 `0.1.0-rc.20260721T193941Z.5b1f2e98`, built from clean source HEAD
 `5b1f2e98f93137230e686312c6e99cea7630dae4`. Its exact four-file package
@@ -526,14 +590,19 @@ identity records; the package and complete raw evidence bundle remain external,
 immutable, and untracked. The passed `52c7e2b`, `e2c38d2`, and CRI-101 surface/
 retention pairs remain immutable history under their recorded tool bytes. The
 first `87b5ad4` focused batch is preserved as superseded/rejected history.
-CRI-103 accepts current-tool surface leaf
+CRI-103 accepted then-current-tool surface leaf
 `20260722T133630Z-928aa875113841838469f7222a9c11fb` and retention leaf
 `20260722T133757Z-45b0703ae767`; both independently reverified read-only and were
 jointly consumed. Candidate, package, gameplay, Foundation, and Workbench
-evidence are unchanged. `STATUS-008` is closed again. Next run all five focused
-suites and their 91-case aggregate, the corrected canary, and Full Campaign
-Debug only after an accepted canary. Gate 1 remains incomplete and release
-remains `NO-GO`.
+evidence were unchanged. At that historical checkpoint, `STATUS-008` was closed
+and the planned next order was all five package-bound focused suites and their
+91-case aggregate, the corrected canary, and Full Campaign Debug only after an
+accepted canary. CRI-104 preserves the intervening
+`71b276f` batch as rejected timestamp-identity evidence: raw JUnit 91/0/0/0
+does not transfer because `policy_drift` prevented any aggregate or durable
+receipt. All five package-bound suites would have to rerun after the one-clock
+correction only if the optional historical chain were resumed. Current
+source-native Gate 1 remains incomplete and release remains `NO-GO`.
 
 Historical ledger `history[2]`, retired as `rejected-after-full-profile`, is
 `partisan-rc-ee0e8add2a29-20260719T063815Z`, version
@@ -587,8 +656,8 @@ complete the unapproved set. Certification and diagnostic acceptance therefore
 fail independently. The portable summary is
 `campaign-debug/partisan-rc-ee0e8add2a29-20260719T063815Z-full-20260719T072739Z.json`,
 SHA-256 `e83bc1e752ac4c1abc5cb57ce097459642e17637f6747e4edc8e7d57569c1884`.
-The candidate/package remains immutable; source fixes require a new candidate.
-Release remains `NO-GO`.
+The candidate/package remains immutable; under that retired workflow, source
+fixes required a new candidate. Release remains `NO-GO`.
 
 Source commit `12f87e9` subsequently repairs the obsolete classifier
 expectation and exact HQ teardown identity. It requires
@@ -601,8 +670,8 @@ Source commits `64d1f70` and `ebaaeca` then repair compacted paid-support
 confirmation replay and bounded convoy-contact seating recovery. The archive
 proof now intentionally supplies no live planning services; the convoy retry is
 limited to exact degraded/rebind evidence, runtime roots, living unseated crew,
-five-second cadence, and the 45-second grace. Those changes are sealed in the
-active 5b candidate, but no portable runtime result is attached for them.
+five-second cadence, and the 45-second grace. Those changes were sealed in the
+then-active 5b candidate, but no portable runtime result is attached for them.
 
 The then-active candidate's package-bound focused set is accepted as
 `passed-noncertifying`. Clean harness `b1940f2` ran all five cases against the
@@ -655,8 +724,8 @@ corrected-canary results plus its rejected full result. The e11 candidate
 retains its accepted focused and rejected corrected-canary results and no full
 result. The ee0 candidate retains its own accepted focused and corrected-canary
 results plus its rejected full result as `history[2]`. None of their package-
-bound results can be attached to active candidate
-`partisan-rc-5b1f2e98f931-20260721T193941Z`.
+bound results could be attached to the later 5b candidate
+`partisan-rc-5b1f2e98f931-20260721T193941Z` under that retired workflow.
 
 Runtime results are not appended to these sealed candidate directories. Each
 candidate-aware runner writes a fresh external sidecar run whose portable

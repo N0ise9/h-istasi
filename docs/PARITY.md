@@ -6,8 +6,22 @@
 > [`CURRENT_STATUS.md`](CURRENT_STATUS.md) is the sole short current decision
 > surface. Historical boundaries below do not supersede either generated file.
 
-Campaign Schema 71 and runtime-settings Schema 24 are current. The active
-immutable runtime candidate is
+## Current Source and Workshop Boundary
+
+No `.pak` file belongs in this source tree. Workbench is the authoritative
+compiler and publisher for Workshop delivery, and players obtain the published
+add-on through Workshop/in-game download. Current Gate 1 therefore binds one
+clean committed source checkpoint, Foundation and Workbench validation, the
+source-native focused suites and aggregate, the source-native corrected canary,
+and source-native Full Campaign Debug after an accepted canary. It does not
+require a manually assembled or staged local package.
+
+The candidate/package records below remain immutable historical QA. They may be
+used as optional regression evidence, but the retired manual local candidate-pack
+workflow is neither the current Gate 1 authority nor a distribution path.
+
+Campaign Schema 71 and runtime-settings Schema 24 are current. The retained
+external prepublish QA candidate is
 `partisan-rc-5b1f2e98f931-20260721T193941Z`, version
 `0.1.0-rc.20260721T193941Z.5b1f2e98`, from clean source HEAD
 `5b1f2e98f93137230e686312c6e99cea7630dae4`. Its package, manifest, and ready-
@@ -37,10 +51,16 @@ Both halves independently reverified read-only and were jointly consumed against
 the unchanged external, untracked prepublish validation input and candidate
 binding
 `06b5fa23ccd10bfd1f8621f6b03c25d9c36719cc9c7d08ebcc73dabbba8c9f5f`.
-`STATUS-008` is closed again. Candidate, package, gameplay, Foundation, and
-Workbench facts are unchanged. No 91-case focused, corrected-canary, or full-
-profile runtime evidence has yet been accepted for these bytes. Gate 1 is
-incomplete, and release remains `NO-GO`.
+Within that retained QA chain, `STATUS-008` is closed again. Candidate, package,
+gameplay, Foundation, and Workbench facts are unchanged. No 91-case focused,
+corrected-canary, or full-profile runtime evidence has yet been accepted for
+these bytes. CRI-104 retains
+the later `71b276f` five-suite attempt as rejected forensic evidence: although
+raw JUnit was 91/0/0/0 with exact mounts, diagnostics, and cleanup, two leaf
+prefixes disagreed with their retained start second. The aggregate rejected
+`policy_drift` and published no aggregate or durable receipt; all five suites
+must rerun after the one-clock correction if that optional QA chain is resumed.
+Current source-native Gate 1 is incomplete, and release remains `NO-GO`.
 
 Focused counterattack leaf
 `20260722T105628Z-68bd71de0fea40f68b533feee1c9e86a`, `run.json` SHA-256
@@ -56,10 +76,13 @@ BOM-less UTF-8 source through its legacy code page, producing mojibake and makin
 the real self-test prefix with `[string][char]0x2705`, and retains a wrong-prefix
 negative. The rejected leaf is never retroactively promoted.
 
-The next exact order is all five focused suites and their 91-case aggregate, the
-corrected canary, and Full Campaign Debug only after an accepted canary. Both
-earlier pairs remain immutable passed history, and both rejected focused leaves
-remain immutable rejected history.
+The current Gate 1 order is one clean committed source checkpoint, Foundation
+and all-target Workbench validation, all five source-native focused suites and
+their 91-case aggregate, the source-native corrected canary, and source-native
+Full Campaign Debug only after an accepted canary. Workbench compile/publish and
+Workshop/in-game download remain the authoritative delivery path. Both earlier
+pairs remain immutable passed history, and both rejected focused leaves remain
+immutable rejected history.
 
 Focused counterattack leaf
 `20260722T084353Z-03d78e016b244d8fb1aea42f307af1d6`, envelope SHA-256
@@ -151,25 +174,25 @@ This is exactly `raw-retention-only`, and the index keeps
 The former ee0 candidate is immutable ordered `history[2]` with
 `rejected-after-full-profile`. Its package-bound focused and corrected-canary
 results remain scoped historical passes, and its full-profile result remains
-rejected red. None of those results transfers to the active candidate. The sealed
-embedded implementation identity remains
+rejected red. None of those results transfers to the current source-native Gate
+1 sequence. The sealed embedded implementation identity remains
 `7fdf3988797edeb747f5d6a6951ad0382bd93db3`,
 UTC `2026-07-21T19:36:22Z`, label
 `schema71-settings24-gate1-release-surface`; its non-package proof remains
 historical evidence.
 
-Post-rejection commit `12f87e9`, included in the active package, source-fixes
-two diagnostic clusters without changing ee0's retained result. Future runs on
-the active package require the exact 13-line convoy
+Post-rejection commit `12f87e9`, included in the retained 5b1f QA package,
+source-fixes two diagnostic clusters without changing ee0's retained result. If
+that optional package QA chain resumes, its future runs require the exact 13-line convoy
 set (9 admission, 3 corruption, 1 watchdog) and 36 classifier self-tests. The HQ
 arsenal teardown shield caches exact prefab identity during post-init and may
 skip stock teardown only for that cached identity when the catalog manager is
-absent. Both changes are package-sealed but still require the active package's
-fresh promotion chain.
+absent. Both changes are sealed in that package record but do not substitute for
+the current source-native promotion chain.
 
 Commits `64d1f70` and `ebaaeca` additionally source-fix compacted paid-support
 confirmation replay and convoy-contact seating recovery, both now sealed in the
-active package. Archive replay consumes
+retained 5b1f QA package. Archive replay consumes
 sealed tombstone authority before asking for live planning services. Contact
 reseating is allowed only for an operational, nonterminal convoy with exact
 degraded/rebind evidence, real roots, living crew, no driver, the existing
@@ -2547,10 +2570,26 @@ Debug and packaged-runtime gates remain open.
   files across five diagnostic plus five standard contexts with no
   certification promotion. Both independently reverified read-only and were
   jointly consumed, closing `STATUS-008` again.
-- [ ] Run the five-suite focused aggregate with exactly 91 individually named
-  cases and JUnit 91/0/0/0 against the unchanged active package.
-- [ ] Run the corrected canary only after the focused aggregate is accepted.
-- [ ] Run Full Campaign Debug only after the corrected canary is accepted.
+- [x] Preserve CRI-104 batch `batch-71b276f-run-id-start-second-drift` as
+  byte-exact rejected forensic evidence: 45 files/1,365,323 bytes, JUnit
+  91/0/0/0, exact per-suite 2/2/1/0 mounts, 51 diagnostics = 10 stock + 41
+  intentional + 0 unapproved, and zero cleanup/spill residue. Counterattack and
+  QRF crossed a UTC-second boundary between the retained start and a second
+  clock read used for the leaf prefix. The strict producer correctly rejected
+  `policy_drift`; no aggregate or durable receipt exists.
+- [x] Bind focused leaf identity and `run.json.startedUtc` to one captured
+  `evidenceStartUtc`; retain exact consumer prefix/chronology checks and both
+  near-boundary positive and mismatch-negative coverage. Do not retrofit or
+  transfer any leaf from the rejected batch.
+- [ ] Commit one clean source checkpoint and pass Foundation plus all-target
+  Workbench validation. No `.pak` is a source artifact or Gate 1 input.
+- [ ] Run all five source-native focused suites and publish their aggregate with
+  exactly 91 individually named cases and JUnit 91/0/0/0 from that unchanged
+  checkpoint. Rerun all five suites after the one-clock correction.
+- [ ] Run the source-native corrected canary only after the focused aggregate is
+  accepted.
+- [ ] Run source-native Full Campaign Debug only after the corrected canary is
+  accepted.
   Release remains `NO-GO` throughout this incomplete Gate 1 sequence.
 - Retain the historical `partisan-rc-0e632ec4f63e-20260719T004133Z` candidate's
   accepted five-case focused set and scoped canary as package-bound

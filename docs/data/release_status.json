@@ -1,6 +1,6 @@
 {
   "schemaVersion": 3,
-  "statusAsOfUtc": "2026-07-22T13:49:00Z",
+  "statusAsOfUtc": "2026-07-22T15:23:58Z",
   "releaseStage": "development alpha",
   "releaseDecision": "NO-GO",
   "auditedRevision": "25dedb3e82ad516c28826830bc1e06a2d3940f53",
@@ -13,7 +13,7 @@
   },
   "artifact": {
     "releaseCandidateBuilt": true,
-    "runtimeUseDisposition": "active-runtime-candidate",
+    "runtimeUseDisposition": "historical-local-qa",
     "candidateId": "partisan-rc-5b1f2e98f931-20260721T193941Z",
     "candidateSourceHead": "5b1f2e98f93137230e686312c6e99cea7630dae4",
     "manifestPath": "docs/evidence/release-candidates/partisan-rc-5b1f2e98f931-20260721T193941Z/candidate.json",
@@ -29,14 +29,14 @@
     "workbenchCrc": "aeddce9b",
     "serverVersion": "1.7.0.54",
     "clientVersion": "1.7.0.54",
-    "note": "This immutable external, untracked prepublish validation package is the active runtime candidate; it is evidence input, not a repository or source deliverable, and normal Workbench/Workshop compilation and distribution remain authoritative. Foundation passed 985 references and all five Workbench targets passed at 5,849 files/12,022 classes with common CRC aeddce9b for its exact source HEAD and four-file package. The current-tool release-surface/runtime-retention pair passed noncertifying under clean committed harness 07e71c1 and was independently reverified and jointly consumed. The 52c7e2b, e2c38d2, and CRI-101 pairs remain immutable passed history under their recorded tool bytes. The first 87b5ad4 focused batch remains superseded/rejected forensic evidence. Candidate, package, gameplay, Foundation, and Workbench bytes are unchanged; all five focused suites and their 91-case aggregate, the corrected canary, Full Campaign Debug, and all later runtime gates remain pending. No historical result transfers. Release remains NO-GO."
+    "note": "This immutable external package snapshot is retained only as historical local QA evidence. It is not source, a publishing input, a distributable, or active release authority. No generated .pak belongs in this repository. Workbench compiles and publishes the source addon to Workshop, and the game downloads it. Foundation and all five Workbench targets were green for the snapshot source, and the CRI-103 release-surface/runtime-retention pair remains immutable noncertifying history. The rejected focused batches and their raw facts also remain immutable forensic history; none transfers into the revised source-checkpoint Gate 1. The one-clock evidence correction remains valid, but the obsolete package-bound five-suite/canary/full chain will not be rerun. Gate 1 now requires current Foundation, all-target Workbench validation, the five source-native focused suites, and source-native Campaign Debug against one clean source checkpoint. Release remains NO-GO."
   },
   "evidence": {
     "foundation": {
       "status": "passed",
       "sourceSha": "5b1f2e98f93137230e686312c6e99cea7630dae4",
       "referenceCount": 985,
-      "summary": "The source/resource contract gate passed inside the active release-candidate build for its exact source HEAD."
+      "summary": "The source/resource contract gate passed for the exact frozen source checkpoint."
     },
     "workbench": {
       "status": "passed",
@@ -44,7 +44,7 @@
       "fileCount": 5849,
       "classCount": 12022,
       "crc": "aeddce9b",
-      "summary": "PC, PS4, PS5, XBOX_ONE, and XBOX_SERIES validation passed with one common CRC, zero first-party hard errors, and zero cleanup or monitored-boundary residue for the active candidate source HEAD."
+      "summary": "PC, PS4, PS5, XBOX_ONE, and XBOX_SERIES source validation passed with one common CRC, zero first-party hard errors, and zero cleanup or monitored-boundary residue."
     },
     "focusedForceAuthority": {
       "status": "passed-noncertifying",
@@ -54,7 +54,7 @@
       "countedConditions": 87,
       "passedConditions": 87,
       "certificationPassed": false,
-      "summary": "State-only combat-presence, ownership-transition, and town-influence fixtures passed; native world, package, network, restart breadth, performance, and soak remain outside this result."
+      "summary": "State-only combat-presence, ownership-transition, and town-influence fixtures passed; native world, Workshop-installed runtime, network, restart breadth, performance, and soak remain outside this result."
     },
     "releaseSurfaceAudit": {
       "status": "passed-noncertifying",
@@ -72,7 +72,7 @@
       "completedUtc": "2026-07-22T13:37:13.0462025Z",
       "disposition": "passed-noncertifying-release-surface-audit",
       "certificationPromotion": "none",
-      "summary": "The exact candidate package passed paired retail and diagnostic surface inspection with all contracted production controls present, retail proof/debug surfaces absent, exact structured 2/2/1/0 candidate-mount attestation in both modes, zero hard diagnostics in both modes, a complete 41-file census, exact cleanup, and read-only independent verification. This inert/read-only surface result is noncertifying."
+      "summary": "Historical local-package QA passed paired retail and diagnostic surface inspection with all contracted production controls present, retail proof/debug surfaces absent, exact structured 2/2/1/0 mount attestation in both modes, zero hard diagnostics, a complete 41-file census, exact cleanup, and read-only independent verification. This inert/read-only result is noncertifying and is not active Workshop release authority."
     },
     "gate1RuntimeRetention": {
       "status": "passed-noncertifying",
@@ -91,7 +91,7 @@
       "disposition": "passed-noncertifying-retention",
       "certificationClaim": "none",
       "standardSaveRestorationCertified": false,
-      "summary": "The exact candidate package completed five diagnostic save-lineage stages and five disjoint standard load/start/log observations with 251 retained files, exact candidate/tool/launch bindings, stable retained save bytes, exact cleanup, and read-only independent verification. It is raw retention evidence and does not certify standard native save restoration."
+      "summary": "Historical local-package QA completed five diagnostic save-lineage stages and five disjoint standard load/start/log observations with 251 retained files, exact snapshot/tool/launch bindings, stable retained save bytes, exact cleanup, and read-only independent verification. It is raw noncertifying history, not active Workshop release authority, and does not certify standard native save restoration."
     }
   },
   "historicalCandidateEvidence": [
@@ -135,7 +135,7 @@
           "unapprovedHardDiagnosticCount": 0,
           "envelopeFileCount": 40,
           "cleanupAndSpillZero": true,
-          "summary": "All five individually named service suites passed against their exact prior staged packed candidate with 5/0/0/0 JUnit totals, valid exact diagnostic classification, zero unapproved hard diagnostics, 40 rehashed envelope files, and zero cleanup or spill residue. This historical result does not transfer to the active replacement package or certify any higher proof rung."
+          "summary": "All five individually named service suites passed against their exact prior staged packed candidate with 5/0/0/0 JUnit totals, valid exact diagnostic classification, zero unapproved hard diagnostics, 40 rehashed envelope files, and zero cleanup or spill residue. This historical result does not transfer to the current source checkpoint or certify any higher proof rung."
         },
         "correctedForceAuthorityCanary": {
           "status": "historical-passed-noncertifying",
@@ -190,7 +190,7 @@
           "envelopeSha256": "e3705a849590b9fd3086fdb0caf5659df6e0c1029784612965c848a0f8f0a851",
           "runSummarySha256": "e3705a849590b9fd3086fdb0caf5659df6e0c1029784612965c848a0f8f0a851",
           "acceptanceDisposition": "accepted-noncertifying",
-          "summary": "The corrected force-authority canary passed against its exact prior packed candidate and clean harness: 35/35 focused assertions, 87/87 counted certification conditions, 9 PASS, 1 WARN, 0 FAIL, 1 BLOCKED, 0 SKIPPED, an exact 18-row zero-delta state diff, and final orphan cleanup. Its 2 hard diagnostics were both approved stock identity exceptions; classification was valid with zero unapproved diagnostics. All 10 envelope files were rehashed and cleanup/spill counters were zero. This historical scoped result remains accepted but non-certifying and does not transfer to the active replacement package."
+          "summary": "The corrected force-authority canary passed against its exact prior packed candidate and clean harness: 35/35 focused assertions, 87/87 counted certification conditions, 9 PASS, 1 WARN, 0 FAIL, 1 BLOCKED, 0 SKIPPED, an exact 18-row zero-delta state diff, and final orphan cleanup. Its 2 hard diagnostics were both approved stock identity exceptions; classification was valid with zero unapproved diagnostics. All 10 envelope files were rehashed and cleanup/spill counters were zero. This historical scoped result remains accepted but non-certifying and does not transfer to the current source checkpoint."
         },
         "fullCampaignDebug": {
           "status": "failed-certification-and-unapproved-diagnostics",
@@ -250,7 +250,7 @@
           "envelopeSha256": "f61bd05fcc5c95c5d0ddbbeb46a9220771d116b86bad1ad4f26340f4853ec825",
           "runSummarySha256": "f61bd05fcc5c95c5d0ddbbeb46a9220771d116b86bad1ad4f26340f4853ec825",
           "acceptanceDisposition": "rejected-red-full-profile",
-          "summary": "The prior full-profile wrapper completed a stable exact-package capture and rehashed all 10 envelope files with zero cleanup or spill residue. That mechanical capture success was not proof acceptance: runtime outcome success was false, certification remained red at 584 PASS, 49 WARN, 46 FAIL, 7 BLOCKED, and 1 SKIPPED with 5561/5687 required assertions proven, and the classifier rejected 10 unapproved diagnostics among 25 hard diagnostics. This immutable historical rejection does not transfer to the active replacement package."
+          "summary": "The prior full-profile wrapper completed a stable exact-package capture and rehashed all 10 envelope files with zero cleanup or spill residue. That mechanical capture success was not proof acceptance: runtime outcome success was false, certification remained red at 584 PASS, 49 WARN, 46 FAIL, 7 BLOCKED, and 1 SKIPPED with 5561/5687 required assertions proven, and the classifier rejected 10 unapproved diagnostics among 25 hard diagnostics. This immutable historical rejection does not transfer to the current source checkpoint."
         }
       }
     },
@@ -508,7 +508,7 @@
           "envelopeSha256": "fce4928444f15531f254ad4d7e119cf8bfe1d06e6fcb564518d2e052544d4278",
           "runSummarySha256": "fce4928444f15531f254ad4d7e119cf8bfe1d06e6fcb564518d2e052544d4278",
           "acceptanceDisposition": "rejected-red-full-profile",
-          "summary": "The full-profile wrapper for the then-active candidate completed a stable exact-package capture and rehashed all 10 envelope files with zero cleanup or spill residue. Mechanical capture success was not proof acceptance: runtime outcome success was false, certification remained red at 598 PASS, 47 WARN, 26 FAIL, 13 BLOCKED, and 1 SKIPPED with 5630/5695 required assertions proven, and the classifier rejected 24 unapproved diagnostics among 26 hard diagnostics. This exact candidate is retained in history as rejected-after-full-profile; its rejection and lower-rung results do not transfer to the active package."
+          "summary": "The full-profile wrapper for the then-active candidate completed a stable exact-package capture and rehashed all 10 envelope files with zero cleanup or spill residue. Mechanical capture success was not proof acceptance: runtime outcome success was false, certification remained red at 598 PASS, 47 WARN, 26 FAIL, 13 BLOCKED, and 1 SKIPPED with 5630/5695 required assertions proven, and the classifier rejected 24 unapproved diagnostics among 26 hard diagnostics. This exact candidate is retained in history as rejected-after-full-profile; its rejection and lower-rung results do not transfer to the current source checkpoint."
         }
       }
     }
@@ -517,32 +517,32 @@
     {
       "id": "static-source-resource",
       "label": "Static/source/resource contracts",
-      "status": "passed",
-      "summary": "Retained Foundation evidence is green inside the immutable candidate build for its exact source HEAD."
+      "status": "not-run",
+      "summary": "Historical Foundation evidence remains green for the retired snapshot source, but it does not advance the revised Gate 1. Current Foundation must run after the Workbench/Workshop boundary commit."
     },
     {
       "id": "compile-configuration",
       "label": "Enforce compile and configuration",
-      "status": "passed",
-      "summary": "All five explicit Workbench targets are retained and green for the candidate source and canonical four-file package build."
+      "status": "not-run",
+      "summary": "Historical all-target Workbench evidence remains green for the retired snapshot source, but it does not advance the revised Gate 1. Current source validation compiles directly and does not require a repository package artifact."
     },
     {
       "id": "deterministic-service",
       "label": "Deterministic service contracts",
-      "status": "not-run",
-      "summary": "The 91 individually named packaged focused cases have not run against the active package; historical focused results do not transfer."
+      "status": "partial",
+      "summary": "A direct loose-source QRF probe passed all six named cases at JUnit 6/0/0/0 with an empty failed list and no packed Partisan mount. All five source-native suites and their full 91-case census remain required on one clean checkpoint; rejected package-bound leaves do not transfer."
     },
     {
       "id": "native-engine-world",
       "label": "Native engine-world behavior",
       "status": "not-run",
-      "summary": "The current-tool same-package release-surface/runtime-retention pair passed and was independently reverified and jointly consumed as noncertifying evidence. All five focused suites and their 91-case aggregate, the corrected force-authority canary, and Full Campaign Debug remain pending; historical runtime results do not transfer."
+      "summary": "Historical package-bound surface/retention evidence remains noncertifying history. The corrected force-authority canary and Full Campaign Debug must run from the same frozen source checkpoint as the accepted source-native focused set."
     },
     {
       "id": "packaged-dedicated",
-      "label": "Packaged dedicated server",
+      "label": "Workshop-installed dedicated server",
       "status": "not-run",
-      "summary": "The active candidate has not entered the standard dedicated-server certification gate."
+      "summary": "A final Workbench-published, Workshop-downloaded revision has not entered the standard dedicated-server certification gate."
     },
     {
       "id": "multiplayer-jip",
@@ -560,36 +560,36 @@
       "id": "performance-soak",
       "label": "Performance and long soak",
       "status": "not-run",
-      "summary": "The reported one-second hitch and long-campaign capacity limits have no current immutable-package soak evidence."
+      "summary": "The reported one-second hitch and long-campaign capacity limits have no current Workshop-installed soak evidence."
     },
     {
       "id": "canary",
       "label": "Canary release",
       "status": "blocked",
-      "summary": "Blocked until the active package passes every lower Gate 1 proof boundary."
+      "summary": "Blocked until the frozen source checkpoint passes Gate 1 and a final revision is published through Workbench to Workshop."
     },
     {
       "id": "stable-certification",
       "label": "Stable certification",
       "status": "blocked",
-      "summary": "No current matrix row is certified. The active package passed its current-tool noncertifying paired boundary, while focused, canary, full-profile, and later external gates remain open."
+      "summary": "No current matrix row is certified. Source-native focused, canary, full-profile, and later Workshop-installed external gates remain open."
     }
   ],
   "activeBlockers": [
     {
       "id": "STATUS-001",
       "category": "AUTH",
-      "summary": "The active Gate 1 candidate has green Foundation, all-target Workbench, and current-tool same-package paired release-surface/runtime-retention evidence. The 52c7e2b, e2c38d2, and CRI-101 pairs remain immutable history under their recorded tool bytes; the superseded/rejected 87b5ad4 focused batch remains immutable forensic evidence, and no historical result transfers."
+      "summary": "Gate 1 authority is now the clean addon source checkpoint plus its Workbench and source-native evidence. The external package snapshot and every package-bound result are retained historical/local QA only; they are not source or Workshop release authority."
     },
     {
       "id": "STATUS-002",
       "category": "TEST",
-      "summary": "Run all five focused suites against the unchanged candidate and independently consume their 91-case aggregate, then run the corrected force-authority canary, and only after an accepted canary run Full Campaign Debug."
+      "summary": "Commit the revised Workbench/Workshop boundary, rerun current Foundation and all-target Workbench validation, then run all five focused suites and Campaign Debug directly from the same clean source checkpoint. Do not build or stage a replacement package."
     },
     {
       "id": "STATUS-003",
       "category": "UI",
-      "summary": "Known command-menu and modal-map defects remain open until source correction plus rendered packaged-client proof."
+      "summary": "Known command-menu and modal-map defects remain open until source correction plus rendered Workshop-installed client proof."
     },
     {
       "id": "STATUS-004",

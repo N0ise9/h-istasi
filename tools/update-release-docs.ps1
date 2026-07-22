@@ -9198,6 +9198,7 @@ function Assert-ReleaseBuildTransition {
 
 	if ($RuntimeUseDisposition -cnotin @(
 			"active-runtime-candidate",
+			"historical-local-qa",
 			"supersede-before-runtime",
 			"rejected-after-runtime")) {
 		throw "The release build transition has an unsupported runtime-use disposition."
@@ -10956,6 +10957,7 @@ if ($releaseCandidateBuilt) {
 	$runtimeUseDisposition = Require-Text $status.artifact.runtimeUseDisposition "release_status.artifact.runtimeUseDisposition"
 	if ($runtimeUseDisposition -cnotin @(
 			"active-runtime-candidate",
+			"historical-local-qa",
 			"supersede-before-runtime",
 			"rejected-after-runtime")) {
 		throw "release_status.artifact.runtimeUseDisposition is unsupported."
@@ -11202,8 +11204,15 @@ if ($releaseCandidateBuilt) {
 		$deterministicServiceRungs[0] `
 		"status")
 	if ($null -eq $activePackagedFocused) {
-		if ($deterministicServiceRungStatus -cne "not-run") {
-			throw "A missing active packaged focused result requires a not-run deterministic-service rung."
+		$allowedMissingFocusedRungStatuses = @("not-run")
+		if ($runtimeUseDisposition -cin @(
+				"historical-local-qa",
+				"supersede-before-runtime")) {
+			$allowedMissingFocusedRungStatuses += "partial"
+		}
+		if ($deterministicServiceRungStatus -cnotin
+				$allowedMissingFocusedRungStatuses) {
+			throw "A missing active packaged focused result has an unsupported deterministic-service rung."
 		}
 	}
 	else {
@@ -11315,19 +11324,34 @@ if ($releaseCandidateBuilt) {
 			throw "The active full-profile disposition does not match the native-engine-world rung."
 		}
 	}
-	$activeGate1EvidencePairPolicy = Get-Gate1EvidencePairPolicy `
-		-CandidateSourceHead $candidateSourceHead `
-		-CheckoutHead $checkoutHead
-	$requireGate1PairForAcceptedFull = Test-Gate1AcceptedFullRequiresPair `
-		-Policy $activeGate1EvidencePairPolicy `
-		-FullCampaignDebugValidation $activeFullCampaignDebugValidation
-	$activeGate1EvidencePairValidation = Assert-PartisanGate1EvidencePair `
-		-Evidence $status.evidence `
-		-CandidateIdentity $activeCandidateIdentity `
-		-StatusAsOfUtc $statusAsOfUtc `
-		-RepositoryRoot $root `
-		-EvidenceBundleRoot $EvidenceBundleRoot `
-		-FullCampaignDebugAccepted:$requireGate1PairForAcceptedFull
+	if ($runtimeUseDisposition -cin @(
+			"historical-local-qa",
+			"supersede-before-runtime")) {
+		# The retained package snapshot is historical/local QA only. Preserve its
+		# byte-exact records, but do not treat them as the live Gate 1 authority or
+		# require current source-workflow tool bytes to match their old harness.
+		$activeGate1EvidencePairPolicy = [PSCustomObject] @{
+			LegacyCandidate = $true
+			PairRequiredBeforeCampaignDebug = $false
+			PolicyCeiling = $script:Gate1EvidencePairLegacyCeiling
+		}
+		$activeGate1EvidencePairValidation = [PSCustomObject] @{ Present = $false }
+	}
+	else {
+		$activeGate1EvidencePairPolicy = Get-Gate1EvidencePairPolicy `
+			-CandidateSourceHead $candidateSourceHead `
+			-CheckoutHead $checkoutHead
+		$requireGate1PairForAcceptedFull = Test-Gate1AcceptedFullRequiresPair `
+			-Policy $activeGate1EvidencePairPolicy `
+			-FullCampaignDebugValidation $activeFullCampaignDebugValidation
+		$activeGate1EvidencePairValidation = Assert-PartisanGate1EvidencePair `
+			-Evidence $status.evidence `
+			-CandidateIdentity $activeCandidateIdentity `
+			-StatusAsOfUtc $statusAsOfUtc `
+			-RepositoryRoot $root `
+			-EvidenceBundleRoot $EvidenceBundleRoot `
+			-FullCampaignDebugAccepted:$requireGate1PairForAcceptedFull
+	}
 	Assert-Gate1EvidencePairTemporalPolicy `
 		-Policy $activeGate1EvidencePairPolicy `
 		-CampaignDebugPresent:(
@@ -11815,9 +11839,11 @@ if ($runtimeUseDisposition -ceq "rejected-after-runtime") {
 	$currentEvidencePrefix = "Retained rejected"
 	$currentAttachmentLabel = "retained rejected candidate"
 }
-elseif ($runtimeUseDisposition -ceq "supersede-before-runtime") {
-	$currentEvidencePrefix = "Retained superseded"
-	$currentAttachmentLabel = "retained superseded candidate"
+elseif ($runtimeUseDisposition -cin @(
+		"historical-local-qa",
+		"supersede-before-runtime")) {
+	$currentEvidencePrefix = "Retained local-validation"
+	$currentAttachmentLabel = "retained historical validation snapshot"
 }
 $statusBuilder = New-Object System.Text.StringBuilder
 Add-Line $statusBuilder "# Partisan Current Status"
@@ -11826,10 +11852,10 @@ Add-Line $statusBuilder '> Generated from `docs/data/release_status.json` and `d
 Add-Line $statusBuilder
 Add-Line $statusBuilder "## Release decision"
 Add-Line $statusBuilder
-Add-Line $statusBuilder "**$releaseDecision - $($status.releaseStage).** No release-candidate package is certified."
+Add-Line $statusBuilder "**$releaseDecision - $($status.releaseStage).** No Workshop release is certified."
 Add-Line $statusBuilder
 if ($releaseCandidateBuilt) {
-	Add-Line $statusBuilder "The retained candidate identity below binds its exact source HEAD, manifest, canonical four-file package index, addon identity, and validation tools. The generator verifies that the candidate source is between the audited gameplay revision and the live checkout HEAD."
+	Add-Line $statusBuilder "The retained local-validation snapshot below is historical QA evidence, not source, a publishing input, or a distributable. The generator still verifies its exact source HEAD, manifest, package index, addon identity, and validation tools. Workbench publishing and Workshop/in-game delivery are the supported release path."
 }
 else {
 	Add-Line $statusBuilder "The audited gameplay revision is fixed below. A tracked Markdown file cannot embed the hash of the commit that contains itself; the generator verifies that the audited revision is an ancestor of the checkout and prints the live checkout HEAD when it runs. Gate 1 evidence must record the exact post-checkout Git SHA and package hash together."
@@ -11846,13 +11872,13 @@ Add-Line $statusBuilder "| Embedded build UTC / label | $mdTick$sourceBuildUtc$m
 Add-Line $statusBuilder "| Campaign / runtime-settings schema | $mdTick$sourceCampaignSchema$mdTick / $mdTick$sourceSettingsSchema$mdTick |"
 Add-Line $statusBuilder "| Workbench CRC | $mdTick$($status.evidence.workbench.crc)$mdTick |"
 if ($releaseCandidateBuilt) {
-	Add-Line $statusBuilder "| Release candidate / source HEAD | $mdTick$(Escape-MarkdownCell $candidateId)$mdTick / $mdTick$candidateSourceHead$mdTick |"
-	Add-Line $statusBuilder "| Candidate embedded implementation identity | $mdTick$($activeCandidateIdentity.EmbeddedSha)$mdTick |"
-	Add-Line $statusBuilder "| Candidate embedded build UTC / label | $mdTick$($activeCandidateIdentity.EmbeddedUtc)$mdTick / $mdTick$(Escape-MarkdownCell $activeCandidateIdentity.EmbeddedLabel)$mdTick |"
-	Add-Line $statusBuilder "| Runtime use disposition | $mdTick$runtimeUseDisposition$mdTick |"
-	Add-Line $statusBuilder "| Candidate manifest | $mdTick$(Escape-MarkdownCell $candidateManifestPath)$mdTick |"
-	Add-Line $statusBuilder "| Manifest / ready-seal SHA-256 | $mdTick$candidateManifestSha$mdTick / $mdTick$candidateReadySha$mdTick |"
-	Add-Line $statusBuilder "| Aggregate package SHA-256 | $mdTick$packageSha$mdTick ($packageHashAlgorithm over the canonical four-file package index) |"
+	Add-Line $statusBuilder "| Retained validation snapshot / source HEAD | $mdTick$(Escape-MarkdownCell $candidateId)$mdTick / $mdTick$candidateSourceHead$mdTick |"
+	Add-Line $statusBuilder "| Snapshot embedded implementation identity | $mdTick$($activeCandidateIdentity.EmbeddedSha)$mdTick |"
+	Add-Line $statusBuilder "| Snapshot embedded build UTC / label | $mdTick$($activeCandidateIdentity.EmbeddedUtc)$mdTick / $mdTick$(Escape-MarkdownCell $activeCandidateIdentity.EmbeddedLabel)$mdTick |"
+	Add-Line $statusBuilder "| Historical validation disposition | $mdTick$runtimeUseDisposition$mdTick |"
+	Add-Line $statusBuilder "| Retained snapshot manifest | $mdTick$(Escape-MarkdownCell $candidateManifestPath)$mdTick |"
+	Add-Line $statusBuilder "| Historical manifest / ready-seal SHA-256 | $mdTick$candidateManifestSha$mdTick / $mdTick$candidateReadySha$mdTick |"
+	Add-Line $statusBuilder "| Historical snapshot package SHA-256 | $mdTick$packageSha$mdTick ($packageHashAlgorithm over the canonical four-file package index) |"
 	Add-Line $statusBuilder "| Addon GUID / revision / version | $mdTick$addonGuid$mdTick / $mdTick$(Escape-MarkdownCell $addonRevision)$mdTick / $mdTick$(Escape-MarkdownCell $packageVersion)$mdTick |"
 	Add-Line $statusBuilder "| Workbench/tool identity | version $mdTick$(Escape-MarkdownCell $workbenchVersion)$mdTick / SHA-256 $mdTick$workbenchSha$mdTick / validation CRC $mdTick$workbenchCrc$mdTick |"
 	Add-Line $statusBuilder "| Server / client versions | $mdTick$(Escape-MarkdownCell $serverVersion)$mdTick / $mdTick$(Escape-MarkdownCell $clientVersion)$mdTick |"
@@ -11874,8 +11900,16 @@ foreach ($rung in $status.proofRungs) {
 Add-Line $statusBuilder
 Add-Line $statusBuilder "## Retained evidence"
 Add-Line $statusBuilder
-Add-Line $statusBuilder "- Foundation: **$($status.evidence.foundation.status)** at $($status.evidence.foundation.referenceCount) references for $mdTick$($status.evidence.foundation.sourceSha)$mdTick."
-Add-Line $statusBuilder "- Workbench: **$($status.evidence.workbench.status)** at $($status.evidence.workbench.fileCount) files / $($status.evidence.workbench.classCount) classes / CRC $mdTick$($status.evidence.workbench.crc)$mdTick for $mdTick$($status.evidence.workbench.sourceSha)$mdTick."
+Add-Line $statusBuilder "- Historical snapshot Foundation: **$($status.evidence.foundation.status)** at $($status.evidence.foundation.referenceCount) references for $mdTick$($status.evidence.foundation.sourceSha)$mdTick. It does not advance the revised Gate 1."
+Add-Line $statusBuilder "- Historical snapshot Workbench: **$($status.evidence.workbench.status)** at $($status.evidence.workbench.fileCount) files / $($status.evidence.workbench.classCount) classes / CRC $mdTick$($status.evidence.workbench.crc)$mdTick for $mdTick$($status.evidence.workbench.sourceSha)$mdTick. It does not advance the revised Gate 1."
+if ($runtimeUseDisposition -cin @(
+		"historical-local-qa",
+		"supersede-before-runtime")) {
+	Add-Line $statusBuilder "- Historical local-package QA: snapshot $mdTick$candidateId${mdTick}, its manifest/seal, release-surface/runtime-retention pair, and rejected focused batches remain immutable forensic evidence. They are not active Gate 1 or Workshop release authority and are not required to match current source-workflow tool bytes."
+	Add-Line $statusBuilder "- Source-native focused evidence: **partial**. A direct loose-source QRF probe ran this checkout's ${mdTick}addon.gproj${mdTick} without a packed Partisan mount and passed all six named cases at JUnit **6/0/0/0** with an empty failed list. The complete five-suite 91-case run remains pending on a clean source checkpoint."
+	Add-Line $statusBuilder "- Source-native Campaign Debug: **not run** for the revised Gate 1 source checkpoint. The corrected canary and full profile follow the accepted five-suite source run."
+}
+else {
 if ($null -eq $activeGate1EvidencePairValidation -or
 	-not $activeGate1EvidencePairValidation.Present) {
 	Add-Line $statusBuilder "- $currentEvidencePrefix paired release-surface/runtime-retention evidence: **not run** for candidate $mdTick$candidateId${mdTick}; both halves must be published and consumed together against the unchanged package before either result may attach."
@@ -11926,6 +11960,7 @@ if ($null -ne $activeFullCampaignDebug) {
 		}
 		Add-Line $statusBuilder "- $currentEvidencePrefix Full Campaign Debug: **rejected, red full profile** on exact candidate $mdTick$candidateId${mdTick}. The wrapper capture completed mechanically with stable artifacts, $($activeFullCampaignDebug.envelopeFileCount) rehashed envelope files, and zero cleanup/spill residue, while $redAcceptanceText. Certification stayed red at $($activeFullCampaignDebug.pass) PASS, $($activeFullCampaignDebug.warn) WARN, $($activeFullCampaignDebug.fail) FAIL, $($activeFullCampaignDebug.blocked) BLOCKED, and $($activeFullCampaignDebug.skipped) SKIPPED with $($activeFullCampaignDebug.provenAssertions)/$($activeFullCampaignDebug.requiredAssertions) required assertions proven, $($activeFullCampaignDebug.failedAssertions) failed, and $($activeFullCampaignDebug.blockedAssertions) blocked. The fail-closed classifier found $($activeFullCampaignDebug.hardDiagnosticCount) hard diagnostics = $($activeFullCampaignDebug.approvedStockDiagnosticCount) approved stock + $($activeFullCampaignDebug.approvedIntentionalDiagnosticCount) approved intentional + $($activeFullCampaignDebug.unapprovedHardDiagnosticCount) unapproved. Summary: $mdTick$(Escape-MarkdownCell $activeFullCampaignDebugSummaryPath)$mdTick / SHA-256 $mdTick$activeFullCampaignDebugSummarySha$mdTick; clean harness $mdTick$activeFullCampaignDebugHarnessHead${mdTick}. Mechanical capture success is not certification or diagnostic acceptance."
 	}
+}
 }
 Add-Line $statusBuilder "- Focused force-authority profile: **$($status.evidence.focusedForceAuthority.passedCases)/$($status.evidence.focusedForceAuthority.caseCount)** cases and **$($status.evidence.focusedForceAuthority.passedConditions)/$($status.evidence.focusedForceAuthority.countedConditions)** counted conditions for $mdTick$($status.evidence.focusedForceAuthority.sourceSha)$mdTick, with ${mdTick}CertificationPassed:$($status.evidence.focusedForceAuthority.certificationPassed.ToString().ToLowerInvariant())${mdTick}. This is historical state-only, non-package, non-certifying evidence."
 foreach ($historicalCandidateResult in $historicalCandidateResults) {
@@ -12015,8 +12050,10 @@ Add-Line $statusBuilder
 Add-Line $statusBuilder "## Next release-closure step"
 Add-Line $statusBuilder
 if ($releaseCandidateBuilt) {
-	if ($runtimeUseDisposition -ceq "supersede-before-runtime") {
-		Add-Line $statusBuilder "Gate 1 retained candidate $mdTick$(Escape-MarkdownCell $candidateId)$mdTick remains sealed but is superseded before runtime use. Build exactly one replacement candidate for the focused-suite registration repair; retain both package identities, and do not combine evidence across their aggregate SHA-256 digests."
+	if ($runtimeUseDisposition -cin @(
+			"historical-local-qa",
+			"supersede-before-runtime")) {
+		Add-Line $statusBuilder "The local package snapshot $mdTick$(Escape-MarkdownCell $candidateId)$mdTick is retained only as historical QA evidence. Do not build a replacement or use it as release authority. Gate 1 now freezes a clean source checkpoint, runs Foundation and all-target Workbench validation, then runs focused and Campaign Debug evidence directly from that source. Workbench publishes the final source revision to Workshop, and the game downloads it."
 	}
 	elseif ($runtimeUseDisposition -ceq "rejected-after-runtime") {
 		if ($null -ne $activeFullCampaignDebug) {
@@ -12052,7 +12089,7 @@ if ($releaseCandidateBuilt) {
 	}
 }
 else {
-	Add-Line $statusBuilder "Gate 0's generated truth surface is complete. Gate 1 is the current work boundary: commit the guarded build-once tooling, build one clean package, and record Git, Workbench, package, addon, server, and client identities in one retained evidence bundle before rerunning the current proof ladder."
+	Add-Line $statusBuilder "Gate 0's generated truth surface is complete. Gate 1 is the current work boundary: freeze one clean source checkpoint, record Git, schema, addon, Workbench, server, and client identities, run all-target Workbench validation, and rerun source-native focused and Campaign Debug evidence. Workbench and Workshop own publishing and in-game delivery; no generated package belongs in source."
 }
 
 $parityBuilder = New-Object System.Text.StringBuilder

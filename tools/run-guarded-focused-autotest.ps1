@@ -2100,7 +2100,7 @@ try {
             -ItemType Directory `
             -Path $candidateEvidenceRoot, $focusedEvidenceRoot, $caseEvidenceRoot `
             -Force | Out-Null
-        $evidenceLeaf = ([DateTime]::UtcNow.ToString(
+        $evidenceLeaf = ($evidenceStartUtc.ToString(
             'yyyyMMddTHHmmssZ',
             [Globalization.CultureInfo]::InvariantCulture)) + '-' + $guardNonce
         $evidenceRunRoot = [IO.Path]::GetFullPath(

@@ -37,6 +37,9 @@ param(
     [int]$WorkbenchTimeoutSeconds = 300,
 
     [Parameter(ParameterSetName = "Build")]
+    [switch]$LegacyLocalValidationOnly,
+
+    [Parameter(ParameterSetName = "Build")]
     [switch]$PreflightOnly,
 
     [Parameter(Mandatory = $true, ParameterSetName = "SelfTest")]
@@ -45,6 +48,16 @@ param(
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
+
+if ($PSCmdlet.ParameterSetName -ceq "Build" -and
+    -not $LegacyLocalValidationOnly) {
+    throw @"
+This local package-snapshot workflow is retired from the supported release path.
+Workbench publishes the source addon to Workshop, and the game downloads it.
+No generated .pak belongs in this repository. Pass -LegacyLocalValidationOnly
+only to reproduce an explicitly non-release historical/local QA snapshot.
+"@
+}
 
 function Write-TextUtf8NoBom {
     param(
