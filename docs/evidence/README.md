@@ -102,7 +102,21 @@ availability inspection, but executes no command action and does not mutate
 campaign gameplay state. It does not certify gameplay, multiplayer,
 persistence, restart, soak, or performance. The guarded child inherits no
 standard streams, so its three required engine logs and any engine-emitted
-`crash.log` are authoritative; an absent crash log is never synthesized. The
+`crash.log` are authoritative; an absent crash log is never synthesized. A
+successful mode requires `crash.log` to be absent or whitespace-only and every
+file below the log root to be one of the exact bound leaves. The machine-bound
+`script-engine-and-process-fatal-v1` predicate covers `SCRIPT`/`ENGINE` error
+severity, process-fatal signals, and audit `ERROR` markers; other retained
+engine-channel severities remain outside this narrow predicate. Each mode's
+Schema-2 census accepts either no policy-matched hard diagnostic (`0` raw
+lines and `0` events) or the exact stock shutdown cluster observed on the active package:
+two support-station catalog-manager events, each mirrored once across
+`console.log`, `script.log`, and `error.log` after the passing result and
+replication completion but before game destruction (`6` raw lines and `2`
+events). Result, replication-finishing, replication-finished, and destruction
+timestamps must parse exactly and increase strictly. Partial, extra,
+duplicated, malformed or reversed lifecycle, message-variant, non-empty-body,
+misplaced, crash-channel, and unapproved policy-matched events fail closed. The
 runtime-retention bundle preserves diagnostic save-lineage evidence with the
 same exact symbol pair and then observes the exact bytes through standard
 server/client load-start-log runs that contain no script definition. It
@@ -114,9 +128,9 @@ performance, or canary proof.
 The source contract covers 55 wholly guarded carriers, 39 mixed files, 321
 forbidden types, 71 forbidden commands, 67 forbidden members, and 9 forbidden
 literals. Its production controls are four types, three commands, and 91
-members. The source guard passes 15/15, the paired runner self-test passes 34
-checks, the surface and retention publisher suites pass 44 and 63/63 checks,
-and the consumer passes 3 valid/optional plus 44 adversarial cases. These source
+members. The source guard passes 15/15, the paired runner self-test passes 46
+checks, the surface and retention publisher suites pass 61 and 63/63 checks,
+and the consumer passes 3 valid/optional plus 49 adversarial cases. These source
 and publisher checkpoints do not constitute a runtime audit. Active immutable
 candidate `partisan-rc-5b1f2e98f931-20260721T193941Z` is sealed, but it has no
 paired runtime evidence; `STATUS-008` remains open and release remains `NO-GO`.

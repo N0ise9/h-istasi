@@ -42,7 +42,7 @@ both modes. Together they retain build identity, runtime health/logging,
 foundation status, and read-only campaign/persistence inspection. The source
 audit self-test passes 15/15.
 
-The paired release-surface runner's 34-check structural self-test also passes.
+The paired release-surface runner's 46-check structural self-test also passes.
 Its future package-bound run must compare standard and diagnostic processes
 against one exact candidate. The member plan is rederived from that candidate
 commit, then the loaded package is probed for all 67 forbidden and 91
@@ -87,16 +87,30 @@ residue checks were zero. Correcting that requirement changes evidence tooling
 only and left the candidate package bytes unchanged. The next attempt passed the
 retail census, then failed closed because the diagnostic executable compiled the
 probe as retail without the explicit custom symbol. It too was not published
-and removed its harness with zero residue. The corrected mode-specific launch
-contract must be committed before another fresh retry. No release-surface pass
-or paired completion is recorded.
+and removed its harness with zero residue. A third attempt passed the retail
+probe, then the old blanket classifier rejected two stock support-station
+catalog-manager teardown events. Each was mirrored once across the three
+authoritative logs after replication finished and before game destruction, for
+six raw lines and two underlying events. Because otherwise identical launches
+also produced no such events, Schema 2 accepts either exact `0/0` absence or the
+exact `6 raw / 2 event` cluster per mode. The machine-bound
+`script-engine-and-process-fatal-v1` predicate covers `SCRIPT`/`ENGINE` error
+severity, process-fatal signals, and audit `ERROR` markers; other retained
+engine-channel severities remain outside that narrow predicate. Success also
+requires an absent or whitespace-only crash log, an exact all-file log-root
+inventory, and exactly parsed, strictly ordered result/replication/destruction
+timestamps. Every partial, extra, duplicated, malformed or reversed lifecycle,
+message-variant, non-empty-body, misplaced, crash-channel, or unapproved policy-
+matched event remains invalid. The third attempt was not published and
+cleanup again removed the harness with zero residue. No release-surface pass or
+paired completion is recorded.
 
-The release-surface publisher passes 44 self-test checks, and the retention
+The release-surface publisher passes 61 self-test checks, and the retention
 publisher passes 63/63, including zero-write verification of an existing
 publication, canonical index-byte comparison, strict scalar typing, terminal
 seals, fail-closed synthetic publication, receipt reuse, role relabeling,
 launch-vector, journal, and reparse negatives. The ledger consumer invokes both
-exact Git-bound publisher validators and passes 3 valid/optional plus 44
+exact Git-bound publisher validators and passes 3 valid/optional plus 49
 adversarial cases. These tooling tests start no engine process. The retention
 proof's intended first phase uses diagnostic-only authority to capture the
 autosave, manual-save, controlled-shutdown, native-shutdown-verification, and

@@ -51,7 +51,7 @@ The embedded implementation stamp is
   availability query used by the runtime audit. They must compile in standard
   and diagnostic mode but must not execute a developer command.
 - A runtime-surface self-test is harness proof, not engine proof. The paired
-  runner currently passes 34 structural checks; the real gate still requires
+  runner currently passes 46 structural checks; the real gate still requires
   standard and diagnostic processes to inspect the same sealed package and
   produce exact, independently rehashed evidence.
 - A diagnostic executable does not implicitly define a custom script symbol.
@@ -110,9 +110,9 @@ The embedded implementation stamp is
   and returns one typed identity/signature result without writing. A consumer
   that only rehashes a publisher-shaped index can otherwise accept a completely
   fabricated but internally consistent tree.
-- The release-surface publisher self-test passes 44 checks, and the retention
+- The release-surface publisher self-test passes 61 checks, and the retention
   publisher self-test passes 63/63. The ledger consumer invokes both exact
-  Git-bound verifier scripts and passes 3 valid/optional plus 44 adversarial
+  Git-bound verifier scripts and passes 3 valid/optional plus 49 adversarial
   cases. Coverage includes zero-write verification, scalar confusion, canonical
   byte drift, terminal seals, fail-closed synthetic publication, receipt reuse,
   role relabeling, launch vectors, journals, and reparse points. They start no
@@ -121,7 +121,25 @@ The embedded implementation stamp is
   Treat its retained engine logs as authoritative rather than expecting parent-
   process output capture. Require `console.log`, `script.log`, and `error.log`;
   permit zero or one `crash.log`, retain and classify it when present, and never
-  synthesize it when absent.
+  synthesize it when absent. A successful mode requires the crash log to be
+  absent or whitespace-only and the complete log-root file inventory to match
+  the exact bound leaves.
+- Use the explicit machine-bound hard-diagnostic policy
+  `script-engine-and-process-fatal-v1`. It covers `SCRIPT` or `ENGINE` error
+  severity, access violations, unhandled exceptions, fatal/application-crash
+  signals, and the audit's `ERROR` markers. Other retained engine-channel
+  severities are outside this narrow release-surface predicate.
+- Treat mirrored engine-log errors as raw lines and underlying events, not as one
+  interchangeable count. Per release-surface mode, accept either exact `0 raw /
+  0 event` absence or the bounded stock shutdown cluster: two support-station
+  catalog-manager events, each present once in `console.log`, `script.log`, and
+  `error.log`, with empty diagnostic bodies after the passing result and
+  replication completion but before game destruction. That yields `6 raw / 2
+  event`. Reject one or three events, missing mirrors, same-leaf duplicates,
+  timestamp drift, message variants, diagnostic bodies, lifecycle drift,
+  crash-channel copies, and unapproved policy-matched diagnostics. Parse the
+  result, replication-finishing, replication-finished, and destruction
+  timestamps exactly and require strict temporal order even for a clean mode.
 - The first real retail surface probe against the active candidate emitted
   exactly the required three logs and no crash log. The surrounding attempt
   failed closed on the obsolete quartet requirement and was not published;
@@ -130,8 +148,13 @@ The embedded implementation stamp is
   supplies no runtime pass. After that correction was committed, the next
   attempt passed the retail census but the diagnostic executable compiled the
   probe as retail because the custom symbol was absent. It also failed closed,
-  was not published, and removed the harness with zero residue. Commit the
-  mode-specific launch correction before retrying the paired audit.
+  was not published, and removed the harness with zero residue. After that launch
+  correction, a third retail probe passed its surface census and then exposed
+  the nondeterministic stock teardown cluster described above. The prior two
+  retail probes had emitted no such cluster, while the second attempt's
+  diagnostic half had emitted it. The third attempt was not published and again
+  cleaned up with zero residue. This evidence establishes why Schema 2 permits
+  only the exact optional cluster; it does not establish a runtime pass.
 - Do not turn surface inspection into a broader claim. Member-presence probes
   are inert; the audit deliberately invokes production menu generation and
   read-only per-command availability inspection, but executes no command action

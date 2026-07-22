@@ -4433,7 +4433,7 @@ build root.
 Consequences:
 
 - The source audit self-test passes 15/15 and the paired runtime runner's
-  structural self-test passes 34 checks. Earlier unsealed compile snapshots are
+  structural self-test passes 46 checks. Earlier unsealed compile snapshots are
   superseded by current source changes; all-target Workbench validation must be
   rerun before publishing a new candidate CRC.
 - Those results prove source shape and harness structure only. Member-presence
@@ -4445,12 +4445,12 @@ Consequences:
   authoritative. Require `console.log`, `script.log`, and `error.log`; permit
   zero or one `crash.log`, retain and classify it when present, and never
   synthesize it when absent.
-- The release-surface publisher passes 44 structural and fail-closed checks,
+- The release-surface publisher passes 61 structural and fail-closed checks,
   and the retention publisher passes 63/63, including zero-write verification
   of already-published indexes, canonical byte comparison, strict scalar types,
   terminal seals, synthetic-publication, receipt-reuse, role-relabel,
   launch-vector, journal, and reparse negatives. The exact Git-bound publishers
-  are reused by the ledger consumer, whose suite passes 3 valid/optional and 44
+  are reused by the ledger consumer, whose suite passes 3 valid/optional and 49
   adversarial cases. These self-tests launch no engine and are not runtime
   evidence. No new candidate is sealed and no paired runtime evidence or
   runtime acceptance is claimed.
@@ -4523,7 +4523,9 @@ so requiring an exact four-file set incorrectly rejected valid retained output.
 Decision: Require the three always-emitted logs and allow zero or one
 `crash.log`. When a crash log exists, retain and classify it through the same
 evidence boundary; when it does not exist, record that absence and never
-synthesize a placeholder.
+synthesize a placeholder. A successful mode requires the optional crash log to
+be absent or whitespace-only. Census every file below the log root and reject
+unbound, duplicated, or unknown leaves, including non-log files.
 
 Consequences:
 
@@ -4563,3 +4565,57 @@ Consequences:
   residue, and the candidate package bytes remain unchanged.
 - Commit and self-test the corrected launch contracts before retrying the paired
   audit. No release-surface, retention, or paired completion is claimed here.
+
+## CRI-085 - Bound the Optional Stock Shutdown Diagnostic Cluster
+
+- Status: Accepted as a fail-closed evidence-tooling correction; paired package
+  proof remains pending
+- Date: 2026-07-21
+
+Context: The third real release-surface attempt passed the active package's
+retail probe and produced its passing result before orderly replication
+shutdown. During world teardown, two stock
+`SCR_BaseResupplySupportStationComponent` catalog-manager errors then occurred.
+Each underlying event appeared once in `console.log`, `script.log`, and
+`error.log`, yielding six raw hard-diagnostic lines from two event timestamps.
+Both events occurred after replication finished and before game destruction,
+and their diagnostic bodies were empty. The prior two retail launches emitted
+zero such events, while the second attempt's diagnostic launch emitted the same
+two-event cluster. Source inspection locates the message in stock support-
+station teardown revalidation, where deletion order can remove the catalog
+manager before the surviving station components revalidate.
+
+Decision: Version the release-surface run and index contracts to Schema 2 and
+classify each mode independently under the exact machine-bound policy
+`script-engine-and-process-fatal-v1`. That predicate includes `SCRIPT` or
+`ENGINE` error severity, access violations, unhandled exceptions, fatal or
+application-crash signals, and audit `ERROR` markers. Other retained engine-
+channel severities are explicitly outside this narrow predicate. A mode may
+contain either exact
+hard-diagnostic absence (`0` raw lines and `0` underlying events) or the exact
+stock teardown cluster (`6` raw lines and `2` events). The present cluster must
+use the exact message, identical timestamps across all three authoritative log
+leaves, one copy per leaf, empty bodies, an exact passing-result mirror in
+console and script logs, and console ordering from result through replication
+finish, both events, and game destruction. Preserve separate raw-line and event
+counts and publish zero unapproved counts. Parse the result, replication-
+finishing, replication-finished, and destruction timestamps exactly and require
+strict temporal ordering, including in a clean mode. Reject any one-event,
+third-event, missing-mirror, same-leaf duplicate, malformed or reversed
+lifecycle, timestamp-drifted message, non-empty body, pre-result, pre-
+replication, post-destruction, crash-channel, or unapproved policy-matched
+diagnostic.
+
+Consequences:
+
+- Do not broaden the package's headquarters teardown guard or alter the audit
+  world to suppress this stock lifecycle behavior. Either change would alter
+  package bytes or the loaded-world proof boundary and require a new candidate.
+- The runner now passes 46 checks, the independent publisher passes 61, and the
+  ledger consumer passes 3 valid/optional plus 49 adversarial cases. Those are
+  tooling proofs only.
+- The third attempt remains failed and unpublished. Its owned cleanup removed
+  the harness with zero residue. The active candidate package bytes and seals
+  are unchanged.
+- Commit the Schema-2 tooling before another fresh release-surface retry. No
+  release-surface, retention, or paired completion is claimed here.

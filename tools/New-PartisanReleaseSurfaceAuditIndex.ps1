@@ -13,10 +13,10 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-$script:RunContractId = 'partisan.release-surface-audit.run.v1'
-$script:IndexContractId = 'partisan.release-surface-audit.index.v1'
-$script:EvidenceKind = 'partisan_release_surface_runtime_audit_v1'
-$script:IndexEvidenceKind = 'partisan_release_surface_runtime_audit_index_v1'
+$script:RunContractId = 'partisan.release-surface-audit.run.v2'
+$script:IndexContractId = 'partisan.release-surface-audit.index.v2'
+$script:EvidenceKind = 'partisan_release_surface_runtime_audit_v2'
+$script:IndexEvidenceKind = 'partisan_release_surface_runtime_audit_index_v2'
 $script:ProbeEvidenceKind = 'partisan_release_surface_runtime_probe_v1'
 $script:ContractEvidenceKind = 'partisan_release_surface_contract_v1'
 $script:Modes = @('retail', 'diagnostic')
@@ -24,6 +24,7 @@ $script:RequiredLogLeaves = @('console.log', 'script.log', 'error.log')
 $script:OptionalLogLeaves = @('crash.log')
 $script:AllowedLogLeaves = @(
     $script:RequiredLogLeaves + $script:OptionalLogLeaves)
+$script:HardDiagnosticPolicy = 'script-engine-and-process-fatal-v1'
 $script:RequiredPackageFiles = @(
     'Partisan/addon.gproj',
     'Partisan/data.pak',
@@ -50,7 +51,9 @@ $script:Limitations = @(
     'This audit uses inert compiler and metadata probes for contracted member-surface presence; separately, it deliberately invokes production menu generation and read-only per-command availability inspection, but it does not execute command actions or mutate campaign gameplay state.',
     'Forbidden literal surfaces are proven by the candidate-bound source guard analysis, not by an unreliable package-byte string scan.',
     'It is not gameplay, multiplayer, persistence, restart, soak, or performance certification.',
-    'The guarded launcher deliberately gives the child no inherited standard streams; authoritative engine output is retained in the three required logs and in crash.log when the engine emits it.')
+    'The guarded launcher deliberately gives the child no inherited standard streams; authoritative engine output is retained in the three required logs and in crash.log when the engine emits it.',
+    'The machine-bound hard-diagnostic policy is script-engine-and-process-fatal-v1: SCRIPT or ENGINE error severity, access violations, unhandled exceptions, fatal/application-crash signals, and audit ERROR markers. Other retained engine-channel severities are outside this narrow release-surface predicate. A successful crash.log must be absent or empty.',
+    'A mode may contain either no hard diagnostic or one exact stock Eden shutdown cluster: two underlying support-station catalog-manager events mirrored once across console.log, script.log, and error.log after replication finishes and before game destruction. Every partial, extra, variant, misplaced, crash-channel, or unrelated hard event fails closed.')
 
 function Get-ReleaseSurfaceIndexSha256Bytes {
     param([Parameter(Mandatory = $true)][byte[]]$Bytes)
@@ -1796,21 +1799,284 @@ function Assert-ReleaseSurfaceIndexStreams {
     }
 }
 
+function Get-ReleaseSurfaceIndexHardDiagnosticCensus {
+    param(
+        [Parameter(Mandatory = $true)][hashtable]$TextByLeaf,
+        [Parameter(Mandatory = $true)][string]$Mode)
+
+    $hardPattern = '(?i)(?:\b(?:SCRIPT|ENGINE)\s*\(E\)|' +
+        '\bACCESS_VIOLATION\b|\bunhandled exception\b|\bfatal error\b|' +
+        '\bapplication crash\b|Partisan release surface audit\s*\|\s*ERROR\s*\|)'
+    $timestampToken = '(?<timestamp>\d{4}-\d{2}-\d{2} ' +
+        '\d{2}:\d{2}:\d{2}\.\d{3})'
+    $timestampedLinePattern = '^\d{4}-\d{2}-\d{2} ' +
+        '\d{2}:\d{2}:\d{2}\.\d{3}\s+'
+    $stockPattern = '^' + $timestampToken +
+        "\s+SCRIPT\s+\(E\): 'SCR_BaseResupplySupportStationComponent' " +
+        'needs a entity catalog manager!\s*$'
+    $resultEventPattern = '^' + $timestampToken +
+        '\s+SCRIPT\s+:\s+Partisan release surface audit \| RESULT \| mode=' +
+        [regex]::Escape($Mode) +
+        ' \| passed=(?:1|true) \| mismatches=0\s*$'
+    $replicationFinishingPattern = '^' + $timestampToken +
+        '\s+RPL\s+:\s+Replication finishing\.\.\.\s*$'
+    $replicationFinishedPattern = '^' + $timestampToken +
+        '\s+RPL\s+:\s+Replication finished\.\s*$'
+    $gameDestroyedPattern = '^' + $timestampToken +
+        '\s+ENGINE\s+:\s+Game destroyed\.\s*$'
+    $hardRows = New-Object Collections.Generic.List[object]
+    $resultRows = New-Object Collections.Generic.List[object]
+    $replicationFinishingRows = New-Object Collections.Generic.List[object]
+    $replicationFinishedRows = New-Object Collections.Generic.List[object]
+    $gameDestroyedRows = New-Object Collections.Generic.List[object]
+    $allLines = New-Object Collections.Generic.List[string]
+    foreach ($leaf in @($TextByLeaf.Keys)) {
+        $leafLines = @(([string]$TextByLeaf[$leaf]) -split "`r?`n")
+        foreach ($leafLine in $leafLines) { [void]$allLines.Add($leafLine) }
+        for ($lineIndex = 0; $lineIndex -lt $leafLines.Count; $lineIndex++) {
+            $line = [string]$leafLines[$lineIndex]
+            $stockMatch = [regex]::Match($line, $stockPattern)
+            $emptyDiagnosticBody = $true
+            if ($stockMatch.Success) {
+                for ($bodyIndex = $lineIndex + 1;
+                    $bodyIndex -lt $leafLines.Count;
+                    $bodyIndex++) {
+                    $bodyLine = [string]$leafLines[$bodyIndex]
+                    if ($bodyLine -match $timestampedLinePattern) { break }
+                    if (-not [string]::IsNullOrWhiteSpace($bodyLine)) {
+                        $emptyDiagnosticBody = $false
+                        break
+                    }
+                }
+            }
+            if ($line -match $hardPattern) {
+                [void]$hardRows.Add([pscustomobject][ordered]@{
+                    leaf = $leaf
+                    index = $lineIndex
+                    line = $line
+                    stockCandidate = [bool]($stockMatch.Success -and
+                        $emptyDiagnosticBody)
+                    stockTimestamp = if ($stockMatch.Success) {
+                        [string]$stockMatch.Groups['timestamp'].Value
+                    }
+                    else { '' }
+                })
+            }
+            $resultMatch = [regex]::Match($line, $resultEventPattern)
+            if ($resultMatch.Success) {
+                [void]$resultRows.Add([pscustomobject][ordered]@{
+                    leaf = $leaf
+                    index = $lineIndex
+                    timestamp = [string]$resultMatch.Groups['timestamp'].Value
+                })
+            }
+            if ($leaf -ceq 'console.log') {
+                foreach ($lifecycleBinding in @(
+                        [pscustomobject]@{
+                            Pattern = $replicationFinishingPattern
+                            Rows = $replicationFinishingRows
+                        },
+                        [pscustomobject]@{
+                            Pattern = $replicationFinishedPattern
+                            Rows = $replicationFinishedRows
+                        },
+                        [pscustomobject]@{
+                            Pattern = $gameDestroyedPattern
+                            Rows = $gameDestroyedRows
+                        })) {
+                    $lifecycleMatch = [regex]::Match(
+                        $line, [string]$lifecycleBinding.Pattern)
+                    if ($lifecycleMatch.Success) {
+                        [void]$lifecycleBinding.Rows.Add(
+                            [pscustomobject][ordered]@{
+                                index = $lineIndex
+                                timestamp = [string]$lifecycleMatch.
+                                    Groups['timestamp'].Value
+                            })
+                    }
+                }
+            }
+        }
+    }
+    $hardEventCount = 0
+    foreach ($eventGroup in @($hardRows |
+            Group-Object -Property line -CaseSensitive)) {
+        $leafMaximum = 0
+        foreach ($leafGroup in @($eventGroup.Group |
+                Group-Object -Property leaf -CaseSensitive)) {
+            $leafMaximum = [Math]::Max($leafMaximum, $leafGroup.Count)
+        }
+        $hardEventCount += $leafMaximum
+    }
+    $stockHeaderRows = @($hardRows | Where-Object {
+        -not [string]::IsNullOrEmpty([string]$_.stockTimestamp)
+    })
+    $stockRows = @($hardRows | Where-Object { [bool]$_.stockCandidate })
+    $stockEventGroups = @($stockRows |
+        Group-Object -Property stockTimestamp -CaseSensitive)
+    $resultPattern = '^.*Partisan release surface audit \| RESULT \| mode=' +
+        [regex]::Escape($Mode) +
+        ' \| passed=(?:1|true) \| mismatches=0\s*$'
+    $resultMarkers = @($allLines.ToArray() | Where-Object {
+        [string]$_ -cmatch $resultPattern
+    } | ForEach-Object { ([string]$_).Trim() } | Sort-Object -Unique)
+    $resultTimestampSet = @($resultRows | ForEach-Object {
+        [string]$_.timestamp
+    } | Sort-Object -Unique)
+    $resultChannelsExact = $resultRows.Count -eq 2 -and
+        $resultTimestampSet.Count -eq 1 -and
+        @($resultRows | Where-Object { $_.leaf -ceq 'console.log' }).Count -eq 1 -and
+        @($resultRows | Where-Object { $_.leaf -ceq 'script.log' }).Count -eq 1
+    $lifecycleExact = $resultChannelsExact -and
+        $replicationFinishingRows.Count -eq 1 -and
+        $replicationFinishedRows.Count -eq 1 -and
+        $gameDestroyedRows.Count -eq 1
+    $resultTime = [datetime]::MinValue
+    $replicationFinishingTime = [datetime]::MinValue
+    $replicationFinishedTime = [datetime]::MinValue
+    $gameDestroyedTime = [datetime]::MinValue
+    if ($lifecycleExact) {
+        $consoleResult = @($resultRows | Where-Object {
+            $_.leaf -ceq 'console.log'
+        })[0]
+        $resultTimeValid = [datetime]::TryParseExact(
+            [string]$resultTimestampSet[0], 'yyyy-MM-dd HH:mm:ss.fff',
+            [Globalization.CultureInfo]::InvariantCulture,
+            [Globalization.DateTimeStyles]::None, [ref]$resultTime)
+        $replicationFinishingTimeValid = [datetime]::TryParseExact(
+            [string]$replicationFinishingRows[0].timestamp,
+            'yyyy-MM-dd HH:mm:ss.fff',
+            [Globalization.CultureInfo]::InvariantCulture,
+            [Globalization.DateTimeStyles]::None,
+            [ref]$replicationFinishingTime)
+        $replicationFinishedTimeValid = [datetime]::TryParseExact(
+            [string]$replicationFinishedRows[0].timestamp,
+            'yyyy-MM-dd HH:mm:ss.fff',
+            [Globalization.CultureInfo]::InvariantCulture,
+            [Globalization.DateTimeStyles]::None,
+            [ref]$replicationFinishedTime)
+        $gameDestroyedTimeValid = [datetime]::TryParseExact(
+            [string]$gameDestroyedRows[0].timestamp,
+            'yyyy-MM-dd HH:mm:ss.fff',
+            [Globalization.CultureInfo]::InvariantCulture,
+            [Globalization.DateTimeStyles]::None, [ref]$gameDestroyedTime)
+        $lifecycleExact = $resultTimeValid -and
+            $replicationFinishingTimeValid -and
+            $replicationFinishedTimeValid -and $gameDestroyedTimeValid -and
+            $consoleResult.index -lt
+                $replicationFinishingRows[0].index -and
+            $replicationFinishingRows[0].index -lt
+                $replicationFinishedRows[0].index -and
+            $replicationFinishedRows[0].index -lt
+                $gameDestroyedRows[0].index -and
+            $resultTime -lt $replicationFinishingTime -and
+            $replicationFinishingTime -lt $replicationFinishedTime -and
+            $replicationFinishedTime -lt $gameDestroyedTime
+    }
+    $clusterPresent = $stockHeaderRows.Count -gt 0
+    $clusterShapeExact = -not $clusterPresent
+    if ($clusterPresent -and $stockHeaderRows.Count -eq 6 -and
+        $stockRows.Count -eq 6 -and $stockEventGroups.Count -eq 2) {
+        $clusterShapeExact = $true
+        foreach ($eventGroup in $stockEventGroups) {
+            $eventLeaves = @($eventGroup.Group | ForEach-Object {
+                [string]$_.leaf
+            } | Sort-Object)
+            if ($eventGroup.Count -ne 3 -or
+                @(Compare-Object -ReferenceObject @(
+                        'console.log', 'error.log', 'script.log') `
+                    -DifferenceObject $eventLeaves -CaseSensitive).Count -ne 0) {
+                $clusterShapeExact = $false
+                break
+            }
+        }
+    }
+    $clusterLifecycleExact = $lifecycleExact -and $clusterShapeExact
+    if ($clusterLifecycleExact -and $clusterPresent) {
+        foreach ($eventGroup in $stockEventGroups) {
+            $eventTime = [datetime]::ParseExact(
+                [string]$eventGroup.Name, 'yyyy-MM-dd HH:mm:ss.fff',
+                [Globalization.CultureInfo]::InvariantCulture)
+            $consoleEvent = @($eventGroup.Group | Where-Object {
+                $_.leaf -ceq 'console.log'
+            })[0]
+            if ($eventTime -le $resultTime -or
+                $eventTime -le $replicationFinishedTime -or
+                $eventTime -ge $gameDestroyedTime -or
+                $consoleEvent.index -le $replicationFinishedRows[0].index -or
+                $consoleEvent.index -ge $gameDestroyedRows[0].index) {
+                $clusterLifecycleExact = $false
+                break
+            }
+        }
+    }
+    $approvedStockRawCount = if ($clusterShapeExact -and
+        $clusterLifecycleExact) { $stockRows.Count } else { 0 }
+    $approvedStockEventCount = if ($clusterShapeExact -and
+        $clusterLifecycleExact) { $stockEventGroups.Count } else { 0 }
+    $unapprovedHardRawCount = $hardRows.Count - $approvedStockRawCount
+    $unapprovedHardEventCount = $hardEventCount - $approvedStockEventCount
+    $hardAccountingExact = $hardRows.Count -eq
+            ($approvedStockRawCount + $unapprovedHardRawCount) -and
+        $hardEventCount -eq
+            ($approvedStockEventCount + $unapprovedHardEventCount)
+    return [pscustomobject][ordered]@{
+        allLines = [string[]]$allLines.ToArray()
+        hardDiagnosticPolicy = $script:HardDiagnosticPolicy
+        hardDiagnosticFree = $hardRows.Count -eq 0
+        hardDiagnosticRawLineCount = $hardRows.Count
+        hardDiagnosticEventCount = $hardEventCount
+        approvedStockDiagnosticClusterPresent = $clusterPresent
+        approvedStockDiagnosticClusterExact = $clusterShapeExact
+        approvedStockDiagnosticLifecycleExact = $clusterLifecycleExact
+        approvedStockDiagnosticRawLineCount = $approvedStockRawCount
+        approvedStockDiagnosticEventCount = $approvedStockEventCount
+        unapprovedHardDiagnosticRawLineCount = $unapprovedHardRawCount
+        unapprovedHardDiagnosticEventCount = $unapprovedHardEventCount
+        hardDiagnosticAccountingExact = $hardAccountingExact
+        uniqueResultMarkerCount = $resultMarkers.Count
+        resultMarkerOccurrenceCount = $resultRows.Count
+        crashLogContentValid = -not $TextByLeaf.ContainsKey('crash.log') -or
+            [string]::IsNullOrWhiteSpace([string]$TextByLeaf['crash.log'])
+    }
+}
+
 function Assert-ReleaseSurfaceIndexLogClassification {
     param([string]$Mode, [string]$RunRoot, $Run, $ModeValue)
 
     $classification = $ModeValue.classification
     Assert-ReleaseSurfaceIndexExactProperties $classification @(
-        'valid', 'hardDiagnosticCount', 'candidateMountLineCount',
-        'candidatePackedMountLineCount', 'harnessMountLineCount',
-        'uniqueResultMarkerCount', 'crashArtifactCount', 'logs') `
+        'valid', 'hardDiagnosticPolicy', 'hardDiagnosticFree',
+        'hardDiagnosticRawLineCount',
+        'hardDiagnosticEventCount', 'approvedStockDiagnosticClusterPresent',
+        'approvedStockDiagnosticClusterExact',
+        'approvedStockDiagnosticLifecycleExact',
+        'approvedStockDiagnosticRawLineCount',
+        'approvedStockDiagnosticEventCount',
+        'unapprovedHardDiagnosticRawLineCount',
+        'unapprovedHardDiagnosticEventCount', 'hardDiagnosticAccountingExact',
+        'candidateMountLineCount', 'candidatePackedMountLineCount',
+        'harnessMountLineCount', 'uniqueResultMarkerCount',
+        'resultMarkerOccurrenceCount', 'crashLogContentValid',
+        'crashArtifactCount', 'logs') `
         "$Mode log classification"
+    Assert-ReleaseSurfaceIndexStringProperties $classification @(
+        'hardDiagnosticPolicy') "$Mode log classification"
     Assert-ReleaseSurfaceIndexBooleanProperties $classification @(
-        'valid') "$Mode log classification"
+        'valid', 'hardDiagnosticFree', 'approvedStockDiagnosticClusterPresent',
+        'approvedStockDiagnosticClusterExact',
+        'approvedStockDiagnosticLifecycleExact',
+        'hardDiagnosticAccountingExact', 'crashLogContentValid') `
+        "$Mode log classification"
     Assert-ReleaseSurfaceIndexIntegerProperties $classification @(
-        'hardDiagnosticCount', 'candidateMountLineCount',
+        'hardDiagnosticRawLineCount', 'hardDiagnosticEventCount',
+        'approvedStockDiagnosticRawLineCount',
+        'approvedStockDiagnosticEventCount',
+        'unapprovedHardDiagnosticRawLineCount',
+        'unapprovedHardDiagnosticEventCount', 'candidateMountLineCount',
         'candidatePackedMountLineCount', 'harnessMountLineCount',
-        'uniqueResultMarkerCount', 'crashArtifactCount') `
+        'uniqueResultMarkerCount', 'resultMarkerOccurrenceCount',
+        'crashArtifactCount') `
         "$Mode log classification"
     $rows = @($classification.logs)
     if ($rows.Count -lt $script:RequiredLogLeaves.Count -or
@@ -1818,6 +2084,7 @@ function Assert-ReleaseSurfaceIndexLogClassification {
         throw "$Mode retained log count is invalid."
     }
     $texts = New-Object Collections.Generic.List[string]
+    $textByLeaf = @{}
     $seen = New-Object Collections.Generic.HashSet[string]([StringComparer]::Ordinal)
     foreach ($row in $rows) {
         Assert-ReleaseSurfaceIndexExactProperties $row @(
@@ -1839,7 +2106,9 @@ function Assert-ReleaseSurfaceIndexLogClassification {
                 $row (Get-ReleaseSurfaceIndexFileSignature $path))) {
             throw "$Mode retained log changed."
         }
-        [void]$texts.Add([IO.File]::ReadAllText($path))
+        $text = [IO.File]::ReadAllText($path)
+        [void]$texts.Add($text)
+        $textByLeaf[[string]$row.leaf] = $text
     }
     $missingRequiredLeaves = @($script:RequiredLogLeaves | Where-Object {
         -not $seen.Contains([string]$_)
@@ -1847,12 +2116,22 @@ function Assert-ReleaseSurfaceIndexLogClassification {
     if ($missingRequiredLeaves.Count -ne 0) {
         throw "$Mode required log leaf set is incomplete."
     }
+    $modeRoot = Resolve-ReleaseSurfaceIndexPortableFile $RunRoot `
+        ('raw/' + $Mode + '/stdout.raw.txt') "$Mode raw root anchor"
+    $modeRoot = Split-Path -Parent $modeRoot
+    $crashArtifacts = @(Get-ChildItem -LiteralPath $modeRoot -Recurse -File `
+        -Force -ErrorAction Stop | Where-Object {
+            $_.Extension -in @('.dmp', '.mdmp') -or
+            $_.Name -match '(?i)^minidump'
+        })
+    if ($crashArtifacts.Count -ne 0) {
+        throw "$Mode logs fail the independently recomputed classification."
+    }
     $logTreeRoot = Split-Path -Parent (
         Resolve-ReleaseSurfaceIndexPortableFile $RunRoot `
             ('raw/' + $Mode + '/logs/session-anchor') "$Mode log-root anchor")
     $actualLogPaths = @(Get-ChildItem -LiteralPath $logTreeRoot -Recurse -File `
-        -Force -ErrorAction Stop | Where-Object { $_.Extension -ieq '.log' } |
-        ForEach-Object {
+        -Force -ErrorAction Stop | ForEach-Object {
             ConvertTo-ReleaseSurfaceIndexPortableRelativePath `
                 $RunRoot $_.FullName "$Mode log-tree path"
         } | Sort-Object)
@@ -1860,11 +2139,10 @@ function Assert-ReleaseSurfaceIndexLogClassification {
     if (@(Compare-Object $boundLogPaths $actualLogPaths -CaseSensitive).Count -ne 0) {
         throw "$Mode log tree contains unbound, duplicated, or unknown log leaves."
     }
-    $allLines = @($texts.ToArray() -split "`r?`n")
-    $hardPattern = '(?i)(?:\b(?:SCRIPT|ENGINE)\s*\(E\)|' +
-        '\bACCESS_VIOLATION\b|\bunhandled exception\b|\bfatal error\b|' +
-        '\bapplication crash\b|Partisan release surface audit\s*\|\s*ERROR\s*\|)'
-    $hardLines = @($allLines | Where-Object { [string]$_ -match $hardPattern })
+    $diagnosticCensus = Get-ReleaseSurfaceIndexHardDiagnosticCensus `
+        -TextByLeaf $textByLeaf `
+        -Mode $Mode
+    $allLines = [string[]]$diagnosticCensus.allLines
     $candidateLines = @($allLines | Where-Object {
         ([string]$_).IndexOf(
             [string]$Run.candidate.addonGuid,
@@ -1878,37 +2156,87 @@ function Assert-ReleaseSurfaceIndexLogClassification {
             [string]$Run.harnessGuid,
             [StringComparison]::OrdinalIgnoreCase) -ge 0
     })
-    $resultPattern = '^.*Partisan release surface audit \| RESULT \| mode=' +
-        [regex]::Escape($Mode) + ' \| passed=(?:1|true) \| mismatches=0\s*$'
-    $resultMarkers = @($allLines | Where-Object {
-        [string]$_ -cmatch $resultPattern
-    } | ForEach-Object { ([string]$_).Trim() } | Sort-Object -Unique)
-    $modeRoot = Resolve-ReleaseSurfaceIndexPortableFile $RunRoot `
-        ('raw/' + $Mode + '/stdout.raw.txt') "$Mode raw root anchor"
-    $modeRoot = Split-Path -Parent $modeRoot
-    $crashArtifacts = @(Get-ChildItem -LiteralPath $modeRoot -Recurse -File `
-        -Force -ErrorAction Stop | Where-Object {
-            $_.Extension -in @('.dmp', '.mdmp') -or
-            $_.Name -match '(?i)^minidump'
-        })
     if (-not [bool]$classification.valid -or
-        [int]$classification.hardDiagnosticCount -ne $hardLines.Count -or
+        [string]$classification.hardDiagnosticPolicy -cne
+            [string]$diagnosticCensus.hardDiagnosticPolicy -or
+        [bool]$classification.hardDiagnosticFree -ne
+            [bool]$diagnosticCensus.hardDiagnosticFree -or
+        [int]$classification.hardDiagnosticRawLineCount -ne
+            [int]$diagnosticCensus.hardDiagnosticRawLineCount -or
+        [int]$classification.hardDiagnosticEventCount -ne
+            [int]$diagnosticCensus.hardDiagnosticEventCount -or
+        [bool]$classification.approvedStockDiagnosticClusterPresent -ne
+            [bool]$diagnosticCensus.approvedStockDiagnosticClusterPresent -or
+        [bool]$classification.approvedStockDiagnosticClusterExact -ne
+            [bool]$diagnosticCensus.approvedStockDiagnosticClusterExact -or
+        [bool]$classification.approvedStockDiagnosticLifecycleExact -ne
+            [bool]$diagnosticCensus.approvedStockDiagnosticLifecycleExact -or
+        [int]$classification.approvedStockDiagnosticRawLineCount -ne
+            [int]$diagnosticCensus.approvedStockDiagnosticRawLineCount -or
+        [int]$classification.approvedStockDiagnosticEventCount -ne
+            [int]$diagnosticCensus.approvedStockDiagnosticEventCount -or
+        [int]$classification.unapprovedHardDiagnosticRawLineCount -ne
+            [int]$diagnosticCensus.unapprovedHardDiagnosticRawLineCount -or
+        [int]$classification.unapprovedHardDiagnosticEventCount -ne
+            [int]$diagnosticCensus.unapprovedHardDiagnosticEventCount -or
+        [bool]$classification.hardDiagnosticAccountingExact -ne
+            [bool]$diagnosticCensus.hardDiagnosticAccountingExact -or
         [int]$classification.candidateMountLineCount -ne $candidateLines.Count -or
         [int]$classification.candidatePackedMountLineCount -ne $packedLines.Count -or
         [int]$classification.harnessMountLineCount -ne $harnessLines.Count -or
-        [int]$classification.uniqueResultMarkerCount -ne $resultMarkers.Count -or
+        [int]$classification.uniqueResultMarkerCount -ne
+            [int]$diagnosticCensus.uniqueResultMarkerCount -or
+        [int]$classification.resultMarkerOccurrenceCount -ne
+            [int]$diagnosticCensus.resultMarkerOccurrenceCount -or
+        [bool]$classification.crashLogContentValid -ne
+            [bool]$diagnosticCensus.crashLogContentValid -or
         [int]$classification.crashArtifactCount -ne $crashArtifacts.Count -or
-        $hardLines.Count -ne 0 -or $candidateLines.Count -lt 1 -or
+        -not [bool]$diagnosticCensus.approvedStockDiagnosticClusterExact -or
+        -not [bool]$diagnosticCensus.approvedStockDiagnosticLifecycleExact -or
+        -not [bool]$diagnosticCensus.hardDiagnosticAccountingExact -or
+        [int]$diagnosticCensus.unapprovedHardDiagnosticRawLineCount -ne 0 -or
+        [int]$diagnosticCensus.unapprovedHardDiagnosticEventCount -ne 0 -or
+        $candidateLines.Count -lt 1 -or
         $packedLines.Count -lt 1 -or $harnessLines.Count -lt 1 -or
-        $resultMarkers.Count -ne 1 -or $crashArtifacts.Count -ne 0) {
+        [int]$diagnosticCensus.uniqueResultMarkerCount -ne 1 -or
+        [int]$diagnosticCensus.resultMarkerOccurrenceCount -ne 2 -or
+        -not [bool]$diagnosticCensus.crashLogContentValid -or
+        $crashArtifacts.Count -ne 0) {
         throw "$Mode logs fail the independently recomputed classification."
     }
     return [pscustomobject][ordered]@{
-        hardDiagnosticCount = $hardLines.Count
+        hardDiagnosticPolicy =
+            [string]$diagnosticCensus.hardDiagnosticPolicy
+        hardDiagnosticFree = [bool]$diagnosticCensus.hardDiagnosticFree
+        hardDiagnosticRawLineCount =
+            [int]$diagnosticCensus.hardDiagnosticRawLineCount
+        hardDiagnosticEventCount =
+            [int]$diagnosticCensus.hardDiagnosticEventCount
+        approvedStockDiagnosticClusterPresent =
+            [bool]$diagnosticCensus.approvedStockDiagnosticClusterPresent
+        approvedStockDiagnosticClusterExact =
+            [bool]$diagnosticCensus.approvedStockDiagnosticClusterExact
+        approvedStockDiagnosticLifecycleExact =
+            [bool]$diagnosticCensus.approvedStockDiagnosticLifecycleExact
+        approvedStockDiagnosticRawLineCount =
+            [int]$diagnosticCensus.approvedStockDiagnosticRawLineCount
+        approvedStockDiagnosticEventCount =
+            [int]$diagnosticCensus.approvedStockDiagnosticEventCount
+        unapprovedHardDiagnosticRawLineCount =
+            [int]$diagnosticCensus.unapprovedHardDiagnosticRawLineCount
+        unapprovedHardDiagnosticEventCount =
+            [int]$diagnosticCensus.unapprovedHardDiagnosticEventCount
+        hardDiagnosticAccountingExact =
+            [bool]$diagnosticCensus.hardDiagnosticAccountingExact
         candidateMountLineCount = $candidateLines.Count
         candidatePackedMountLineCount = $packedLines.Count
         harnessMountLineCount = $harnessLines.Count
-        uniqueResultMarkerCount = $resultMarkers.Count
+        uniqueResultMarkerCount =
+            [int]$diagnosticCensus.uniqueResultMarkerCount
+        resultMarkerOccurrenceCount =
+            [int]$diagnosticCensus.resultMarkerOccurrenceCount
+        crashLogContentValid =
+            [bool]$diagnosticCensus.crashLogContentValid
         crashArtifactCount = $crashArtifacts.Count
     }
 }
@@ -1961,7 +2289,7 @@ function Assert-ReleaseSurfaceIndexMode {
         'ArmaReforgerServer.exe'
     }
     else { 'ArmaReforgerServerDiag.exe' }
-    if ([int]$value.schemaVersion -ne 1 -or
+    if ([int]$value.schemaVersion -ne 2 -or
         [string]$value.evidenceKind -cne $script:EvidenceKind -or
         [string]$value.mode -cne $Mode -or
         [string]$value.disposition -cne
@@ -2107,12 +2435,36 @@ function Assert-ReleaseSurfaceIndexMode {
             @($Contract.productionPositiveControlCommandActionIds).Count
         forbiddenMemberCount = @($MemberProbePlan.forbidden).Count
         productionMemberCount = @($MemberProbePlan.production).Count
-        hardDiagnosticCount = [int]$classification.hardDiagnosticCount
+        hardDiagnosticPolicy = [string]$classification.hardDiagnosticPolicy
+        hardDiagnosticFree = [bool]$classification.hardDiagnosticFree
+        hardDiagnosticRawLineCount =
+            [int]$classification.hardDiagnosticRawLineCount
+        hardDiagnosticEventCount =
+            [int]$classification.hardDiagnosticEventCount
+        approvedStockDiagnosticClusterPresent =
+            [bool]$classification.approvedStockDiagnosticClusterPresent
+        approvedStockDiagnosticClusterExact =
+            [bool]$classification.approvedStockDiagnosticClusterExact
+        approvedStockDiagnosticLifecycleExact =
+            [bool]$classification.approvedStockDiagnosticLifecycleExact
+        approvedStockDiagnosticRawLineCount =
+            [int]$classification.approvedStockDiagnosticRawLineCount
+        approvedStockDiagnosticEventCount =
+            [int]$classification.approvedStockDiagnosticEventCount
+        unapprovedHardDiagnosticRawLineCount =
+            [int]$classification.unapprovedHardDiagnosticRawLineCount
+        unapprovedHardDiagnosticEventCount =
+            [int]$classification.unapprovedHardDiagnosticEventCount
+        hardDiagnosticAccountingExact =
+            [bool]$classification.hardDiagnosticAccountingExact
         candidateMountLineCount = [int]$classification.candidateMountLineCount
         candidatePackedMountLineCount =
             [int]$classification.candidatePackedMountLineCount
         harnessMountLineCount = [int]$classification.harnessMountLineCount
         uniqueResultMarkerCount = [int]$classification.uniqueResultMarkerCount
+        resultMarkerOccurrenceCount =
+            [int]$classification.resultMarkerOccurrenceCount
+        crashLogContentValid = [bool]$classification.crashLogContentValid
         crashArtifactCount = [int]$classification.crashArtifactCount
         passed = $true
     }
@@ -2263,7 +2615,7 @@ function Assert-ReleaseSurfacePublishedIndexAndReady {
     Assert-ReleaseSurfaceIndexStringProperties $ready.source @(
         'candidateGitHead', 'harnessGitHead') 'Published ready source binding'
 
-    if ([int]$ready.schemaVersion -ne 1 -or
+    if ([int]$ready.schemaVersion -ne 2 -or
         [string]$ready.evidenceKind -cne $script:EvidenceKind -or
         [string]$ready.disposition -cne
             'passed-noncertifying-release-surface-audit' -or
@@ -2426,7 +2778,7 @@ else {
         throw 'Release-surface publication requires a paired native-engine audit.'
     }
 }
-if ([int]$run.schemaVersion -ne 1 -or
+if ([int]$run.schemaVersion -ne 2 -or
     [string]$run.evidenceKind -cne $script:EvidenceKind -or
     [string]$run.contractId -cne $script:RunContractId -or
     [string]$run.runId -cnotmatch
@@ -2659,7 +3011,7 @@ if ($globalCrashArtifacts.Count -ne 0) {
 
 $census = Assert-ReleaseSurfaceIndexEvidenceCensus $runRoot $run
 $index = [ordered]@{
-    schemaVersion = 1
+    schemaVersion = 2
     contractId = $script:IndexContractId
     evidenceKind = $script:IndexEvidenceKind
     runId = [string]$run.runId
@@ -2728,7 +3080,9 @@ $index = [ordered]@{
         pairedModeOrderExact = $true
         contractSetsExact = $true
         positiveControlsPresent = $true
-        hardDiagnosticsAbsent = $true
+        hardDiagnosticAccountingExact = $true
+        approvedStockDiagnosticClustersExact = $true
+        unapprovedHardDiagnosticsAbsent = $true
         crashArtifactsAbsent = $true
         harnessResidueAbsent = $true
         portablePathsExact = $true

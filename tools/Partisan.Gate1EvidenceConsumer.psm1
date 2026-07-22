@@ -2,13 +2,35 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 $script:SurfaceEvidenceKind =
-    'partisan_release_surface_runtime_audit_index_v1'
+    'partisan_release_surface_runtime_audit_index_v2'
 $script:SurfaceRunEvidenceKind =
-    'partisan_release_surface_runtime_audit_v1'
+    'partisan_release_surface_runtime_audit_v2'
+$script:SurfaceHardDiagnosticPolicy =
+    'script-engine-and-process-fatal-v1'
 $script:SurfaceDisposition =
     'passed-noncertifying-release-surface-audit'
 $script:SurfaceForbiddenMemberCount = 67
 $script:SurfaceProductionMemberCount = 91
+$script:SurfaceModeCensusBooleanProperties = @(
+    'hardDiagnosticFree',
+    'approvedStockDiagnosticClusterPresent',
+    'approvedStockDiagnosticClusterExact',
+    'approvedStockDiagnosticLifecycleExact',
+    'hardDiagnosticAccountingExact',
+    'crashLogContentValid')
+$script:SurfaceModeCensusIntegerProperties = @(
+    'hardDiagnosticRawLineCount',
+    'hardDiagnosticEventCount',
+    'approvedStockDiagnosticRawLineCount',
+    'approvedStockDiagnosticEventCount',
+    'unapprovedHardDiagnosticRawLineCount',
+    'unapprovedHardDiagnosticEventCount',
+    'candidateMountLineCount',
+    'candidatePackedMountLineCount',
+    'harnessMountLineCount',
+    'uniqueResultMarkerCount',
+    'resultMarkerOccurrenceCount',
+    'crashArtifactCount')
 $script:RetentionEvidenceKind = 'packaged-gate1-runtime-retention'
 $script:RetentionDisposition = 'passed-noncertifying-retention'
 $script:SurfaceToolPaths = [ordered]@{
@@ -112,6 +134,88 @@ function Assert-Gate1ConsumerArray {
 
     if ($Value -isnot [Array]) {
         throw "$Label must be a JSON array."
+    }
+}
+
+function Assert-Gate1ConsumerSurfaceModeCensus {
+    param($Value, [string]$Label)
+
+    if ($Value.hardDiagnosticPolicy -isnot [string] -or
+        [string]$Value.hardDiagnosticPolicy -cne
+            $script:SurfaceHardDiagnosticPolicy) {
+        throw "$Label hard-diagnostic policy is not exact."
+    }
+    foreach ($name in $script:SurfaceModeCensusBooleanProperties) {
+        if ($Value.$name -isnot [bool]) {
+            throw "$Label.$name must be a JSON boolean."
+        }
+    }
+    foreach ($name in $script:SurfaceModeCensusIntegerProperties) {
+        if (-not (Test-Gate1ConsumerInteger $Value.$name 0)) {
+            throw "$Label.$name must be a non-negative JSON integer."
+        }
+    }
+
+    $rawCount = [long]$Value.hardDiagnosticRawLineCount
+    $eventCount = [long]$Value.hardDiagnosticEventCount
+    $approvedRawCount = [long]$Value.approvedStockDiagnosticRawLineCount
+    $approvedEventCount = [long]$Value.approvedStockDiagnosticEventCount
+    $unapprovedRawCount =
+        [long]$Value.unapprovedHardDiagnosticRawLineCount
+    $unapprovedEventCount =
+        [long]$Value.unapprovedHardDiagnosticEventCount
+    if (-not [bool]$Value.hardDiagnosticAccountingExact -or
+        $rawCount -ne ($approvedRawCount + $unapprovedRawCount) -or
+        $eventCount -ne ($approvedEventCount + $unapprovedEventCount)) {
+        throw "$Label hard-diagnostic accounting is not exact."
+    }
+    if ($unapprovedRawCount -ne 0 -or $unapprovedEventCount -ne 0) {
+        throw "$Label contains an unapproved hard diagnostic."
+    }
+    if (-not [bool]$Value.approvedStockDiagnosticClusterExact -or
+        -not [bool]$Value.approvedStockDiagnosticLifecycleExact) {
+        throw "$Label stock diagnostic shape or lifecycle is not exact."
+    }
+
+    $cleanShape = [bool]$Value.hardDiagnosticFree -and
+        -not [bool]$Value.approvedStockDiagnosticClusterPresent -and
+        $rawCount -eq 0 -and $eventCount -eq 0 -and
+        $approvedRawCount -eq 0 -and $approvedEventCount -eq 0
+    $approvedStockShape = -not [bool]$Value.hardDiagnosticFree -and
+        [bool]$Value.approvedStockDiagnosticClusterPresent -and
+        $rawCount -eq 6 -and $eventCount -eq 2 -and
+        $approvedRawCount -eq 6 -and $approvedEventCount -eq 2
+    if (-not $cleanShape -and -not $approvedStockShape) {
+        throw ("$Label must be either hard-diagnostic free or the exact " +
+            'six-raw-line/two-event approved stock cluster.')
+    }
+    if ([long]$Value.candidateMountLineCount -lt 1 -or
+        [long]$Value.candidatePackedMountLineCount -lt 1 -or
+        [long]$Value.harnessMountLineCount -lt 1) {
+        throw "$Label does not retain every required mount control."
+    }
+    if ([long]$Value.uniqueResultMarkerCount -ne 1 -or
+        [long]$Value.resultMarkerOccurrenceCount -ne 2) {
+        throw "$Label result-marker census is not exact."
+    }
+    if ([long]$Value.crashArtifactCount -ne 0) {
+        throw "$Label contains a crash artifact."
+    }
+    if (-not [bool]$Value.crashLogContentValid) {
+        throw "$Label contains a non-empty crash log."
+    }
+
+    return [pscustomobject][ordered]@{
+        HardDiagnosticPolicy = [string]$Value.hardDiagnosticPolicy
+        HardDiagnosticFree = [bool]$Value.hardDiagnosticFree
+        ApprovedStockDiagnosticClusterPresent =
+            [bool]$Value.approvedStockDiagnosticClusterPresent
+        HardDiagnosticRawLineCount = $rawCount
+        HardDiagnosticEventCount = $eventCount
+        ApprovedStockDiagnosticRawLineCount = $approvedRawCount
+        ApprovedStockDiagnosticEventCount = $approvedEventCount
+        UnapprovedHardDiagnosticRawLineCount = $unapprovedRawCount
+        UnapprovedHardDiagnosticEventCount = $unapprovedEventCount
     }
 }
 
@@ -1181,11 +1285,11 @@ function Assert-PartisanReleaseSurfaceEvidence {
         'validation', 'files', 'filesAggregateSha256', 'limitations',
         'disposition', 'certificationPromotion', 'passed') `
         "$Label tracked release index"
-    Assert-Gate1ConsumerInteger $index.schemaVersion 1 `
+    Assert-Gate1ConsumerInteger $index.schemaVersion 2 `
         "$Label tracked release index.schemaVersion"
     if (
         [string]$index.contractId -cne
-            'partisan.release-surface-audit.index.v1' -or
+            'partisan.release-surface-audit.index.v2' -or
         [string]$index.evidenceKind -cne $script:SurfaceEvidenceKind -or
         [string]$index.runId -cne [string]$Record.runId -or
         [string]$index.runLeafId -cne [string]$Record.runLeafId -or
@@ -1254,12 +1358,12 @@ function Assert-PartisanReleaseSurfaceEvidence {
             'candidatePackageSha256', 'harnessGuid', 'harnessSha256',
             'modes', 'cleanup', 'evidenceIndex', 'limitations', 'passed') `
             "$Label run envelope"
-        Assert-Gate1ConsumerInteger $run.schemaVersion 1 `
+        Assert-Gate1ConsumerInteger $run.schemaVersion 2 `
             "$Label run envelope.schemaVersion"
         if (
             [string]$run.evidenceKind -cne $script:SurfaceRunEvidenceKind -or
             [string]$run.contractId -cne
-                'partisan.release-surface-audit.run.v1' -or
+                'partisan.release-surface-audit.run.v2' -or
             [string]$run.runId -cne [string]$Record.runId -or
             [string]$run.runLeafId -cne [string]$Record.runLeafId -or
             [string]$run.runNonce -cne [string]$index.runNonce -or
@@ -1449,6 +1553,15 @@ function Assert-PartisanReleaseSurfaceEvidence {
         }
         $contextIds = New-Object 'Collections.Generic.HashSet[string]' `
             ([StringComparer]::Ordinal)
+        $modeCensusRows = New-Object Collections.Generic.List[object]
+        [long]$hardRawTotal = 0
+        [long]$hardEventTotal = 0
+        [long]$approvedRawTotal = 0
+        [long]$approvedEventTotal = 0
+        [long]$unapprovedRawTotal = 0
+        [long]$unapprovedEventTotal = 0
+        [long]$hardDiagnosticFreeModeCount = 0
+        [long]$approvedStockClusterModeCount = 0
         for ($ordinal = 0; $ordinal -lt 2; $ordinal++) {
             $mode = @('retail', 'diagnostic')[$ordinal]
             Assert-Gate1ConsumerExactProperties $runModes[$ordinal] @(
@@ -1475,7 +1588,7 @@ function Assert-PartisanReleaseSurfaceEvidence {
                 'executable', 'harnessGuid', 'harnessSha256', 'process',
                 'arguments', 'streams', 'probe', 'classification', 'passed') `
                 "$Label $mode envelope"
-            Assert-Gate1ConsumerInteger $modeValue.schemaVersion 1 `
+            Assert-Gate1ConsumerInteger $modeValue.schemaVersion 2 `
                 "$Label $mode envelope.schemaVersion"
             if (
                 [string]$modeValue.evidenceKind -cne
@@ -1503,15 +1616,57 @@ function Assert-PartisanReleaseSurfaceEvidence {
             if (-not $contextIds.Add([string]$modeValue.process.contextId)) {
                 throw "$Label paired modes reused one guarded context."
             }
+            $classification = $modeValue.classification
+            Assert-Gate1ConsumerExactProperties $classification @(
+                'valid', 'hardDiagnosticPolicy', 'hardDiagnosticFree',
+                'hardDiagnosticRawLineCount',
+                'hardDiagnosticEventCount',
+                'approvedStockDiagnosticClusterPresent',
+                'approvedStockDiagnosticClusterExact',
+                'approvedStockDiagnosticLifecycleExact',
+                'approvedStockDiagnosticRawLineCount',
+                'approvedStockDiagnosticEventCount',
+                'unapprovedHardDiagnosticRawLineCount',
+                'unapprovedHardDiagnosticEventCount',
+                'hardDiagnosticAccountingExact', 'candidateMountLineCount',
+                'candidatePackedMountLineCount', 'harnessMountLineCount',
+                'uniqueResultMarkerCount', 'resultMarkerOccurrenceCount',
+                'crashLogContentValid', 'crashArtifactCount', 'logs') `
+                "$Label $mode classification"
+            if ($classification.valid -isnot [bool] -or
+                -not [bool]$classification.valid) {
+                throw "$Label $mode classification is not valid."
+            }
+            Assert-Gate1ConsumerArray $classification.logs `
+                "$Label $mode classification.logs"
+            if (@($classification.logs).Count -lt 3 -or
+                @($classification.logs).Count -gt 4) {
+                throw "$Label $mode classification log count is invalid."
+            }
+            $classificationCensus = Assert-Gate1ConsumerSurfaceModeCensus `
+                $classification "$Label $mode classification"
+
             Assert-Gate1ConsumerExactProperties $indexModes[$ordinal] @(
                 'mode', 'path', 'signature', 'executable', 'contextId',
                 'candidateBindingSha256', 'forbiddenTypeCount',
                 'productionTypeCount', 'forbiddenMemberCount',
                 'productionMemberCount', 'forbiddenCommandCount',
-                'productionCommandCount', 'hardDiagnosticCount',
+                'productionCommandCount', 'hardDiagnosticFree',
+                'hardDiagnosticPolicy',
+                'hardDiagnosticRawLineCount', 'hardDiagnosticEventCount',
+                'approvedStockDiagnosticClusterPresent',
+                'approvedStockDiagnosticClusterExact',
+                'approvedStockDiagnosticLifecycleExact',
+                'approvedStockDiagnosticRawLineCount',
+                'approvedStockDiagnosticEventCount',
+                'unapprovedHardDiagnosticRawLineCount',
+                'unapprovedHardDiagnosticEventCount',
+                'hardDiagnosticAccountingExact',
                 'candidateMountLineCount', 'candidatePackedMountLineCount',
                 'harnessMountLineCount', 'uniqueResultMarkerCount',
-                'crashArtifactCount', 'passed') "$Label $mode index projection"
+                'resultMarkerOccurrenceCount', 'crashLogContentValid',
+                'crashArtifactCount', 'passed') `
+                "$Label $mode index projection"
             Assert-Gate1ConsumerInteger `
                 $indexModes[$ordinal].forbiddenMemberCount `
                 $script:SurfaceForbiddenMemberCount `
@@ -1520,12 +1675,24 @@ function Assert-PartisanReleaseSurfaceEvidence {
                 $indexModes[$ordinal].productionMemberCount `
                 $script:SurfaceProductionMemberCount `
                 "$Label $mode productionMemberCount"
-            Assert-Gate1ConsumerInteger `
-                $indexModes[$ordinal].hardDiagnosticCount 0 `
-                "$Label $mode hardDiagnosticCount"
-            Assert-Gate1ConsumerInteger `
-                $indexModes[$ordinal].crashArtifactCount 0 `
-                "$Label $mode crashArtifactCount"
+            $null = Assert-Gate1ConsumerSurfaceModeCensus `
+                $indexModes[$ordinal] "$Label $mode index projection"
+            foreach ($name in $script:SurfaceModeCensusBooleanProperties) {
+                if ([bool]$classification.$name -ne
+                    [bool]$indexModes[$ordinal].$name) {
+                    throw "$Label $mode classification projection differs at $name."
+                }
+            }
+            foreach ($name in $script:SurfaceModeCensusIntegerProperties) {
+                if ([long]$classification.$name -ne
+                    [long]$indexModes[$ordinal].$name) {
+                    throw "$Label $mode classification projection differs at $name."
+                }
+            }
+            if ([string]$classification.hardDiagnosticPolicy -cne
+                [string]$indexModes[$ordinal].hardDiagnosticPolicy) {
+                throw "$Label $mode classification projection differs at hardDiagnosticPolicy."
+            }
             if ([string]$indexModes[$ordinal].mode -cne $mode -or
                 [string]$indexModes[$ordinal].path -cne $expectedModePath -or
                 -not (Test-Gate1ConsumerSignature `
@@ -1538,6 +1705,49 @@ function Assert-PartisanReleaseSurfaceEvidence {
                 -not [bool]$indexModes[$ordinal].passed) {
                 throw "$Label $mode release-index projection is invalid."
             }
+            if ([bool]$classificationCensus.HardDiagnosticFree) {
+                $hardDiagnosticFreeModeCount++
+            }
+            if ([bool]$classificationCensus.
+                    ApprovedStockDiagnosticClusterPresent) {
+                $approvedStockClusterModeCount++
+            }
+            $hardRawTotal +=
+                [long]$classificationCensus.HardDiagnosticRawLineCount
+            $hardEventTotal +=
+                [long]$classificationCensus.HardDiagnosticEventCount
+            $approvedRawTotal +=
+                [long]$classificationCensus.ApprovedStockDiagnosticRawLineCount
+            $approvedEventTotal +=
+                [long]$classificationCensus.ApprovedStockDiagnosticEventCount
+            $unapprovedRawTotal += [long]$classificationCensus.
+                UnapprovedHardDiagnosticRawLineCount
+            $unapprovedEventTotal += [long]$classificationCensus.
+                UnapprovedHardDiagnosticEventCount
+            [void]$modeCensusRows.Add([pscustomobject][ordered]@{
+                Mode = $mode
+                HardDiagnosticFree =
+                    [bool]$classificationCensus.HardDiagnosticFree
+                ApprovedStockDiagnosticClusterPresent =
+                    [bool]$classificationCensus.
+                        ApprovedStockDiagnosticClusterPresent
+                HardDiagnosticRawLineCount =
+                    [long]$classificationCensus.HardDiagnosticRawLineCount
+                HardDiagnosticEventCount =
+                    [long]$classificationCensus.HardDiagnosticEventCount
+                ApprovedStockDiagnosticRawLineCount =
+                    [long]$classificationCensus.
+                        ApprovedStockDiagnosticRawLineCount
+                ApprovedStockDiagnosticEventCount =
+                    [long]$classificationCensus.
+                        ApprovedStockDiagnosticEventCount
+                UnapprovedHardDiagnosticRawLineCount =
+                    [long]$classificationCensus.
+                        UnapprovedHardDiagnosticRawLineCount
+                UnapprovedHardDiagnosticEventCount =
+                    [long]$classificationCensus.
+                        UnapprovedHardDiagnosticEventCount
+            })
         }
 
         Assert-Gate1ConsumerExactProperties $index.validation @(
@@ -1545,7 +1755,9 @@ function Assert-PartisanReleaseSurfaceEvidence {
             'executableProvenanceExact', 'harnessSourceAndToolsExact',
             'guardedReceiptsComplete', 'candidateBindingShared',
             'pairedModeOrderExact', 'contractSetsExact',
-            'positiveControlsPresent', 'hardDiagnosticsAbsent',
+            'positiveControlsPresent', 'hardDiagnosticAccountingExact',
+            'approvedStockDiagnosticClustersExact',
+            'unapprovedHardDiagnosticsAbsent',
             'crashArtifactsAbsent', 'harnessResidueAbsent',
             'portablePathsExact', 'duplicateJsonKeysAbsent',
             'fullFileCensusExact') "$Label release-index validation"
@@ -1571,7 +1783,7 @@ function Assert-PartisanReleaseSurfaceEvidence {
             'candidate', 'candidateBindingSha256', 'run', 'evidenceIndex',
             'releaseIndex', 'cleanupPassed', 'sealedLast') `
             "$Label terminal ready seal"
-        Assert-Gate1ConsumerInteger $ready.schemaVersion 1 `
+        Assert-Gate1ConsumerInteger $ready.schemaVersion 2 `
             "$Label terminal ready seal.schemaVersion"
         if (
             [string]$ready.evidenceKind -cne $script:SurfaceRunEvidenceKind -or
@@ -1665,6 +1877,17 @@ function Assert-PartisanReleaseSurfaceEvidence {
             Disposition = $script:SurfaceDisposition
             CertificationPromotion = 'none'
             FileCount = @($index.files).Count
+            HardDiagnosticPolicy = $script:SurfaceHardDiagnosticPolicy
+            HardDiagnosticFreeModeCount = $hardDiagnosticFreeModeCount
+            ApprovedStockDiagnosticClusterModeCount =
+                $approvedStockClusterModeCount
+            HardDiagnosticRawLineCount = $hardRawTotal
+            HardDiagnosticEventCount = $hardEventTotal
+            ApprovedStockDiagnosticRawLineCount = $approvedRawTotal
+            ApprovedStockDiagnosticEventCount = $approvedEventTotal
+            UnapprovedHardDiagnosticRawLineCount = $unapprovedRawTotal
+            UnapprovedHardDiagnosticEventCount = $unapprovedEventTotal
+            ModeDiagnosticCensus = [object[]]$modeCensusRows.ToArray()
         }
     }
     finally {

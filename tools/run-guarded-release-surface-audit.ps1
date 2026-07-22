@@ -18,9 +18,9 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-$script:EvidenceKind = 'partisan_release_surface_runtime_audit_v1'
+$script:EvidenceKind = 'partisan_release_surface_runtime_audit_v2'
 $script:ProbeEvidenceKind = 'partisan_release_surface_runtime_probe_v1'
-$script:RunContractId = 'partisan.release-surface-audit.run.v1'
+$script:RunContractId = 'partisan.release-surface-audit.run.v2'
 $script:HarnessPrefix = 'PartisanReleaseSurfaceAudit_'
 $script:HarnessId = 'PartisanReleaseSurfaceAudit'
 $script:HarnessOwnerLeaf = '.partisan-release-surface-audit-owner.json'
@@ -29,6 +29,7 @@ $script:RequiredLogLeaves = @('console.log', 'script.log', 'error.log')
 $script:OptionalLogLeaves = @('crash.log')
 $script:AllowedLogLeaves = @(
     $script:RequiredLogLeaves + $script:OptionalLogLeaves)
+$script:HardDiagnosticPolicy = 'script-engine-and-process-fatal-v1'
 
 function Resolve-ReleaseSurfacePath {
     param(
@@ -1228,9 +1229,11 @@ function Get-ReleaseSurfaceLogClassification {
 
     $logRows = New-Object Collections.Generic.List[object]
     $texts = New-Object Collections.Generic.List[string]
+    $textByLeaf = @{}
     $actualLogFiles = @(Get-ChildItem -LiteralPath $LogRoot -Recurse -File `
-        -Force -ErrorAction Stop | Where-Object { $_.Extension -ieq '.log' })
+        -Force -ErrorAction Stop)
     $unknownLogFiles = @($actualLogFiles | Where-Object {
+        $_.Extension -ine '.log' -or
         $_.Name -cnotin $script:AllowedLogLeaves
     })
     if ($unknownLogFiles.Count -ne 0) {
@@ -1248,7 +1251,9 @@ function Get-ReleaseSurfaceLogClassification {
             length = [long]$signature.length
             sha256 = [string]$signature.sha256
         })
-        [void]$texts.Add([IO.File]::ReadAllText($matches[0].FullName))
+        $text = [IO.File]::ReadAllText($matches[0].FullName)
+        [void]$texts.Add($text)
+        $textByLeaf[$leaf] = $text
     }
     foreach ($leaf in $script:OptionalLogLeaves) {
         $matches = @($actualLogFiles | Where-Object { $_.Name -ceq $leaf })
@@ -1263,14 +1268,119 @@ function Get-ReleaseSurfaceLogClassification {
                 length = [long]$signature.length
                 sha256 = [string]$signature.sha256
             })
-            [void]$texts.Add([IO.File]::ReadAllText($matches[0].FullName))
+            $text = [IO.File]::ReadAllText($matches[0].FullName)
+            [void]$texts.Add($text)
+            $textByLeaf[$leaf] = $text
         }
     }
     $allLines = @($texts.ToArray() -split "`r?`n")
     $hardPattern = '(?i)(?:\b(?:SCRIPT|ENGINE)\s*\(E\)|' +
         '\bACCESS_VIOLATION\b|\bunhandled exception\b|\bfatal error\b|' +
         '\bapplication crash\b|Partisan release surface audit\s*\|\s*ERROR\s*\|)'
-    $hardLines = @($allLines | Where-Object { [string]$_ -match $hardPattern })
+    $timestampToken = '(?<timestamp>\d{4}-\d{2}-\d{2} ' +
+        '\d{2}:\d{2}:\d{2}\.\d{3})'
+    $timestampedLinePattern = '^\d{4}-\d{2}-\d{2} ' +
+        '\d{2}:\d{2}:\d{2}\.\d{3}\s+'
+    $stockPattern = '^' + $timestampToken +
+        "\s+SCRIPT\s+\(E\): 'SCR_BaseResupplySupportStationComponent' " +
+        'needs a entity catalog manager!\s*$'
+    $resultEventPattern = '^' + $timestampToken +
+        '\s+SCRIPT\s+:\s+Partisan release surface audit \| RESULT \| mode=' +
+        [regex]::Escape($Mode) +
+        ' \| passed=(?:1|true) \| mismatches=0\s*$'
+    $replicationFinishingPattern = '^' + $timestampToken +
+        '\s+RPL\s+:\s+Replication finishing\.\.\.\s*$'
+    $replicationFinishedPattern = '^' + $timestampToken +
+        '\s+RPL\s+:\s+Replication finished\.\s*$'
+    $gameDestroyedPattern = '^' + $timestampToken +
+        '\s+ENGINE\s+:\s+Game destroyed\.\s*$'
+    $hardRows = New-Object Collections.Generic.List[object]
+    $resultRows = New-Object Collections.Generic.List[object]
+    $replicationFinishingRows = New-Object Collections.Generic.List[object]
+    $replicationFinishedRows = New-Object Collections.Generic.List[object]
+    $gameDestroyedRows = New-Object Collections.Generic.List[object]
+    foreach ($leaf in @($textByLeaf.Keys)) {
+        $leafLines = @(([string]$textByLeaf[$leaf]) -split "`r?`n")
+        for ($lineIndex = 0; $lineIndex -lt $leafLines.Count; $lineIndex++) {
+            $line = [string]$leafLines[$lineIndex]
+            $stockMatch = [regex]::Match($line, $stockPattern)
+            $emptyDiagnosticBody = $true
+            if ($stockMatch.Success) {
+                for ($bodyIndex = $lineIndex + 1;
+                    $bodyIndex -lt $leafLines.Count;
+                    $bodyIndex++) {
+                    $bodyLine = [string]$leafLines[$bodyIndex]
+                    if ($bodyLine -match $timestampedLinePattern) { break }
+                    if (-not [string]::IsNullOrWhiteSpace($bodyLine)) {
+                        $emptyDiagnosticBody = $false
+                        break
+                    }
+                }
+            }
+            if ($line -match $hardPattern) {
+                [void]$hardRows.Add([pscustomobject][ordered]@{
+                    leaf = $leaf
+                    index = $lineIndex
+                    line = $line
+                    stockCandidate = [bool]($stockMatch.Success -and
+                        $emptyDiagnosticBody)
+                    stockTimestamp = if ($stockMatch.Success) {
+                        [string]$stockMatch.Groups['timestamp'].Value
+                    }
+                    else { '' }
+                })
+            }
+            $resultMatch = [regex]::Match($line, $resultEventPattern)
+            if ($resultMatch.Success) {
+                [void]$resultRows.Add([pscustomobject][ordered]@{
+                    leaf = $leaf
+                    index = $lineIndex
+                    timestamp = [string]$resultMatch.Groups['timestamp'].Value
+                })
+            }
+            if ($leaf -ceq 'console.log') {
+                foreach ($lifecycleBinding in @(
+                        [pscustomobject]@{
+                            Pattern = $replicationFinishingPattern
+                            Rows = $replicationFinishingRows
+                        },
+                        [pscustomobject]@{
+                            Pattern = $replicationFinishedPattern
+                            Rows = $replicationFinishedRows
+                        },
+                        [pscustomobject]@{
+                            Pattern = $gameDestroyedPattern
+                            Rows = $gameDestroyedRows
+                        })) {
+                    $lifecycleMatch = [regex]::Match(
+                        $line, [string]$lifecycleBinding.Pattern)
+                    if ($lifecycleMatch.Success) {
+                        [void]$lifecycleBinding.Rows.Add(
+                            [pscustomobject][ordered]@{
+                                index = $lineIndex
+                                timestamp = [string]$lifecycleMatch.
+                                    Groups['timestamp'].Value
+                            })
+                    }
+                }
+            }
+        }
+    }
+    $hardLines = @($hardRows | ForEach-Object { [string]$_.line })
+    $hardEventCount = 0
+    foreach ($eventGroup in @($hardRows |
+            Group-Object -Property line -CaseSensitive)) {
+        $leafMaximum = 0
+        foreach ($leafGroup in @($eventGroup.Group | Group-Object -Property leaf)) {
+            $leafMaximum = [Math]::Max($leafMaximum, $leafGroup.Count)
+        }
+        $hardEventCount += $leafMaximum
+    }
+    $stockHeaderRows = @($hardRows | Where-Object {
+        -not [string]::IsNullOrEmpty([string]$_.stockTimestamp)
+    })
+    $stockRows = @($hardRows | Where-Object { [bool]$_.stockCandidate })
+    $stockEventGroups = @($stockRows | Group-Object -Property stockTimestamp)
     $candidateLines = @($allLines | Where-Object {
         ([string]$_).IndexOf(
             $CandidateGuid,
@@ -1289,24 +1399,145 @@ function Get-ReleaseSurfaceLogClassification {
     $resultMarkers = @($allLines | Where-Object {
         [string]$_ -cmatch $resultPattern
     } | ForEach-Object { ([string]$_).Trim() } | Sort-Object -Unique)
+    $resultTimestampSet = @($resultRows | ForEach-Object {
+        [string]$_.timestamp
+    } | Sort-Object -Unique)
+    $resultChannelsExact = $resultRows.Count -eq 2 -and
+        $resultTimestampSet.Count -eq 1 -and
+        @($resultRows | Where-Object { $_.leaf -ceq 'console.log' }).Count -eq 1 -and
+        @($resultRows | Where-Object { $_.leaf -ceq 'script.log' }).Count -eq 1
+    $lifecycleExact = $resultChannelsExact -and
+        $replicationFinishingRows.Count -eq 1 -and
+        $replicationFinishedRows.Count -eq 1 -and
+        $gameDestroyedRows.Count -eq 1
+    $resultTime = [datetime]::MinValue
+    $replicationFinishingTime = [datetime]::MinValue
+    $replicationFinishedTime = [datetime]::MinValue
+    $gameDestroyedTime = [datetime]::MinValue
+    if ($lifecycleExact) {
+        $consoleResult = @($resultRows | Where-Object {
+            $_.leaf -ceq 'console.log'
+        })[0]
+        $resultTimeValid = [datetime]::TryParseExact(
+            [string]$resultTimestampSet[0], 'yyyy-MM-dd HH:mm:ss.fff',
+            [Globalization.CultureInfo]::InvariantCulture,
+            [Globalization.DateTimeStyles]::None, [ref]$resultTime)
+        $replicationFinishingTimeValid = [datetime]::TryParseExact(
+            [string]$replicationFinishingRows[0].timestamp,
+            'yyyy-MM-dd HH:mm:ss.fff',
+            [Globalization.CultureInfo]::InvariantCulture,
+            [Globalization.DateTimeStyles]::None,
+            [ref]$replicationFinishingTime)
+        $replicationFinishedTimeValid = [datetime]::TryParseExact(
+            [string]$replicationFinishedRows[0].timestamp,
+            'yyyy-MM-dd HH:mm:ss.fff',
+            [Globalization.CultureInfo]::InvariantCulture,
+            [Globalization.DateTimeStyles]::None,
+            [ref]$replicationFinishedTime)
+        $gameDestroyedTimeValid = [datetime]::TryParseExact(
+            [string]$gameDestroyedRows[0].timestamp,
+            'yyyy-MM-dd HH:mm:ss.fff',
+            [Globalization.CultureInfo]::InvariantCulture,
+            [Globalization.DateTimeStyles]::None, [ref]$gameDestroyedTime)
+        $lifecycleExact = $resultTimeValid -and
+            $replicationFinishingTimeValid -and
+            $replicationFinishedTimeValid -and $gameDestroyedTimeValid -and
+            $consoleResult.index -lt
+                $replicationFinishingRows[0].index -and
+            $replicationFinishingRows[0].index -lt
+                $replicationFinishedRows[0].index -and
+            $replicationFinishedRows[0].index -lt
+                $gameDestroyedRows[0].index -and
+            $resultTime -lt $replicationFinishingTime -and
+            $replicationFinishingTime -lt $replicationFinishedTime -and
+            $replicationFinishedTime -lt $gameDestroyedTime
+    }
+    $clusterPresent = $stockHeaderRows.Count -gt 0
+    $clusterShapeExact = -not $clusterPresent
+    if ($clusterPresent -and $stockHeaderRows.Count -eq 6 -and
+        $stockRows.Count -eq 6 -and
+        $stockEventGroups.Count -eq 2) {
+        $clusterShapeExact = $true
+        foreach ($eventGroup in $stockEventGroups) {
+            $eventLeaves = @($eventGroup.Group | ForEach-Object {
+                [string]$_.leaf
+            } | Sort-Object)
+            if ($eventGroup.Count -ne 3 -or
+                @(Compare-Object -ReferenceObject @(
+                        'console.log', 'error.log', 'script.log') `
+                    -DifferenceObject $eventLeaves -CaseSensitive).Count -ne 0) {
+                $clusterShapeExact = $false
+                break
+            }
+        }
+    }
+    $clusterLifecycleExact = $lifecycleExact -and $clusterShapeExact
+    if ($clusterLifecycleExact -and $clusterPresent) {
+        foreach ($eventGroup in $stockEventGroups) {
+            $eventTime = [datetime]::ParseExact(
+                [string]$eventGroup.Name, 'yyyy-MM-dd HH:mm:ss.fff',
+                [Globalization.CultureInfo]::InvariantCulture)
+            $consoleEvent = @($eventGroup.Group | Where-Object {
+                $_.leaf -ceq 'console.log'
+            })[0]
+            if ($eventTime -le $resultTime -or
+                $eventTime -le $replicationFinishedTime -or
+                $eventTime -ge $gameDestroyedTime -or
+                $consoleEvent.index -le $replicationFinishedRows[0].index -or
+                $consoleEvent.index -ge $gameDestroyedRows[0].index) {
+                $clusterLifecycleExact = $false
+                break
+            }
+        }
+    }
+    $approvedStockRawCount = if ($clusterShapeExact -and
+        $clusterLifecycleExact) { $stockRows.Count } else { 0 }
+    $approvedStockEventCount = if ($clusterShapeExact -and
+        $clusterLifecycleExact) { $stockEventGroups.Count } else { 0 }
+    $unapprovedHardRawCount = $hardRows.Count - $approvedStockRawCount
+    $unapprovedHardEventCount = $hardEventCount - $approvedStockEventCount
+    $hardAccountingExact = $hardRows.Count -eq
+            ($approvedStockRawCount + $unapprovedHardRawCount) -and
+        $hardEventCount -eq
+            ($approvedStockEventCount + $unapprovedHardEventCount)
     $crashArtifacts = @(Get-ChildItem -LiteralPath (Split-Path -Parent $LogRoot) `
         -Recurse -File -Force -ErrorAction Stop | Where-Object {
             $_.Extension -in @('.dmp', '.mdmp') -or
             $_.Name -match '(?i)^minidump'
         })
-    $valid = $hardLines.Count -eq 0 -and
+    $crashLogContentValid = -not $textByLeaf.ContainsKey('crash.log') -or
+        [string]::IsNullOrWhiteSpace([string]$textByLeaf['crash.log'])
+    $valid = $hardAccountingExact -and
+        $clusterShapeExact -and
+        $clusterLifecycleExact -and
+        $unapprovedHardRawCount -eq 0 -and
+        $unapprovedHardEventCount -eq 0 -and
         $candidateLines.Count -gt 0 -and
         $candidatePackedLines.Count -gt 0 -and
         $harnessLines.Count -gt 0 -and
         $resultMarkers.Count -eq 1 -and
+        $crashLogContentValid -and
         $crashArtifacts.Count -eq 0
     return [pscustomobject][ordered]@{
         valid = [bool]$valid
-        hardDiagnosticCount = $hardLines.Count
+        hardDiagnosticPolicy = $script:HardDiagnosticPolicy
+        hardDiagnosticFree = $hardRows.Count -eq 0
+        hardDiagnosticRawLineCount = $hardRows.Count
+        hardDiagnosticEventCount = $hardEventCount
+        approvedStockDiagnosticClusterPresent = $clusterPresent
+        approvedStockDiagnosticClusterExact = $clusterShapeExact
+        approvedStockDiagnosticLifecycleExact = $clusterLifecycleExact
+        approvedStockDiagnosticRawLineCount = $approvedStockRawCount
+        approvedStockDiagnosticEventCount = $approvedStockEventCount
+        unapprovedHardDiagnosticRawLineCount = $unapprovedHardRawCount
+        unapprovedHardDiagnosticEventCount = $unapprovedHardEventCount
+        hardDiagnosticAccountingExact = $hardAccountingExact
         candidateMountLineCount = $candidateLines.Count
         candidatePackedMountLineCount = $candidatePackedLines.Count
         harnessMountLineCount = $harnessLines.Count
         uniqueResultMarkerCount = $resultMarkers.Count
+        resultMarkerOccurrenceCount = $resultRows.Count
+        crashLogContentValid = [bool]$crashLogContentValid
         crashArtifactCount = $crashArtifacts.Count
         logs = [object[]]$logRows.ToArray()
     }
@@ -1599,7 +1830,7 @@ function Invoke-ReleaseSurfaceMode {
         }
     })
     $modeValue = [ordered]@{
-        schemaVersion = 1
+        schemaVersion = 2
         evidenceKind = $script:EvidenceKind
         mode = $Mode
         disposition = 'passed-noncertifying-release-surface-audit'
@@ -1656,7 +1887,28 @@ function Invoke-ReleaseSurfaceMode {
         }
         classification = [ordered]@{
             valid = [bool]$classification.valid
-            hardDiagnosticCount = [int]$classification.hardDiagnosticCount
+            hardDiagnosticPolicy = [string]$classification.hardDiagnosticPolicy
+            hardDiagnosticFree = [bool]$classification.hardDiagnosticFree
+            hardDiagnosticRawLineCount =
+                [int]$classification.hardDiagnosticRawLineCount
+            hardDiagnosticEventCount =
+                [int]$classification.hardDiagnosticEventCount
+            approvedStockDiagnosticClusterPresent =
+                [bool]$classification.approvedStockDiagnosticClusterPresent
+            approvedStockDiagnosticClusterExact =
+                [bool]$classification.approvedStockDiagnosticClusterExact
+            approvedStockDiagnosticLifecycleExact =
+                [bool]$classification.approvedStockDiagnosticLifecycleExact
+            approvedStockDiagnosticRawLineCount =
+                [int]$classification.approvedStockDiagnosticRawLineCount
+            approvedStockDiagnosticEventCount =
+                [int]$classification.approvedStockDiagnosticEventCount
+            unapprovedHardDiagnosticRawLineCount =
+                [int]$classification.unapprovedHardDiagnosticRawLineCount
+            unapprovedHardDiagnosticEventCount =
+                [int]$classification.unapprovedHardDiagnosticEventCount
+            hardDiagnosticAccountingExact =
+                [bool]$classification.hardDiagnosticAccountingExact
             candidateMountLineCount =
                 [int]$classification.candidateMountLineCount
             candidatePackedMountLineCount =
@@ -1664,6 +1916,9 @@ function Invoke-ReleaseSurfaceMode {
             harnessMountLineCount = [int]$classification.harnessMountLineCount
             uniqueResultMarkerCount =
                 [int]$classification.uniqueResultMarkerCount
+            resultMarkerOccurrenceCount =
+                [int]$classification.resultMarkerOccurrenceCount
+            crashLogContentValid = [bool]$classification.crashLogContentValid
             crashArtifactCount = [int]$classification.crashArtifactCount
             logs = [object[]]$portableLogRows
         }
@@ -2182,27 +2437,51 @@ function Invoke-ReleaseSurfaceSelfTest {
         $logRoot = Join-Path $selfRoot 'synthetic-logs'
         New-Item -ItemType Directory -Path $logRoot -ErrorAction Stop |
             Out-Null
-        $validLogText = @(
+        $resultLine =
+            '2026-07-20 17:00:00.100 SCRIPT : Partisan release surface audit | ' +
+            'RESULT | mode=retail | passed=true | mismatches=0'
+        $replicationFinishingLine =
+            '2026-07-20 17:00:00.200 RPL : Replication finishing...'
+        $replicationFinishedLine =
+            '2026-07-20 17:00:00.300 RPL : Replication finished.'
+        $gameDestroyedLine =
+            '2026-07-20 17:00:00.600 ENGINE : Game destroyed.'
+        $cleanConsoleText = @(
             'ADDON GUID FEDCBA9876543210 (packed)',
             'ADDON GUID 0123456789ABCDEF',
-            'Partisan release surface audit | RESULT | mode=retail | passed=true | mismatches=0'
+            $resultLine,
+            $replicationFinishingLine,
+            $replicationFinishedLine,
+            $gameDestroyedLine
         ) -join "`n"
         [void](Write-ReleaseSurfaceText `
             -Path (Join-Path $logRoot 'console.log') `
-            -Text ($validLogText + "`n") `
+            -Text ($cleanConsoleText + "`n") `
             -CreateOnly)
-        foreach ($leaf in @('script.log', 'error.log')) {
-            [void](Write-ReleaseSurfaceText `
-                -Path (Join-Path $logRoot $leaf) `
-                -Text '' `
-                -CreateOnly)
-        }
+        [void](Write-ReleaseSurfaceText `
+            -Path (Join-Path $logRoot 'script.log') `
+            -Text ($resultLine + "`n") `
+            -CreateOnly)
+        [void](Write-ReleaseSurfaceText `
+            -Path (Join-Path $logRoot 'error.log') `
+            -Text '' `
+            -CreateOnly)
         $classification = Get-ReleaseSurfaceLogClassification `
             -LogRoot $logRoot `
             -Mode retail `
             -CandidateGuid 'FEDCBA9876543210' `
             -HarnessGuid '0123456789ABCDEF'
-        if (-not [bool]$classification.valid) {
+        if (-not [bool]$classification.valid -or
+            [string]$classification.hardDiagnosticPolicy -cne
+                $script:HardDiagnosticPolicy -or
+            -not [bool]$classification.hardDiagnosticFree -or
+            [int]$classification.hardDiagnosticRawLineCount -ne 0 -or
+            [int]$classification.hardDiagnosticEventCount -ne 0 -or
+            [bool]$classification.approvedStockDiagnosticClusterPresent -or
+            -not [bool]$classification.approvedStockDiagnosticClusterExact -or
+            -not [bool]$classification.approvedStockDiagnosticLifecycleExact -or
+            -not [bool]$classification.crashLogContentValid -or
+            [int]$classification.resultMarkerOccurrenceCount -ne 2) {
             throw 'Valid log-classification self-test was rejected.'
         }
         if (@($classification.logs).Count -ne 3 -or
@@ -2211,6 +2490,21 @@ function Invoke-ReleaseSurfaceSelfTest {
             }).Count -ne 0) {
             throw 'Missing optional crash log self-test was not retained exactly.'
         }
+        [void](Write-ReleaseSurfaceText `
+            -Path (Join-Path $logRoot 'error.log') `
+            -Text "2026-07-20 17:00:00.150 WORLD (E): synthetic retained channel error`n")
+        $classification = Get-ReleaseSurfaceLogClassification `
+            -LogRoot $logRoot -Mode retail `
+            -CandidateGuid 'FEDCBA9876543210' `
+            -HarnessGuid '0123456789ABCDEF'
+        if (-not [bool]$classification.valid -or
+            -not [bool]$classification.hardDiagnosticFree -or
+            [int]$classification.hardDiagnosticRawLineCount -ne 0) {
+            throw 'Explicit non-hard engine-channel policy self-test was rejected.'
+        }
+        [void](Write-ReleaseSurfaceText `
+            -Path (Join-Path $logRoot 'error.log') `
+            -Text '')
         [void](Write-ReleaseSurfaceText `
             -Path (Join-Path $logRoot 'crash.log') `
             -Text '' `
@@ -2221,11 +2515,25 @@ function Invoke-ReleaseSurfaceSelfTest {
             -CandidateGuid 'FEDCBA9876543210' `
             -HarnessGuid '0123456789ABCDEF'
         if (-not [bool]$classification.valid -or
+            -not [bool]$classification.crashLogContentValid -or
             @($classification.logs).Count -ne 4 -or
             @($classification.logs | Where-Object {
                 [string]$_.leaf -ceq 'crash.log'
             }).Count -ne 1) {
             throw 'Present optional crash log self-test was not retained exactly.'
+        }
+        [void](Write-ReleaseSurfaceText `
+            -Path (Join-Path $logRoot 'crash.log') `
+            -Text "benign-looking crash channel text`n")
+        $classification = Get-ReleaseSurfaceLogClassification `
+            -LogRoot $logRoot `
+            -Mode retail `
+            -CandidateGuid 'FEDCBA9876543210' `
+            -HarnessGuid '0123456789ABCDEF'
+        if ([bool]$classification.valid -or
+            [bool]$classification.crashLogContentValid -or
+            -not [bool]$classification.hardDiagnosticFree) {
+            throw 'Non-empty benign-looking crash log self-test was accepted.'
         }
         [void](Write-ReleaseSurfaceText `
             -Path (Join-Path $logRoot 'crash.log') `
@@ -2236,7 +2544,9 @@ function Invoke-ReleaseSurfaceSelfTest {
             -CandidateGuid 'FEDCBA9876543210' `
             -HarnessGuid '0123456789ABCDEF'
         if ([bool]$classification.valid -or
-            [int]$classification.hardDiagnosticCount -ne 1) {
+            [int]$classification.hardDiagnosticRawLineCount -ne 1 -or
+            [int]$classification.hardDiagnosticEventCount -ne 1 -or
+            [int]$classification.unapprovedHardDiagnosticRawLineCount -ne 1) {
             throw 'Optional crash-log diagnostic self-test was accepted.'
         }
         [void](Write-ReleaseSurfaceText `
@@ -2282,8 +2592,230 @@ function Invoke-ReleaseSurfaceSelfTest {
         Remove-Item -LiteralPath (Join-Path $logRoot 'unknown.log') -Force `
             -ErrorAction Stop
         [void](Write-ReleaseSurfaceText `
+            -Path (Join-Path $logRoot 'unexpected.txt') `
+            -Text '' `
+            -CreateOnly)
+        $rejected = $false
+        try {
+            $null = Get-ReleaseSurfaceLogClassification `
+                -LogRoot $logRoot `
+                -Mode retail `
+                -CandidateGuid 'FEDCBA9876543210' `
+                -HarnessGuid '0123456789ABCDEF'
+        }
+        catch { $rejected = $true }
+        if (-not $rejected) {
+            throw 'Unexpected non-log leaf self-test was not rejected.'
+        }
+        Remove-Item -LiteralPath (Join-Path $logRoot 'unexpected.txt') -Force `
+            -ErrorAction Stop
+        [void](Write-ReleaseSurfaceText `
             -Path (Join-Path $logRoot 'console.log') `
-            -Text ($validLogText + "`nSCRIPT (E): synthetic failure`n"))
+            -Text ($cleanConsoleText.Replace(
+                    '17:00:00.200 RPL', '17:00:00.350 RPL') + "`n"))
+        $classification = Get-ReleaseSurfaceLogClassification `
+            -LogRoot $logRoot -Mode retail `
+            -CandidateGuid 'FEDCBA9876543210' `
+            -HarnessGuid '0123456789ABCDEF'
+        if ([bool]$classification.valid -or
+            [bool]$classification.approvedStockDiagnosticLifecycleExact) {
+            throw 'Reversed lifecycle timestamp self-test was accepted.'
+        }
+        [void](Write-ReleaseSurfaceText `
+            -Path (Join-Path $logRoot 'console.log') `
+            -Text ($cleanConsoleText.Replace(
+                    '2026-07-20 17:00:00.200 RPL',
+                    '2026-99-20 17:00:00.200 RPL') + "`n"))
+        $classification = Get-ReleaseSurfaceLogClassification `
+            -LogRoot $logRoot -Mode retail `
+            -CandidateGuid 'FEDCBA9876543210' `
+            -HarnessGuid '0123456789ABCDEF'
+        if ([bool]$classification.valid -or
+            [bool]$classification.approvedStockDiagnosticLifecycleExact) {
+            throw 'Malformed lifecycle timestamp self-test was accepted.'
+        }
+        $stockLineA =
+            "2026-07-20 17:00:00.400 SCRIPT (E): " +
+            "'SCR_BaseResupplySupportStationComponent' needs a entity catalog manager!"
+        $stockLineB =
+            "2026-07-20 17:00:00.500 SCRIPT (E): " +
+            "'SCR_BaseResupplySupportStationComponent' needs a entity catalog manager!"
+        $stockConsoleText = @(
+            'ADDON GUID FEDCBA9876543210 (packed)',
+            'ADDON GUID 0123456789ABCDEF',
+            $resultLine,
+            $replicationFinishingLine,
+            $replicationFinishedLine,
+            $stockLineA,
+            $stockLineB,
+            $gameDestroyedLine
+        ) -join "`n"
+        [void](Write-ReleaseSurfaceText `
+            -Path (Join-Path $logRoot 'console.log') `
+            -Text ($stockConsoleText + "`n"))
+        [void](Write-ReleaseSurfaceText `
+            -Path (Join-Path $logRoot 'script.log') `
+            -Text ((@($resultLine, $stockLineA, $stockLineB) -join "`n") +
+                "`n"))
+        [void](Write-ReleaseSurfaceText `
+            -Path (Join-Path $logRoot 'error.log') `
+            -Text ((@($stockLineA, $stockLineB) -join "`n") + "`n"))
+        $classification = Get-ReleaseSurfaceLogClassification `
+            -LogRoot $logRoot `
+            -Mode retail `
+            -CandidateGuid 'FEDCBA9876543210' `
+            -HarnessGuid '0123456789ABCDEF'
+        if (-not [bool]$classification.valid -or
+            [bool]$classification.hardDiagnosticFree -or
+            [int]$classification.hardDiagnosticRawLineCount -ne 6 -or
+            [int]$classification.hardDiagnosticEventCount -ne 2 -or
+            -not [bool]$classification.approvedStockDiagnosticClusterPresent -or
+            -not [bool]$classification.approvedStockDiagnosticClusterExact -or
+            -not [bool]$classification.approvedStockDiagnosticLifecycleExact -or
+            [int]$classification.approvedStockDiagnosticRawLineCount -ne 6 -or
+            [int]$classification.approvedStockDiagnosticEventCount -ne 2 -or
+            [int]$classification.unapprovedHardDiagnosticRawLineCount -ne 0 -or
+            [int]$classification.unapprovedHardDiagnosticEventCount -ne 0 -or
+            -not [bool]$classification.hardDiagnosticAccountingExact) {
+            throw 'Exact stock teardown cluster self-test was rejected.'
+        }
+
+        [void](Write-ReleaseSurfaceText `
+            -Path (Join-Path $logRoot 'error.log') `
+            -Text ($stockLineA + "`n"))
+        $classification = Get-ReleaseSurfaceLogClassification `
+            -LogRoot $logRoot -Mode retail `
+            -CandidateGuid 'FEDCBA9876543210' `
+            -HarnessGuid '0123456789ABCDEF'
+        if ([bool]$classification.valid -or
+            [int]$classification.unapprovedHardDiagnosticRawLineCount -ne 5) {
+            throw 'Partial stock teardown mirror self-test was accepted.'
+        }
+
+        [void](Write-ReleaseSurfaceText `
+            -Path (Join-Path $logRoot 'console.log') `
+            -Text ((@(
+                    'ADDON GUID FEDCBA9876543210 (packed)',
+                    'ADDON GUID 0123456789ABCDEF',
+                    $resultLine,
+                    $replicationFinishingLine,
+                    $replicationFinishedLine,
+                    $stockLineA,
+                    $gameDestroyedLine) -join "`n") + "`n"))
+        [void](Write-ReleaseSurfaceText `
+            -Path (Join-Path $logRoot 'script.log') `
+            -Text ((@($resultLine, $stockLineA) -join "`n") + "`n"))
+        [void](Write-ReleaseSurfaceText `
+            -Path (Join-Path $logRoot 'error.log') `
+            -Text ($stockLineA + "`n"))
+        $classification = Get-ReleaseSurfaceLogClassification `
+            -LogRoot $logRoot -Mode retail `
+            -CandidateGuid 'FEDCBA9876543210' `
+            -HarnessGuid '0123456789ABCDEF'
+        if ([bool]$classification.valid -or
+            [int]$classification.hardDiagnosticEventCount -ne 1) {
+            throw 'One-event stock teardown self-test was accepted.'
+        }
+
+        $stockLineC = $stockLineB.Replace('.500 ', '.550 ')
+        foreach ($leaf in @('console.log', 'script.log', 'error.log')) {
+            $leafText = [IO.File]::ReadAllText((Join-Path $logRoot $leaf))
+            if ($leaf -ceq 'console.log') {
+                $leafText = $stockConsoleText.Replace(
+                    $gameDestroyedLine, $stockLineC + "`n" + $gameDestroyedLine)
+            }
+            elseif ($leaf -ceq 'script.log') {
+                $leafText = (@(
+                    $resultLine, $stockLineA, $stockLineB, $stockLineC) -join "`n") +
+                    "`n"
+            }
+            else {
+                $leafText = (@($stockLineA, $stockLineB, $stockLineC) -join "`n") +
+                    "`n"
+            }
+            [void](Write-ReleaseSurfaceText `
+                -Path (Join-Path $logRoot $leaf) -Text $leafText)
+        }
+        $classification = Get-ReleaseSurfaceLogClassification `
+            -LogRoot $logRoot -Mode retail `
+            -CandidateGuid 'FEDCBA9876543210' `
+            -HarnessGuid '0123456789ABCDEF'
+        if ([bool]$classification.valid -or
+            [int]$classification.hardDiagnosticEventCount -ne 3) {
+            throw 'Third stock teardown event self-test was accepted.'
+        }
+
+        $earlyStockA = $stockLineA.Replace('.400 ', '.250 ')
+        $earlyStockB = $stockLineB.Replace('.500 ', '.260 ')
+        [void](Write-ReleaseSurfaceText `
+            -Path (Join-Path $logRoot 'console.log') `
+            -Text ($stockConsoleText.Replace($stockLineA, $earlyStockA).
+                Replace($stockLineB, $earlyStockB) + "`n"))
+        [void](Write-ReleaseSurfaceText `
+            -Path (Join-Path $logRoot 'script.log') `
+            -Text ((@($resultLine, $earlyStockA, $earlyStockB) -join "`n") +
+                "`n"))
+        [void](Write-ReleaseSurfaceText `
+            -Path (Join-Path $logRoot 'error.log') `
+            -Text ((@($earlyStockA, $earlyStockB) -join "`n") + "`n"))
+        $classification = Get-ReleaseSurfaceLogClassification `
+            -LogRoot $logRoot -Mode retail `
+            -CandidateGuid 'FEDCBA9876543210' `
+            -HarnessGuid '0123456789ABCDEF'
+        if ([bool]$classification.valid -or
+            [bool]$classification.approvedStockDiagnosticLifecycleExact) {
+            throw 'Pre-replication stock teardown self-test was accepted.'
+        }
+
+        $variantLine = $stockLineA.Replace('needs a entity', 'needs an entity')
+        [void](Write-ReleaseSurfaceText `
+            -Path (Join-Path $logRoot 'console.log') `
+            -Text ($stockConsoleText.Replace($stockLineA, $variantLine) + "`n"))
+        [void](Write-ReleaseSurfaceText `
+            -Path (Join-Path $logRoot 'script.log') `
+            -Text ((@($resultLine, $variantLine, $stockLineB) -join "`n") +
+                "`n"))
+        [void](Write-ReleaseSurfaceText `
+            -Path (Join-Path $logRoot 'error.log') `
+            -Text ((@($variantLine, $stockLineB) -join "`n") + "`n"))
+        $classification = Get-ReleaseSurfaceLogClassification `
+            -LogRoot $logRoot -Mode retail `
+            -CandidateGuid 'FEDCBA9876543210' `
+            -HarnessGuid '0123456789ABCDEF'
+        if ([bool]$classification.valid -or
+            [int]$classification.unapprovedHardDiagnosticEventCount -ne 2) {
+            throw 'Stock teardown message-variant self-test was accepted.'
+        }
+
+        [void](Write-ReleaseSurfaceText `
+            -Path (Join-Path $logRoot 'console.log') `
+            -Text ($stockConsoleText.Replace(
+                    $stockLineA, $stockLineA + "`n  synthetic diagnostic body") +
+                "`n"))
+        [void](Write-ReleaseSurfaceText `
+            -Path (Join-Path $logRoot 'script.log') `
+            -Text ((@($resultLine, $stockLineA, $stockLineB) -join "`n") +
+                "`n"))
+        [void](Write-ReleaseSurfaceText `
+            -Path (Join-Path $logRoot 'error.log') `
+            -Text ((@($stockLineA, $stockLineB) -join "`n") + "`n"))
+        $classification = Get-ReleaseSurfaceLogClassification `
+            -LogRoot $logRoot -Mode retail `
+            -CandidateGuid 'FEDCBA9876543210' `
+            -HarnessGuid '0123456789ABCDEF'
+        if ([bool]$classification.valid) {
+            throw 'Non-empty stock diagnostic body self-test was accepted.'
+        }
+
+        [void](Write-ReleaseSurfaceText `
+            -Path (Join-Path $logRoot 'console.log') `
+            -Text ($cleanConsoleText + "`nSCRIPT (E): synthetic failure`n"))
+        [void](Write-ReleaseSurfaceText `
+            -Path (Join-Path $logRoot 'script.log') `
+            -Text ($resultLine + "`n"))
+        [void](Write-ReleaseSurfaceText `
+            -Path (Join-Path $logRoot 'error.log') `
+            -Text '')
         $classification = Get-ReleaseSurfaceLogClassification `
             -LogRoot $logRoot `
             -Mode retail `
@@ -2299,7 +2831,7 @@ function Invoke-ReleaseSurfaceSelfTest {
             forbiddenMemberCount = @($MemberProbePlan.forbidden).Count
             productionMemberCount = @($MemberProbePlan.production).Count
             harnessFileCount = @($binding.files).Count
-            checks = 34
+            checks = 46
         } | ConvertTo-Json -Compress))
     }
     finally {
@@ -2823,7 +3355,7 @@ try {
         -Portable `
         -CreateOnly
     $runValue = [ordered]@{
-        schemaVersion = 1
+        schemaVersion = 2
         evidenceKind = $script:EvidenceKind
         contractId = $script:RunContractId
         runId = $runId
@@ -2865,7 +3397,9 @@ try {
             'This audit uses inert compiler and metadata probes for contracted member-surface presence; separately, it deliberately invokes production menu generation and read-only per-command availability inspection, but it does not execute command actions or mutate campaign gameplay state.',
             'Forbidden literal surfaces are proven by the candidate-bound source guard analysis, not by an unreliable package-byte string scan.',
             'It is not gameplay, multiplayer, persistence, restart, soak, or performance certification.',
-            'The guarded launcher deliberately gives the child no inherited standard streams; authoritative engine output is retained in the three required logs and in crash.log when the engine emits it.'
+            'The guarded launcher deliberately gives the child no inherited standard streams; authoritative engine output is retained in the three required logs and in crash.log when the engine emits it.',
+            'The machine-bound hard-diagnostic policy is script-engine-and-process-fatal-v1: SCRIPT or ENGINE error severity, access violations, unhandled exceptions, fatal/application-crash signals, and audit ERROR markers. Other retained engine-channel severities are outside this narrow release-surface predicate. A successful crash.log must be absent or empty.',
+            'A mode may contain either no hard diagnostic or one exact stock Eden shutdown cluster: two underlying support-station catalog-manager events mirrored once across console.log, script.log, and error.log after replication finishes and before game destruction. Every partial, extra, variant, misplaced, crash-channel, or unrelated hard event fails closed.'
         )
         passed = $true
     }
@@ -2890,7 +3424,7 @@ try {
         throw 'Published release-surface index signature is not exact.'
     }
     $readyValue = [ordered]@{
-        schemaVersion = 1
+        schemaVersion = 2
         evidenceKind = $script:EvidenceKind
         disposition = 'passed-noncertifying-release-surface-audit'
         certificationPromotion = 'none'

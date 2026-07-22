@@ -69,9 +69,9 @@ the production controls; diagnostic mode must expose the exact inventoried
 diagnostic surfaces. No command action executes and no campaign gameplay state
 is mutated.
 
-The paired runner's structural self-test passes 34 checks. The release-surface
-publisher passes 44 checks, and the release-ledger consumer passes 3
-valid/optional plus 44 adversarial cases. These results prove source and tool
+The paired runner's structural self-test passes 46 checks. The release-surface
+publisher passes 61 checks, and the release-ledger consumer passes 3
+valid/optional plus 49 adversarial cases. These results prove source and tool
 contracts only. Runtime member-presence probes are inert; the package census
 deliberately performs production menu generation and read-only per-ID
 availability inspection, but no command action or gameplay mutation. It does
@@ -79,7 +79,14 @@ not certify gameplay, multiplayer, persistence, restart, soak, or performance.
 The guarded child inherits no standard streams, so its retained engine logs
 are authoritative. Require `console.log`, `script.log`, and `error.log` on every
 probe. Permit zero or one `crash.log`; retain and classify it when emitted, but
-never synthesize it when the engine does not create it. Earlier unsealed compile
+never synthesize it when the engine does not create it. A successful mode
+requires that channel to be absent or whitespace-only, and every file below the
+retained log root must be one of the exact bound log leaves. The machine-bound
+hard-diagnostic policy is `script-engine-and-process-fatal-v1`: it covers
+`SCRIPT` or `ENGINE` error severity, access violations, unhandled exceptions,
+fatal or application-crash signals, and audit `ERROR` markers. Other retained
+engine-channel severities are outside this deliberately narrow predicate.
+Earlier unsealed compile
 snapshots are superseded by the current source and do not establish candidate
 identity. The stationary checkpoint has now passed all-target Workbench
 validation and been sealed as the active candidate identified above. That
@@ -91,11 +98,21 @@ three required logs and no `crash.log`. The surrounding attempt then failed
 closed on the obsolete four-log expectation and was not published. After that
 correction was committed, a second attempt passed the retail census but exposed
 that the diagnostic executable alone still compiled the harness in retail mode.
-That attempt also failed closed and was not published. Both attempts completed
-owned cleanup with zero harness residue. The mode-specific launch correction
-changes only evidence tooling, not the candidate package bytes. It must be
-committed before the unchanged-package pair is retried, so no runtime pass or
-paired completion is claimed.
+That attempt also failed closed and was not published. A third attempt passed
+the retail probe, then the old blanket hard-diagnostic rule rejected two stock
+support-station catalog-manager teardown events. Each event was mirrored once
+across the three authoritative logs, for six raw lines, after replication
+finished and before game destruction. Other unchanged-package launches emitted
+zero such events, so Schema 2 accepts either a clean `0/0` mode or that exact
+`6 raw / 2 event` cluster. The passing-result, replication-finishing,
+replication-finished, and game-destroyed timestamps must all parse exactly and
+increase strictly; each approved event must fall after replication finished and
+before game destruction. Any partial, extra, duplicated, timestamp-drifted,
+message-variant, non-empty-body, misplaced, crash-channel, or unapproved policy-
+matched event still fails closed. All three attempts completed owned cleanup
+with zero harness residue and none was published. These corrections change only evidence
+tooling, not the candidate package bytes, so no runtime pass or paired
+completion is claimed.
 
 Gate 1 retention evidence follows two ordered phases against that same sealed
 package. Diagnostic-only contexts establish the five-stage native and fallback
@@ -106,12 +123,12 @@ compare input and output bytes without any script definition or diagnostic,
 proof, test, or mutation authority.
 Both phases must bind candidate and package seals, executable and launch
 identity, committed tool blobs, exact save/journal inventories, and cleanup.
-The release-surface index publisher passes 44 checks, and the retention
+The release-surface index publisher passes 61 checks, and the retention
 publisher passes 63/63, including read-only republishing verification, strict
 JSON scalar typing, canonical index-byte comparison, terminal-seal validation,
 synthetic-publication rejection, receipt reuse, role relabeling, launch-vector,
 journal, and reparse negatives. The release-ledger consumer invokes both exact
-Git-bound publishers in verification mode and passes 3 valid/optional plus 44
+Git-bound publishers in verification mode and passes 3 valid/optional plus 49
 adversarial cases. Those tests start no engine process. The new candidate is
 sealed, but no paired engine evidence or runtime acceptance exists for it;
 `STATUS-008` remains open, Gate 1 is incomplete, and release remains `NO-GO`.

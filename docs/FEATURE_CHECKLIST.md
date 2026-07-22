@@ -44,7 +44,7 @@ Gate 1 remains incomplete, and release remains `NO-GO`.
   health/logging, foundation status, and read-only campaign/persistence
   inspection without developer command authority.
 - [x] Pass the release-surface source self-test at 15/15 and the paired runtime
-  audit runner's structural self-test at 34 checks. These are tooling and
+  audit runner's structural self-test at 46 checks. These are tooling and
   contract checks; neither result is engine runtime evidence.
 - [x] Derive the loaded-package member plan from the candidate commit and cover
   all 67 forbidden plus 91 production-observability members. Methods,
@@ -73,16 +73,18 @@ Gate 1 remains incomplete, and release remains `NO-GO`.
   The seal binds four package files and 50 evidence files; this is not runtime
   acceptance.
 - [x] Harden the release-surface and retention publishers. Their self-tests
-  pass 44 checks and 63/63 respectively, including zero-write published-index
+  pass 61 checks and 63/63 respectively, including zero-write published-index
   verification, canonical byte comparison, strict scalar typing, terminal
   seals, synthetic-publication, receipt-reuse, role-relabel, launch-vector,
   journal, and reparse negatives. The ledger consumer reuses both exact
-  Git-bound publisher validators and passes 3 valid/optional plus 44 adversarial
+  Git-bound publisher validators and passes 3 valid/optional plus 49 adversarial
   cases; no engine process starts during these tooling tests.
 - [x] Commit the runtime-evidence log correction, then retry the paired audit.
   Every probe must retain `console.log`, `script.log`, and `error.log`; permit
   zero or one `crash.log`, retain and classify it when present, and never
-  synthesize it when absent. The first real retail probe emitted exactly the
+  synthesize it when absent. A successful mode requires an absent or whitespace-
+  only crash log and an exact all-file log-root inventory. The first real retail
+  probe emitted exactly the
   required three logs and no crash log. The surrounding attempt failed closed
   on the obsolete quartet check and was not published; owned cleanup and
   harness-residue checks were zero. This changes evidence tooling only, leaves
@@ -91,6 +93,19 @@ Gate 1 remains incomplete, and release remains `NO-GO`.
   candidate. The second real attempt passed the retail census but the diagnostic
   executable compiled `mode=retail` because the custom symbol was absent. The
   attempt was not published and cleanup removed the harness with zero residue.
+- [x] Bound the stock shutdown diagnostic without weakening the general
+  classifier. The machine-bound `script-engine-and-process-fatal-v1` predicate
+  covers `SCRIPT`/`ENGINE` error severity, process-fatal signals, and audit
+  `ERROR` markers; other retained engine-channel severities remain outside this
+  narrow predicate. The third real attempt passed the retail probe, then the old
+  blanket rule rejected two support-station catalog-manager teardown events,
+  each mirrored once across the three authoritative logs after replication
+  finished and before game destruction. Schema 2 accepts either `0 raw / 0
+  event` or that exact `6 raw / 2 event` cluster per mode. Partial, extra,
+  duplicated, malformed or reversed lifecycle timestamps, message variants,
+  non-empty bodies, misplaced events, crash-channel copies, and unapproved
+  policy-matched events fail closed. The attempt was not
+  published, cleanup remained exact, and candidate bytes did not change.
 - [x] Replace the five aggregate JUnit wrappers with five suite launches that
   validate 91 individually named cases in exact counts 14/13/17/6/41. The
   forward aggregate contract requires JUnit 91/0/0/0, 40 retained files, and

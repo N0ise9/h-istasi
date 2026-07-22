@@ -472,7 +472,7 @@ function New-TestSurfaceBundle {
 
     $owner = [ordered]@{
         schemaVersion = 1
-        evidenceKind = 'partisan_release_surface_runtime_audit_v1'
+        evidenceKind = 'partisan_release_surface_runtime_audit_v2'
         runId = $runId
         runNonce = $nonce
         candidateId = [string]$candidateValue.candidateId
@@ -484,7 +484,7 @@ function New-TestSurfaceBundle {
     $null = Write-TestJson (Join-Path $runRoot 'run.owner.json') $owner
     $cleanup = [ordered]@{
         schemaVersion = 1
-        evidenceKind = 'partisan_release_surface_runtime_audit_v1'
+        evidenceKind = 'partisan_release_surface_runtime_audit_v2'
         harnessRemoved = $true
         harnessResidueCount = 0
         exactOwnerVerifiedBeforeRemoval = $true
@@ -526,7 +526,7 @@ function New-TestSurfaceBundle {
 
     $bindings = [ordered]@{
         schemaVersion = 1
-        evidenceKind = 'partisan_release_surface_runtime_audit_v1'
+        evidenceKind = 'partisan_release_surface_runtime_audit_v2'
         source = [ordered]@{
             harnessGitHead = $HarnessHead
             checkoutClean = $true
@@ -574,9 +574,10 @@ function New-TestSurfaceBundle {
             '22222222222222222222222222222222'
         }
         else { '33333333333333333333333333333333' }
+        $stockClusterPresent = $mode -ceq 'retail'
         $modeValue = [ordered]@{
-            schemaVersion = 1
-            evidenceKind = 'partisan_release_surface_runtime_audit_v1'
+            schemaVersion = 2
+            evidenceKind = 'partisan_release_surface_runtime_audit_v2'
             mode = $mode
             disposition = 'passed-noncertifying-release-surface-audit'
             candidateId = [string]$candidateValue.candidateId
@@ -620,7 +621,39 @@ function New-TestSurfaceBundle {
                 }
                 summary = [ordered]@{ mode = $mode; passed = $true }
             }
-            classification = [ordered]@{ hardDiagnosticCount = 0 }
+            classification = [ordered]@{
+                valid = $true
+                hardDiagnosticPolicy = 'script-engine-and-process-fatal-v1'
+                hardDiagnosticFree = -not $stockClusterPresent
+                hardDiagnosticRawLineCount =
+                    if ($stockClusterPresent) { 6 } else { 0 }
+                hardDiagnosticEventCount =
+                    if ($stockClusterPresent) { 2 } else { 0 }
+                approvedStockDiagnosticClusterPresent = $stockClusterPresent
+                approvedStockDiagnosticClusterExact = $true
+                approvedStockDiagnosticLifecycleExact = $true
+                approvedStockDiagnosticRawLineCount =
+                    if ($stockClusterPresent) { 6 } else { 0 }
+                approvedStockDiagnosticEventCount =
+                    if ($stockClusterPresent) { 2 } else { 0 }
+                unapprovedHardDiagnosticRawLineCount = 0
+                unapprovedHardDiagnosticEventCount = 0
+                hardDiagnosticAccountingExact = $true
+                candidateMountLineCount = 1
+                candidatePackedMountLineCount = 1
+                harnessMountLineCount = 1
+                uniqueResultMarkerCount = 1
+                resultMarkerOccurrenceCount = 2
+                crashLogContentValid = $true
+                crashArtifactCount = 0
+                logs = [object[]]$(
+                    if ($mode -ceq 'retail') {
+                        @('console.log', 'script.log', 'error.log')
+                    }
+                    else {
+                        @('console.log', 'script.log', 'error.log', 'crash.log')
+                    })
+            }
             passed = $true
         }
         $modePath = Join-Path $runRoot ('modes\' + $mode + '.json')
@@ -644,11 +677,28 @@ function New-TestSurfaceBundle {
             productionMemberCount = 91
             forbiddenCommandCount = 3
             productionCommandCount = 2
-            hardDiagnosticCount = 0
+            hardDiagnosticPolicy = 'script-engine-and-process-fatal-v1'
+            hardDiagnosticFree = -not $stockClusterPresent
+            hardDiagnosticRawLineCount =
+                if ($stockClusterPresent) { 6 } else { 0 }
+            hardDiagnosticEventCount =
+                if ($stockClusterPresent) { 2 } else { 0 }
+            approvedStockDiagnosticClusterPresent = $stockClusterPresent
+            approvedStockDiagnosticClusterExact = $true
+            approvedStockDiagnosticLifecycleExact = $true
+            approvedStockDiagnosticRawLineCount =
+                if ($stockClusterPresent) { 6 } else { 0 }
+            approvedStockDiagnosticEventCount =
+                if ($stockClusterPresent) { 2 } else { 0 }
+            unapprovedHardDiagnosticRawLineCount = 0
+            unapprovedHardDiagnosticEventCount = 0
+            hardDiagnosticAccountingExact = $true
             candidateMountLineCount = 1
             candidatePackedMountLineCount = 1
             harnessMountLineCount = 1
             uniqueResultMarkerCount = 1
+            resultMarkerOccurrenceCount = 2
+            crashLogContentValid = $true
             crashArtifactCount = 0
             passed = $true
         })
@@ -662,7 +712,7 @@ function New-TestSurfaceBundle {
     $aggregate = Get-TestRowsDigest $payloadRows
     $evidenceIndex = [ordered]@{
         schemaVersion = 1
-        evidenceKind = 'partisan_release_surface_runtime_audit_v1'
+        evidenceKind = 'partisan_release_surface_runtime_audit_v2'
         files = $payloadRows
         aggregateSha256 = $aggregate
     }
@@ -672,11 +722,13 @@ function New-TestSurfaceBundle {
         'This audit uses inert compiler and metadata probes for contracted member-surface presence; separately, it deliberately invokes production menu generation and read-only per-command availability inspection, but it does not execute command actions or mutate campaign gameplay state.',
         'Forbidden literal surfaces are proven by the candidate-bound source guard analysis, not by an unreliable package-byte string scan.',
         'It is not gameplay, multiplayer, persistence, restart, soak, or performance certification.',
-        'The guarded launcher deliberately gives the child no inherited standard streams; authoritative engine output is retained in the three required logs and in crash.log when the engine emits it.')
+        'The guarded launcher deliberately gives the child no inherited standard streams; authoritative engine output is retained in the three required logs and in crash.log when the engine emits it.',
+        'The machine-bound hard-diagnostic policy is script-engine-and-process-fatal-v1: SCRIPT or ENGINE error severity, access violations, unhandled exceptions, fatal/application-crash signals, and audit ERROR markers. Other retained engine-channel severities are outside this narrow release-surface predicate. A successful crash.log must be absent or empty.',
+        'A mode may contain either no hard diagnostic or one exact stock Eden shutdown cluster: two underlying support-station catalog-manager events mirrored once across console.log, script.log, and error.log after replication finishes and before game destruction. Every partial, extra, variant, misplaced, crash-channel, or unrelated hard event fails closed.')
     $run = [ordered]@{
-        schemaVersion = 1
-        evidenceKind = 'partisan_release_surface_runtime_audit_v1'
-        contractId = 'partisan.release-surface-audit.run.v1'
+        schemaVersion = 2
+        evidenceKind = 'partisan_release_surface_runtime_audit_v2'
+        contractId = 'partisan.release-surface-audit.run.v2'
         runId = $runId
         runLeafId = $runLeaf
         runNonce = $nonce
@@ -711,9 +763,9 @@ function New-TestSurfaceBundle {
     $contractSignature = Get-TestSignature (Join-Path $runRoot `
         'identity\release_surface_contract.json')
     $index = [ordered]@{
-        schemaVersion = 1
-        contractId = 'partisan.release-surface-audit.index.v1'
-        evidenceKind = 'partisan_release_surface_runtime_audit_index_v1'
+        schemaVersion = 2
+        contractId = 'partisan.release-surface-audit.index.v2'
+        evidenceKind = 'partisan_release_surface_runtime_audit_index_v2'
         runId = $runId
         runLeafId = $runLeaf
         runNonce = $nonce
@@ -777,7 +829,9 @@ function New-TestSurfaceBundle {
             pairedModeOrderExact = $true
             contractSetsExact = $true
             positiveControlsPresent = $true
-            hardDiagnosticsAbsent = $true
+            hardDiagnosticAccountingExact = $true
+            approvedStockDiagnosticClustersExact = $true
+            unapprovedHardDiagnosticsAbsent = $true
             crashArtifactsAbsent = $true
             harnessResidueAbsent = $true
             portablePathsExact = $true
@@ -800,8 +854,8 @@ function New-TestSurfaceBundle {
     Copy-Item -LiteralPath (Join-Path $runRoot 'release-index.json') `
         -Destination $trackedPath -Force
     $ready = [ordered]@{
-        schemaVersion = 1
-        evidenceKind = 'partisan_release_surface_runtime_audit_v1'
+        schemaVersion = 2
+        evidenceKind = 'partisan_release_surface_runtime_audit_v2'
         disposition = 'passed-noncertifying-release-surface-audit'
         certificationPromotion = 'none'
         runId = $runId
@@ -1306,6 +1360,22 @@ try {
     }
     if (-not $valid.Present -or
         [string]$valid.ReleaseSurfaceAudit.CertificationPromotion -cne 'none' -or
+        [string]$valid.ReleaseSurfaceAudit.HardDiagnosticPolicy -cne
+            'script-engine-and-process-fatal-v1' -or
+        [long]$valid.ReleaseSurfaceAudit.HardDiagnosticFreeModeCount -ne 1 -or
+        [long]$valid.ReleaseSurfaceAudit.
+            ApprovedStockDiagnosticClusterModeCount -ne 1 -or
+        [long]$valid.ReleaseSurfaceAudit.HardDiagnosticRawLineCount -ne 6 -or
+        [long]$valid.ReleaseSurfaceAudit.HardDiagnosticEventCount -ne 2 -or
+        [long]$valid.ReleaseSurfaceAudit.
+            ApprovedStockDiagnosticRawLineCount -ne 6 -or
+        [long]$valid.ReleaseSurfaceAudit.
+            ApprovedStockDiagnosticEventCount -ne 2 -or
+        [long]$valid.ReleaseSurfaceAudit.
+            UnapprovedHardDiagnosticRawLineCount -ne 0 -or
+        [long]$valid.ReleaseSurfaceAudit.
+            UnapprovedHardDiagnosticEventCount -ne 0 -or
+        @($valid.ReleaseSurfaceAudit.ModeDiagnosticCensus).Count -ne 2 -or
         [string]$valid.Gate1RuntimeRetention.CertificationClaim -cne 'none' -or
         [bool]$valid.Gate1RuntimeRetention.StandardSaveRestorationCertified) {
         throw 'Valid pair projection promoted certification.'
@@ -1487,8 +1557,8 @@ try {
     $trackedBytes = [IO.File]::ReadAllBytes($fixture.Surface.TrackedPath)
     try {
         $text = $script:Utf8NoBom.GetString($trackedBytes)
-        $duplicate = $text -replace '"schemaVersion"\s*:\s*1,',
-            '"schemaVersion": 1, "schemaVersion": 1,'
+        $duplicate = $text -replace '"schemaVersion"\s*:\s*2,',
+            '"schemaVersion": 2, "schemaVersion": 2,'
         Write-TestText $fixture.Surface.TrackedPath $duplicate
         $case = Copy-TestValue $fixture.Evidence
         $case.releaseSurfaceAudit.summarySha256 =
@@ -1551,6 +1621,53 @@ try {
         } `
         -ExpectedMessage `
             'retail forbiddenMemberCount must be the exact integer 67.'
+    Assert-TestSurfaceIndexMutationRejected `
+        -Fixture $fixture `
+        -Label 'retail hard-diagnostic policy drift' `
+        -Mutation {
+            param($Index)
+            $Index.modes[0].hardDiagnosticPolicy =
+                'script-engine-and-process-fatal-v2'
+        } `
+        -ExpectedMessage `
+            'retail index projection hard-diagnostic policy is not exact.'
+    Assert-TestSurfaceIndexMutationRejected `
+        -Fixture $fixture `
+        -Label 'retail non-empty crash-log projection' `
+        -Mutation {
+            param($Index)
+            $Index.modes[0].crashLogContentValid = $false
+        } `
+        -ExpectedMessage `
+            'retail index projection contains a non-empty crash log.'
+    Assert-TestSurfaceIndexMutationRejected `
+        -Fixture $fixture `
+        -Label 'retail hard-diagnostic accounting drift' `
+        -Mutation {
+            param($Index)
+            $Index.modes[0].hardDiagnosticRawLineCount = 5
+        } `
+        -ExpectedMessage `
+            'retail index projection hard-diagnostic accounting is not exact.'
+    Assert-TestSurfaceIndexMutationRejected `
+        -Fixture $fixture `
+        -Label 'retail unapproved hard event' `
+        -Mutation {
+            param($Index)
+            $Index.modes[0].hardDiagnosticEventCount = 3
+            $Index.modes[0].unapprovedHardDiagnosticEventCount = 1
+        } `
+        -ExpectedMessage `
+            'retail index projection contains an unapproved hard diagnostic.'
+    Assert-TestSurfaceIndexMutationRejected `
+        -Fixture $fixture `
+        -Label 'retail stock-cluster projection drift' `
+        -Mutation {
+            param($Index)
+            $Index.modes[0].approvedStockDiagnosticClusterPresent = $false
+        } `
+        -ExpectedMessage `
+            'must be either hard-diagnostic free or the exact six-raw-line/two-event approved stock cluster.'
 
     $runPath = Join-Path $fixture.Retention.RunRoot 'run.json'
     $runBytes = [IO.File]::ReadAllBytes($runPath)
@@ -1584,11 +1701,11 @@ try {
             },
             [pscustomobject]@{
                 Label = 'ready schema numeric string'
-                Apply = { param($Ready) $Ready.schemaVersion = '1' }
+                Apply = { param($Ready) $Ready.schemaVersion = '2' }
             },
             [pscustomobject]@{
                 Label = 'ready schema fractional number'
-                Apply = { param($Ready) $Ready.schemaVersion = 1.9 }
+                Apply = { param($Ready) $Ready.schemaVersion = 2.9 }
             })) {
         try {
             $ready = Read-TestJson $readyPath

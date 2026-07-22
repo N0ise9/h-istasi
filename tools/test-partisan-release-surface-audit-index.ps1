@@ -169,7 +169,7 @@ function New-TestEvidenceIndex {
         })
     return [ordered]@{
         schemaVersion = 1
-        evidenceKind = 'partisan_release_surface_runtime_audit_v1'
+        evidenceKind = 'partisan_release_surface_runtime_audit_v2'
         files = [object[]]$rows
         aggregateSha256 = Get-TestRowsDigest $rows
     }
@@ -257,7 +257,36 @@ function New-TestExpectedPublishedIndex {
             forbiddenMemberCount = @($contract.forbiddenMemberSurfaces).Count
             productionMemberCount =
                 @($contract.productionObservabilityMemberSurfaces).Count
-            hardDiagnosticCount = [int]$modeValue.classification.hardDiagnosticCount
+            hardDiagnosticPolicy =
+                [string]$modeValue.classification.hardDiagnosticPolicy
+            hardDiagnosticFree = [bool]$modeValue.classification.hardDiagnosticFree
+            hardDiagnosticRawLineCount =
+                [int]$modeValue.classification.hardDiagnosticRawLineCount
+            hardDiagnosticEventCount =
+                [int]$modeValue.classification.hardDiagnosticEventCount
+            approvedStockDiagnosticClusterPresent =
+                [bool]$modeValue.classification.
+                    approvedStockDiagnosticClusterPresent
+            approvedStockDiagnosticClusterExact =
+                [bool]$modeValue.classification.
+                    approvedStockDiagnosticClusterExact
+            approvedStockDiagnosticLifecycleExact =
+                [bool]$modeValue.classification.
+                    approvedStockDiagnosticLifecycleExact
+            approvedStockDiagnosticRawLineCount =
+                [int]$modeValue.classification.
+                    approvedStockDiagnosticRawLineCount
+            approvedStockDiagnosticEventCount =
+                [int]$modeValue.classification.
+                    approvedStockDiagnosticEventCount
+            unapprovedHardDiagnosticRawLineCount =
+                [int]$modeValue.classification.
+                    unapprovedHardDiagnosticRawLineCount
+            unapprovedHardDiagnosticEventCount =
+                [int]$modeValue.classification.
+                    unapprovedHardDiagnosticEventCount
+            hardDiagnosticAccountingExact =
+                [bool]$modeValue.classification.hardDiagnosticAccountingExact
             candidateMountLineCount =
                 [int]$modeValue.classification.candidateMountLineCount
             candidatePackedMountLineCount =
@@ -266,14 +295,18 @@ function New-TestExpectedPublishedIndex {
                 [int]$modeValue.classification.harnessMountLineCount
             uniqueResultMarkerCount =
                 [int]$modeValue.classification.uniqueResultMarkerCount
+            resultMarkerOccurrenceCount =
+                [int]$modeValue.classification.resultMarkerOccurrenceCount
+            crashLogContentValid =
+                [bool]$modeValue.classification.crashLogContentValid
             crashArtifactCount = [int]$modeValue.classification.crashArtifactCount
             passed = $true
         })
     }
     return [ordered]@{
-        schemaVersion = 1
-        contractId = 'partisan.release-surface-audit.index.v1'
-        evidenceKind = 'partisan_release_surface_runtime_audit_index_v1'
+        schemaVersion = 2
+        contractId = 'partisan.release-surface-audit.index.v2'
+        evidenceKind = 'partisan_release_surface_runtime_audit_index_v2'
         runId = [string]$run.runId
         runLeafId = [string]$run.runLeafId
         runNonce = [string]$run.runNonce
@@ -340,7 +373,9 @@ function New-TestExpectedPublishedIndex {
             pairedModeOrderExact = $true
             contractSetsExact = $true
             positiveControlsPresent = $true
-            hardDiagnosticsAbsent = $true
+            hardDiagnosticAccountingExact = $true
+            approvedStockDiagnosticClustersExact = $true
+            unapprovedHardDiagnosticsAbsent = $true
             crashArtifactsAbsent = $true
             harnessResidueAbsent = $true
             portablePathsExact = $true
@@ -365,8 +400,8 @@ function Write-TestPublishedSeals {
     $indexSignature = Write-TestJson $indexPath `
         (New-TestExpectedPublishedIndex $RunRoot)
     $ready = [ordered]@{
-        schemaVersion = 1
-        evidenceKind = 'partisan_release_surface_runtime_audit_v1'
+        schemaVersion = 2
+        evidenceKind = 'partisan_release_surface_runtime_audit_v2'
         disposition = 'passed-noncertifying-release-surface-audit'
         certificationPromotion = 'none'
         runId = [string]$run.runId
@@ -907,13 +942,47 @@ function New-TestModeEvidence {
     $logRows = New-Object Collections.Generic.List[object]
     $logLeaves = @('console.log', 'script.log', 'error.log')
     if ($Mode -ceq 'diagnostic') { $logLeaves += 'crash.log' }
+    $resultLine =
+        '2026-07-20 17:00:00.100 SCRIPT : ' +
+        'Partisan release surface audit | RESULT | mode=' + $Mode +
+        ' | passed=true | mismatches=0'
+    $replicationFinishingLine =
+        '2026-07-20 17:00:00.200 RPL : Replication finishing...'
+    $replicationFinishedLine =
+        '2026-07-20 17:00:00.300 RPL : Replication finished.'
+    $gameDestroyedLine =
+        '2026-07-20 17:00:00.600 ENGINE : Game destroyed.'
+    $stockLineA =
+        "2026-07-20 17:00:00.400 SCRIPT (E): " +
+        "'SCR_BaseResupplySupportStationComponent' needs a entity catalog manager!"
+    $stockLineB =
+        "2026-07-20 17:00:00.500 SCRIPT (E): " +
+        "'SCR_BaseResupplySupportStationComponent' needs a entity catalog manager!"
+    $stockClusterPresent = $Mode -ceq 'retail'
     foreach ($leaf in $logLeaves) {
         $text = if ($leaf -ceq 'console.log') {
-            'AUDIT addon ' + [string]$CandidatePublicIdentity.addonGuid +
-                ' (packed)' + "`n" +
-                'AUDIT harness ' + $HarnessGuid + "`n" +
-                'Partisan release surface audit | RESULT | mode=' + $Mode +
-                ' | passed=true | mismatches=0' + "`n"
+            $consoleLines = @(
+                ('AUDIT addon ' + [string]$CandidatePublicIdentity.addonGuid +
+                    ' (packed)')
+                ('AUDIT harness ' + $HarnessGuid)
+                $resultLine
+                $replicationFinishingLine
+                $replicationFinishedLine)
+            if ($stockClusterPresent) {
+                $consoleLines += @($stockLineA, $stockLineB)
+            }
+            $consoleLines += $gameDestroyedLine
+            ($consoleLines -join "`n") + "`n"
+        }
+        elseif ($leaf -ceq 'script.log') {
+            $scriptLines = @($resultLine)
+            if ($stockClusterPresent) {
+                $scriptLines += @($stockLineA, $stockLineB)
+            }
+            ($scriptLines -join "`n") + "`n"
+        }
+        elseif ($leaf -ceq 'error.log' -and $stockClusterPresent) {
+            (@($stockLineA, $stockLineB) -join "`n") + "`n"
         }
         else { '' }
         $path = Join-Path $logRoot $leaf
@@ -927,8 +996,8 @@ function New-TestModeEvidence {
     }
 
     $modeValue = [ordered]@{
-        schemaVersion = 1
-        evidenceKind = 'partisan_release_surface_runtime_audit_v1'
+        schemaVersion = 2
+        evidenceKind = 'partisan_release_surface_runtime_audit_v2'
         mode = $Mode
         disposition = 'passed-noncertifying-release-surface-audit'
         candidateId = [string]$CandidatePublicIdentity.candidateId
@@ -981,11 +1050,26 @@ function New-TestModeEvidence {
         }
         classification = [ordered]@{
             valid = $true
-            hardDiagnosticCount = 0
+            hardDiagnosticPolicy = 'script-engine-and-process-fatal-v1'
+            hardDiagnosticFree = -not $stockClusterPresent
+            hardDiagnosticRawLineCount = if ($stockClusterPresent) { 6 } else { 0 }
+            hardDiagnosticEventCount = if ($stockClusterPresent) { 2 } else { 0 }
+            approvedStockDiagnosticClusterPresent = $stockClusterPresent
+            approvedStockDiagnosticClusterExact = $true
+            approvedStockDiagnosticLifecycleExact = $true
+            approvedStockDiagnosticRawLineCount =
+                if ($stockClusterPresent) { 6 } else { 0 }
+            approvedStockDiagnosticEventCount =
+                if ($stockClusterPresent) { 2 } else { 0 }
+            unapprovedHardDiagnosticRawLineCount = 0
+            unapprovedHardDiagnosticEventCount = 0
+            hardDiagnosticAccountingExact = $true
             candidateMountLineCount = 1
             candidatePackedMountLineCount = 1
             harnessMountLineCount = 1
             uniqueResultMarkerCount = 1
+            resultMarkerOccurrenceCount = 2
+            crashLogContentValid = $true
             crashArtifactCount = 0
             logs = [object[]]$logRows.ToArray()
         }
@@ -1252,7 +1336,7 @@ public static class SyntheticReleaseSurfaceHost {
     $toolRows = Get-TestToolRows
     $bindingsValue = [ordered]@{
         schemaVersion = 1
-        evidenceKind = 'partisan_release_surface_runtime_audit_v1'
+        evidenceKind = 'partisan_release_surface_runtime_audit_v2'
         source = [ordered]@{
             harnessGitHead = $gitHead
             checkoutClean = $true
@@ -1288,7 +1372,7 @@ public static class SyntheticReleaseSurfaceHost {
         (Join-Path $runRoot 'identity\bindings.json') $bindingsValue
     $null = Write-TestJson (Join-Path $runRoot 'run.owner.json') ([ordered]@{
         schemaVersion = 1
-        evidenceKind = 'partisan_release_surface_runtime_audit_v1'
+        evidenceKind = 'partisan_release_surface_runtime_audit_v2'
         runId = $runId
         runNonce = $runNonce
         candidateId = $candidateId
@@ -1327,18 +1411,38 @@ public static class SyntheticReleaseSurfaceHost {
         (Join-Path $runRoot 'modes\diagnostic.json')
     Assert-TestCondition (
         @($retailModeFixture.classification.logs).Count -eq 3 -and
+        [string]$retailModeFixture.classification.hardDiagnosticPolicy -ceq
+            'script-engine-and-process-fatal-v1' -and
+        [bool]$retailModeFixture.classification.crashLogContentValid -and
+        -not [bool]$retailModeFixture.classification.hardDiagnosticFree -and
+        [int]$retailModeFixture.classification.hardDiagnosticRawLineCount -eq 6 -and
+        [int]$retailModeFixture.classification.hardDiagnosticEventCount -eq 2 -and
+        [bool]$retailModeFixture.classification.
+            approvedStockDiagnosticClusterPresent -and
+        [int]$retailModeFixture.classification.
+            approvedStockDiagnosticRawLineCount -eq 6 -and
+        [int]$retailModeFixture.classification.
+            approvedStockDiagnosticEventCount -eq 2 -and
         @($retailModeFixture.classification.logs | Where-Object {
             [string]$_.leaf -ceq 'crash.log'
         }).Count -eq 0 -and
         @($diagnosticModeFixture.classification.logs).Count -eq 4 -and
+        [string]$diagnosticModeFixture.classification.hardDiagnosticPolicy -ceq
+            'script-engine-and-process-fatal-v1' -and
+        [bool]$diagnosticModeFixture.classification.crashLogContentValid -and
+        [bool]$diagnosticModeFixture.classification.hardDiagnosticFree -and
+        [int]$diagnosticModeFixture.classification.hardDiagnosticRawLineCount -eq 0 -and
+        [int]$diagnosticModeFixture.classification.hardDiagnosticEventCount -eq 0 -and
+        -not [bool]$diagnosticModeFixture.classification.
+            approvedStockDiagnosticClusterPresent -and
         @($diagnosticModeFixture.classification.logs | Where-Object {
             [string]$_.leaf -ceq 'crash.log'
         }).Count -eq 1) `
-        'synthetic modes cover absent and present optional crash logs'
+        'synthetic modes cover exact stock cluster, clean mode, and optional crash log'
 
     $cleanup = [ordered]@{
         schemaVersion = 1
-        evidenceKind = 'partisan_release_surface_runtime_audit_v1'
+        evidenceKind = 'partisan_release_surface_runtime_audit_v2'
         harnessRemoved = $true
         harnessResidueCount = 0
         exactOwnerVerifiedBeforeRemoval = $true
@@ -1351,11 +1455,13 @@ public static class SyntheticReleaseSurfaceHost {
         'This audit uses inert compiler and metadata probes for contracted member-surface presence; separately, it deliberately invokes production menu generation and read-only per-command availability inspection, but it does not execute command actions or mutate campaign gameplay state.',
         'Forbidden literal surfaces are proven by the candidate-bound source guard analysis, not by an unreliable package-byte string scan.',
         'It is not gameplay, multiplayer, persistence, restart, soak, or performance certification.',
-        'The guarded launcher deliberately gives the child no inherited standard streams; authoritative engine output is retained in the three required logs and in crash.log when the engine emits it.')
+        'The guarded launcher deliberately gives the child no inherited standard streams; authoritative engine output is retained in the three required logs and in crash.log when the engine emits it.',
+        'The machine-bound hard-diagnostic policy is script-engine-and-process-fatal-v1: SCRIPT or ENGINE error severity, access violations, unhandled exceptions, fatal/application-crash signals, and audit ERROR markers. Other retained engine-channel severities are outside this narrow release-surface predicate. A successful crash.log must be absent or empty.',
+        'A mode may contain either no hard diagnostic or one exact stock Eden shutdown cluster: two underlying support-station catalog-manager events mirrored once across console.log, script.log, and error.log after replication finishes and before game destruction. Every partial, extra, variant, misplaced, crash-channel, or unrelated hard event fails closed.')
     $runValue = [ordered]@{
-        schemaVersion = 1
-        evidenceKind = 'partisan_release_surface_runtime_audit_v1'
-        contractId = 'partisan.release-surface-audit.run.v1'
+        schemaVersion = 2
+        evidenceKind = 'partisan_release_surface_runtime_audit_v2'
+        contractId = 'partisan.release-surface-audit.run.v2'
         runId = $runId
         runLeafId = $runLeaf
         runNonce = $runNonce
@@ -1399,6 +1505,20 @@ public static class SyntheticReleaseSurfaceHost {
     $runPath = Join-Path $runRoot 'run.json'
     $null = Write-TestJson $runPath $runValue
     $baseline = Get-TestBaseline $runRoot
+    $retailResultLine =
+        '2026-07-20 17:00:00.100 SCRIPT : ' +
+        'Partisan release surface audit | RESULT | mode=retail' +
+        ' | passed=true | mismatches=0'
+    $retailReplicationFinishedLine =
+        '2026-07-20 17:00:00.300 RPL : Replication finished.'
+    $stockLineA =
+        "2026-07-20 17:00:00.400 SCRIPT (E): " +
+        "'SCR_BaseResupplySupportStationComponent' needs a entity catalog manager!"
+    $stockLineB =
+        "2026-07-20 17:00:00.500 SCRIPT (E): " +
+        "'SCR_BaseResupplySupportStationComponent' needs a entity catalog manager!"
+    $gameDestroyedLine =
+        '2026-07-20 17:00:00.600 ENGINE : Game destroyed.'
 
     $validated = @(Invoke-TestFixtureValidation $runPath)
     Assert-TestCondition (
@@ -1437,7 +1557,7 @@ public static class SyntheticReleaseSurfaceHost {
 
     Restore-TestBaseline $runRoot $baseline
     $numericStringRun = Read-TestJson $runPath
-    $numericStringRun.schemaVersion = '1'
+    $numericStringRun.schemaVersion = '2'
     $null = Write-TestJson $runPath $numericStringRun
     Assert-TestRejected 'numeric string schema' {
         Invoke-TestFixtureValidation $runPath
@@ -1604,6 +1724,220 @@ public static class SyntheticReleaseSurfaceHost {
     [void]$checks.Add('optional-crash-hard-diagnostic-rejected')
 
     Restore-TestBaseline $runRoot $baseline
+    Add-Content -LiteralPath `
+        (Join-Path $runRoot 'raw\diagnostic\logs\session\crash.log') `
+        -Value 'benign-looking crash channel content'
+    Sync-TestBundleSeals $runRoot
+    Assert-TestRejected 'non-empty benign-looking crash log' {
+        Invoke-TestFixtureValidation $runPath
+    } 'classification'
+    [void]$checks.Add('nonempty-benign-crash-log-rejected')
+
+    Restore-TestBaseline $runRoot $baseline
+    $unexpectedLogTreeFile = Join-Path $runRoot `
+        'raw\retail\logs\session\unexpected.txt'
+    $null = Write-TestText $unexpectedLogTreeFile ''
+    Sync-TestBundleSeals $runRoot
+    Assert-TestRejected 'unexpected non-log file in log tree' {
+        Invoke-TestFixtureValidation $runPath
+    } 'unbound, duplicated, or unknown log leaves'
+    [void]$checks.Add('unexpected-log-tree-file-rejected')
+
+    Restore-TestBaseline $runRoot $baseline
+    $diagnosticErrorPath = Join-Path $runRoot `
+        'raw\diagnostic\logs\session\error.log'
+    $null = Write-TestText $diagnosticErrorPath `
+        "2026-07-20 17:00:00.150 WORLD (E): synthetic retained channel error`n"
+    Sync-TestBundleSeals $runRoot
+    $narrowPolicyValidation = @(Invoke-TestFixtureValidation $runPath)
+    Assert-TestCondition (
+        $narrowPolicyValidation.Count -eq 1 -and
+        [bool]$narrowPolicyValidation[0].FixtureValid) `
+        'explicit non-hard engine-channel policy remains narrow and retained'
+    [void]$checks.Add('explicit-nonhard-channel-policy-accepted')
+
+    Restore-TestBaseline $runRoot $baseline
+    $diagnosticConsolePath = Join-Path $runRoot `
+        'raw\diagnostic\logs\session\console.log'
+    $diagnosticConsoleText = [IO.File]::ReadAllText($diagnosticConsolePath).
+        Replace('17:00:00.200 RPL', '17:00:00.350 RPL')
+    $null = Write-TestText $diagnosticConsolePath $diagnosticConsoleText
+    Sync-TestBundleSeals $runRoot
+    Assert-TestRejected 'reversed clean lifecycle timestamps' {
+        Invoke-TestFixtureValidation $runPath
+    } 'classification'
+    [void]$checks.Add('reversed-clean-lifecycle-rejected')
+
+    Restore-TestBaseline $runRoot $baseline
+    $diagnosticConsoleText = [IO.File]::ReadAllText($diagnosticConsolePath).
+        Replace(
+            '2026-07-20 17:00:00.200 RPL',
+            '2026-99-20 17:00:00.200 RPL')
+    $null = Write-TestText $diagnosticConsolePath $diagnosticConsoleText
+    Sync-TestBundleSeals $runRoot
+    Assert-TestRejected 'malformed clean lifecycle timestamp' {
+        Invoke-TestFixtureValidation $runPath
+    } 'classification'
+    [void]$checks.Add('malformed-clean-lifecycle-rejected')
+
+    Restore-TestBaseline $runRoot $baseline
+    $retailConsolePath = Join-Path $runRoot `
+        'raw\retail\logs\session\console.log'
+    $retailConsoleText = [IO.File]::ReadAllText($retailConsolePath).
+        Replace($stockLineA + "`n", '').
+        Replace($stockLineB + "`n", '').
+        Replace(
+            $retailReplicationFinishedLine + "`n",
+            $stockLineA + "`n" + $stockLineB + "`n" +
+                $retailReplicationFinishedLine + "`n")
+    $null = Write-TestText $retailConsolePath $retailConsoleText
+    Sync-TestBundleSeals $runRoot
+    Assert-TestRejected 'stock cluster before replication finished' {
+        Invoke-TestFixtureValidation $runPath
+    } 'classification'
+    [void]$checks.Add('pre-replication-stock-cluster-rejected')
+
+    Restore-TestBaseline $runRoot $baseline
+    foreach ($leaf in @('console.log', 'script.log', 'error.log')) {
+        $path = Join-Path $runRoot ('raw\retail\logs\session\' + $leaf)
+        $text = [IO.File]::ReadAllText($path).Replace($stockLineB + "`n", '')
+        $null = Write-TestText $path $text
+    }
+    Sync-TestBundleSeals $runRoot
+    Assert-TestRejected 'one-event stock teardown cluster' {
+        Invoke-TestFixtureValidation $runPath
+    } 'classification'
+    [void]$checks.Add('one-event-stock-cluster-rejected')
+
+    Restore-TestBaseline $runRoot $baseline
+    $stockLineC = $stockLineB.Replace('.500 ', '.550 ')
+    foreach ($leaf in @('console.log', 'script.log', 'error.log')) {
+        $path = Join-Path $runRoot ('raw\retail\logs\session\' + $leaf)
+        $text = [IO.File]::ReadAllText($path)
+        if ($leaf -ceq 'console.log') {
+            $text = $text.Replace(
+                $gameDestroyedLine,
+                $stockLineC + "`n" + $gameDestroyedLine)
+        }
+        else { $text += $stockLineC + "`n" }
+        $null = Write-TestText $path $text
+    }
+    Sync-TestBundleSeals $runRoot
+    Assert-TestRejected 'third stock teardown event' {
+        Invoke-TestFixtureValidation $runPath
+    } 'classification'
+    [void]$checks.Add('third-stock-event-rejected')
+
+    Restore-TestBaseline $runRoot $baseline
+    $errorLogPath = Join-Path $runRoot 'raw\retail\logs\session\error.log'
+    $errorText = [IO.File]::ReadAllText($errorLogPath).
+        Replace($stockLineA + "`n", '')
+    $null = Write-TestText $errorLogPath $errorText
+    Sync-TestBundleSeals $runRoot
+    Assert-TestRejected 'missing stock teardown mirror' {
+        Invoke-TestFixtureValidation $runPath
+    } 'classification'
+    [void]$checks.Add('missing-stock-mirror-rejected')
+
+    Restore-TestBaseline $runRoot $baseline
+    $scriptLogPath = Join-Path $runRoot 'raw\retail\logs\session\script.log'
+    $scriptText = [IO.File]::ReadAllText($scriptLogPath).Replace(
+        $stockLineA + "`n", $stockLineA + "`n" + $stockLineA + "`n")
+    $null = Write-TestText $scriptLogPath $scriptText
+    Sync-TestBundleSeals $runRoot
+    Assert-TestRejected 'duplicate stock event in one log leaf' {
+        Invoke-TestFixtureValidation $runPath
+    } 'classification'
+    [void]$checks.Add('same-leaf-stock-duplicate-rejected')
+
+    Restore-TestBaseline $runRoot $baseline
+    $scriptText = [IO.File]::ReadAllText($scriptLogPath).Replace(
+        $stockLineA, $stockLineA.Replace('.400 ', '.410 '))
+    $null = Write-TestText $scriptLogPath $scriptText
+    Sync-TestBundleSeals $runRoot
+    Assert-TestRejected 'cross-leaf stock timestamp drift' {
+        Invoke-TestFixtureValidation $runPath
+    } 'classification'
+    [void]$checks.Add('stock-timestamp-drift-rejected')
+
+    Restore-TestBaseline $runRoot $baseline
+    $consoleLogPath = Join-Path $runRoot 'raw\retail\logs\session\console.log'
+    $consoleText = [IO.File]::ReadAllText($consoleLogPath).
+        Replace($stockLineA + "`n", '').
+        Replace($stockLineB + "`n", '').
+        Replace(
+            $retailResultLine + "`n",
+            $stockLineA + "`n" + $stockLineB + "`n" +
+                $retailResultLine + "`n")
+    $null = Write-TestText $consoleLogPath $consoleText
+    Sync-TestBundleSeals $runRoot
+    Assert-TestRejected 'stock teardown before result' {
+        Invoke-TestFixtureValidation $runPath
+    } 'classification'
+    [void]$checks.Add('pre-result-stock-cluster-rejected')
+
+    Restore-TestBaseline $runRoot $baseline
+    $consoleText = [IO.File]::ReadAllText($consoleLogPath).
+        Replace($stockLineA + "`n", '').
+        Replace($stockLineB + "`n", '').
+        Replace(
+            $gameDestroyedLine + "`n",
+            $gameDestroyedLine + "`n" + $stockLineA + "`n" +
+                $stockLineB + "`n")
+    $null = Write-TestText $consoleLogPath $consoleText
+    Sync-TestBundleSeals $runRoot
+    Assert-TestRejected 'stock teardown after game destruction' {
+        Invoke-TestFixtureValidation $runPath
+    } 'classification'
+    [void]$checks.Add('post-destroy-stock-cluster-rejected')
+
+    Restore-TestBaseline $runRoot $baseline
+    foreach ($leaf in @('console.log', 'script.log', 'error.log')) {
+        $path = Join-Path $runRoot ('raw\retail\logs\session\' + $leaf)
+        $text = [IO.File]::ReadAllText($path).
+            Replace('needs a entity catalog manager!',
+                'needs an entity catalog manager!')
+        $null = Write-TestText $path $text
+    }
+    Sync-TestBundleSeals $runRoot
+    Assert-TestRejected 'stock teardown message variant' {
+        Invoke-TestFixtureValidation $runPath
+    } 'classification'
+    [void]$checks.Add('stock-message-variant-rejected')
+
+    Restore-TestBaseline $runRoot $baseline
+    $consoleText = [IO.File]::ReadAllText($consoleLogPath).Replace(
+        $stockLineA + "`n",
+        $stockLineA + "`n  synthetic diagnostic body`n")
+    $null = Write-TestText $consoleLogPath $consoleText
+    Sync-TestBundleSeals $runRoot
+    Assert-TestRejected 'stock teardown diagnostic body' {
+        Invoke-TestFixtureValidation $runPath
+    } 'classification'
+    [void]$checks.Add('stock-diagnostic-body-rejected')
+
+    Restore-TestBaseline $runRoot $baseline
+    Add-Content -LiteralPath `
+        (Join-Path $runRoot 'raw\diagnostic\logs\session\crash.log') `
+        -Value $stockLineA
+    Sync-TestBundleSeals $runRoot
+    Assert-TestRejected 'stock teardown in crash log' {
+        Invoke-TestFixtureValidation $runPath
+    } 'classification'
+    [void]$checks.Add('stock-crash-channel-rejected')
+
+    Restore-TestBaseline $runRoot $baseline
+    $retailModePath = Join-Path $runRoot 'modes\retail.json'
+    $retailMode = Read-TestJson $retailModePath
+    $retailMode.classification.hardDiagnosticEventCount = 3
+    $null = Write-TestJson $retailModePath $retailMode
+    Sync-TestBundleSeals $runRoot
+    Assert-TestRejected 'forged hard-diagnostic census' {
+        Invoke-TestFixtureValidation $runPath
+    } 'classification'
+    [void]$checks.Add('forged-hard-diagnostic-census-rejected')
+
+    Restore-TestBaseline $runRoot $baseline
     $retailModePath = Join-Path $runRoot 'modes\retail.json'
     $retailMode = Read-TestJson $retailModePath
     $requiredLogRow = @($retailMode.classification.logs | Where-Object {
@@ -1665,7 +1999,7 @@ public static class SyntheticReleaseSurfaceHost {
     Restore-TestBaseline $runRoot $baseline
     $runText = [IO.File]::ReadAllText($runPath)
     $duplicateRunText = $runText -replace '^\{',
-        "{`n  `"schemaVersion`": 1,"
+        "{`n  `"schemaVersion`": 2,"
     [IO.File]::WriteAllText(
         $runPath, $duplicateRunText, (New-Object Text.UTF8Encoding($false)))
     Assert-TestRejected 'duplicate JSON property' {
