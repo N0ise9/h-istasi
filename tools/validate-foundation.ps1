@@ -5167,6 +5167,7 @@ if ([string]::IsNullOrEmpty($physicalResponseFoldbackCaseBlock) -or
 foreach ($requiredPhysicalResponseFoldbackContextEntry in @(
 		'class HST_CampaignDebugPhysicalResponseFoldbackDriveResult',
 		'static const int PLAYER_RESTORE_OWNER_ACK_TIMEOUT_MS = 5000;',
+		'static const int PLAYER_RESTORE_STABLE_SAMPLE_MAX_FAILURES = 5;',
 		'static const float PLAYER_RESTORE_TRANSFORM_TOLERANCE_METERS = 0.001;',
 		'ref HST_ActiveGroupState m_GroupAfterDrive;',
 		'IEntity m_PlayerEntityBeforeFoldback;',
@@ -5179,6 +5180,7 @@ foreach ($requiredPhysicalResponseFoldbackContextEntry in @(
 		'bool m_bPlayerRestoreOwnerAckExact;',
 		'bool m_bPlayerRestoreSessionLost;',
 		'bool m_bPlayerRestoreDisconnectObserved;',
+		'bool m_bPlayerRestoreBoundedFailure;',
 		'bool m_bPlayerRestored;',
 		'int m_iPlayerRestoreAppliedObservationToken = -1;',
 		'int m_iPlayerRestoreStableSampleObservationToken = -1;',
@@ -5187,7 +5189,9 @@ foreach ($requiredPhysicalResponseFoldbackContextEntry in @(
 		'int m_iPlayerRestoreOwnerAckSequence = -1;',
 		'int m_iPlayerRestoreOwnerAckObservedToken = -1;',
 		'int m_iPlayerRestoreOwnerDispatchTick = -1;',
+		'int m_iPlayerRestoreStableSampleFailures;',
 		'string m_sPlayerRestoreRequestId;',
+		'string m_sPlayerRestoreLastStableSampleFailureEvidence = "not sampled";',
 		'bool m_bFoldTickChanged;',
 		'bool m_bOrderSyncChanged;',
 		'string m_sGroupStatusBeforeFold;',
@@ -5450,6 +5454,19 @@ foreach ($requiredPhysicalResponsePlayerApplyEntry in @(
 		throw "Physical-response exact player/full-transform restore apply is incomplete: $requiredPhysicalResponsePlayerApplyEntry"
 	}
 }
+if ($physicalResponseFoldbackPlayerApplyBridgeBlock.IndexOf(
+		'CAMPAIGN_DEBUG_PHYSICAL_RESPONSE_STABLE_RESTORE_MAX_ROW_DELTA') -ge 0) {
+	throw 'Physical-response immediate server restore must retain the shared 0.001 row-delta default; the scoped later-sample limit is forbidden during apply.'
+}
+$physicalResponseImmediateTransformCalls = [regex]::Matches(
+	$physicalResponseFoldbackPlayerApplyBridgeBlock,
+	'IsCampaignDebugCivilianPlayerTransformExact\s*\(').Count
+if ($physicalResponseImmediateTransformCalls -ne 1 -or
+	![regex]::IsMatch(
+		$physicalResponseFoldbackPlayerApplyBridgeBlock,
+		'(?s)IsCampaignDebugCivilianPlayerTransformExact\s*\(\s*expectedPlayer\s*,\s*expectedTransform\s*,\s*immediateMaximumTransformDelta\s*\)')) {
+	throw 'Physical-response immediate server restore must call the transform helper exactly once with three arguments so the shared 0.001 default cannot be bypassed.'
+}
 foreach ($requiredPhysicalResponseOwnerSendEntry in @(
 		'string restoreRequestId',
 		'int applySequence',
@@ -5501,6 +5518,22 @@ foreach ($requiredPhysicalResponseOwnerApplyEntry in @(
 			$requiredPhysicalResponseOwnerApplyEntry) -lt 0) {
 		throw "Physical-response owner RPC no longer applies and acknowledges the exact full transform: $requiredPhysicalResponseOwnerApplyEntry"
 	}
+}
+$physicalResponseOwnerToleranceToken =
+	'CAMPAIGN_DEBUG_PHYSICAL_RESPONSE_RESTORE_TOLERANCE_METERS'
+$physicalResponseOwnerToleranceOccurrences = [regex]::Matches(
+	$physicalResponseCommandRequestText,
+	[regex]::Escape($physicalResponseOwnerToleranceToken)).Count
+if (![regex]::IsMatch(
+		$physicalResponseCommandRequestText,
+		'(?s)static const float\s+CAMPAIGN_DEBUG_PHYSICAL_RESPONSE_RESTORE_TOLERANCE_METERS\s*=\s*0\.001;') -or
+	$physicalResponseOwnerTransformExactBlock.IndexOf(
+		$physicalResponseOwnerToleranceToken) -lt 0 -or
+	$physicalResponseOwnerToleranceOccurrences -ne 2 -or
+	![regex]::IsMatch(
+		$physicalResponseOwnerTransformExactBlock,
+		'(?s)return\s+maximumDelta\s*<=\s*CAMPAIGN_DEBUG_PHYSICAL_RESPONSE_RESTORE_TOLERANCE_METERS\s*;')) {
+	throw "Physical-response immediate owner acknowledgement must retain its exact, isolated 0.001 row-delta limit: found $physicalResponseOwnerToleranceOccurrences occurrences."
 }
 foreach ($requiredPhysicalResponseSafeOnFootEntry in @(
 		'IsCampaignDebugPhysicalResponseRestorePlayerLiving(playerEntity)',
@@ -5597,6 +5630,21 @@ foreach ($physicalResponseTransformHelperBlock in @(
 		throw 'Physical-response owner/server transform comparison must deletion-guard the player entity before reading its transform.'
 	}
 }
+foreach ($physicalResponseCoordinatorTransformEntry in @(
+		'maximumRowDeltaTolerance = CAMPAIGN_DEBUG_CIVILIAN_RESTORE_TOLERANCE_METERS',
+		'maximumRowDeltaTolerance >= 0.0',
+		'maximumDelta <= maximumRowDeltaTolerance'
+)) {
+	if ($physicalResponseCoordinatorTransformExactBlock.IndexOf(
+			$physicalResponseCoordinatorTransformEntry) -lt 0) {
+		throw "Physical-response coordinator transform helper must preserve the shared 0.001 default and accept only an explicit scoped row-delta limit: $physicalResponseCoordinatorTransformEntry"
+	}
+}
+if (![regex]::IsMatch(
+		$enemyTargetScoringCaseText,
+		'(?s)static const float\s+CAMPAIGN_DEBUG_CIVILIAN_RESTORE_TOLERANCE_METERS\s*=\s*0\.001;')) {
+	throw 'The shared civilian full-transform row-delta default must remain exactly 0.001.'
+}
 if (![regex]::IsMatch(
 		$physicalResponseCommandRequestText,
 		'(?s)\[RplRpc\(RplChannel\.Reliable,\s*RplRcver\.Owner\)\]\s*protected void RpcDo_CampaignDebugPhysicalResponseRestore\(') -or
@@ -5667,6 +5715,25 @@ if ($physicalResponseSampleSessionIndex -lt 0 -or
 	$physicalResponseSampleParentIndex -le $physicalResponseSampleTransformIndex) {
 	throw 'Physical-response later server sample must validate the deletion-guarded session before transform and parent dereferences.'
 }
+$physicalResponseStableRowDeltaToken =
+	'CAMPAIGN_DEBUG_PHYSICAL_RESPONSE_STABLE_RESTORE_MAX_ROW_DELTA'
+$physicalResponseStableRowDeltaOccurrences = [regex]::Matches(
+	$enemyTargetScoringCaseText,
+	[regex]::Escape($physicalResponseStableRowDeltaToken)).Count
+if (![regex]::IsMatch(
+		$enemyTargetScoringCaseText,
+		'(?s)static const float\s+CAMPAIGN_DEBUG_PHYSICAL_RESPONSE_STABLE_RESTORE_MAX_ROW_DELTA\s*=\s*0\.005;') -or
+	$physicalResponseFoldbackPlayerSampleBridgeBlock.IndexOf(
+		$physicalResponseStableRowDeltaToken) -lt 0 -or
+	$physicalResponseStableRowDeltaOccurrences -ne 2 -or
+	([regex]::Matches(
+		$physicalResponseFoldbackPlayerSampleBridgeBlock,
+		'IsCampaignDebugCivilianPlayerTransformExact\s*\(').Count -ne 1) -or
+	![regex]::IsMatch(
+		$physicalResponseFoldbackPlayerSampleBridgeBlock,
+		'(?s)IsCampaignDebugCivilianPlayerTransformExact\s*\(\s*expectedPlayer\s*,\s*expectedTransform\s*,\s*maximumTransformDelta\s*,\s*CAMPAIGN_DEBUG_PHYSICAL_RESPONSE_STABLE_RESTORE_MAX_ROW_DELTA\s*\)')) {
+	throw "Physical-response 0.005 row-delta override must occur exactly in its declaration and the distinct later read-only server sample: found $physicalResponseStableRowDeltaOccurrences occurrences."
+}
 $physicalResponseApplyPreValidationIndex = `
 	$physicalResponseFoldbackPlayerApplyBridgeBlock.IndexOf(
 		'CampaignDebugValidatePhysicalResponseFoldbackPlayer(')
@@ -5727,11 +5794,20 @@ foreach ($physicalResponseRestoreStateEntry in @(
 		'fresh request/sequence reapply armed',
 		'm_iPlayerRestoreOwnerAckSequence',
 		'm_bPlayerRestoreOwnerAckExact',
+		'm_iPlayerRestoreStableSampleFailures',
+		'>= PLAYER_RESTORE_STABLE_SAMPLE_MAX_FAILURES',
+		'm_bPlayerRestored = false;',
+		'm_bPlayerRestoreBoundedFailure = true;',
+		'bounded stable-sample failure after %1 failed later samples',
+		'last failed later sample',
+		'm_sPlayerRestoreLastStableSampleFailureEvidence',
 		'm_iPlayerRestoreOwnerAckObservedToken = observationToken;',
 		'awaiting a distinct later server sample',
 		'observationToken <= m_iPlayerRestoreOwnerAckObservedToken',
 		'CampaignDebugSamplePhysicalResponseFoldbackPlayerRestore(',
 		'm_iPlayerRestoreStableSampleObservationToken = observationToken;',
+		'm_iPlayerRestoreStableSampleFailures++;',
+		'later player sample failed %1/%2;',
 		'corrective full-transform reapply armed'
 )) {
 	if ($physicalResponseFoldbackRestoreBlock.IndexOf(
@@ -5795,6 +5871,67 @@ if ($physicalResponseRestoreClaimIndex -lt 0 -or
 	$physicalResponseRestoreDistinctSampleGateIndex -le $physicalResponseRestoreAckObservationIndex -or
 	$physicalResponseRestoreSampleIndex -le $physicalResponseRestoreDistinctSampleGateIndex) {
 	throw 'Physical-response restore must claim and arm request identity plus a real-time acknowledgement deadline before dispatch, timeout to a fresh request, accept an exact owner acknowledgement, then wait for a distinct later server sample.'
+}
+$physicalResponseRestoreBoundedGateIndex = $physicalResponseFoldbackRestoreBlock.IndexOf(
+	'if (m_iPlayerRestoreStableSampleFailures',
+	$physicalResponseRestoreAckFailureIndex)
+$physicalResponseRestoreBoundedCapIndex = $physicalResponseFoldbackRestoreBlock.IndexOf(
+	'>= PLAYER_RESTORE_STABLE_SAMPLE_MAX_FAILURES',
+	$physicalResponseRestoreBoundedGateIndex)
+$physicalResponseRestoreBoundedFlagIndex = $physicalResponseFoldbackRestoreBlock.IndexOf(
+	'm_bPlayerRestoreBoundedFailure = true;',
+	$physicalResponseRestoreBoundedCapIndex)
+$physicalResponseRestoreBoundedFailedStatusIndex = $physicalResponseFoldbackRestoreBlock.IndexOf(
+	'm_bPlayerRestored = false;',
+	$physicalResponseRestoreBoundedCapIndex)
+$physicalResponseRestoreBoundedRelinquishIndex = $physicalResponseFoldbackRestoreBlock.IndexOf(
+	'm_bPlayerRestoreOwned = false;',
+	$physicalResponseRestoreBoundedFlagIndex)
+$physicalResponseRestoreBoundedEvidenceIndex = $physicalResponseFoldbackRestoreBlock.IndexOf(
+	'bounded stable-sample failure after %1 failed later samples',
+	$physicalResponseRestoreBoundedRelinquishIndex)
+$physicalResponseRestoreBoundedReturnIndex = $physicalResponseFoldbackRestoreBlock.IndexOf(
+	'return true;',
+	$physicalResponseRestoreBoundedEvidenceIndex)
+$physicalResponseRestoreBoundedLastFailureIndex = $physicalResponseFoldbackRestoreBlock.IndexOf(
+	'm_sPlayerRestoreLastStableSampleFailureEvidence;',
+	$physicalResponseRestoreBoundedEvidenceIndex)
+$physicalResponseRestoreAckFailureReturnIndex = $physicalResponseFoldbackRestoreBlock.IndexOf(
+	'return false;',
+	$physicalResponseRestoreAckFailureIndex)
+if ($physicalResponseRestoreAckFailureReturnIndex -le $physicalResponseRestoreAckFailureIndex -or
+	$physicalResponseRestoreBoundedGateIndex -le $physicalResponseRestoreAckFailureReturnIndex -or
+	$physicalResponseRestoreBoundedCapIndex -le $physicalResponseRestoreBoundedGateIndex -or
+	$physicalResponseRestoreBoundedFailedStatusIndex -le $physicalResponseRestoreBoundedCapIndex -or
+	$physicalResponseRestoreBoundedFlagIndex -le $physicalResponseRestoreBoundedFailedStatusIndex -or
+	$physicalResponseRestoreBoundedRelinquishIndex -le $physicalResponseRestoreBoundedFlagIndex -or
+	$physicalResponseRestoreBoundedEvidenceIndex -le $physicalResponseRestoreBoundedRelinquishIndex -or
+	$physicalResponseRestoreBoundedLastFailureIndex -le $physicalResponseRestoreBoundedEvidenceIndex -or
+	$physicalResponseRestoreBoundedReturnIndex -le $physicalResponseRestoreBoundedLastFailureIndex -or
+	$physicalResponseRestoreAckObservationIndex -le $physicalResponseRestoreBoundedReturnIndex) {
+	throw 'Physical-response bounded stable-sample failure must run only after an exact owner acknowledgement, relinquish ownership, and release as FAIL before taking a sixth later sample.'
+}
+$physicalResponseRestoreSampleSuccessGateIndex = $physicalResponseFoldbackRestoreBlock.IndexOf(
+	'if (m_bPlayerRestored)',
+	$physicalResponseRestoreSampleIndex)
+$physicalResponseRestoreSampleSuccessReturnIndex = $physicalResponseFoldbackRestoreBlock.IndexOf(
+	'return true;',
+	$physicalResponseRestoreSampleSuccessGateIndex)
+$physicalResponseRestoreSampleFailureIncrementIndex = $physicalResponseFoldbackRestoreBlock.IndexOf(
+	'm_iPlayerRestoreStableSampleFailures++;',
+	$physicalResponseRestoreSampleSuccessReturnIndex)
+$physicalResponseRestoreSampleFailureEvidenceIndex = $physicalResponseFoldbackRestoreBlock.IndexOf(
+	'm_sPlayerRestoreLastStableSampleFailureEvidence',
+	$physicalResponseRestoreSampleSuccessReturnIndex)
+$physicalResponseRestoreSampleFailureReapplyIndex = $physicalResponseFoldbackRestoreBlock.IndexOf(
+	'ArmPlayerRestoreReapply(',
+	$physicalResponseRestoreSampleFailureIncrementIndex)
+if ($physicalResponseRestoreSampleSuccessGateIndex -le $physicalResponseRestoreSampleIndex -or
+	$physicalResponseRestoreSampleSuccessReturnIndex -le $physicalResponseRestoreSampleSuccessGateIndex -or
+	$physicalResponseRestoreSampleFailureEvidenceIndex -le $physicalResponseRestoreSampleSuccessReturnIndex -or
+	$physicalResponseRestoreSampleFailureIncrementIndex -le $physicalResponseRestoreSampleFailureEvidenceIndex -or
+	$physicalResponseRestoreSampleFailureReapplyIndex -le $physicalResponseRestoreSampleFailureIncrementIndex) {
+	throw 'Physical-response stable-sample failures must increment only after a distinct later sample fails, preserve successful release, and then arm a corrective full-transform reapply.'
 }
 $physicalResponseRestoreObservationGateIndex = $physicalResponseFoldbackRestoreBlock.IndexOf(
 	'if (m_iPlayerRestoreLastAttemptObservationToken == observationToken)')
@@ -5906,6 +6043,20 @@ if ($physicalResponseAckRejectedIndex -lt 0 -or
 	$physicalResponseFoldbackReapplyBlock.IndexOf(
 		'm_sPlayerRestoreRequestId = "";') -lt 0) {
 	throw 'A failed or timed-out physical-response owner acknowledgement must clear the active request, sequence, deadline, and pending state before arming a full-transform reapply.'
+}
+if ($physicalResponseFoldbackReapplyBlock.IndexOf(
+		'm_iPlayerRestoreStableSampleFailures') -ge 0 -or
+	$physicalResponseFoldbackReapplyBlock.IndexOf(
+		'm_bPlayerRestoreBoundedFailure') -ge 0) {
+	throw 'Physical-response per-attempt reapply must preserve the cumulative stable-sample failure count and bounded disposition.'
+}
+$physicalResponseStableFailureMutations = [regex]::Matches(
+	$physicalResponseFoldbackDriveText,
+	'(?x)(?:(?:\+\+|--)\s*m_iPlayerRestoreStableSampleFailures|m_iPlayerRestoreStableSampleFailures\s*(?:\+\+|--|\+=|-=|\*=|/=|(?<![=!<>])=(?!=)))')
+if ($physicalResponseStableFailureMutations.Count -ne 1 -or
+	$physicalResponseStableFailureMutations[0].Value -notmatch
+		'm_iPlayerRestoreStableSampleFailures\s*\+\+\s*$') {
+	throw "Physical-response stable-sample failure count must have exactly one mutation, the post-failed-sample increment: found $($physicalResponseStableFailureMutations.Count)."
 }
 foreach ($physicalResponseDisconnectEntry in @(
 		'm_CampaignDebugPhysicalResponseFoldbackRestoreContext',
@@ -6020,6 +6171,17 @@ if ($physicalResponseSessionLossCheckIndex -lt 0 -or
 		'context.m_bPlayerRestoreSessionLost') -lt 0) {
 	throw 'Irrecoverable physical-response session loss must relinquish nonexistent/replaced ownership while recording a failed restore assertion.'
 }
+foreach ($physicalResponseBoundedAssertionEntry in @(
+		'context.m_iPlayerRestoreStableSampleFailures',
+		'HST_CampaignDebugPhysicalResponseFoldbackDriveResult.PLAYER_RESTORE_STABLE_SAMPLE_MAX_FAILURES',
+		'context.m_bPlayerRestoreBoundedFailure',
+		'CampaignDebugStatus(context.m_bPlayerRestored)'
+)) {
+	if ($physicalResponseFoldbackPlayerAssertionBlock.IndexOf(
+			$physicalResponseBoundedAssertionEntry) -lt 0) {
+		throw "Physical-response bounded restore disposition must remain visible in a failed final assertion: $physicalResponseBoundedAssertionEntry"
+	}
+}
 if ($physicalResponseFoldbackRestoreBlock.IndexOf(
 		'm_bPlayerRestored = coordinator.CampaignDebugApply') -ge 0 -or
 	$physicalResponseFoldbackRetentionBlock.IndexOf(
@@ -6027,7 +6189,9 @@ if ($physicalResponseFoldbackRestoreBlock.IndexOf(
 	$physicalResponseFoldbackRetentionBlock.IndexOf(
 		'm_bPlayerRestoreOwned') -lt 0 -or
 	$physicalResponseFoldbackRetentionBlock.IndexOf(
-		'!m_bPlayerRestoreSessionLost') -lt 0) {
+		'!m_bPlayerRestoreSessionLost') -lt 0 -or
+	$physicalResponseFoldbackRetentionBlock.IndexOf(
+		'!m_bPlayerRestoreBoundedFailure') -lt 0) {
 	throw 'Physical-response restore must retain attempt-owned authority and forbid same-frame or confirmed-teleport-only release.'
 }
 $physicalResponseReleaseRestoreIndex = $physicalResponseFoldbackPlayerReleaseBlock.IndexOf(
@@ -6044,16 +6208,45 @@ $physicalResponseReleaseSessionLossIndex = $physicalResponseFoldbackPlayerReleas
 $physicalResponseReleaseSessionLossErrorIndex = $physicalResponseFoldbackPlayerReleaseBlock.IndexOf(
 	'"ERROR"',
 	$physicalResponseReleaseSessionLossIndex)
+$physicalResponseReleaseBoundedFailureIndex = $physicalResponseFoldbackPlayerReleaseBlock.IndexOf(
+	'if (context.m_bPlayerRestoreBoundedFailure)',
+	$physicalResponseReleaseSessionLossErrorIndex)
+$physicalResponseReleaseBoundedFailureErrorIndex = $physicalResponseFoldbackPlayerReleaseBlock.IndexOf(
+	'"ERROR"',
+	$physicalResponseReleaseBoundedFailureIndex)
 if ($physicalResponseReleaseRestoreIndex -lt 0 -or
 	$physicalResponseReleaseClearIndex -le $physicalResponseReleaseRestoreIndex -or
 	$physicalResponseReleaseRecordIndex -le $physicalResponseReleaseClearIndex -or
 	$physicalResponseReleaseSessionLossIndex -le $physicalResponseReleaseRecordIndex -or
 	$physicalResponseReleaseSessionLossErrorIndex -le $physicalResponseReleaseSessionLossIndex -or
+	$physicalResponseReleaseBoundedFailureIndex -le $physicalResponseReleaseSessionLossErrorIndex -or
+	$physicalResponseReleaseBoundedFailureErrorIndex -le $physicalResponseReleaseBoundedFailureIndex -or
 	$physicalResponseFoldbackPlayerRetryBlock.IndexOf(
 		'ReleaseCampaignDebugPhysicalResponseFoldbackPlayerRestore(') -lt 0 -or
 	$enemyTargetScoringCaseText.IndexOf(
 		'protected ref HST_CampaignDebugPhysicalResponseFoldbackDriveResult m_CampaignDebugPhysicalResponseFoldbackRestoreContext;') -lt 0) {
-	throw 'Physical-response player restore must retain one coordinator-owned retry context, then clear it before the centralized pending-case record and terminal-loss report.'
+	throw 'Physical-response player restore must retain one coordinator-owned retry context, then clear it before the centralized pending-case record and terminal-loss or bounded-failure report.'
+}
+$physicalResponseRetrySessionLossGateIndex = $physicalResponseFoldbackPlayerRetryBlock.IndexOf(
+	'if (!context.m_bPlayerRestoreSessionLost')
+$physicalResponseRetryBoundedFailureGateIndex = -1
+if ($physicalResponseRetrySessionLossGateIndex -ge 0) {
+	$physicalResponseRetryBoundedFailureGateIndex =
+		$physicalResponseFoldbackPlayerRetryBlock.IndexOf(
+			'&& !context.m_bPlayerRestoreBoundedFailure',
+			$physicalResponseRetrySessionLossGateIndex)
+}
+$physicalResponseRetrySuccessLogIndex = -1
+if ($physicalResponseRetryBoundedFailureGateIndex -ge 0) {
+	$physicalResponseRetrySuccessLogIndex =
+		$physicalResponseFoldbackPlayerRetryBlock.IndexOf(
+			'physical-response retained player restore closed on the exact session/full-transform boundary',
+			$physicalResponseRetryBoundedFailureGateIndex)
+}
+if ($physicalResponseRetrySessionLossGateIndex -lt 0 -or
+	$physicalResponseRetryBoundedFailureGateIndex -le $physicalResponseRetrySessionLossGateIndex -or
+	$physicalResponseRetrySuccessLogIndex -le $physicalResponseRetryBoundedFailureGateIndex) {
+	throw 'Physical-response ordinary-frame recovery must never emit its exact-boundary success log for terminal session loss or bounded restore failure.'
 }
 $physicalResponsePendingRecordOccurrences = [regex]::Matches(
 	$enemyTargetScoringCaseText,

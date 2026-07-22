@@ -1508,12 +1508,12 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 			restoredSessionSafe,
 			sessionExact);
 		evidence = evidence + string.Format(
-			" | native teleport %1 | SetTransform changed %2 | parentless %3 | transform exact %4 | maximum delta %5m | reason %6",
+			" | native teleport %1 | SetTransform changed %2 | parentless %3 | transform exact %4 | maximum transform row delta %5 | reason %6",
 			nativeTeleported,
 			transformApplied,
 			parentless,
 			transformExact,
-			Math.Round(maximumTransformDelta),
+			maximumTransformDelta,
 			reason);
 		ReportCampaignDebugPhysicalResponseRestore(
 			restoreRequestId,

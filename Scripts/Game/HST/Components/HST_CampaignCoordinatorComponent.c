@@ -433,6 +433,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	static const int CAMPAIGN_DEBUG_CIVILIAN_CLEANUP_MAX_ATTEMPTS = 5;
 	static const float CAMPAIGN_DEBUG_CIVILIAN_GROUNDED_TOLERANCE_METERS = 1.5;
 	static const float CAMPAIGN_DEBUG_CIVILIAN_RESTORE_TOLERANCE_METERS = 0.001;
+	static const float CAMPAIGN_DEBUG_PHYSICAL_RESPONSE_STABLE_RESTORE_MAX_ROW_DELTA
+		= 0.005;
 	static const float CAMPAIGN_DEBUG_CIVILIAN_TELEPORT_DRIFT_TOLERANCE_METERS = 2.0;
 	static const int CAMPAIGN_DEBUG_PHASE17_PROJECTION_STAGE_SPAWN = 1;
 	static const int CAMPAIGN_DEBUG_PHASE17_PROJECTION_STAGE_PHYSICAL = 2;
@@ -22758,25 +22760,25 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!ownerRpcQueued || !transformExact)
 		{
 			evidence = string.Format(
-				"exact restore apply incomplete | request %1 sequence %2 | server teleport %3 | owner full-transform RPC %4 | SetTransform changed %5 | transform exact %6 | maximum delta %7m",
+				"exact restore apply incomplete | request %1 sequence %2 | server teleport %3 | owner full-transform RPC %4 | SetTransform changed %5 | transform exact %6 | maximum transform row delta %7",
 				restoreRequestId,
 				applySequence,
 				teleported,
 				ownerRpcQueued,
 				transformApplied,
 				transformExact,
-				Math.Round(immediateMaximumTransformDelta));
+				immediateMaximumTransformDelta);
 			return false;
 		}
 		evidence = string.Format(
-			"exact restore applied | request %1 sequence %2 | server teleport %3 | owner full-transform RPC %4 | SetTransform changed %5 | transform exact %6 | maximum delta %7m",
+			"exact restore applied | request %1 sequence %2 | server teleport %3 | owner full-transform RPC %4 | SetTransform changed %5 | transform exact %6 | maximum transform row delta %7",
 			restoreRequestId,
 			applySequence,
 			teleported,
 			ownerRpcQueued,
 			transformApplied,
 			transformExact,
-			Math.Round(immediateMaximumTransformDelta));
+			immediateMaximumTransformDelta);
 		return true;
 	}
 
@@ -22836,15 +22838,16 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			transformExact = IsCampaignDebugCivilianPlayerTransformExact(
 				expectedPlayer,
 				expectedTransform,
-				maximumTransformDelta);
+				maximumTransformDelta,
+				CAMPAIGN_DEBUG_PHYSICAL_RESPONSE_STABLE_RESTORE_MAX_ROW_DELTA);
 			parentless = expectedPlayer.GetParent() == null;
 		}
 		evidence = string.Format(
-			"later sample session exact %1 | parentless %2 | full transform exact %3 | maximum delta %4m | %5",
+			"later sample session exact %1 | parentless %2 | full transform within tolerance %3 | maximum row delta %4 | %5",
 			sessionExact,
 			parentless,
 			transformExact,
-			Math.Round(maximumTransformDelta),
+			maximumTransformDelta,
 			EmptyCampaignDebugField(sessionEvidence));
 		return sessionExact && parentless && transformExact;
 	}
@@ -22855,21 +22858,27 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	{
 		if (!responseCase || !context)
 			return;
+		string restoreDispositionEvidence = string.Format(
+			" | stable-sample failures %1/%2 | bounded failure %3",
+			context.m_iPlayerRestoreStableSampleFailures,
+			HST_CampaignDebugPhysicalResponseFoldbackDriveResult.PLAYER_RESTORE_STABLE_SAMPLE_MAX_FAILURES,
+			context.m_bPlayerRestoreBoundedFailure);
 		AddCampaignDebugAssertion(
 			responseCase,
 			"enemy_physical_response.player_restore",
-			"the exact controlled-player session and full transform are stable on a distinct later ordinary sample after the foldback drive",
+			"the captured controlled-player session receives an exact owner acknowledgement and its full transform is stable within the physical-response tolerance on a distinct later ordinary server sample",
 			context.m_sPlayerRestoreEvidence + string.Format(
-				" | server maximum transform delta %1m | owner maximum transform delta %2m | request %3 sequence/ack %4/%5 | dispatch/owner-ack/stable tokens %6/%7/%8 | terminal session loss %9",
-				Math.Round(context.m_fPlayerRestoreMaximumTransformDelta),
-				Math.Round(context.m_fPlayerRestoreOwnerMaximumTransformDelta),
+				" | server/owner maximum transform row delta %1/%2 | request %3 sequence/ack %4/%5 | dispatch/owner-ack/stable tokens %6/%7/%8 | terminal session loss %9",
+				context.m_fPlayerRestoreMaximumTransformDelta,
+				context.m_fPlayerRestoreOwnerMaximumTransformDelta,
 				EmptyCampaignDebugField(context.m_sPlayerRestoreRequestId),
 				context.m_iPlayerRestoreApplySequence,
 				context.m_iPlayerRestoreOwnerAckSequence,
 				context.m_iPlayerRestoreAppliedObservationToken,
 				context.m_iPlayerRestoreOwnerAckObservedToken,
 				context.m_iPlayerRestoreStableSampleObservationToken,
-				context.m_bPlayerRestoreSessionLost),
+				context.m_bPlayerRestoreSessionLost)
+				+ restoreDispositionEvidence,
 			CampaignDebugStatus(context.m_bPlayerRestored),
 			"physical-response foldback retained exact player-restore ownership");
 	}
@@ -22899,7 +22908,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		{
 			string pendingActual = string.Format(
 				"observation %1 | apply/ack %2/%3 | pending %4 | "
-					+ "server/owner maximum delta %5/%6m",
+					+ "server/owner maximum transform row delta %5/%6",
 				observationToken,
 				context.m_iPlayerRestoreApplySequence,
 				context.m_iPlayerRestoreOwnerAckSequence,
@@ -22933,6 +22942,14 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			AppendCampaignDebugLog(
 				"ERROR",
 				"physical-response player restore terminal session loss",
+				EmptyCampaignDebugField(reason) + " | "
+					+ context.m_sPlayerRestoreEvidence);
+		}
+		if (context.m_bPlayerRestoreBoundedFailure)
+		{
+			AppendCampaignDebugLog(
+				"ERROR",
+				"physical-response player restore bounded failure",
 				EmptyCampaignDebugField(reason) + " | "
 					+ context.m_sPlayerRestoreEvidence);
 		}
@@ -55207,7 +55224,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!ReleaseCampaignDebugPhysicalResponseFoldbackPlayerRestore(
 			"ordinary-frame retained cleanup retry"))
 			return;
-		if (!context.m_bPlayerRestoreSessionLost)
+		if (!context.m_bPlayerRestoreSessionLost
+			&& !context.m_bPlayerRestoreBoundedFailure)
 		{
 			AppendCampaignDebugLog(
 				"INFO",
@@ -55826,7 +55844,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	protected bool IsCampaignDebugCivilianPlayerTransformExact(
 		IEntity playerEntity,
 		vector expectedTransform[4],
-		out float maximumDelta)
+		out float maximumDelta,
+		float maximumRowDeltaTolerance = CAMPAIGN_DEBUG_CIVILIAN_RESTORE_TOLERANCE_METERS)
 	{
 		maximumDelta = -1.0;
 		if (!playerEntity || playerEntity.IsDeleted())
@@ -55843,8 +55862,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			if (delta > maximumDelta)
 				maximumDelta = delta;
 		}
-		return maximumDelta
-			<= CAMPAIGN_DEBUG_CIVILIAN_RESTORE_TOLERANCE_METERS;
+		return maximumRowDeltaTolerance >= 0.0
+			&& maximumDelta <= maximumRowDeltaTolerance;
 	}
 
 	protected bool CaptureCampaignDebugRuntimeVehicleRows(

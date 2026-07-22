@@ -5,6 +5,7 @@
 class HST_CampaignDebugPhysicalResponseFoldbackDriveResult
 {
 	static const int PLAYER_RESTORE_OWNER_ACK_TIMEOUT_MS = 5000;
+	static const int PLAYER_RESTORE_STABLE_SAMPLE_MAX_FAILURES = 5;
 	static const float PLAYER_RESTORE_TRANSFORM_TOLERANCE_METERS = 0.001;
 
 	ref HST_ActiveGroupState m_GroupAfterDrive;
@@ -22,6 +23,7 @@ class HST_CampaignDebugPhysicalResponseFoldbackDriveResult
 	bool m_bPlayerRestoreOwnerAckExact;
 	bool m_bPlayerRestoreDisconnectObserved;
 	bool m_bPlayerRestoreSessionLost;
+	bool m_bPlayerRestoreBoundedFailure;
 	bool m_bNearTeleport;
 	bool m_bInsideBubbleBeforeLeave;
 	bool m_bFarTeleport;
@@ -41,6 +43,7 @@ class HST_CampaignDebugPhysicalResponseFoldbackDriveResult
 	int m_iPlayerRestoreOwnerAckSequence = -1;
 	int m_iPlayerRestoreOwnerAckObservedToken = -1;
 	int m_iPlayerRestoreOwnerDispatchTick = -1;
+	int m_iPlayerRestoreStableSampleFailures;
 	float m_fPlayerRestoreMaximumTransformDelta = -1.0;
 	float m_fPlayerRestoreOwnerMaximumTransformDelta = -1.0;
 	string m_sGroupStatusBeforeFold;
@@ -49,6 +52,7 @@ class HST_CampaignDebugPhysicalResponseFoldbackDriveResult
 	string m_sPlayerRestoreRequestId;
 	string m_sPlayerRestoreOwnerEvidence = "not received";
 	string m_sPlayerRestoreEvidence = "not attempted";
+	string m_sPlayerRestoreLastStableSampleFailureEvidence = "not sampled";
 	string m_sEvidence = "not attempted";
 
 	void CaptureBeforeDrive(
@@ -322,15 +326,30 @@ class HST_CampaignDebugPhysicalResponseFoldbackDriveResult
 					+ ownerFailureEvidence);
 			return false;
 		}
+		if (m_iPlayerRestoreStableSampleFailures
+			>= PLAYER_RESTORE_STABLE_SAMPLE_MAX_FAILURES)
+		{
+			m_bPlayerRestored = false;
+			m_bPlayerRestoreBoundedFailure = true;
+			m_bPlayerRestoreOwned = false;
+			m_sPlayerRestoreEvidence = string.Format(
+				"bounded stable-sample failure after %1 failed later samples; final server apply and exact owner acknowledgement completed for request %2 sequence %3",
+				m_iPlayerRestoreStableSampleFailures,
+				m_sPlayerRestoreRequestId,
+				m_iPlayerRestoreApplySequence)
+				+ " | last failed later sample | "
+				+ m_sPlayerRestoreLastStableSampleFailureEvidence;
+			return true;
+		}
 		if (m_iPlayerRestoreOwnerAckObservedToken < 0)
 		{
 			m_iPlayerRestoreOwnerAckObservedToken = observationToken;
 			m_sPlayerRestoreEvidence = string.Format(
-				"request %1 sequence %2 owner acknowledgement exact at token %3 | owner maximum delta %4m | awaiting a distinct later server sample | %5",
+				"request %1 sequence %2 owner acknowledgement exact at token %3 | owner maximum transform row delta %4 | awaiting a distinct later server sample | %5",
 				m_sPlayerRestoreRequestId,
 				m_iPlayerRestoreApplySequence,
 				m_iPlayerRestoreOwnerAckObservedToken,
-				Math.Round(m_fPlayerRestoreOwnerMaximumTransformDelta),
+				m_fPlayerRestoreOwnerMaximumTransformDelta,
 				m_sPlayerRestoreOwnerEvidence);
 			return false;
 		}
@@ -352,8 +371,14 @@ class HST_CampaignDebugPhysicalResponseFoldbackDriveResult
 			return true;
 
 		string sampleFailureEvidence = m_sPlayerRestoreEvidence;
+		m_sPlayerRestoreLastStableSampleFailureEvidence
+			= sampleFailureEvidence;
+		m_iPlayerRestoreStableSampleFailures++;
 		ArmPlayerRestoreReapply(
-			"later player sample failed; corrective full-transform reapply armed | "
+			string.Format(
+				"later player sample failed %1/%2; corrective full-transform reapply armed | ",
+				m_iPlayerRestoreStableSampleFailures,
+				PLAYER_RESTORE_STABLE_SAMPLE_MAX_FAILURES)
 				+ sampleFailureEvidence);
 		return false;
 	}
@@ -415,6 +440,7 @@ class HST_CampaignDebugPhysicalResponseFoldbackDriveResult
 		return m_bPlayerSessionCaptured
 			&& m_bPlayerRestoreOwned
 			&& !m_bPlayerRestoreSessionLost
+			&& !m_bPlayerRestoreBoundedFailure
 			&& !m_bPlayerRestored;
 	}
 

@@ -717,9 +717,10 @@ Gate 1 or Workshop publishing requirement.
   Retain the context after any incomplete step.
 - The Foundation contract covers snapshot membership, equality dimensions,
   publish-once behavior, helper ordering, and release/restore ordering. The
-  current full working-tree run passes at 889 references, and the exact tree
-  passes all five guarded Workbench targets. Treat this as source/compile
-  evidence only until a native render-bubble cleanup run passes.
+  retained pre-repair checkpoint passed at 889 references and all five guarded
+  Workbench targets. That historical source/compile evidence does not transfer
+  to the current Gate 1 checkpoint, and a native render-bubble cleanup run
+  remains required.
 
 ## Physical-Response Player Restore Cancellation
 
@@ -728,11 +729,20 @@ Gate 1 or Workshop publishing requirement.
   teleport and one unique run-scoped full-transform owner RPC. Only the
   authenticated owning controller may return its reliable acknowledgement,
   and its transform-exact boolean is admissible only when the reported maximum
-  transform delta is nonnegative and at most `0.001` meters. That exact
+  transform row delta is nonnegative and at most `0.001`. That exact
   acknowledgement must arrive before a distinct later ordinary server sample
-  can release the owner. The stable sample is read-only, remains
-  session-, parent-, and transform-exact, and has an observation token greater
-  than the acknowledgement token. Use one coordinator-owned, saturating
+  can release the owner. The stable sample is read-only, remains session- and
+  parent-exact, uses a physical-response-only maximum full-transform row
+  distance of `0.005`, and has an observation token greater than the
+  acknowledgement token. The translation row is measured in meters; the three
+  basis rows are dimensionless, so evidence must call this a row delta rather
+  than labeling the whole maximum as meters. Do not relax the shared civilian
+  restore default or the owner acknowledgement limit: both remain `0.001`.
+  A native diagnostic run rejected one `10602.3`-meter deferred correction from
+  the earlier near teleport, then measured ordinary character settling between
+  `0.00203792` and `0.00205558`. The narrow later-sample override accepts that
+  stable engine motion without admitting the gross correction. Use one
+  coordinator-owned, saturating
   observation sequence that advances once per server `EOnFrame` only while a
   running or retained-recovery lifecycle exists; idle server uptime must not
   consume it. Do not switch from campaign elapsed time to a reset recovery
@@ -740,9 +750,16 @@ Gate 1 or Workshop publishing requirement.
   owner absent and before the next isolated lifecycle begins. A failed or
   mismatched acknowledgement, or later drift, retains ownership and rearms a
   corrective apply; the proof cannot pass by acknowledging or resampling the
-  apply frame. Both the owner-side preflight and its post-teleport revalidation
-  must prove the controlled entity is live, undeleted, parentless, and outside
-  every compartment transition before the full transform is applied.
+  apply frame. Count only failed distinct later server samples after an exact
+  server apply and exact owner acknowledgement. After five such failures,
+  require one final exact server apply and owner acknowledgement, record the
+  restore assertion as `FAIL`, relinquish the now-exact restore owner, and
+  continue the remaining cleanup instead of retaining the report forever. Do
+  not charge apply failures, acknowledgement timeouts, sequence mismatches, or
+  rejected acknowledgements to that stable-sample budget. Both the owner-side
+  preflight and its post-teleport revalidation must prove the controlled entity
+  is live, undeleted, parentless, and outside every compartment transition
+  before the full transform is applied.
 - Bound a pending owner acknowledgement with a 5,000 ms real-time deadline
   measured by `System.GetTickCount(dispatchTick)`, not campaign elapsed time.
   Reject an acknowledgement at or after that deadline on ingress before it can
@@ -771,7 +788,8 @@ Gate 1 or Workshop publishing requirement.
   must never resume the baseline tail after release.
 - These are source/static-contract rules, not runtime proof. Native tests must
   exercise authenticated acknowledgement, failed-ack reapply, timed-out-ack
-  reapply with a rejected late stale acknowledgement, distinct later sampling,
+  reapply with a rejected late stale acknowledgement, accepted stable settling,
+  rejected out-of-tolerance later samples, bounded later-sample failure,
   cancellation, and each terminal session-loss disposition.
 
 ## Mission-Sweep Per-Owner Cleanup Receipts

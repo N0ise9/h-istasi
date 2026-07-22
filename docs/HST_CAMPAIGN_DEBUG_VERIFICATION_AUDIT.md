@@ -761,10 +761,10 @@ or administrative retry.
 The targeted Foundation contract checks capture coverage, projected-versus-
 retained cardinality, pointer/kind order, canonical fingerprint equality,
 publish-once behavior, split-helper order, and the two release-ordering barriers.
-The current full working-tree run passes at 889 references and the exact tree
-passes all five guarded Workbench targets. A native render-bubble cleanup run
-remains required; this source/compile repair does not inherit runtime evidence
-from an earlier candidate.
+The retained pre-repair checkpoint passed at 889 references and all five guarded
+Workbench targets. That historical source/compile evidence does not transfer to
+the current Gate 1 checkpoint. A native render-bubble cleanup run remains
+required.
 
 ## Unsealed Physical-Response Player Restore Cancellation Repair
 
@@ -773,9 +773,18 @@ transform across the physical-response foldback drive. Every apply uses one
 unique run-scoped full-transform owner RPC, and only the authenticated owning
 controller may return its reliable acknowledgement. The acknowledgement's
 transform-exact boolean is admissible only when its maximum-delta metric is
-nonnegative and no greater than `0.001` meters. Release requires that exact
+nonnegative and no greater than `0.001`. Release requires that exact
 acknowledgement before a distinct later stable, read-only server sample whose
-observation token is greater than the acknowledgement token. One
+observation token is greater than the acknowledgement token. That later sample
+alone uses a `0.005` physical-response full-transform row-distance limit; the
+translation row is measured in meters and the three basis rows are
+dimensionless. The shared civilian restore default and immediate owner
+acknowledgement both remain at `0.001`. Native diagnostic evidence rejected an
+initial `10602.3`-meter
+deferred correction from the earlier near teleport and then measured stable
+character-transform row motion between `0.00203792` and `0.00205558`,
+establishing why the scoped sample limit is necessary without weakening the
+immediate restore gate. One
 coordinator-owned, saturating observation sequence advances once per server
 `EOnFrame` only while a running or retained-recovery lifecycle exists and is
 shared across both modes, so the boundary never switches from elapsed seconds
@@ -786,7 +795,12 @@ post-teleport revalidation both require a live, undeleted, parentless entity
 outside every compartment transition before `SetTransform`. A failed or
 mismatched acknowledgement, or later session, parent, or transform drift,
 keeps the owner retained and rearms a corrective apply before another
-acknowledgement/sample pair.
+acknowledgement/sample pair. Only failed distinct later samples following an
+exact server apply and exact owner acknowledgement consume the bounded budget.
+After five failures, one final exact apply and owner acknowledgement records the
+restore assertion as `FAIL`, relinquishes restore ownership, and lets the report
+tail continue. Apply failures, acknowledgement timeouts, sequence mismatches,
+and rejected acknowledgements do not consume that budget.
 
 A pending owner acknowledgement now has a 5,000 ms real-time deadline measured
 with `System.GetTickCount(dispatchTick)` rather than campaign elapsed time. An
@@ -809,9 +823,10 @@ entity or a positively observed live pointer/replication replacement is
 terminal. One release boundary centralizes case recording for baseline,
 cancellation, and ordinary-frame recovery, then routes to the correct
 continuation without duplicating or dropping the case. This is source/static-
-contract evidence only; native owner-acknowledgement, failed-ack reapply,
-timed-out-ack/late-stale-ack fencing, cancellation, and terminal-session-loss
-runs are still required.
+contract evidence plus a diagnostic measurement, not a completed Gate 1 run;
+native owner-acknowledgement, failed-ack reapply, timed-out-ack/late-stale-ack
+fencing, accepted stable settling, bounded later-sample failure, cancellation,
+and terminal-session-loss runs are still required.
 
 ## Unsealed Mission-Sweep Cleanup Ownership Repair
 
