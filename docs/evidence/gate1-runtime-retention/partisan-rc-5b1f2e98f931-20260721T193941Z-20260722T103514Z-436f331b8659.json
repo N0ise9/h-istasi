@@ -1,0 +1,1850 @@
+{
+    "schemaVersion":  1,
+    "contractId":  "partisan.gate1-runtime-retention.index.v1",
+    "evidenceKind":  "packaged-gate1-runtime-retention",
+    "runId":  "gate1_20260722T103514Z_436f331b86594c5bb94f",
+    "candidateId":  "partisan-rc-5b1f2e98f931-20260721T193941Z",
+    "gitHead":  "5b1f2e98f93137230e686312c6e99cea7630dae4",
+    "packageSha256":  "af22d6322a215dbef466e49041fc07395cbb5ed7a5951fd3e0cee5f4a101f530",
+    "candidateBindingSha256":  "06b5fa23ccd10bfd1f8621f6b03c25d9c36719cc9c7d08ebcc73dabbba8c9f5f",
+    "run":  {
+                "path":  "run.json",
+                "length":  162987,
+                "sha256":  "a137765e49c2d278976b7b87cba15792d6bcf303ddf9317252a338486bd5752d"
+            },
+    "topology":  {
+                     "stageCount":  5,
+                     "diagnosticContextCount":  5,
+                     "diagnosticServerLaunchCount":  5,
+                     "diagnosticClientLaunchCount":  1,
+                     "standardContextCount":  5,
+                     "standardServerLaunchCount":  5,
+                     "standardClientLaunchCount":  1,
+                     "standardStages":  [
+                                            {
+                                                "ordinal":  0,
+                                                "stage":  "autosave_checkpoint",
+                                                "contextId":  "ece21ba1050e4dcc8b18eee2c042a078",
+                                                "candidateBindingSha256":  "06b5fa23ccd10bfd1f8621f6b03c25d9c36719cc9c7d08ebcc73dabbba8c9f5f",
+                                                "serverStopDisposition":  "guarded-external-stop-after-log-readiness",
+                                                "clientLaunched":  false,
+                                                "receiptPath":  "raw/guarded-runtime/.PartisanGuardedRuntime_ece21ba1050e4dcc8b18eee2c042a078.receipt.json",
+                                                "receiptSha256":  "d485fb85397681221ecfe7450be4c7f4b4199f94405c7300bfd68c8dfd0ce787"
+                                            },
+                                            {
+                                                "ordinal":  1,
+                                                "stage":  "manual_checkpoint",
+                                                "contextId":  "1bb50b8dd714424cba9ea9095b604286",
+                                                "candidateBindingSha256":  "06b5fa23ccd10bfd1f8621f6b03c25d9c36719cc9c7d08ebcc73dabbba8c9f5f",
+                                                "serverStopDisposition":  "guarded-external-stop-after-log-readiness",
+                                                "clientLaunched":  false,
+                                                "receiptPath":  "raw/guarded-runtime/.PartisanGuardedRuntime_1bb50b8dd714424cba9ea9095b604286.receipt.json",
+                                                "receiptSha256":  "6b7346ca881a44e454825db1690ea01b11e61968f352cf72870e83b7b3e92416"
+                                            },
+                                            {
+                                                "ordinal":  2,
+                                                "stage":  "shutdown_checkpoint",
+                                                "contextId":  "68f7a79db02a48d3b8f2ad2b10484a7a",
+                                                "candidateBindingSha256":  "06b5fa23ccd10bfd1f8621f6b03c25d9c36719cc9c7d08ebcc73dabbba8c9f5f",
+                                                "serverStopDisposition":  "guarded-external-stop-after-log-readiness",
+                                                "clientLaunched":  true,
+                                                "receiptPath":  "raw/guarded-runtime/.PartisanGuardedRuntime_68f7a79db02a48d3b8f2ad2b10484a7a.receipt.json",
+                                                "receiptSha256":  "947b9840579a121a4c8b6d6f28b06d4f4653c93cebf68c5cbe2441dcd6bfea7b"
+                                            },
+                                            {
+                                                "ordinal":  3,
+                                                "stage":  "native_shutdown_verify",
+                                                "contextId":  "d36c0947bdc249dba5caca5bb7b2c2bc",
+                                                "candidateBindingSha256":  "06b5fa23ccd10bfd1f8621f6b03c25d9c36719cc9c7d08ebcc73dabbba8c9f5f",
+                                                "serverStopDisposition":  "guarded-external-stop-after-log-readiness",
+                                                "clientLaunched":  false,
+                                                "receiptPath":  "raw/guarded-runtime/.PartisanGuardedRuntime_d36c0947bdc249dba5caca5bb7b2c2bc.receipt.json",
+                                                "receiptSha256":  "0572cda2e93e9dcb1363ab29d37d32dae1f53468e2216deaff5c5cb7857903c9"
+                                            },
+                                            {
+                                                "ordinal":  4,
+                                                "stage":  "profile_fallback_verify",
+                                                "contextId":  "b18c94c546954f08938df4c2753f1ccc",
+                                                "candidateBindingSha256":  "06b5fa23ccd10bfd1f8621f6b03c25d9c36719cc9c7d08ebcc73dabbba8c9f5f",
+                                                "serverStopDisposition":  "guarded-external-stop-after-log-readiness",
+                                                "clientLaunched":  false,
+                                                "receiptPath":  "raw/guarded-runtime/.PartisanGuardedRuntime_b18c94c546954f08938df4c2753f1ccc.receipt.json",
+                                                "receiptSha256":  "d9fd116ec08a250702c501778e2545ff04d6dd225111ada3a9e31c32bcccba7e"
+                                            }
+                                        ]
+                 },
+    "validation":  {
+                       "candidateAndReadyExact":  true,
+                       "packageCanonicalDigestExact":  true,
+                       "guardedReceiptsComplete":  true,
+                       "diagnosticAndStandardPhasesDisjoint":  true,
+                       "argumentTopologyExact":  true,
+                       "snapshotsExact":  true,
+                       "readOnlyStagesExact":  true,
+                       "standardSaveByteStabilityObserved":  true,
+                       "standardSaveRestorationCertified":  false,
+                       "fullFileCensusExact":  true,
+                       "executionMode":  "two-phase-engine"
+                   },
+    "files":  [
+                  {
+                      "role":  "runtime_settings",
+                      "stage":  "run",
+                      "path":  "configuration/HST_Settings.json",
+                      "length":  194,
+                      "sha256":  "8e72403321255541fbd5b5aeeb4e5da7dcef7392e303436c35d5f58c39851bae"
+                  },
+                  {
+                      "role":  "launch_contract",
+                      "stage":  "run",
+                      "path":  "configuration/launch-contract.json",
+                      "length":  3266,
+                      "sha256":  "8dd3960a497552b8705c2e8e9ac22eea5e9702894d35a2fed071d5880af9f198"
+                  },
+                  {
+                      "role":  "candidate_manifest",
+                      "stage":  "run",
+                      "path":  "identity/candidate.json",
+                      "length":  26756,
+                      "sha256":  "bef040090557ca1403d6505e2bd1150452ba467225a29adc4295641f5aa3c80c"
+                  },
+                  {
+                      "role":  "candidate_ready",
+                      "stage":  "run",
+                      "path":  "identity/candidate.ready.json",
+                      "length":  334,
+                      "sha256":  "173434122dce60dde8ff1dc939e2d5a916094bdb31096a641850772aa9853ad3"
+                  },
+                  {
+                      "role":  "candidate_package",
+                      "stage":  "run",
+                      "path":  "identity/package/Partisan/addon.gproj",
+                      "length":  499,
+                      "sha256":  "9bde766602b7a1d6234aa9cc3c897ca7572d1ca1f0b284db4fe838686d63b1d5"
+                  },
+                  {
+                      "role":  "candidate_package",
+                      "stage":  "run",
+                      "path":  "identity/package/Partisan/data.pak",
+                      "length":  4524888,
+                      "sha256":  "46786374b36eeb313096808746b1cbbfa01e7e2e474375aefb51a9d65802683f"
+                  },
+                  {
+                      "role":  "candidate_package",
+                      "stage":  "run",
+                      "path":  "identity/package/Partisan/resourceDatabase.rdb",
+                      "length":  32828,
+                      "sha256":  "6c783d95eac9262e7686f21e9ebba5d6c9ca3b3197db05bebb7614576825d562"
+                  },
+                  {
+                      "role":  "candidate_package",
+                      "stage":  "run",
+                      "path":  "identity/package/Partisan/thumbnail.png",
+                      "length":  47452,
+                      "sha256":  "17463baf95bb4957ca842554b5742ff0f5648673088fc16391b19619233a8ab6"
+                  },
+                  {
+                      "role":  "diagnostic_guarded_runtime_completion",
+                      "stage":  "run",
+                      "path":  "raw/diagnostic-guarded-runtime/.PartisanGuardedRuntime_015f6bdf7bc6414081913f7ab477fb60.completion.json",
+                      "length":  1038,
+                      "sha256":  "8a947221f221b907b3c7d341021624183f5d6a332cd993de76074e078fccaca3"
+                  },
+                  {
+                      "role":  "diagnostic_guarded_runtime_journal",
+                      "stage":  "run",
+                      "path":  "raw/diagnostic-guarded-runtime/.PartisanGuardedRuntime_015f6bdf7bc6414081913f7ab477fb60.journal.json",
+                      "length":  487,
+                      "sha256":  "d69db4da9db683efbcbe7c9a9b9d1415ed115f39d78d519a4a00e2331671295d"
+                  },
+                  {
+                      "role":  "diagnostic_guarded_runtime_receipt",
+                      "stage":  "run",
+                      "path":  "raw/diagnostic-guarded-runtime/.PartisanGuardedRuntime_015f6bdf7bc6414081913f7ab477fb60.receipt.json",
+                      "length":  29023,
+                      "sha256":  "42ad2aceea76e667d95e8695bd06cf2d002e8f38e92d66e86cb97a95ad87ed1b"
+                  },
+                  {
+                      "role":  "diagnostic_guarded_runtime_completion",
+                      "stage":  "run",
+                      "path":  "raw/diagnostic-guarded-runtime/.PartisanGuardedRuntime_3e98ac593fcb4207868bff87e673cdde.completion.json",
+                      "length":  1038,
+                      "sha256":  "0047a4a3dfa61bf17dc8619e9062ca9a8c1fb452a785e46474e43a48f530a92c"
+                  },
+                  {
+                      "role":  "diagnostic_guarded_runtime_journal",
+                      "stage":  "run",
+                      "path":  "raw/diagnostic-guarded-runtime/.PartisanGuardedRuntime_3e98ac593fcb4207868bff87e673cdde.journal.json",
+                      "length":  487,
+                      "sha256":  "b8acce865f072b1decc7011b55306e1b104c1e528626febc9fe1f11c486daba4"
+                  },
+                  {
+                      "role":  "diagnostic_guarded_runtime_receipt",
+                      "stage":  "run",
+                      "path":  "raw/diagnostic-guarded-runtime/.PartisanGuardedRuntime_3e98ac593fcb4207868bff87e673cdde.receipt.json",
+                      "length":  28396,
+                      "sha256":  "1aed6f83362b9a61e1b0ed834e1ce713e49ee5f3ff24cbd560dfec30b163322f"
+                  },
+                  {
+                      "role":  "diagnostic_guarded_runtime_completion",
+                      "stage":  "run",
+                      "path":  "raw/diagnostic-guarded-runtime/.PartisanGuardedRuntime_4af7b7adbf9a46b89ecdd9dba82204a7.completion.json",
+                      "length":  1038,
+                      "sha256":  "e95d8e640ac173374fc3840ab46864a798eeb29c1854eaa516ef7da91d7fe1b4"
+                  },
+                  {
+                      "role":  "diagnostic_guarded_runtime_journal",
+                      "stage":  "run",
+                      "path":  "raw/diagnostic-guarded-runtime/.PartisanGuardedRuntime_4af7b7adbf9a46b89ecdd9dba82204a7.journal.json",
+                      "length":  487,
+                      "sha256":  "ba7ab9181a8d2cdaf9e1ca02186a467282d9f80c384c520224bf190eead393a3"
+                  },
+                  {
+                      "role":  "diagnostic_guarded_runtime_receipt",
+                      "stage":  "run",
+                      "path":  "raw/diagnostic-guarded-runtime/.PartisanGuardedRuntime_4af7b7adbf9a46b89ecdd9dba82204a7.receipt.json",
+                      "length":  28943,
+                      "sha256":  "6794ba0fd153c4c79db26aaa36c905fb071a70fd26983e3da111436d70918ac2"
+                  },
+                  {
+                      "role":  "diagnostic_guarded_runtime_completion",
+                      "stage":  "run",
+                      "path":  "raw/diagnostic-guarded-runtime/.PartisanGuardedRuntime_5450ceb12cd544ca9c60242fb7c1777d.completion.json",
+                      "length":  1038,
+                      "sha256":  "2f229c29ad1cae4877f1b7b033d7d8f7bc1f4d13ba179badced41dd982aa777f"
+                  },
+                  {
+                      "role":  "diagnostic_guarded_runtime_journal",
+                      "stage":  "run",
+                      "path":  "raw/diagnostic-guarded-runtime/.PartisanGuardedRuntime_5450ceb12cd544ca9c60242fb7c1777d.journal.json",
+                      "length":  487,
+                      "sha256":  "11bce3e4f0b480987e73783b891e81f7a3d625f4e781778c34b8e2fbb262d44e"
+                  },
+                  {
+                      "role":  "diagnostic_guarded_runtime_receipt",
+                      "stage":  "run",
+                      "path":  "raw/diagnostic-guarded-runtime/.PartisanGuardedRuntime_5450ceb12cd544ca9c60242fb7c1777d.receipt.json",
+                      "length":  49879,
+                      "sha256":  "fa0e35c4ea92e816986c741ea64e5f65ea96293a14dd1ee8b63ceba5bf1cac63"
+                  },
+                  {
+                      "role":  "diagnostic_guarded_runtime_completion",
+                      "stage":  "run",
+                      "path":  "raw/diagnostic-guarded-runtime/.PartisanGuardedRuntime_bc322a3c519543cdb0b428915b1d5353.completion.json",
+                      "length":  1038,
+                      "sha256":  "7e577fbfbec34fbf05c36aa9b76147692db886d86cef9e025b7cacb7085a479e"
+                  },
+                  {
+                      "role":  "diagnostic_guarded_runtime_journal",
+                      "stage":  "run",
+                      "path":  "raw/diagnostic-guarded-runtime/.PartisanGuardedRuntime_bc322a3c519543cdb0b428915b1d5353.journal.json",
+                      "length":  487,
+                      "sha256":  "058f8b170e125afcb486560ef2c2673dbe841235637950031afe30123c9f7663"
+                  },
+                  {
+                      "role":  "diagnostic_guarded_runtime_receipt",
+                      "stage":  "run",
+                      "path":  "raw/diagnostic-guarded-runtime/.PartisanGuardedRuntime_bc322a3c519543cdb0b428915b1d5353.receipt.json",
+                      "length":  28601,
+                      "sha256":  "3775a9d0003b6efb97c52163b1045a18642903825dbdcfe686bf9ef627096c1f"
+                  },
+                  {
+                      "role":  "guarded_runtime_completion",
+                      "stage":  "run",
+                      "path":  "raw/guarded-runtime/.PartisanGuardedRuntime_1bb50b8dd714424cba9ea9095b604286.completion.json",
+                      "length":  1016,
+                      "sha256":  "bc2e1e44476cbd8e350d4a76d88545a308a5dccdf69579172d567111a75697c2"
+                  },
+                  {
+                      "role":  "guarded_runtime_journal",
+                      "stage":  "run",
+                      "path":  "raw/guarded-runtime/.PartisanGuardedRuntime_1bb50b8dd714424cba9ea9095b604286.journal.json",
+                      "length":  487,
+                      "sha256":  "394c9db4397738f998a6b358c0303b7ac6c6bbab806b2b78fc927b69ff9e4e14"
+                  },
+                  {
+                      "role":  "guarded_runtime_receipt",
+                      "stage":  "run",
+                      "path":  "raw/guarded-runtime/.PartisanGuardedRuntime_1bb50b8dd714424cba9ea9095b604286.receipt.json",
+                      "length":  24648,
+                      "sha256":  "6b7346ca881a44e454825db1690ea01b11e61968f352cf72870e83b7b3e92416"
+                  },
+                  {
+                      "role":  "guarded_runtime_completion",
+                      "stage":  "run",
+                      "path":  "raw/guarded-runtime/.PartisanGuardedRuntime_68f7a79db02a48d3b8f2ad2b10484a7a.completion.json",
+                      "length":  1016,
+                      "sha256":  "1b56381098b840e015b78b83bc1ce5a5418cd298813dda2eacb32297d5763ac9"
+                  },
+                  {
+                      "role":  "guarded_runtime_journal",
+                      "stage":  "run",
+                      "path":  "raw/guarded-runtime/.PartisanGuardedRuntime_68f7a79db02a48d3b8f2ad2b10484a7a.journal.json",
+                      "length":  487,
+                      "sha256":  "c8b93b81d115c49f7780b0ae6d051187dcbae5c96b99e4a10bde0414c5beb7f8"
+                  },
+                  {
+                      "role":  "guarded_runtime_receipt",
+                      "stage":  "run",
+                      "path":  "raw/guarded-runtime/.PartisanGuardedRuntime_68f7a79db02a48d3b8f2ad2b10484a7a.receipt.json",
+                      "length":  44679,
+                      "sha256":  "947b9840579a121a4c8b6d6f28b06d4f4653c93cebf68c5cbe2441dcd6bfea7b"
+                  },
+                  {
+                      "role":  "guarded_runtime_completion",
+                      "stage":  "run",
+                      "path":  "raw/guarded-runtime/.PartisanGuardedRuntime_b18c94c546954f08938df4c2753f1ccc.completion.json",
+                      "length":  1016,
+                      "sha256":  "00af986186040e5a3f73afebfd5cefdd882164d4ac536ea2f321621c670f5cc0"
+                  },
+                  {
+                      "role":  "guarded_runtime_journal",
+                      "stage":  "run",
+                      "path":  "raw/guarded-runtime/.PartisanGuardedRuntime_b18c94c546954f08938df4c2753f1ccc.journal.json",
+                      "length":  487,
+                      "sha256":  "ac968b45db0b95fbfbb23eed3d2ced95bcee69ae4e3af67814b677d611fefae9"
+                  },
+                  {
+                      "role":  "guarded_runtime_receipt",
+                      "stage":  "run",
+                      "path":  "raw/guarded-runtime/.PartisanGuardedRuntime_b18c94c546954f08938df4c2753f1ccc.receipt.json",
+                      "length":  24000,
+                      "sha256":  "d9fd116ec08a250702c501778e2545ff04d6dd225111ada3a9e31c32bcccba7e"
+                  },
+                  {
+                      "role":  "guarded_runtime_completion",
+                      "stage":  "run",
+                      "path":  "raw/guarded-runtime/.PartisanGuardedRuntime_d36c0947bdc249dba5caca5bb7b2c2bc.completion.json",
+                      "length":  1016,
+                      "sha256":  "6dab85446faa825883d2e5d9c786f2081bac7be7f2de8b0a0b89db7f128fc3a5"
+                  },
+                  {
+                      "role":  "guarded_runtime_journal",
+                      "stage":  "run",
+                      "path":  "raw/guarded-runtime/.PartisanGuardedRuntime_d36c0947bdc249dba5caca5bb7b2c2bc.journal.json",
+                      "length":  487,
+                      "sha256":  "0032db14f8e76d0a35d56cdff03d750d07b8cb892265b4cc4b22e56323e9d06a"
+                  },
+                  {
+                      "role":  "guarded_runtime_receipt",
+                      "stage":  "run",
+                      "path":  "raw/guarded-runtime/.PartisanGuardedRuntime_d36c0947bdc249dba5caca5bb7b2c2bc.receipt.json",
+                      "length":  24648,
+                      "sha256":  "0572cda2e93e9dcb1363ab29d37d32dae1f53468e2216deaff5c5cb7857903c9"
+                  },
+                  {
+                      "role":  "guarded_runtime_completion",
+                      "stage":  "run",
+                      "path":  "raw/guarded-runtime/.PartisanGuardedRuntime_ece21ba1050e4dcc8b18eee2c042a078.completion.json",
+                      "length":  1016,
+                      "sha256":  "983da97b1e116648c769a8c1c0a070f88e1b12db0fb65bbefbadd8e1346477c8"
+                  },
+                  {
+                      "role":  "guarded_runtime_journal",
+                      "stage":  "run",
+                      "path":  "raw/guarded-runtime/.PartisanGuardedRuntime_ece21ba1050e4dcc8b18eee2c042a078.journal.json",
+                      "length":  487,
+                      "sha256":  "e883ee000ec7d944766d51142a1b8f9c0db1973d116a4903c6a61769e6fa85a4"
+                  },
+                  {
+                      "role":  "guarded_runtime_receipt",
+                      "stage":  "run",
+                      "path":  "raw/guarded-runtime/.PartisanGuardedRuntime_ece21ba1050e4dcc8b18eee2c042a078.receipt.json",
+                      "length":  24648,
+                      "sha256":  "d485fb85397681221ecfe7450be4c7f4b4199f94405c7300bfd68c8dfd0ce787"
+                  },
+                  {
+                      "role":  "ordinary_carrier",
+                      "stage":  "autosave_checkpoint",
+                      "path":  "raw/stages/00-autosave_checkpoint/carrier.json",
+                      "length":  4023,
+                      "sha256":  "23dad6ea415979d142705bb547099904bedc13990dfb901220be5fab877206cf"
+                  },
+                  {
+                      "role":  "diagnostic_server_console_log",
+                      "stage":  "autosave_checkpoint",
+                      "path":  "raw/stages/00-autosave_checkpoint/diagnostic-server-logs/console.log",
+                      "length":  34849,
+                      "sha256":  "d5c0801ccca7ee2551ba6332c512f1aeeade16c6537c2a6a95b1db12d7afba40"
+                  },
+                  {
+                      "role":  "diagnostic_server_error_log",
+                      "stage":  "autosave_checkpoint",
+                      "path":  "raw/stages/00-autosave_checkpoint/diagnostic-server-logs/error.log",
+                      "length":  15950,
+                      "sha256":  "546a26a211cd4088b7a30dd3ecd676a34fa3ec536e5cdff9efb00ebcc18c013a"
+                  },
+                  {
+                      "role":  "diagnostic_server_script_log",
+                      "stage":  "autosave_checkpoint",
+                      "path":  "raw/stages/00-autosave_checkpoint/diagnostic-server-logs/script.log",
+                      "length":  9889,
+                      "sha256":  "d54b5e76dfe21405f6a4e966f8400f6adc465f6fd8d5646256cd55d276701fee"
+                  },
+                  {
+                      "role":  "ordinary_guard",
+                      "stage":  "autosave_checkpoint",
+                      "path":  "raw/stages/00-autosave_checkpoint/guard-input.json",
+                      "length":  992,
+                      "sha256":  "1445a372e35a61e98e51600c421c73896c49063159d16b2e253fe34e8bdd03a6"
+                  },
+                  {
+                      "role":  "ordinary_owner",
+                      "stage":  "autosave_checkpoint",
+                      "path":  "raw/stages/00-autosave_checkpoint/owner.json",
+                      "length":  756,
+                      "sha256":  "d67e7af0fe60bf5fa314e01149180b34ef04840d9d4670b3e52e5e5b3b4f7f8c"
+                  },
+                  {
+                      "role":  "ordinary_result",
+                      "stage":  "autosave_checkpoint",
+                      "path":  "raw/stages/00-autosave_checkpoint/result.json",
+                      "length":  8142,
+                      "sha256":  "15736acf0b32896c892c864dd582cd2b90e931875c37c701fb850ad2d00eb8a4"
+                  },
+                  {
+                      "role":  "save_snapshot_manifest",
+                      "stage":  "autosave_checkpoint",
+                      "path":  "raw/stages/00-autosave_checkpoint/save-input/snapshot.json",
+                      "length":  285,
+                      "sha256":  "3cf93b13c18678e17d9ccd74e8b12e9d407d63712bbf5ca0d3dfbade2352ce3a"
+                  },
+                  {
+                      "role":  "profile_journal_output",
+                      "stage":  "autosave_checkpoint",
+                      "path":  "raw/stages/00-autosave_checkpoint/save-output/files/journal/profile/Partisan/HST_CampaignSaveData.json",
+                      "length":  719745,
+                      "sha256":  "c9933911a588ab57d219393c4d88a4ae2d2d3689a8673dd76cf7fea9ccaa6f63"
+                  },
+                  {
+                      "role":  "native_save_output",
+                      "stage":  "autosave_checkpoint",
+                      "path":  "raw/stages/00-autosave_checkpoint/save-output/files/native/.save/game/HST-Everon/playthrough000/savepoint000/meta-info.json",
+                      "length":  432,
+                      "sha256":  "b0261a14b6c9e716a79edcef923869746b3c08c8287e408832ab2f6264cb5d7f"
+                  },
+                  {
+                      "role":  "native_save_output",
+                      "stage":  "autosave_checkpoint",
+                      "path":  "raw/stages/00-autosave_checkpoint/save-output/files/native/.save/game/HST-Everon/playthrough000/savepoint000/System/002b7294-0a5d-8ad0-8800-0ca749a5fbf3.bin",
+                      "length":  130,
+                      "sha256":  "911af856f714945452cb049ee63404d0b6a4c9893ac7410a5191569fa8e9c967"
+                  },
+                  {
+                      "role":  "native_save_output",
+                      "stage":  "autosave_checkpoint",
+                      "path":  "raw/stages/00-autosave_checkpoint/save-output/files/native/.save/game/HST-Everon/playthrough000/savepoint000/System/00aaf77a-bf2d-8bb2-8800-0c55bc5da575.bin",
+                      "length":  664819,
+                      "sha256":  "3a0e8f1870689d6534de728ea2a638fe6c677c777bc139e7020fbbca8a822ae3"
+                  },
+                  {
+                      "role":  "save_snapshot_manifest",
+                      "stage":  "autosave_checkpoint",
+                      "path":  "raw/stages/00-autosave_checkpoint/save-output/snapshot.json",
+                      "length":  1687,
+                      "sha256":  "8d06ae62e25f40d5859aa2bd06261f62af2c67873e16ae058d264d8526fc96c4"
+                  },
+                  {
+                      "role":  "ordinary_carrier",
+                      "stage":  "manual_checkpoint",
+                      "path":  "raw/stages/01-manual_checkpoint/carrier.json",
+                      "length":  4274,
+                      "sha256":  "319feb010e6c274b4d73271ba67c83bf460e5c65bf594e826ae566facfd28562"
+                  },
+                  {
+                      "role":  "diagnostic_server_console_log",
+                      "stage":  "manual_checkpoint",
+                      "path":  "raw/stages/01-manual_checkpoint/diagnostic-server-logs/console.log",
+                      "length":  36144,
+                      "sha256":  "328c9300596d7163e78d5fb1ad77df9619847fca150d10292d81f3f005c98524"
+                  },
+                  {
+                      "role":  "diagnostic_server_error_log",
+                      "stage":  "manual_checkpoint",
+                      "path":  "raw/stages/01-manual_checkpoint/diagnostic-server-logs/error.log",
+                      "length":  15948,
+                      "sha256":  "2cf4d8fecab2c3f73e5efaeb1b0daca3cf9747c3c732c4e618f0cb9f80ebb742"
+                  },
+                  {
+                      "role":  "diagnostic_server_script_log",
+                      "stage":  "manual_checkpoint",
+                      "path":  "raw/stages/01-manual_checkpoint/diagnostic-server-logs/script.log",
+                      "length":  11280,
+                      "sha256":  "970672ed9d68225d9702a6bc8cbe93aab65449fd258f07ec9e74b1bd7c0db3fc"
+                  },
+                  {
+                      "role":  "ordinary_guard",
+                      "stage":  "manual_checkpoint",
+                      "path":  "raw/stages/01-manual_checkpoint/guard-input.json",
+                      "length":  995,
+                      "sha256":  "9469db369d386585b1c353a250cf6f410de643a36d0978e14dc5f57bbd41c5eb"
+                  },
+                  {
+                      "role":  "ordinary_owner",
+                      "stage":  "manual_checkpoint",
+                      "path":  "raw/stages/01-manual_checkpoint/owner.json",
+                      "length":  756,
+                      "sha256":  "d67e7af0fe60bf5fa314e01149180b34ef04840d9d4670b3e52e5e5b3b4f7f8c"
+                  },
+                  {
+                      "role":  "ordinary_result",
+                      "stage":  "manual_checkpoint",
+                      "path":  "raw/stages/01-manual_checkpoint/result.json",
+                      "length":  8195,
+                      "sha256":  "323111702e4e4bf69059be2becb7c7ebb88aad23d5ad0fd753daf522e9aefe57"
+                  },
+                  {
+                      "role":  "profile_journal_input",
+                      "stage":  "manual_checkpoint",
+                      "path":  "raw/stages/01-manual_checkpoint/save-input/files/journal/profile/Partisan/HST_CampaignSaveData.json",
+                      "length":  719745,
+                      "sha256":  "c9933911a588ab57d219393c4d88a4ae2d2d3689a8673dd76cf7fea9ccaa6f63"
+                  },
+                  {
+                      "role":  "native_save_input",
+                      "stage":  "manual_checkpoint",
+                      "path":  "raw/stages/01-manual_checkpoint/save-input/files/native/.save/game/HST-Everon/playthrough000/savepoint000/meta-info.json",
+                      "length":  432,
+                      "sha256":  "b0261a14b6c9e716a79edcef923869746b3c08c8287e408832ab2f6264cb5d7f"
+                  },
+                  {
+                      "role":  "native_save_input",
+                      "stage":  "manual_checkpoint",
+                      "path":  "raw/stages/01-manual_checkpoint/save-input/files/native/.save/game/HST-Everon/playthrough000/savepoint000/System/002b7294-0a5d-8ad0-8800-0ca749a5fbf3.bin",
+                      "length":  130,
+                      "sha256":  "911af856f714945452cb049ee63404d0b6a4c9893ac7410a5191569fa8e9c967"
+                  },
+                  {
+                      "role":  "native_save_input",
+                      "stage":  "manual_checkpoint",
+                      "path":  "raw/stages/01-manual_checkpoint/save-input/files/native/.save/game/HST-Everon/playthrough000/savepoint000/System/00aaf77a-bf2d-8bb2-8800-0c55bc5da575.bin",
+                      "length":  664819,
+                      "sha256":  "3a0e8f1870689d6534de728ea2a638fe6c677c777bc139e7020fbbca8a822ae3"
+                  },
+                  {
+                      "role":  "save_snapshot_manifest",
+                      "stage":  "manual_checkpoint",
+                      "path":  "raw/stages/01-manual_checkpoint/save-input/snapshot.json",
+                      "length":  1684,
+                      "sha256":  "78c0eff35a236d786e54e105fced2c9e5a6a77276dd3776a464b6a7c59fce68c"
+                  },
+                  {
+                      "role":  "profile_journal_output",
+                      "stage":  "manual_checkpoint",
+                      "path":  "raw/stages/01-manual_checkpoint/save-output/files/journal/profile/Partisan/HST_CampaignSaveData.json",
+                      "length":  719745,
+                      "sha256":  "c9933911a588ab57d219393c4d88a4ae2d2d3689a8673dd76cf7fea9ccaa6f63"
+                  },
+                  {
+                      "role":  "profile_journal_output",
+                      "stage":  "manual_checkpoint",
+                      "path":  "raw/stages/01-manual_checkpoint/save-output/files/journal/profile/Partisan/HST_CampaignSaveData.recovery.json",
+                      "length":  719855,
+                      "sha256":  "b96400cd6f86ca7f1e6ebde53792fee72157eb621802c33d3589541328a95591"
+                  },
+                  {
+                      "role":  "native_save_output",
+                      "stage":  "manual_checkpoint",
+                      "path":  "raw/stages/01-manual_checkpoint/save-output/files/native/.save/game/HST-Everon/playthrough000/savepoint000/meta-info.json",
+                      "length":  432,
+                      "sha256":  "b0261a14b6c9e716a79edcef923869746b3c08c8287e408832ab2f6264cb5d7f"
+                  },
+                  {
+                      "role":  "native_save_output",
+                      "stage":  "manual_checkpoint",
+                      "path":  "raw/stages/01-manual_checkpoint/save-output/files/native/.save/game/HST-Everon/playthrough000/savepoint000/System/002b7294-0a5d-8ad0-8800-0ca749a5fbf3.bin",
+                      "length":  130,
+                      "sha256":  "911af856f714945452cb049ee63404d0b6a4c9893ac7410a5191569fa8e9c967"
+                  },
+                  {
+                      "role":  "native_save_output",
+                      "stage":  "manual_checkpoint",
+                      "path":  "raw/stages/01-manual_checkpoint/save-output/files/native/.save/game/HST-Everon/playthrough000/savepoint000/System/00aaf77a-bf2d-8bb2-8800-0c55bc5da575.bin",
+                      "length":  664819,
+                      "sha256":  "3a0e8f1870689d6534de728ea2a638fe6c677c777bc139e7020fbbca8a822ae3"
+                  },
+                  {
+                      "role":  "native_save_output",
+                      "stage":  "manual_checkpoint",
+                      "path":  "raw/stages/01-manual_checkpoint/save-output/files/native/.save/game/HST-Everon/playthrough000/savepoint001/meta-info.json",
+                      "length":  441,
+                      "sha256":  "0a7f63dbb413db441504ae0008971afd0b25e95007631371c7bb4567c28dc9bd"
+                  },
+                  {
+                      "role":  "native_save_output",
+                      "stage":  "manual_checkpoint",
+                      "path":  "raw/stages/01-manual_checkpoint/save-output/files/native/.save/game/HST-Everon/playthrough000/savepoint001/System/002b7294-0a5d-8ad0-8800-0ca749a5fbf3.bin",
+                      "length":  130,
+                      "sha256":  "911af856f714945452cb049ee63404d0b6a4c9893ac7410a5191569fa8e9c967"
+                  },
+                  {
+                      "role":  "native_save_output",
+                      "stage":  "manual_checkpoint",
+                      "path":  "raw/stages/01-manual_checkpoint/save-output/files/native/.save/game/HST-Everon/playthrough000/savepoint001/System/00aaf77a-bf2d-8bb2-8800-0c55bc5da575.bin",
+                      "length":  664869,
+                      "sha256":  "d36c1e01a1da8f9b8f8d3f9b77f777afd4a009285e582a0c25ece014ae79540e"
+                  },
+                  {
+                      "role":  "save_snapshot_manifest",
+                      "stage":  "manual_checkpoint",
+                      "path":  "raw/stages/01-manual_checkpoint/save-output/snapshot.json",
+                      "length":  3098,
+                      "sha256":  "46171e2b6141517e4478fd861639008eed5ffb880ba625817ed3725c645eece4"
+                  },
+                  {
+                      "role":  "ordinary_carrier",
+                      "stage":  "shutdown_checkpoint",
+                      "path":  "raw/stages/02-shutdown_checkpoint/carrier.json",
+                      "length":  5116,
+                      "sha256":  "b3e4db5269a775838b22e3482d296e5060aeb8933498f7d0113f63ca0a3bb1aa"
+                  },
+                  {
+                      "role":  "diagnostic_client_console_log",
+                      "stage":  "shutdown_checkpoint",
+                      "path":  "raw/stages/02-shutdown_checkpoint/diagnostic-client-logs/console.log",
+                      "length":  47467,
+                      "sha256":  "0e9018b88402ccc523812a81509b02dc91455cfb6765645cd9fdad31e08992d7"
+                  },
+                  {
+                      "role":  "diagnostic_client_error_log",
+                      "stage":  "shutdown_checkpoint",
+                      "path":  "raw/stages/02-shutdown_checkpoint/diagnostic-client-logs/error.log",
+                      "length":  19830,
+                      "sha256":  "32332b95c01b5cc4bb69bb16b0ae55de6f7e9869cece593bc49c184ddfc0fa1f"
+                  },
+                  {
+                      "role":  "diagnostic_client_script_log",
+                      "stage":  "shutdown_checkpoint",
+                      "path":  "raw/stages/02-shutdown_checkpoint/diagnostic-client-logs/script.log",
+                      "length":  15553,
+                      "sha256":  "595bbd95e909cd43b7a870b572d4098cdac6040cd72597e070874ba65ee1843f"
+                  },
+                  {
+                      "role":  "diagnostic_server_console_log",
+                      "stage":  "shutdown_checkpoint",
+                      "path":  "raw/stages/02-shutdown_checkpoint/diagnostic-server-logs/console.log",
+                      "length":  49269,
+                      "sha256":  "3f79c34e26762dc995139877d0662fcf1092a89b7fb78d8ca17cad0325bfacb5"
+                  },
+                  {
+                      "role":  "diagnostic_server_crash_log",
+                      "stage":  "shutdown_checkpoint",
+                      "path":  "raw/stages/02-shutdown_checkpoint/diagnostic-server-logs/crash.log",
+                      "length":  11284,
+                      "sha256":  "1ab29ad5ac7f2b55678e774ee47de8fe35e50e07744594e89f18f6ff322c4ce1"
+                  },
+                  {
+                      "role":  "diagnostic_server_error_log",
+                      "stage":  "shutdown_checkpoint",
+                      "path":  "raw/stages/02-shutdown_checkpoint/diagnostic-server-logs/error.log",
+                      "length":  21441,
+                      "sha256":  "04c5412e53fa281342a85b93908e03e6f63fae1d39f8241b213bed501a51aa2d"
+                  },
+                  {
+                      "role":  "diagnostic_server_script_log",
+                      "stage":  "shutdown_checkpoint",
+                      "path":  "raw/stages/02-shutdown_checkpoint/diagnostic-server-logs/script.log",
+                      "length":  19257,
+                      "sha256":  "0e22c29cc4fe5d9c7029620b1495117ec5a7a9a85d3dd6c8c73d85b2ecf85a87"
+                  },
+                  {
+                      "role":  "ordinary_end_bridge",
+                      "stage":  "shutdown_checkpoint",
+                      "path":  "raw/stages/02-shutdown_checkpoint/end-bridge.json",
+                      "length":  1097,
+                      "sha256":  "070103d041c9e74273d700380c3f419233376feede20cc6da7ca58295f1ec51a"
+                  },
+                  {
+                      "role":  "ordinary_guard",
+                      "stage":  "shutdown_checkpoint",
+                      "path":  "raw/stages/02-shutdown_checkpoint/guard-input.json",
+                      "length":  1001,
+                      "sha256":  "3b8ba68188648806a4ac4c1f6aee7fb58913b9b0d2bd035227d6b67e09cef75c"
+                  },
+                  {
+                      "role":  "ordinary_mixed_native_ready",
+                      "stage":  "shutdown_checkpoint",
+                      "path":  "raw/stages/02-shutdown_checkpoint/mixed-native-ready.json",
+                      "length":  729,
+                      "sha256":  "d8a00ce5f4bb39641172f490d6421b06827d7cede24bde5c656b0cf84a2dd175"
+                  },
+                  {
+                      "role":  "ordinary_owner",
+                      "stage":  "shutdown_checkpoint",
+                      "path":  "raw/stages/02-shutdown_checkpoint/owner.json",
+                      "length":  756,
+                      "sha256":  "d67e7af0fe60bf5fa314e01149180b34ef04840d9d4670b3e52e5e5b3b4f7f8c"
+                  },
+                  {
+                      "role":  "ordinary_result",
+                      "stage":  "shutdown_checkpoint",
+                      "path":  "raw/stages/02-shutdown_checkpoint/result.json",
+                      "length":  9954,
+                      "sha256":  "a09cf8a863a2bc4675bbce51365cbbfd3963b6e5a2508e1982f1b230b6b831f6"
+                  },
+                  {
+                      "role":  "profile_journal_input",
+                      "stage":  "shutdown_checkpoint",
+                      "path":  "raw/stages/02-shutdown_checkpoint/save-input/files/journal/profile/Partisan/HST_CampaignSaveData.json",
+                      "length":  719745,
+                      "sha256":  "c9933911a588ab57d219393c4d88a4ae2d2d3689a8673dd76cf7fea9ccaa6f63"
+                  },
+                  {
+                      "role":  "profile_journal_input",
+                      "stage":  "shutdown_checkpoint",
+                      "path":  "raw/stages/02-shutdown_checkpoint/save-input/files/journal/profile/Partisan/HST_CampaignSaveData.recovery.json",
+                      "length":  719855,
+                      "sha256":  "b96400cd6f86ca7f1e6ebde53792fee72157eb621802c33d3589541328a95591"
+                  },
+                  {
+                      "role":  "native_save_input",
+                      "stage":  "shutdown_checkpoint",
+                      "path":  "raw/stages/02-shutdown_checkpoint/save-input/files/native/.save/game/HST-Everon/playthrough000/savepoint000/meta-info.json",
+                      "length":  432,
+                      "sha256":  "b0261a14b6c9e716a79edcef923869746b3c08c8287e408832ab2f6264cb5d7f"
+                  },
+                  {
+                      "role":  "native_save_input",
+                      "stage":  "shutdown_checkpoint",
+                      "path":  "raw/stages/02-shutdown_checkpoint/save-input/files/native/.save/game/HST-Everon/playthrough000/savepoint000/System/002b7294-0a5d-8ad0-8800-0ca749a5fbf3.bin",
+                      "length":  130,
+                      "sha256":  "911af856f714945452cb049ee63404d0b6a4c9893ac7410a5191569fa8e9c967"
+                  },
+                  {
+                      "role":  "native_save_input",
+                      "stage":  "shutdown_checkpoint",
+                      "path":  "raw/stages/02-shutdown_checkpoint/save-input/files/native/.save/game/HST-Everon/playthrough000/savepoint000/System/00aaf77a-bf2d-8bb2-8800-0c55bc5da575.bin",
+                      "length":  664819,
+                      "sha256":  "3a0e8f1870689d6534de728ea2a638fe6c677c777bc139e7020fbbca8a822ae3"
+                  },
+                  {
+                      "role":  "native_save_input",
+                      "stage":  "shutdown_checkpoint",
+                      "path":  "raw/stages/02-shutdown_checkpoint/save-input/files/native/.save/game/HST-Everon/playthrough000/savepoint001/meta-info.json",
+                      "length":  441,
+                      "sha256":  "0a7f63dbb413db441504ae0008971afd0b25e95007631371c7bb4567c28dc9bd"
+                  },
+                  {
+                      "role":  "native_save_input",
+                      "stage":  "shutdown_checkpoint",
+                      "path":  "raw/stages/02-shutdown_checkpoint/save-input/files/native/.save/game/HST-Everon/playthrough000/savepoint001/System/002b7294-0a5d-8ad0-8800-0ca749a5fbf3.bin",
+                      "length":  130,
+                      "sha256":  "911af856f714945452cb049ee63404d0b6a4c9893ac7410a5191569fa8e9c967"
+                  },
+                  {
+                      "role":  "native_save_input",
+                      "stage":  "shutdown_checkpoint",
+                      "path":  "raw/stages/02-shutdown_checkpoint/save-input/files/native/.save/game/HST-Everon/playthrough000/savepoint001/System/00aaf77a-bf2d-8bb2-8800-0c55bc5da575.bin",
+                      "length":  664869,
+                      "sha256":  "d36c1e01a1da8f9b8f8d3f9b77f777afd4a009285e582a0c25ece014ae79540e"
+                  },
+                  {
+                      "role":  "save_snapshot_manifest",
+                      "stage":  "shutdown_checkpoint",
+                      "path":  "raw/stages/02-shutdown_checkpoint/save-input/snapshot.json",
+                      "length":  3099,
+                      "sha256":  "07407a283e8e5372db2e2ed4367ba9e55ffc4b3df29b3edbb72a75fbcdde5ba4"
+                  },
+                  {
+                      "role":  "profile_journal_output",
+                      "stage":  "shutdown_checkpoint",
+                      "path":  "raw/stages/02-shutdown_checkpoint/save-output/files/journal/profile/Partisan/HST_CampaignSaveData.json",
+                      "length":  811456,
+                      "sha256":  "e403e7986815730cb91a99532046e19d6e58b4ed4340345c862028520961ac6f"
+                  },
+                  {
+                      "role":  "profile_journal_output",
+                      "stage":  "shutdown_checkpoint",
+                      "path":  "raw/stages/02-shutdown_checkpoint/save-output/files/journal/profile/Partisan/HST_CampaignSaveData.recovery.json",
+                      "length":  719855,
+                      "sha256":  "b96400cd6f86ca7f1e6ebde53792fee72157eb621802c33d3589541328a95591"
+                  },
+                  {
+                      "role":  "native_save_output",
+                      "stage":  "shutdown_checkpoint",
+                      "path":  "raw/stages/02-shutdown_checkpoint/save-output/files/native/.save/game/HST-Everon/playthrough000/savepoint000/meta-info.json",
+                      "length":  432,
+                      "sha256":  "b0261a14b6c9e716a79edcef923869746b3c08c8287e408832ab2f6264cb5d7f"
+                  },
+                  {
+                      "role":  "native_save_output",
+                      "stage":  "shutdown_checkpoint",
+                      "path":  "raw/stages/02-shutdown_checkpoint/save-output/files/native/.save/game/HST-Everon/playthrough000/savepoint000/System/002b7294-0a5d-8ad0-8800-0ca749a5fbf3.bin",
+                      "length":  130,
+                      "sha256":  "911af856f714945452cb049ee63404d0b6a4c9893ac7410a5191569fa8e9c967"
+                  },
+                  {
+                      "role":  "native_save_output",
+                      "stage":  "shutdown_checkpoint",
+                      "path":  "raw/stages/02-shutdown_checkpoint/save-output/files/native/.save/game/HST-Everon/playthrough000/savepoint000/System/00aaf77a-bf2d-8bb2-8800-0c55bc5da575.bin",
+                      "length":  664819,
+                      "sha256":  "3a0e8f1870689d6534de728ea2a638fe6c677c777bc139e7020fbbca8a822ae3"
+                  },
+                  {
+                      "role":  "native_save_output",
+                      "stage":  "shutdown_checkpoint",
+                      "path":  "raw/stages/02-shutdown_checkpoint/save-output/files/native/.save/game/HST-Everon/playthrough000/savepoint001/meta-info.json",
+                      "length":  441,
+                      "sha256":  "0a7f63dbb413db441504ae0008971afd0b25e95007631371c7bb4567c28dc9bd"
+                  },
+                  {
+                      "role":  "native_save_output",
+                      "stage":  "shutdown_checkpoint",
+                      "path":  "raw/stages/02-shutdown_checkpoint/save-output/files/native/.save/game/HST-Everon/playthrough000/savepoint001/System/002b7294-0a5d-8ad0-8800-0ca749a5fbf3.bin",
+                      "length":  130,
+                      "sha256":  "911af856f714945452cb049ee63404d0b6a4c9893ac7410a5191569fa8e9c967"
+                  },
+                  {
+                      "role":  "native_save_output",
+                      "stage":  "shutdown_checkpoint",
+                      "path":  "raw/stages/02-shutdown_checkpoint/save-output/files/native/.save/game/HST-Everon/playthrough000/savepoint001/System/00aaf77a-bf2d-8bb2-8800-0c55bc5da575.bin",
+                      "length":  664869,
+                      "sha256":  "d36c1e01a1da8f9b8f8d3f9b77f777afd4a009285e582a0c25ece014ae79540e"
+                  },
+                  {
+                      "role":  "native_save_output",
+                      "stage":  "shutdown_checkpoint",
+                      "path":  "raw/stages/02-shutdown_checkpoint/save-output/files/native/.save/game/HST-Everon/playthrough000/savepoint002/meta-info.json",
+                      "length":  443,
+                      "sha256":  "468d436a676d7505ebc2cb11dcf1ea4717b2126c192792b365ebc9506ae41eaa"
+                  },
+                  {
+                      "role":  "native_save_output",
+                      "stage":  "shutdown_checkpoint",
+                      "path":  "raw/stages/02-shutdown_checkpoint/save-output/files/native/.save/game/HST-Everon/playthrough000/savepoint002/System/002b7294-0a5d-8ad0-8800-0ca749a5fbf3.bin",
+                      "length":  130,
+                      "sha256":  "911af856f714945452cb049ee63404d0b6a4c9893ac7410a5191569fa8e9c967"
+                  },
+                  {
+                      "role":  "native_save_output",
+                      "stage":  "shutdown_checkpoint",
+                      "path":  "raw/stages/02-shutdown_checkpoint/save-output/files/native/.save/game/HST-Everon/playthrough000/savepoint002/System/00aaf77a-bf2d-8bb2-8800-0c55bc5da575.bin",
+                      "length":  748186,
+                      "sha256":  "59bd4075841d82e07f90f8bb078efad9e5fb0e8645d933b010566b2ca4400f03"
+                  },
+                  {
+                      "role":  "save_snapshot_manifest",
+                      "stage":  "shutdown_checkpoint",
+                      "path":  "raw/stages/02-shutdown_checkpoint/save-output/snapshot.json",
+                      "length":  4183,
+                      "sha256":  "537399404c178f66b1f9eedc9a4722b955d2e4629ca2adf124115ca87654103d"
+                  },
+                  {
+                      "role":  "ordinary_carrier",
+                      "stage":  "native_shutdown_verify",
+                      "path":  "raw/stages/03-native_shutdown_verify/carrier.json",
+                      "length":  5116,
+                      "sha256":  "b3e4db5269a775838b22e3482d296e5060aeb8933498f7d0113f63ca0a3bb1aa"
+                  },
+                  {
+                      "role":  "diagnostic_server_console_log",
+                      "stage":  "native_shutdown_verify",
+                      "path":  "raw/stages/03-native_shutdown_verify/diagnostic-server-logs/console.log",
+                      "length":  36998,
+                      "sha256":  "2bf4ff833a2097a7d553841eab900a41743b1d99e2ecb7a51de21a56ba533662"
+                  },
+                  {
+                      "role":  "diagnostic_server_error_log",
+                      "stage":  "native_shutdown_verify",
+                      "path":  "raw/stages/03-native_shutdown_verify/diagnostic-server-logs/error.log",
+                      "length":  15953,
+                      "sha256":  "ae0f6c3baa5abec43eb321af9fb1c61d73f373bb6b2cc743d1e56b71db4ba58d"
+                  },
+                  {
+                      "role":  "diagnostic_server_script_log",
+                      "stage":  "native_shutdown_verify",
+                      "path":  "raw/stages/03-native_shutdown_verify/diagnostic-server-logs/script.log",
+                      "length":  11120,
+                      "sha256":  "f9e7210251af0eaf64574aa51643a941247b49aa4899fd9a9df970e2c6a10201"
+                  },
+                  {
+                      "role":  "ordinary_guard",
+                      "stage":  "native_shutdown_verify",
+                      "path":  "raw/stages/03-native_shutdown_verify/guard-input.json",
+                      "length":  973,
+                      "sha256":  "4b02bbdfa66937e474262be984ea6515330789f83a25275196bb45536a51b130"
+                  },
+                  {
+                      "role":  "ordinary_owner",
+                      "stage":  "native_shutdown_verify",
+                      "path":  "raw/stages/03-native_shutdown_verify/owner.json",
+                      "length":  756,
+                      "sha256":  "d67e7af0fe60bf5fa314e01149180b34ef04840d9d4670b3e52e5e5b3b4f7f8c"
+                  },
+                  {
+                      "role":  "ordinary_result",
+                      "stage":  "native_shutdown_verify",
+                      "path":  "raw/stages/03-native_shutdown_verify/result.json",
+                      "length":  8718,
+                      "sha256":  "d6bc5796ea951b5e4605b1ee0bc332d469f9cf0eb42415d0a525541ae7074f11"
+                  },
+                  {
+                      "role":  "profile_journal_input",
+                      "stage":  "native_shutdown_verify",
+                      "path":  "raw/stages/03-native_shutdown_verify/save-input/files/journal/profile/Partisan/HST_CampaignSaveData.json",
+                      "length":  811456,
+                      "sha256":  "e403e7986815730cb91a99532046e19d6e58b4ed4340345c862028520961ac6f"
+                  },
+                  {
+                      "role":  "profile_journal_input",
+                      "stage":  "native_shutdown_verify",
+                      "path":  "raw/stages/03-native_shutdown_verify/save-input/files/journal/profile/Partisan/HST_CampaignSaveData.recovery.json",
+                      "length":  719855,
+                      "sha256":  "b96400cd6f86ca7f1e6ebde53792fee72157eb621802c33d3589541328a95591"
+                  },
+                  {
+                      "role":  "native_save_input",
+                      "stage":  "native_shutdown_verify",
+                      "path":  "raw/stages/03-native_shutdown_verify/save-input/files/native/.save/game/HST-Everon/playthrough000/savepoint000/meta-info.json",
+                      "length":  432,
+                      "sha256":  "b0261a14b6c9e716a79edcef923869746b3c08c8287e408832ab2f6264cb5d7f"
+                  },
+                  {
+                      "role":  "native_save_input",
+                      "stage":  "native_shutdown_verify",
+                      "path":  "raw/stages/03-native_shutdown_verify/save-input/files/native/.save/game/HST-Everon/playthrough000/savepoint000/System/002b7294-0a5d-8ad0-8800-0ca749a5fbf3.bin",
+                      "length":  130,
+                      "sha256":  "911af856f714945452cb049ee63404d0b6a4c9893ac7410a5191569fa8e9c967"
+                  },
+                  {
+                      "role":  "native_save_input",
+                      "stage":  "native_shutdown_verify",
+                      "path":  "raw/stages/03-native_shutdown_verify/save-input/files/native/.save/game/HST-Everon/playthrough000/savepoint000/System/00aaf77a-bf2d-8bb2-8800-0c55bc5da575.bin",
+                      "length":  664819,
+                      "sha256":  "3a0e8f1870689d6534de728ea2a638fe6c677c777bc139e7020fbbca8a822ae3"
+                  },
+                  {
+                      "role":  "native_save_input",
+                      "stage":  "native_shutdown_verify",
+                      "path":  "raw/stages/03-native_shutdown_verify/save-input/files/native/.save/game/HST-Everon/playthrough000/savepoint001/meta-info.json",
+                      "length":  441,
+                      "sha256":  "0a7f63dbb413db441504ae0008971afd0b25e95007631371c7bb4567c28dc9bd"
+                  },
+                  {
+                      "role":  "native_save_input",
+                      "stage":  "native_shutdown_verify",
+                      "path":  "raw/stages/03-native_shutdown_verify/save-input/files/native/.save/game/HST-Everon/playthrough000/savepoint001/System/002b7294-0a5d-8ad0-8800-0ca749a5fbf3.bin",
+                      "length":  130,
+                      "sha256":  "911af856f714945452cb049ee63404d0b6a4c9893ac7410a5191569fa8e9c967"
+                  },
+                  {
+                      "role":  "native_save_input",
+                      "stage":  "native_shutdown_verify",
+                      "path":  "raw/stages/03-native_shutdown_verify/save-input/files/native/.save/game/HST-Everon/playthrough000/savepoint001/System/00aaf77a-bf2d-8bb2-8800-0c55bc5da575.bin",
+                      "length":  664869,
+                      "sha256":  "d36c1e01a1da8f9b8f8d3f9b77f777afd4a009285e582a0c25ece014ae79540e"
+                  },
+                  {
+                      "role":  "native_save_input",
+                      "stage":  "native_shutdown_verify",
+                      "path":  "raw/stages/03-native_shutdown_verify/save-input/files/native/.save/game/HST-Everon/playthrough000/savepoint002/meta-info.json",
+                      "length":  443,
+                      "sha256":  "468d436a676d7505ebc2cb11dcf1ea4717b2126c192792b365ebc9506ae41eaa"
+                  },
+                  {
+                      "role":  "native_save_input",
+                      "stage":  "native_shutdown_verify",
+                      "path":  "raw/stages/03-native_shutdown_verify/save-input/files/native/.save/game/HST-Everon/playthrough000/savepoint002/System/002b7294-0a5d-8ad0-8800-0ca749a5fbf3.bin",
+                      "length":  130,
+                      "sha256":  "911af856f714945452cb049ee63404d0b6a4c9893ac7410a5191569fa8e9c967"
+                  },
+                  {
+                      "role":  "native_save_input",
+                      "stage":  "native_shutdown_verify",
+                      "path":  "raw/stages/03-native_shutdown_verify/save-input/files/native/.save/game/HST-Everon/playthrough000/savepoint002/System/00aaf77a-bf2d-8bb2-8800-0c55bc5da575.bin",
+                      "length":  748186,
+                      "sha256":  "59bd4075841d82e07f90f8bb078efad9e5fb0e8645d933b010566b2ca4400f03"
+                  },
+                  {
+                      "role":  "save_snapshot_manifest",
+                      "stage":  "native_shutdown_verify",
+                      "path":  "raw/stages/03-native_shutdown_verify/save-input/snapshot.json",
+                      "length":  4185,
+                      "sha256":  "f07032c79317bdcde93ae3d43bce25b50f595f079f97367ee2c105ee2723b355"
+                  },
+                  {
+                      "role":  "profile_journal_output",
+                      "stage":  "native_shutdown_verify",
+                      "path":  "raw/stages/03-native_shutdown_verify/save-output/files/journal/profile/Partisan/HST_CampaignSaveData.json",
+                      "length":  811456,
+                      "sha256":  "e403e7986815730cb91a99532046e19d6e58b4ed4340345c862028520961ac6f"
+                  },
+                  {
+                      "role":  "profile_journal_output",
+                      "stage":  "native_shutdown_verify",
+                      "path":  "raw/stages/03-native_shutdown_verify/save-output/files/journal/profile/Partisan/HST_CampaignSaveData.recovery.json",
+                      "length":  719855,
+                      "sha256":  "b96400cd6f86ca7f1e6ebde53792fee72157eb621802c33d3589541328a95591"
+                  },
+                  {
+                      "role":  "native_save_output",
+                      "stage":  "native_shutdown_verify",
+                      "path":  "raw/stages/03-native_shutdown_verify/save-output/files/native/.save/game/HST-Everon/playthrough000/savepoint000/meta-info.json",
+                      "length":  432,
+                      "sha256":  "b0261a14b6c9e716a79edcef923869746b3c08c8287e408832ab2f6264cb5d7f"
+                  },
+                  {
+                      "role":  "native_save_output",
+                      "stage":  "native_shutdown_verify",
+                      "path":  "raw/stages/03-native_shutdown_verify/save-output/files/native/.save/game/HST-Everon/playthrough000/savepoint000/System/002b7294-0a5d-8ad0-8800-0ca749a5fbf3.bin",
+                      "length":  130,
+                      "sha256":  "911af856f714945452cb049ee63404d0b6a4c9893ac7410a5191569fa8e9c967"
+                  },
+                  {
+                      "role":  "native_save_output",
+                      "stage":  "native_shutdown_verify",
+                      "path":  "raw/stages/03-native_shutdown_verify/save-output/files/native/.save/game/HST-Everon/playthrough000/savepoint000/System/00aaf77a-bf2d-8bb2-8800-0c55bc5da575.bin",
+                      "length":  664819,
+                      "sha256":  "3a0e8f1870689d6534de728ea2a638fe6c677c777bc139e7020fbbca8a822ae3"
+                  },
+                  {
+                      "role":  "native_save_output",
+                      "stage":  "native_shutdown_verify",
+                      "path":  "raw/stages/03-native_shutdown_verify/save-output/files/native/.save/game/HST-Everon/playthrough000/savepoint001/meta-info.json",
+                      "length":  441,
+                      "sha256":  "0a7f63dbb413db441504ae0008971afd0b25e95007631371c7bb4567c28dc9bd"
+                  },
+                  {
+                      "role":  "native_save_output",
+                      "stage":  "native_shutdown_verify",
+                      "path":  "raw/stages/03-native_shutdown_verify/save-output/files/native/.save/game/HST-Everon/playthrough000/savepoint001/System/002b7294-0a5d-8ad0-8800-0ca749a5fbf3.bin",
+                      "length":  130,
+                      "sha256":  "911af856f714945452cb049ee63404d0b6a4c9893ac7410a5191569fa8e9c967"
+                  },
+                  {
+                      "role":  "native_save_output",
+                      "stage":  "native_shutdown_verify",
+                      "path":  "raw/stages/03-native_shutdown_verify/save-output/files/native/.save/game/HST-Everon/playthrough000/savepoint001/System/00aaf77a-bf2d-8bb2-8800-0c55bc5da575.bin",
+                      "length":  664869,
+                      "sha256":  "d36c1e01a1da8f9b8f8d3f9b77f777afd4a009285e582a0c25ece014ae79540e"
+                  },
+                  {
+                      "role":  "native_save_output",
+                      "stage":  "native_shutdown_verify",
+                      "path":  "raw/stages/03-native_shutdown_verify/save-output/files/native/.save/game/HST-Everon/playthrough000/savepoint002/meta-info.json",
+                      "length":  443,
+                      "sha256":  "468d436a676d7505ebc2cb11dcf1ea4717b2126c192792b365ebc9506ae41eaa"
+                  },
+                  {
+                      "role":  "native_save_output",
+                      "stage":  "native_shutdown_verify",
+                      "path":  "raw/stages/03-native_shutdown_verify/save-output/files/native/.save/game/HST-Everon/playthrough000/savepoint002/System/002b7294-0a5d-8ad0-8800-0ca749a5fbf3.bin",
+                      "length":  130,
+                      "sha256":  "911af856f714945452cb049ee63404d0b6a4c9893ac7410a5191569fa8e9c967"
+                  },
+                  {
+                      "role":  "native_save_output",
+                      "stage":  "native_shutdown_verify",
+                      "path":  "raw/stages/03-native_shutdown_verify/save-output/files/native/.save/game/HST-Everon/playthrough000/savepoint002/System/00aaf77a-bf2d-8bb2-8800-0c55bc5da575.bin",
+                      "length":  748186,
+                      "sha256":  "59bd4075841d82e07f90f8bb078efad9e5fb0e8645d933b010566b2ca4400f03"
+                  },
+                  {
+                      "role":  "save_snapshot_manifest",
+                      "stage":  "native_shutdown_verify",
+                      "path":  "raw/stages/03-native_shutdown_verify/save-output/snapshot.json",
+                      "length":  4186,
+                      "sha256":  "4465ceabb4903a3b42f3614c4901760f955d7da86bd13219c4df74efe7b71c91"
+                  },
+                  {
+                      "role":  "ordinary_carrier",
+                      "stage":  "profile_fallback_verify",
+                      "path":  "raw/stages/04-profile_fallback_verify/carrier.json",
+                      "length":  5116,
+                      "sha256":  "b3e4db5269a775838b22e3482d296e5060aeb8933498f7d0113f63ca0a3bb1aa"
+                  },
+                  {
+                      "role":  "diagnostic_server_console_log",
+                      "stage":  "profile_fallback_verify",
+                      "path":  "raw/stages/04-profile_fallback_verify/diagnostic-server-logs/console.log",
+                      "length":  36786,
+                      "sha256":  "2eeeeb0ed3384a4a0f044ed6adcb4b27abcd80704f3b6dfdd98ea089bf767126"
+                  },
+                  {
+                      "role":  "diagnostic_server_error_log",
+                      "stage":  "profile_fallback_verify",
+                      "path":  "raw/stages/04-profile_fallback_verify/diagnostic-server-logs/error.log",
+                      "length":  15726,
+                      "sha256":  "7aecb5300fd9112ccac7624fe55580ee3ffb082f3872b457cd4d7d89a0a9c0e9"
+                  },
+                  {
+                      "role":  "diagnostic_server_script_log",
+                      "stage":  "profile_fallback_verify",
+                      "path":  "raw/stages/04-profile_fallback_verify/diagnostic-server-logs/script.log",
+                      "length":  10976,
+                      "sha256":  "ca8b17b51188818427d4ac6ede69b58cee9c0f9b1de139662d5c1810ebe45709"
+                  },
+                  {
+                      "role":  "ordinary_guard",
+                      "stage":  "profile_fallback_verify",
+                      "path":  "raw/stages/04-profile_fallback_verify/guard-input.json",
+                      "length":  984,
+                      "sha256":  "db337625f5b753ec6bdf5a9651c97ba54c0e9c9c927c3406220c1c3535883be1"
+                  },
+                  {
+                      "role":  "ordinary_owner",
+                      "stage":  "profile_fallback_verify",
+                      "path":  "raw/stages/04-profile_fallback_verify/owner.json",
+                      "length":  756,
+                      "sha256":  "d67e7af0fe60bf5fa314e01149180b34ef04840d9d4670b3e52e5e5b3b4f7f8c"
+                  },
+                  {
+                      "role":  "ordinary_result",
+                      "stage":  "profile_fallback_verify",
+                      "path":  "raw/stages/04-profile_fallback_verify/result.json",
+                      "length":  8602,
+                      "sha256":  "0c47c951094f59226b5160eef1bafff0710be76cd74be30e912dd4b95342ba20"
+                  },
+                  {
+                      "role":  "profile_journal_input",
+                      "stage":  "profile_fallback_verify",
+                      "path":  "raw/stages/04-profile_fallback_verify/save-input/files/journal/profile/Partisan/HST_CampaignSaveData.json",
+                      "length":  811456,
+                      "sha256":  "e403e7986815730cb91a99532046e19d6e58b4ed4340345c862028520961ac6f"
+                  },
+                  {
+                      "role":  "profile_journal_input",
+                      "stage":  "profile_fallback_verify",
+                      "path":  "raw/stages/04-profile_fallback_verify/save-input/files/journal/profile/Partisan/HST_CampaignSaveData.recovery.json",
+                      "length":  719855,
+                      "sha256":  "b96400cd6f86ca7f1e6ebde53792fee72157eb621802c33d3589541328a95591"
+                  },
+                  {
+                      "role":  "save_snapshot_manifest",
+                      "stage":  "profile_fallback_verify",
+                      "path":  "raw/stages/04-profile_fallback_verify/save-input/snapshot.json",
+                      "length":  937,
+                      "sha256":  "f5628678e1639ae34c0629c9d92cd52e32df96b9da6686b490a4d7bca057dd1a"
+                  },
+                  {
+                      "role":  "profile_journal_output",
+                      "stage":  "profile_fallback_verify",
+                      "path":  "raw/stages/04-profile_fallback_verify/save-output/files/journal/profile/Partisan/HST_CampaignSaveData.json",
+                      "length":  811456,
+                      "sha256":  "e403e7986815730cb91a99532046e19d6e58b4ed4340345c862028520961ac6f"
+                  },
+                  {
+                      "role":  "profile_journal_output",
+                      "stage":  "profile_fallback_verify",
+                      "path":  "raw/stages/04-profile_fallback_verify/save-output/files/journal/profile/Partisan/HST_CampaignSaveData.recovery.json",
+                      "length":  719855,
+                      "sha256":  "b96400cd6f86ca7f1e6ebde53792fee72157eb621802c33d3589541328a95591"
+                  },
+                  {
+                      "role":  "save_snapshot_manifest",
+                      "stage":  "profile_fallback_verify",
+                      "path":  "raw/stages/04-profile_fallback_verify/save-output/snapshot.json",
+                      "length":  938,
+                      "sha256":  "ac2ad8fe542640ce53746f122ecb4258429dd9875c0aebcccfc0325f0f70ff38"
+                  },
+                  {
+                      "role":  "profile_journal_input",
+                      "stage":  "autosave_checkpoint",
+                      "path":  "raw/standard-runtime/00-autosave_checkpoint/save-input/files/journal/profile/Partisan/HST_CampaignSaveData.json",
+                      "length":  719745,
+                      "sha256":  "c9933911a588ab57d219393c4d88a4ae2d2d3689a8673dd76cf7fea9ccaa6f63"
+                  },
+                  {
+                      "role":  "native_save_input",
+                      "stage":  "autosave_checkpoint",
+                      "path":  "raw/standard-runtime/00-autosave_checkpoint/save-input/files/native/.save/game/HST-Everon/playthrough000/savepoint000/meta-info.json",
+                      "length":  432,
+                      "sha256":  "b0261a14b6c9e716a79edcef923869746b3c08c8287e408832ab2f6264cb5d7f"
+                  },
+                  {
+                      "role":  "native_save_input",
+                      "stage":  "autosave_checkpoint",
+                      "path":  "raw/standard-runtime/00-autosave_checkpoint/save-input/files/native/.save/game/HST-Everon/playthrough000/savepoint000/System/002b7294-0a5d-8ad0-8800-0ca749a5fbf3.bin",
+                      "length":  130,
+                      "sha256":  "911af856f714945452cb049ee63404d0b6a4c9893ac7410a5191569fa8e9c967"
+                  },
+                  {
+                      "role":  "native_save_input",
+                      "stage":  "autosave_checkpoint",
+                      "path":  "raw/standard-runtime/00-autosave_checkpoint/save-input/files/native/.save/game/HST-Everon/playthrough000/savepoint000/System/00aaf77a-bf2d-8bb2-8800-0c55bc5da575.bin",
+                      "length":  664819,
+                      "sha256":  "3a0e8f1870689d6534de728ea2a638fe6c677c777bc139e7020fbbca8a822ae3"
+                  },
+                  {
+                      "role":  "save_snapshot_manifest",
+                      "stage":  "autosave_checkpoint",
+                      "path":  "raw/standard-runtime/00-autosave_checkpoint/save-input/snapshot.json",
+                      "length":  1686,
+                      "sha256":  "6a629d2aab889a2cdb386719b7d53b9d6e75142038bf8f054aacda012de1827d"
+                  },
+                  {
+                      "role":  "profile_journal_output",
+                      "stage":  "autosave_checkpoint",
+                      "path":  "raw/standard-runtime/00-autosave_checkpoint/save-output/files/journal/profile/Partisan/HST_CampaignSaveData.json",
+                      "length":  719745,
+                      "sha256":  "c9933911a588ab57d219393c4d88a4ae2d2d3689a8673dd76cf7fea9ccaa6f63"
+                  },
+                  {
+                      "role":  "native_save_output",
+                      "stage":  "autosave_checkpoint",
+                      "path":  "raw/standard-runtime/00-autosave_checkpoint/save-output/files/native/.save/game/HST-Everon/playthrough000/savepoint000/meta-info.json",
+                      "length":  432,
+                      "sha256":  "b0261a14b6c9e716a79edcef923869746b3c08c8287e408832ab2f6264cb5d7f"
+                  },
+                  {
+                      "role":  "native_save_output",
+                      "stage":  "autosave_checkpoint",
+                      "path":  "raw/standard-runtime/00-autosave_checkpoint/save-output/files/native/.save/game/HST-Everon/playthrough000/savepoint000/System/002b7294-0a5d-8ad0-8800-0ca749a5fbf3.bin",
+                      "length":  130,
+                      "sha256":  "911af856f714945452cb049ee63404d0b6a4c9893ac7410a5191569fa8e9c967"
+                  },
+                  {
+                      "role":  "native_save_output",
+                      "stage":  "autosave_checkpoint",
+                      "path":  "raw/standard-runtime/00-autosave_checkpoint/save-output/files/native/.save/game/HST-Everon/playthrough000/savepoint000/System/00aaf77a-bf2d-8bb2-8800-0c55bc5da575.bin",
+                      "length":  664819,
+                      "sha256":  "3a0e8f1870689d6534de728ea2a638fe6c677c777bc139e7020fbbca8a822ae3"
+                  },
+                  {
+                      "role":  "save_snapshot_manifest",
+                      "stage":  "autosave_checkpoint",
+                      "path":  "raw/standard-runtime/00-autosave_checkpoint/save-output/snapshot.json",
+                      "length":  1687,
+                      "sha256":  "8d06ae62e25f40d5859aa2bd06261f62af2c67873e16ae058d264d8526fc96c4"
+                  },
+                  {
+                      "role":  "server_console_log",
+                      "stage":  "autosave_checkpoint",
+                      "path":  "raw/standard-runtime/00-autosave_checkpoint/server-logs/console.log",
+                      "length":  25242,
+                      "sha256":  "a8885870f12b07ef1907db8601ead4017f969b0e28e79c739d3b4277afcfcde5"
+                  },
+                  {
+                      "role":  "server_error_log",
+                      "stage":  "autosave_checkpoint",
+                      "path":  "raw/standard-runtime/00-autosave_checkpoint/server-logs/error.log",
+                      "length":  7553,
+                      "sha256":  "c8224ee3f0767c11eb4fc29c7f8b0dc0cac3c03c8dfc7163b6b87fa9b944ce3a"
+                  },
+                  {
+                      "role":  "server_script_log",
+                      "stage":  "autosave_checkpoint",
+                      "path":  "raw/standard-runtime/00-autosave_checkpoint/server-logs/script.log",
+                      "length":  10083,
+                      "sha256":  "36ec2c2b5cb90bdaaf9a20e3ebcb32beaf06bc57e955bbe2e8a37535b7851ed8"
+                  },
+                  {
+                      "role":  "profile_journal_input",
+                      "stage":  "manual_checkpoint",
+                      "path":  "raw/standard-runtime/01-manual_checkpoint/save-input/files/journal/profile/Partisan/HST_CampaignSaveData.json",
+                      "length":  719745,
+                      "sha256":  "c9933911a588ab57d219393c4d88a4ae2d2d3689a8673dd76cf7fea9ccaa6f63"
+                  },
+                  {
+                      "role":  "profile_journal_input",
+                      "stage":  "manual_checkpoint",
+                      "path":  "raw/standard-runtime/01-manual_checkpoint/save-input/files/journal/profile/Partisan/HST_CampaignSaveData.recovery.json",
+                      "length":  719855,
+                      "sha256":  "b96400cd6f86ca7f1e6ebde53792fee72157eb621802c33d3589541328a95591"
+                  },
+                  {
+                      "role":  "native_save_input",
+                      "stage":  "manual_checkpoint",
+                      "path":  "raw/standard-runtime/01-manual_checkpoint/save-input/files/native/.save/game/HST-Everon/playthrough000/savepoint000/meta-info.json",
+                      "length":  432,
+                      "sha256":  "b0261a14b6c9e716a79edcef923869746b3c08c8287e408832ab2f6264cb5d7f"
+                  },
+                  {
+                      "role":  "native_save_input",
+                      "stage":  "manual_checkpoint",
+                      "path":  "raw/standard-runtime/01-manual_checkpoint/save-input/files/native/.save/game/HST-Everon/playthrough000/savepoint000/System/002b7294-0a5d-8ad0-8800-0ca749a5fbf3.bin",
+                      "length":  130,
+                      "sha256":  "911af856f714945452cb049ee63404d0b6a4c9893ac7410a5191569fa8e9c967"
+                  },
+                  {
+                      "role":  "native_save_input",
+                      "stage":  "manual_checkpoint",
+                      "path":  "raw/standard-runtime/01-manual_checkpoint/save-input/files/native/.save/game/HST-Everon/playthrough000/savepoint000/System/00aaf77a-bf2d-8bb2-8800-0c55bc5da575.bin",
+                      "length":  664819,
+                      "sha256":  "3a0e8f1870689d6534de728ea2a638fe6c677c777bc139e7020fbbca8a822ae3"
+                  },
+                  {
+                      "role":  "native_save_input",
+                      "stage":  "manual_checkpoint",
+                      "path":  "raw/standard-runtime/01-manual_checkpoint/save-input/files/native/.save/game/HST-Everon/playthrough000/savepoint001/meta-info.json",
+                      "length":  441,
+                      "sha256":  "0a7f63dbb413db441504ae0008971afd0b25e95007631371c7bb4567c28dc9bd"
+                  },
+                  {
+                      "role":  "native_save_input",
+                      "stage":  "manual_checkpoint",
+                      "path":  "raw/standard-runtime/01-manual_checkpoint/save-input/files/native/.save/game/HST-Everon/playthrough000/savepoint001/System/002b7294-0a5d-8ad0-8800-0ca749a5fbf3.bin",
+                      "length":  130,
+                      "sha256":  "911af856f714945452cb049ee63404d0b6a4c9893ac7410a5191569fa8e9c967"
+                  },
+                  {
+                      "role":  "native_save_input",
+                      "stage":  "manual_checkpoint",
+                      "path":  "raw/standard-runtime/01-manual_checkpoint/save-input/files/native/.save/game/HST-Everon/playthrough000/savepoint001/System/00aaf77a-bf2d-8bb2-8800-0c55bc5da575.bin",
+                      "length":  664869,
+                      "sha256":  "d36c1e01a1da8f9b8f8d3f9b77f777afd4a009285e582a0c25ece014ae79540e"
+                  },
+                  {
+                      "role":  "save_snapshot_manifest",
+                      "stage":  "manual_checkpoint",
+                      "path":  "raw/standard-runtime/01-manual_checkpoint/save-input/snapshot.json",
+                      "length":  3097,
+                      "sha256":  "731b1d126030e7b0e60f9afd3948b4e64e9b5d3757b1874def18f5a0923962d3"
+                  },
+                  {
+                      "role":  "profile_journal_output",
+                      "stage":  "manual_checkpoint",
+                      "path":  "raw/standard-runtime/01-manual_checkpoint/save-output/files/journal/profile/Partisan/HST_CampaignSaveData.json",
+                      "length":  719745,
+                      "sha256":  "c9933911a588ab57d219393c4d88a4ae2d2d3689a8673dd76cf7fea9ccaa6f63"
+                  },
+                  {
+                      "role":  "profile_journal_output",
+                      "stage":  "manual_checkpoint",
+                      "path":  "raw/standard-runtime/01-manual_checkpoint/save-output/files/journal/profile/Partisan/HST_CampaignSaveData.recovery.json",
+                      "length":  719855,
+                      "sha256":  "b96400cd6f86ca7f1e6ebde53792fee72157eb621802c33d3589541328a95591"
+                  },
+                  {
+                      "role":  "native_save_output",
+                      "stage":  "manual_checkpoint",
+                      "path":  "raw/standard-runtime/01-manual_checkpoint/save-output/files/native/.save/game/HST-Everon/playthrough000/savepoint000/meta-info.json",
+                      "length":  432,
+                      "sha256":  "b0261a14b6c9e716a79edcef923869746b3c08c8287e408832ab2f6264cb5d7f"
+                  },
+                  {
+                      "role":  "native_save_output",
+                      "stage":  "manual_checkpoint",
+                      "path":  "raw/standard-runtime/01-manual_checkpoint/save-output/files/native/.save/game/HST-Everon/playthrough000/savepoint000/System/002b7294-0a5d-8ad0-8800-0ca749a5fbf3.bin",
+                      "length":  130,
+                      "sha256":  "911af856f714945452cb049ee63404d0b6a4c9893ac7410a5191569fa8e9c967"
+                  },
+                  {
+                      "role":  "native_save_output",
+                      "stage":  "manual_checkpoint",
+                      "path":  "raw/standard-runtime/01-manual_checkpoint/save-output/files/native/.save/game/HST-Everon/playthrough000/savepoint000/System/00aaf77a-bf2d-8bb2-8800-0c55bc5da575.bin",
+                      "length":  664819,
+                      "sha256":  "3a0e8f1870689d6534de728ea2a638fe6c677c777bc139e7020fbbca8a822ae3"
+                  },
+                  {
+                      "role":  "native_save_output",
+                      "stage":  "manual_checkpoint",
+                      "path":  "raw/standard-runtime/01-manual_checkpoint/save-output/files/native/.save/game/HST-Everon/playthrough000/savepoint001/meta-info.json",
+                      "length":  441,
+                      "sha256":  "0a7f63dbb413db441504ae0008971afd0b25e95007631371c7bb4567c28dc9bd"
+                  },
+                  {
+                      "role":  "native_save_output",
+                      "stage":  "manual_checkpoint",
+                      "path":  "raw/standard-runtime/01-manual_checkpoint/save-output/files/native/.save/game/HST-Everon/playthrough000/savepoint001/System/002b7294-0a5d-8ad0-8800-0ca749a5fbf3.bin",
+                      "length":  130,
+                      "sha256":  "911af856f714945452cb049ee63404d0b6a4c9893ac7410a5191569fa8e9c967"
+                  },
+                  {
+                      "role":  "native_save_output",
+                      "stage":  "manual_checkpoint",
+                      "path":  "raw/standard-runtime/01-manual_checkpoint/save-output/files/native/.save/game/HST-Everon/playthrough000/savepoint001/System/00aaf77a-bf2d-8bb2-8800-0c55bc5da575.bin",
+                      "length":  664869,
+                      "sha256":  "d36c1e01a1da8f9b8f8d3f9b77f777afd4a009285e582a0c25ece014ae79540e"
+                  },
+                  {
+                      "role":  "save_snapshot_manifest",
+                      "stage":  "manual_checkpoint",
+                      "path":  "raw/standard-runtime/01-manual_checkpoint/save-output/snapshot.json",
+                      "length":  3098,
+                      "sha256":  "46171e2b6141517e4478fd861639008eed5ffb880ba625817ed3725c645eece4"
+                  },
+                  {
+                      "role":  "server_console_log",
+                      "stage":  "manual_checkpoint",
+                      "path":  "raw/standard-runtime/01-manual_checkpoint/server-logs/console.log",
+                      "length":  24972,
+                      "sha256":  "418f2b4279746a762d7dc345479eb0e03781dc963123c9c68ec633d8a015bae2"
+                  },
+                  {
+                      "role":  "server_error_log",
+                      "stage":  "manual_checkpoint",
+                      "path":  "raw/standard-runtime/01-manual_checkpoint/server-logs/error.log",
+                      "length":  7553,
+                      "sha256":  "c6efa7288ea32e59e02bb645bd46a03a38eee8a73712f797b3dca6605ca4321c"
+                  },
+                  {
+                      "role":  "server_script_log",
+                      "stage":  "manual_checkpoint",
+                      "path":  "raw/standard-runtime/01-manual_checkpoint/server-logs/script.log",
+                      "length":  9813,
+                      "sha256":  "a13eb88e7a74e33a8251bd363948d7cd6bf4bc70176ab0fd2f883816b53553e1"
+                  },
+                  {
+                      "role":  "client_console_log",
+                      "stage":  "shutdown_checkpoint",
+                      "path":  "raw/standard-runtime/02-shutdown_checkpoint/client-logs/console.log",
+                      "length":  30875,
+                      "sha256":  "a5ab3b5b9d76a8509eb29c640db16606ee69de662e9e4e70e5d5e8d1c8aed7e4"
+                  },
+                  {
+                      "role":  "client_error_log",
+                      "stage":  "shutdown_checkpoint",
+                      "path":  "raw/standard-runtime/02-shutdown_checkpoint/client-logs/error.log",
+                      "length":  10817,
+                      "sha256":  "523cf3411a8f73c3fc878c5ec8939464bb0a296f9d3d3adf558e4220fdb1c9bc"
+                  },
+                  {
+                      "role":  "client_script_log",
+                      "stage":  "shutdown_checkpoint",
+                      "path":  "raw/standard-runtime/02-shutdown_checkpoint/client-logs/script.log",
+                      "length":  9423,
+                      "sha256":  "1b87d98d5a46553cd7e43c573f748440459b34784aa692487a13684ea3f41d9a"
+                  },
+                  {
+                      "role":  "profile_journal_input",
+                      "stage":  "shutdown_checkpoint",
+                      "path":  "raw/standard-runtime/02-shutdown_checkpoint/save-input/files/journal/profile/Partisan/HST_CampaignSaveData.json",
+                      "length":  811456,
+                      "sha256":  "e403e7986815730cb91a99532046e19d6e58b4ed4340345c862028520961ac6f"
+                  },
+                  {
+                      "role":  "profile_journal_input",
+                      "stage":  "shutdown_checkpoint",
+                      "path":  "raw/standard-runtime/02-shutdown_checkpoint/save-input/files/journal/profile/Partisan/HST_CampaignSaveData.recovery.json",
+                      "length":  719855,
+                      "sha256":  "b96400cd6f86ca7f1e6ebde53792fee72157eb621802c33d3589541328a95591"
+                  },
+                  {
+                      "role":  "native_save_input",
+                      "stage":  "shutdown_checkpoint",
+                      "path":  "raw/standard-runtime/02-shutdown_checkpoint/save-input/files/native/.save/game/HST-Everon/playthrough000/savepoint000/meta-info.json",
+                      "length":  432,
+                      "sha256":  "b0261a14b6c9e716a79edcef923869746b3c08c8287e408832ab2f6264cb5d7f"
+                  },
+                  {
+                      "role":  "native_save_input",
+                      "stage":  "shutdown_checkpoint",
+                      "path":  "raw/standard-runtime/02-shutdown_checkpoint/save-input/files/native/.save/game/HST-Everon/playthrough000/savepoint000/System/002b7294-0a5d-8ad0-8800-0ca749a5fbf3.bin",
+                      "length":  130,
+                      "sha256":  "911af856f714945452cb049ee63404d0b6a4c9893ac7410a5191569fa8e9c967"
+                  },
+                  {
+                      "role":  "native_save_input",
+                      "stage":  "shutdown_checkpoint",
+                      "path":  "raw/standard-runtime/02-shutdown_checkpoint/save-input/files/native/.save/game/HST-Everon/playthrough000/savepoint000/System/00aaf77a-bf2d-8bb2-8800-0c55bc5da575.bin",
+                      "length":  664819,
+                      "sha256":  "3a0e8f1870689d6534de728ea2a638fe6c677c777bc139e7020fbbca8a822ae3"
+                  },
+                  {
+                      "role":  "native_save_input",
+                      "stage":  "shutdown_checkpoint",
+                      "path":  "raw/standard-runtime/02-shutdown_checkpoint/save-input/files/native/.save/game/HST-Everon/playthrough000/savepoint001/meta-info.json",
+                      "length":  441,
+                      "sha256":  "0a7f63dbb413db441504ae0008971afd0b25e95007631371c7bb4567c28dc9bd"
+                  },
+                  {
+                      "role":  "native_save_input",
+                      "stage":  "shutdown_checkpoint",
+                      "path":  "raw/standard-runtime/02-shutdown_checkpoint/save-input/files/native/.save/game/HST-Everon/playthrough000/savepoint001/System/002b7294-0a5d-8ad0-8800-0ca749a5fbf3.bin",
+                      "length":  130,
+                      "sha256":  "911af856f714945452cb049ee63404d0b6a4c9893ac7410a5191569fa8e9c967"
+                  },
+                  {
+                      "role":  "native_save_input",
+                      "stage":  "shutdown_checkpoint",
+                      "path":  "raw/standard-runtime/02-shutdown_checkpoint/save-input/files/native/.save/game/HST-Everon/playthrough000/savepoint001/System/00aaf77a-bf2d-8bb2-8800-0c55bc5da575.bin",
+                      "length":  664869,
+                      "sha256":  "d36c1e01a1da8f9b8f8d3f9b77f777afd4a009285e582a0c25ece014ae79540e"
+                  },
+                  {
+                      "role":  "native_save_input",
+                      "stage":  "shutdown_checkpoint",
+                      "path":  "raw/standard-runtime/02-shutdown_checkpoint/save-input/files/native/.save/game/HST-Everon/playthrough000/savepoint002/meta-info.json",
+                      "length":  443,
+                      "sha256":  "468d436a676d7505ebc2cb11dcf1ea4717b2126c192792b365ebc9506ae41eaa"
+                  },
+                  {
+                      "role":  "native_save_input",
+                      "stage":  "shutdown_checkpoint",
+                      "path":  "raw/standard-runtime/02-shutdown_checkpoint/save-input/files/native/.save/game/HST-Everon/playthrough000/savepoint002/System/002b7294-0a5d-8ad0-8800-0ca749a5fbf3.bin",
+                      "length":  130,
+                      "sha256":  "911af856f714945452cb049ee63404d0b6a4c9893ac7410a5191569fa8e9c967"
+                  },
+                  {
+                      "role":  "native_save_input",
+                      "stage":  "shutdown_checkpoint",
+                      "path":  "raw/standard-runtime/02-shutdown_checkpoint/save-input/files/native/.save/game/HST-Everon/playthrough000/savepoint002/System/00aaf77a-bf2d-8bb2-8800-0c55bc5da575.bin",
+                      "length":  748186,
+                      "sha256":  "59bd4075841d82e07f90f8bb078efad9e5fb0e8645d933b010566b2ca4400f03"
+                  },
+                  {
+                      "role":  "save_snapshot_manifest",
+                      "stage":  "shutdown_checkpoint",
+                      "path":  "raw/standard-runtime/02-shutdown_checkpoint/save-input/snapshot.json",
+                      "length":  4182,
+                      "sha256":  "7cf2bb387842335f1cff6022783192aed385f92d08b7cde50de073f2ba58de44"
+                  },
+                  {
+                      "role":  "profile_journal_output",
+                      "stage":  "shutdown_checkpoint",
+                      "path":  "raw/standard-runtime/02-shutdown_checkpoint/save-output/files/journal/profile/Partisan/HST_CampaignSaveData.json",
+                      "length":  811456,
+                      "sha256":  "e403e7986815730cb91a99532046e19d6e58b4ed4340345c862028520961ac6f"
+                  },
+                  {
+                      "role":  "profile_journal_output",
+                      "stage":  "shutdown_checkpoint",
+                      "path":  "raw/standard-runtime/02-shutdown_checkpoint/save-output/files/journal/profile/Partisan/HST_CampaignSaveData.recovery.json",
+                      "length":  719855,
+                      "sha256":  "b96400cd6f86ca7f1e6ebde53792fee72157eb621802c33d3589541328a95591"
+                  },
+                  {
+                      "role":  "native_save_output",
+                      "stage":  "shutdown_checkpoint",
+                      "path":  "raw/standard-runtime/02-shutdown_checkpoint/save-output/files/native/.save/game/HST-Everon/playthrough000/savepoint000/meta-info.json",
+                      "length":  432,
+                      "sha256":  "b0261a14b6c9e716a79edcef923869746b3c08c8287e408832ab2f6264cb5d7f"
+                  },
+                  {
+                      "role":  "native_save_output",
+                      "stage":  "shutdown_checkpoint",
+                      "path":  "raw/standard-runtime/02-shutdown_checkpoint/save-output/files/native/.save/game/HST-Everon/playthrough000/savepoint000/System/002b7294-0a5d-8ad0-8800-0ca749a5fbf3.bin",
+                      "length":  130,
+                      "sha256":  "911af856f714945452cb049ee63404d0b6a4c9893ac7410a5191569fa8e9c967"
+                  },
+                  {
+                      "role":  "native_save_output",
+                      "stage":  "shutdown_checkpoint",
+                      "path":  "raw/standard-runtime/02-shutdown_checkpoint/save-output/files/native/.save/game/HST-Everon/playthrough000/savepoint000/System/00aaf77a-bf2d-8bb2-8800-0c55bc5da575.bin",
+                      "length":  664819,
+                      "sha256":  "3a0e8f1870689d6534de728ea2a638fe6c677c777bc139e7020fbbca8a822ae3"
+                  },
+                  {
+                      "role":  "native_save_output",
+                      "stage":  "shutdown_checkpoint",
+                      "path":  "raw/standard-runtime/02-shutdown_checkpoint/save-output/files/native/.save/game/HST-Everon/playthrough000/savepoint001/meta-info.json",
+                      "length":  441,
+                      "sha256":  "0a7f63dbb413db441504ae0008971afd0b25e95007631371c7bb4567c28dc9bd"
+                  },
+                  {
+                      "role":  "native_save_output",
+                      "stage":  "shutdown_checkpoint",
+                      "path":  "raw/standard-runtime/02-shutdown_checkpoint/save-output/files/native/.save/game/HST-Everon/playthrough000/savepoint001/System/002b7294-0a5d-8ad0-8800-0ca749a5fbf3.bin",
+                      "length":  130,
+                      "sha256":  "911af856f714945452cb049ee63404d0b6a4c9893ac7410a5191569fa8e9c967"
+                  },
+                  {
+                      "role":  "native_save_output",
+                      "stage":  "shutdown_checkpoint",
+                      "path":  "raw/standard-runtime/02-shutdown_checkpoint/save-output/files/native/.save/game/HST-Everon/playthrough000/savepoint001/System/00aaf77a-bf2d-8bb2-8800-0c55bc5da575.bin",
+                      "length":  664869,
+                      "sha256":  "d36c1e01a1da8f9b8f8d3f9b77f777afd4a009285e582a0c25ece014ae79540e"
+                  },
+                  {
+                      "role":  "native_save_output",
+                      "stage":  "shutdown_checkpoint",
+                      "path":  "raw/standard-runtime/02-shutdown_checkpoint/save-output/files/native/.save/game/HST-Everon/playthrough000/savepoint002/meta-info.json",
+                      "length":  443,
+                      "sha256":  "468d436a676d7505ebc2cb11dcf1ea4717b2126c192792b365ebc9506ae41eaa"
+                  },
+                  {
+                      "role":  "native_save_output",
+                      "stage":  "shutdown_checkpoint",
+                      "path":  "raw/standard-runtime/02-shutdown_checkpoint/save-output/files/native/.save/game/HST-Everon/playthrough000/savepoint002/System/002b7294-0a5d-8ad0-8800-0ca749a5fbf3.bin",
+                      "length":  130,
+                      "sha256":  "911af856f714945452cb049ee63404d0b6a4c9893ac7410a5191569fa8e9c967"
+                  },
+                  {
+                      "role":  "native_save_output",
+                      "stage":  "shutdown_checkpoint",
+                      "path":  "raw/standard-runtime/02-shutdown_checkpoint/save-output/files/native/.save/game/HST-Everon/playthrough000/savepoint002/System/00aaf77a-bf2d-8bb2-8800-0c55bc5da575.bin",
+                      "length":  748186,
+                      "sha256":  "59bd4075841d82e07f90f8bb078efad9e5fb0e8645d933b010566b2ca4400f03"
+                  },
+                  {
+                      "role":  "save_snapshot_manifest",
+                      "stage":  "shutdown_checkpoint",
+                      "path":  "raw/standard-runtime/02-shutdown_checkpoint/save-output/snapshot.json",
+                      "length":  4183,
+                      "sha256":  "537399404c178f66b1f9eedc9a4722b955d2e4629ca2adf124115ca87654103d"
+                  },
+                  {
+                      "role":  "server_console_log",
+                      "stage":  "shutdown_checkpoint",
+                      "path":  "raw/standard-runtime/02-shutdown_checkpoint/server-logs/console.log",
+                      "length":  71426,
+                      "sha256":  "25dfecdecc6740051899e002a21bf3f594c79a2a273cb7829e1f64ceb34ca9a5"
+                  },
+                  {
+                      "role":  "server_error_log",
+                      "stage":  "shutdown_checkpoint",
+                      "path":  "raw/standard-runtime/02-shutdown_checkpoint/server-logs/error.log",
+                      "length":  12356,
+                      "sha256":  "17b09159c100e64167c81f8cc7bf06d96e300dbe0d3bd7b1d615b1eb1f300f07"
+                  },
+                  {
+                      "role":  "server_script_log",
+                      "stage":  "shutdown_checkpoint",
+                      "path":  "raw/standard-runtime/02-shutdown_checkpoint/server-logs/script.log",
+                      "length":  49800,
+                      "sha256":  "4c039c1c98464605635711f494ae5ae5d451c452d984195ad514d3875c782939"
+                  },
+                  {
+                      "role":  "profile_journal_input",
+                      "stage":  "native_shutdown_verify",
+                      "path":  "raw/standard-runtime/03-native_shutdown_verify/save-input/files/journal/profile/Partisan/HST_CampaignSaveData.json",
+                      "length":  811456,
+                      "sha256":  "e403e7986815730cb91a99532046e19d6e58b4ed4340345c862028520961ac6f"
+                  },
+                  {
+                      "role":  "profile_journal_input",
+                      "stage":  "native_shutdown_verify",
+                      "path":  "raw/standard-runtime/03-native_shutdown_verify/save-input/files/journal/profile/Partisan/HST_CampaignSaveData.recovery.json",
+                      "length":  719855,
+                      "sha256":  "b96400cd6f86ca7f1e6ebde53792fee72157eb621802c33d3589541328a95591"
+                  },
+                  {
+                      "role":  "native_save_input",
+                      "stage":  "native_shutdown_verify",
+                      "path":  "raw/standard-runtime/03-native_shutdown_verify/save-input/files/native/.save/game/HST-Everon/playthrough000/savepoint000/meta-info.json",
+                      "length":  432,
+                      "sha256":  "b0261a14b6c9e716a79edcef923869746b3c08c8287e408832ab2f6264cb5d7f"
+                  },
+                  {
+                      "role":  "native_save_input",
+                      "stage":  "native_shutdown_verify",
+                      "path":  "raw/standard-runtime/03-native_shutdown_verify/save-input/files/native/.save/game/HST-Everon/playthrough000/savepoint000/System/002b7294-0a5d-8ad0-8800-0ca749a5fbf3.bin",
+                      "length":  130,
+                      "sha256":  "911af856f714945452cb049ee63404d0b6a4c9893ac7410a5191569fa8e9c967"
+                  },
+                  {
+                      "role":  "native_save_input",
+                      "stage":  "native_shutdown_verify",
+                      "path":  "raw/standard-runtime/03-native_shutdown_verify/save-input/files/native/.save/game/HST-Everon/playthrough000/savepoint000/System/00aaf77a-bf2d-8bb2-8800-0c55bc5da575.bin",
+                      "length":  664819,
+                      "sha256":  "3a0e8f1870689d6534de728ea2a638fe6c677c777bc139e7020fbbca8a822ae3"
+                  },
+                  {
+                      "role":  "native_save_input",
+                      "stage":  "native_shutdown_verify",
+                      "path":  "raw/standard-runtime/03-native_shutdown_verify/save-input/files/native/.save/game/HST-Everon/playthrough000/savepoint001/meta-info.json",
+                      "length":  441,
+                      "sha256":  "0a7f63dbb413db441504ae0008971afd0b25e95007631371c7bb4567c28dc9bd"
+                  },
+                  {
+                      "role":  "native_save_input",
+                      "stage":  "native_shutdown_verify",
+                      "path":  "raw/standard-runtime/03-native_shutdown_verify/save-input/files/native/.save/game/HST-Everon/playthrough000/savepoint001/System/002b7294-0a5d-8ad0-8800-0ca749a5fbf3.bin",
+                      "length":  130,
+                      "sha256":  "911af856f714945452cb049ee63404d0b6a4c9893ac7410a5191569fa8e9c967"
+                  },
+                  {
+                      "role":  "native_save_input",
+                      "stage":  "native_shutdown_verify",
+                      "path":  "raw/standard-runtime/03-native_shutdown_verify/save-input/files/native/.save/game/HST-Everon/playthrough000/savepoint001/System/00aaf77a-bf2d-8bb2-8800-0c55bc5da575.bin",
+                      "length":  664869,
+                      "sha256":  "d36c1e01a1da8f9b8f8d3f9b77f777afd4a009285e582a0c25ece014ae79540e"
+                  },
+                  {
+                      "role":  "native_save_input",
+                      "stage":  "native_shutdown_verify",
+                      "path":  "raw/standard-runtime/03-native_shutdown_verify/save-input/files/native/.save/game/HST-Everon/playthrough000/savepoint002/meta-info.json",
+                      "length":  443,
+                      "sha256":  "468d436a676d7505ebc2cb11dcf1ea4717b2126c192792b365ebc9506ae41eaa"
+                  },
+                  {
+                      "role":  "native_save_input",
+                      "stage":  "native_shutdown_verify",
+                      "path":  "raw/standard-runtime/03-native_shutdown_verify/save-input/files/native/.save/game/HST-Everon/playthrough000/savepoint002/System/002b7294-0a5d-8ad0-8800-0ca749a5fbf3.bin",
+                      "length":  130,
+                      "sha256":  "911af856f714945452cb049ee63404d0b6a4c9893ac7410a5191569fa8e9c967"
+                  },
+                  {
+                      "role":  "native_save_input",
+                      "stage":  "native_shutdown_verify",
+                      "path":  "raw/standard-runtime/03-native_shutdown_verify/save-input/files/native/.save/game/HST-Everon/playthrough000/savepoint002/System/00aaf77a-bf2d-8bb2-8800-0c55bc5da575.bin",
+                      "length":  748186,
+                      "sha256":  "59bd4075841d82e07f90f8bb078efad9e5fb0e8645d933b010566b2ca4400f03"
+                  },
+                  {
+                      "role":  "save_snapshot_manifest",
+                      "stage":  "native_shutdown_verify",
+                      "path":  "raw/standard-runtime/03-native_shutdown_verify/save-input/snapshot.json",
+                      "length":  4185,
+                      "sha256":  "f07032c79317bdcde93ae3d43bce25b50f595f079f97367ee2c105ee2723b355"
+                  },
+                  {
+                      "role":  "profile_journal_output",
+                      "stage":  "native_shutdown_verify",
+                      "path":  "raw/standard-runtime/03-native_shutdown_verify/save-output/files/journal/profile/Partisan/HST_CampaignSaveData.json",
+                      "length":  811456,
+                      "sha256":  "e403e7986815730cb91a99532046e19d6e58b4ed4340345c862028520961ac6f"
+                  },
+                  {
+                      "role":  "profile_journal_output",
+                      "stage":  "native_shutdown_verify",
+                      "path":  "raw/standard-runtime/03-native_shutdown_verify/save-output/files/journal/profile/Partisan/HST_CampaignSaveData.recovery.json",
+                      "length":  719855,
+                      "sha256":  "b96400cd6f86ca7f1e6ebde53792fee72157eb621802c33d3589541328a95591"
+                  },
+                  {
+                      "role":  "native_save_output",
+                      "stage":  "native_shutdown_verify",
+                      "path":  "raw/standard-runtime/03-native_shutdown_verify/save-output/files/native/.save/game/HST-Everon/playthrough000/savepoint000/meta-info.json",
+                      "length":  432,
+                      "sha256":  "b0261a14b6c9e716a79edcef923869746b3c08c8287e408832ab2f6264cb5d7f"
+                  },
+                  {
+                      "role":  "native_save_output",
+                      "stage":  "native_shutdown_verify",
+                      "path":  "raw/standard-runtime/03-native_shutdown_verify/save-output/files/native/.save/game/HST-Everon/playthrough000/savepoint000/System/002b7294-0a5d-8ad0-8800-0ca749a5fbf3.bin",
+                      "length":  130,
+                      "sha256":  "911af856f714945452cb049ee63404d0b6a4c9893ac7410a5191569fa8e9c967"
+                  },
+                  {
+                      "role":  "native_save_output",
+                      "stage":  "native_shutdown_verify",
+                      "path":  "raw/standard-runtime/03-native_shutdown_verify/save-output/files/native/.save/game/HST-Everon/playthrough000/savepoint000/System/00aaf77a-bf2d-8bb2-8800-0c55bc5da575.bin",
+                      "length":  664819,
+                      "sha256":  "3a0e8f1870689d6534de728ea2a638fe6c677c777bc139e7020fbbca8a822ae3"
+                  },
+                  {
+                      "role":  "native_save_output",
+                      "stage":  "native_shutdown_verify",
+                      "path":  "raw/standard-runtime/03-native_shutdown_verify/save-output/files/native/.save/game/HST-Everon/playthrough000/savepoint001/meta-info.json",
+                      "length":  441,
+                      "sha256":  "0a7f63dbb413db441504ae0008971afd0b25e95007631371c7bb4567c28dc9bd"
+                  },
+                  {
+                      "role":  "native_save_output",
+                      "stage":  "native_shutdown_verify",
+                      "path":  "raw/standard-runtime/03-native_shutdown_verify/save-output/files/native/.save/game/HST-Everon/playthrough000/savepoint001/System/002b7294-0a5d-8ad0-8800-0ca749a5fbf3.bin",
+                      "length":  130,
+                      "sha256":  "911af856f714945452cb049ee63404d0b6a4c9893ac7410a5191569fa8e9c967"
+                  },
+                  {
+                      "role":  "native_save_output",
+                      "stage":  "native_shutdown_verify",
+                      "path":  "raw/standard-runtime/03-native_shutdown_verify/save-output/files/native/.save/game/HST-Everon/playthrough000/savepoint001/System/00aaf77a-bf2d-8bb2-8800-0c55bc5da575.bin",
+                      "length":  664869,
+                      "sha256":  "d36c1e01a1da8f9b8f8d3f9b77f777afd4a009285e582a0c25ece014ae79540e"
+                  },
+                  {
+                      "role":  "native_save_output",
+                      "stage":  "native_shutdown_verify",
+                      "path":  "raw/standard-runtime/03-native_shutdown_verify/save-output/files/native/.save/game/HST-Everon/playthrough000/savepoint002/meta-info.json",
+                      "length":  443,
+                      "sha256":  "468d436a676d7505ebc2cb11dcf1ea4717b2126c192792b365ebc9506ae41eaa"
+                  },
+                  {
+                      "role":  "native_save_output",
+                      "stage":  "native_shutdown_verify",
+                      "path":  "raw/standard-runtime/03-native_shutdown_verify/save-output/files/native/.save/game/HST-Everon/playthrough000/savepoint002/System/002b7294-0a5d-8ad0-8800-0ca749a5fbf3.bin",
+                      "length":  130,
+                      "sha256":  "911af856f714945452cb049ee63404d0b6a4c9893ac7410a5191569fa8e9c967"
+                  },
+                  {
+                      "role":  "native_save_output",
+                      "stage":  "native_shutdown_verify",
+                      "path":  "raw/standard-runtime/03-native_shutdown_verify/save-output/files/native/.save/game/HST-Everon/playthrough000/savepoint002/System/00aaf77a-bf2d-8bb2-8800-0c55bc5da575.bin",
+                      "length":  748186,
+                      "sha256":  "59bd4075841d82e07f90f8bb078efad9e5fb0e8645d933b010566b2ca4400f03"
+                  },
+                  {
+                      "role":  "save_snapshot_manifest",
+                      "stage":  "native_shutdown_verify",
+                      "path":  "raw/standard-runtime/03-native_shutdown_verify/save-output/snapshot.json",
+                      "length":  4186,
+                      "sha256":  "4465ceabb4903a3b42f3614c4901760f955d7da86bd13219c4df74efe7b71c91"
+                  },
+                  {
+                      "role":  "server_console_log",
+                      "stage":  "native_shutdown_verify",
+                      "path":  "raw/standard-runtime/03-native_shutdown_verify/server-logs/console.log",
+                      "length":  45193,
+                      "sha256":  "e7ea01bd7248e72ebbbe8fde222d9fe174b620934098ab353d1bf25972c7b1a4"
+                  },
+                  {
+                      "role":  "server_error_log",
+                      "stage":  "native_shutdown_verify",
+                      "path":  "raw/standard-runtime/03-native_shutdown_verify/server-logs/error.log",
+                      "length":  8583,
+                      "sha256":  "4767728525f683ec3d5b15f9acce5a034c5fbd34a56132ecb80975968bdbce0d"
+                  },
+                  {
+                      "role":  "server_script_log",
+                      "stage":  "native_shutdown_verify",
+                      "path":  "raw/standard-runtime/03-native_shutdown_verify/server-logs/script.log",
+                      "length":  26316,
+                      "sha256":  "8bcd5e1d1df8a09b47bc830f51f766da2a47782d3b1d842ea752a9c44d7162ae"
+                  },
+                  {
+                      "role":  "profile_journal_input",
+                      "stage":  "profile_fallback_verify",
+                      "path":  "raw/standard-runtime/04-profile_fallback_verify/save-input/files/journal/profile/Partisan/HST_CampaignSaveData.json",
+                      "length":  811456,
+                      "sha256":  "e403e7986815730cb91a99532046e19d6e58b4ed4340345c862028520961ac6f"
+                  },
+                  {
+                      "role":  "profile_journal_input",
+                      "stage":  "profile_fallback_verify",
+                      "path":  "raw/standard-runtime/04-profile_fallback_verify/save-input/files/journal/profile/Partisan/HST_CampaignSaveData.recovery.json",
+                      "length":  719855,
+                      "sha256":  "b96400cd6f86ca7f1e6ebde53792fee72157eb621802c33d3589541328a95591"
+                  },
+                  {
+                      "role":  "save_snapshot_manifest",
+                      "stage":  "profile_fallback_verify",
+                      "path":  "raw/standard-runtime/04-profile_fallback_verify/save-input/snapshot.json",
+                      "length":  937,
+                      "sha256":  "f5628678e1639ae34c0629c9d92cd52e32df96b9da6686b490a4d7bca057dd1a"
+                  },
+                  {
+                      "role":  "profile_journal_output",
+                      "stage":  "profile_fallback_verify",
+                      "path":  "raw/standard-runtime/04-profile_fallback_verify/save-output/files/journal/profile/Partisan/HST_CampaignSaveData.json",
+                      "length":  811456,
+                      "sha256":  "e403e7986815730cb91a99532046e19d6e58b4ed4340345c862028520961ac6f"
+                  },
+                  {
+                      "role":  "profile_journal_output",
+                      "stage":  "profile_fallback_verify",
+                      "path":  "raw/standard-runtime/04-profile_fallback_verify/save-output/files/journal/profile/Partisan/HST_CampaignSaveData.recovery.json",
+                      "length":  719855,
+                      "sha256":  "b96400cd6f86ca7f1e6ebde53792fee72157eb621802c33d3589541328a95591"
+                  },
+                  {
+                      "role":  "save_snapshot_manifest",
+                      "stage":  "profile_fallback_verify",
+                      "path":  "raw/standard-runtime/04-profile_fallback_verify/save-output/snapshot.json",
+                      "length":  938,
+                      "sha256":  "ac2ad8fe542640ce53746f122ecb4258429dd9875c0aebcccfc0325f0f70ff38"
+                  },
+                  {
+                      "role":  "server_console_log",
+                      "stage":  "profile_fallback_verify",
+                      "path":  "raw/standard-runtime/04-profile_fallback_verify/server-logs/console.log",
+                      "length":  45242,
+                      "sha256":  "69ce0fe34dcf48440a39e7a3ca8816feda3759423b76ee69a202356421b43a3f"
+                  },
+                  {
+                      "role":  "server_error_log",
+                      "stage":  "profile_fallback_verify",
+                      "path":  "raw/standard-runtime/04-profile_fallback_verify/server-logs/error.log",
+                      "length":  8583,
+                      "sha256":  "547a026c5d25876e7fb6107f1073fd5f65698c62a8fbda002a5d1511a22d4ee3"
+                  },
+                  {
+                      "role":  "server_script_log",
+                      "stage":  "profile_fallback_verify",
+                      "path":  "raw/standard-runtime/04-profile_fallback_verify/server-logs/script.log",
+                      "length":  26280,
+                      "sha256":  "e3fccbe7369b5d070288091b17e81b4cf4b67d213ac9da7d450946463e8dfc21"
+                  },
+                  {
+                      "role":  "run_owner",
+                      "stage":  "run",
+                      "path":  "run.owner.json",
+                      "length":  336,
+                      "sha256":  "a81b2053101f79b4001f17661899f02ea9ca5eaf4141c5f7625ce24eb0bb2575"
+                  }
+              ],
+    "filesAggregateSha256":  "626b55f40c68b4c7147c497d0258415d37f7ee6f5b9baa5d923743e8ffd3a81d",
+    "disposition":  "passed-noncertifying-retention"
+}

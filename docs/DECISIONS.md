@@ -5232,3 +5232,47 @@ Consequences:
 - The exact next order is a fresh same-package surface/retention pair, all five
   focused suites, the corrected canary, and Full Campaign Debug only after an
   accepted canary.
+
+## CRI-099 - Accept the Corrected Same-Package Gate 1 Pair
+
+- Status: Accepted as the active noncertifying paired Gate 1 boundary
+- Date: 2026-07-22
+
+Context: CRI-098 changed bound focused, release-document, surface runner,
+publisher, and consumer bytes without changing candidate, package, or gameplay
+bytes. The final tool checkpoint passes the 15/15 source guard, 56-check surface
+runner, 74-check surface publisher with 73 negatives and two guarded receipts,
+73/73 retention publisher, 3 valid/optional plus 53 adversarial shared-consumer
+cases, and 741-check focused-aggregate self-test. The `52c7e2b` pair remains
+immutable historical evidence but cannot satisfy this current-tool boundary.
+
+Clean harness `e2c38d2770d8ebaaa675326d1b8a91068db989e5` then produced surface
+leaf `20260722T103329Z-edea9d8417884dd8a2d2b313c4543ad0` with 41 files. Its
+index and ready SHA-256 values are
+`205f9c2d2c3166bced4e92312ded1d16a633518732fad748b5178628e59d75b6` and
+`7201bb54caccd48ee270bb34a9eba5e5e09596ea33b9855b9cbf5a2499c6a43a`.
+The structured candidate-mount attestation is exact at two candidate records,
+two exact paths, one packed record, and zero invalid modes. Retention leaf
+`20260722T103514Z-436f331b8659` retained 251 files; its index and ready SHA-256
+values are
+`94906067a7637e69a186926dc731320cf14011a04c9fe7a26117960f46e7f29a` and
+`ff503f5f1f16ad7fbac45c292ad43a2b07984ca35ce8a188cbee2b55ddaea503`.
+
+Decision: Accept only these exact corrected-harness indexes as the active pair.
+Require each bound publisher to independently reverify its raw tree and terminal
+seal without writes, then require the shared release consumer to accept both
+records together against unchanged package
+`af22d6322a215dbef466e49041fc07395cbb5ed7a5951fd3e0cee5f4a101f530`.
+Preserve the CRI-097 pair and CRI-098 failed focused leaf unchanged as historical
+and rejected forensic evidence respectively. Do not promote surface inspection
+or raw retention into gameplay, native save-restoration, multiplayer, restart,
+performance, soak, or certification claims.
+
+Consequences:
+
+- Both corrected halves passed, independently reverified read-only, and were
+  jointly consumed against the unchanged package.
+- `STATUS-008` is closed again. Gate 1 remains incomplete and release remains
+  `NO-GO`.
+- The exact next order is all five focused suites and their 91-case aggregate,
+  the corrected canary, and Full Campaign Debug only after an accepted canary.

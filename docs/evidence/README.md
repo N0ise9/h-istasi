@@ -152,7 +152,8 @@ members. The source guard passes 15/15, the paired runner self-test passes 56
 checks, the surface publisher passes 74 checks with 73 negatives and two guarded
 receipts, the retention publisher passes 73/73, and the consumer passes 3
 valid/optional plus 53 adversarial cases. These source and publisher checkpoints
-do not constitute a runtime audit. The fourth and
+join a 741-check focused-aggregate self-test and do not constitute a runtime
+audit. The fourth and
 fifth fresh audits each produced internally passing retail and diagnostic mode
 records, exact 41-file censuses, zero crash artifacts, and exact cleanup. The
 fourth stopped before publication when Git discovery returned multiple
@@ -325,6 +326,23 @@ were approved stock events, and cleanup was exact zero. The old parser still
 counted six legitimate candidate/core/data `gproj` rows instead of selecting the
 two candidate records, so the leaf cannot enter the five-suite aggregate.
 
+The corrected current-tool recapture is accepted. Clean harness
+`e2c38d2770d8ebaaa675326d1b8a91068db989e5` produced 41-file surface leaf
+`20260722T103329Z-edea9d8417884dd8a2d2b313c4543ad0`. Its index and ready
+SHA-256 values are
+`205f9c2d2c3166bced4e92312ded1d16a633518732fad748b5178628e59d75b6` and
+`7201bb54caccd48ee270bb34a9eba5e5e09596ea33b9855b9cbf5a2499c6a43a`, and its
+structured candidate-mount attestation is exact at 2/2/1/0. Retention leaf
+`20260722T103514Z-436f331b8659` retains 251 files; its index and ready SHA-256
+values are
+`94906067a7637e69a186926dc731320cf14011a04c9fe7a26117960f46e7f29a` and
+`ff503f5f1f16ad7fbac45c292ad43a2b07984ca35ce8a188cbee2b55ddaea503`.
+Both halves passed, independently reverified read-only, and were jointly consumed
+against unchanged package
+`af22d6322a215dbef466e49041fc07395cbb5ed7a5951fd3e0cee5f4a101f530`.
+`STATUS-008` is closed again. The `52c7e2b` pair remains immutable superseded
+history.
+
 ## Release-Ledger Schema 3 Historical Evidence
 
 Release-ledger Schema 3 is distinct from Campaign Schema 71. Its
@@ -371,12 +389,15 @@ Foundation passed 985 references. All five Workbench targets passed at 5,849
 files/12,022 classes with common CRC `aeddce9b`; the seal binds four package
 files and 50 evidence files. The tracked manifest and ready seal are the portable
 identity records; the package and complete raw evidence bundle remain external,
-immutable, and untracked. The 41-file surface and 251-file retention runs passed,
-independently reverified, and were jointly consumed under harness `52c7e2b`;
-they remain immutable historical evidence but are not the active current-tool
-pair. Next run a fresh same-package pair, all five focused suites and their
-91-case aggregate, the corrected canary, and Full Campaign Debug only after an
-accepted canary. Gate 1 remains incomplete and release remains `NO-GO`.
+immutable, and untracked. The `52c7e2b` pair remains immutable historical
+evidence and is superseded. Fresh surface leaf
+`20260722T103329Z-edea9d8417884dd8a2d2b313c4543ad0` and retention leaf
+`20260722T103514Z-436f331b8659` passed under corrected harness
+`e2c38d2770d8ebaaa675326d1b8a91068db989e5`, independently reverified read-only,
+and were jointly consumed against the unchanged package. `STATUS-008` is closed
+again. Next run all five focused suites and their 91-case aggregate, the
+corrected canary, and Full Campaign Debug only after an accepted canary. Gate 1
+remains incomplete and release remains `NO-GO`.
 
 Historical ledger `history[2]`, retired as `rejected-after-full-profile`, is
 `partisan-rc-ee0e8add2a29-20260719T063815Z`, version

@@ -17,17 +17,18 @@ seal SHA-256 values are respectively
 `173434122dce60dde8ff1dc939e2d5a916094bdb31096a641850772aa9853ad3`.
 Foundation passed 985 references; PC, PS4, PS5, XBOX_ONE, and XBOX_SERIES each
 passed at 5,849 files/12,022 classes with common CRC `aeddce9b`; the seal binds
-four package files and 50 evidence files. The LF-canonical 41-file surface and
-251-file retention runs passed, independently reverified, and were jointly
-consumed under clean harness `52c7e2b`; they remain immutable historical
-evidence. The mount-attestation correction changes bound current-tool bytes,
-supersedes that pair as active, and reopens `STATUS-008`. No 91-case focused,
-corrected-canary, or full-profile runtime evidence has yet been accepted for
-these bytes. Gate 1 is incomplete, and release remains `NO-GO`.
+four package files and 50 evidence files. The `52c7e2b` pair remains immutable
+historical evidence and is superseded. Fresh 41-file surface leaf
+`20260722T103329Z-edea9d8417884dd8a2d2b313c4543ad0` and 251-file retention
+leaf `20260722T103514Z-436f331b8659` passed under corrected harness
+`e2c38d2770d8ebaaa675326d1b8a91068db989e5`, independently reverified read-only,
+and were jointly consumed against the unchanged package. `STATUS-008` is closed
+again. No 91-case focused, corrected-canary, or full-profile runtime evidence
+has yet been accepted for these bytes. Gate 1 is incomplete, and release remains
+`NO-GO`.
 
-The next exact order is a fresh same-package surface/retention pair, all five
-focused suites and their 91-case aggregate, the corrected canary, and Full
-Campaign Debug only after an accepted canary.
+The next exact order is all five focused suites and their 91-case aggregate, the
+corrected canary, and Full Campaign Debug only after an accepted canary.
 
 Focused counterattack leaf
 `20260722T084353Z-03d78e016b244d8fb1aea42f307af1d6`, envelope SHA-256
@@ -40,6 +41,18 @@ contract uses structured records, exact case-sensitive candidate GUID and exact
 guard-owned path matching, requires 2 records/2 exact paths/1 packed/0 invalid
 modes, ignores base-project and command-line rows, binds the focused nonce path,
 and publishes the same surface facts as one nested structured attestation.
+
+The corrected tool boundary passes 15/15 source checks, 56 runner checks, 74
+surface-publisher checks with 73 negatives and two guarded receipts, 73/73
+retention checks, 3 valid/optional plus 53 adversarial consumer cases, and the
+741-check focused-aggregate self-test. Surface index/ready SHA-256 values are
+`205f9c2d2c3166bced4e92312ded1d16a633518732fad748b5178628e59d75b6` and
+`7201bb54caccd48ee270bb34a9eba5e5e09596ea33b9855b9cbf5a2499c6a43a`;
+retention index/ready values are
+`94906067a7637e69a186926dc731320cf14011a04c9fe7a26117960f46e7f29a` and
+`ff503f5f1f16ad7fbac45c292ad43a2b07984ca35ce8a188cbee2b55ddaea503`.
+The surface attestation is exact at 2/2/1/0, and both halves bind unchanged
+package `af22d6322a215dbef466e49041fc07395cbb5ed7a5951fd3e0cee5f4a101f530`.
 
 Retention attempt `20260722T031531Z-434ebf5a6831` completed four diagnostic
 stages and emitted a successful fifth-stage engine result before a normal-exit
@@ -2455,8 +2468,12 @@ Debug and packaged-runtime gates remain open.
 - [x] Preserve that pair as immutable historical evidence after the mount-
   attestation correction changed its bound current-tool bytes; it no longer
   satisfies the active pair boundary and `STATUS-008` is reopened.
-- [ ] Run and jointly consume a fresh same-package surface/retention pair under
-  the corrected structured candidate-mount contract.
+- [x] Run and jointly consume fresh same-package surface leaf
+  `20260722T103329Z-edea9d8417884dd8a2d2b313c4543ad0` and retention leaf
+  `20260722T103514Z-436f331b8659` under corrected harness
+  `e2c38d2770d8ebaaa675326d1b8a91068db989e5`. Both passed, independently
+  reverified read-only, and were jointly consumed; the surface mount attestation
+  is exact 2/2/1/0 and `STATUS-008` is closed again.
 - [ ] Run the five-suite focused aggregate with exactly 91 individually named
   cases and JUnit 91/0/0/0 against the unchanged active package.
 - [ ] Run the corrected canary only after the focused aggregate is accepted.
