@@ -1523,7 +1523,31 @@ function Assert-PartisanReleaseSurfaceEvidence {
                 [string]$CandidateIdentity.PackageSha256) {
             throw "$Label package binding is invalid."
         }
-        Assert-Gate1ConsumerPackageRows @($bindings.package.files) `
+        if (-not (Test-Gate1ConsumerJsonEqual `
+                @($bindings.package.files) `
+                @($CandidateIdentity.Manifest.package.files))) {
+            throw "$Label package binding differs from the candidate manifest."
+        }
+        $packageProjections = New-Object Collections.Generic.List[object]
+        foreach ($row in @($bindings.package.files)) {
+            Assert-Gate1ConsumerExactProperties $row @(
+                'path', 'indexPath', 'length', 'sha256') `
+                "$Label package binding row"
+            Assert-Gate1ConsumerPortablePath ([string]$row.path) `
+                "$Label package binding row.path"
+            Assert-Gate1ConsumerPortablePath ([string]$row.indexPath) `
+                "$Label package binding row.indexPath"
+            if ([string]$row.path -cne
+                    ('package/' + [string]$row.indexPath)) {
+                throw "$Label package binding row path is not exact."
+            }
+            [void]$packageProjections.Add([pscustomobject][ordered]@{
+                indexPath = [string]$row.indexPath
+                length = $row.length
+                sha256 = $row.sha256
+            })
+        }
+        Assert-Gate1ConsumerPackageRows $packageProjections.ToArray() `
             ([string]$CandidateIdentity.PackageSha256) "$Label package binding"
 
         Assert-Gate1ConsumerExactProperties $index.harness @(

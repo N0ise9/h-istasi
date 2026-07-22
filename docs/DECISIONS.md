@@ -5104,3 +5104,38 @@ Consequences:
   tracked and jointly consumed.
 - `STATUS-008` remains open, Gate 1 remains incomplete, and release remains
   `NO-GO`.
+
+## CRI-096 - Consume the Real Four-Field Surface Package Binding
+
+- Status: Accepted as a fail-closed evidence-consumer correction; a new paired
+  run remains required
+- Date: 2026-07-22
+
+Context: The first LF-canonical surface and retention reruns both completed and
+published valid indexes under harness `af12aa1`. Pair consumption then rejected
+the surface raw binding before attachment. The surface runner, active candidate
+manifest, and publisher all use exact package rows with `path`, `indexPath`,
+`length`, and `sha256`, where `path` is `package/` plus `indexPath`. The shared
+consumer incorrectly passed those four-field rows directly to its canonical
+three-field package-digest helper. Its synthetic surface fixture also omitted
+`path`, so 49 adversarial checks did not exercise the production shape.
+
+Decision: Preserve the four-field producer schema. The surface consumer must
+exact-validate all four fields, compare the ordered rows with the trusted active
+candidate manifest, require the canonical path relationship, project only
+`indexPath`, `length`, and `sha256`, and then invoke the existing package-digest
+validator. Make the synthetic candidate and surface binding use the production
+shape and reject a noncanonical package-row path. Do not edit or reinterpret a
+sealed raw run, weaken exact tool binding, or change the candidate package.
+
+Consequences:
+
+- The consumer self-test passes three valid/optional cases and 50 adversarial
+  cases with a production-shaped surface package binding.
+- The two `af12aa1` captures remain immutable evidence of their own executions,
+  but changing the bound consumer prevents them from entering a current-tool
+  pair.
+- Commit this correction, then rerun both surface and retention against the
+  unchanged candidate. Only the new pair may be tracked and jointly consumed.
+- `STATUS-008` remains open, Gate 1 remains incomplete, and release remains
+  `NO-GO`.

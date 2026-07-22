@@ -305,6 +305,15 @@ The embedded implementation stamp is
   external run in place or add an attribute exception to make an OS-dependent
   index appear portable. A producer correction requires a fresh bound run but
   not a new candidate package.
+- Keep raw surface package bindings in their production four-field shape:
+  `path`, `indexPath`, `length`, and `sha256`. The trusted candidate manifest
+  and surface publisher require `path` to equal `package/` plus `indexPath`.
+  A consumer that needs the canonical package digest must first exact-match
+  those rows to the manifest, then project the other three fields. A reduced
+  synthetic fixture can hide a real producer/consumer mismatch, so keep the
+  consumer fixture production-shaped and include a noncanonical-path rejection.
+  Because the consumer is a recorded bound tool, changing it requires fresh
+  surface and retention runs; never weaken the binding or alter sealed evidence.
 - The forward focused contract launches five suites serially and requires 91
   individually named JUnit cases in exact suite counts 14/13/17/6/41, with
   JUnit 91/0/0/0, 40 retained files, and 35/35 aggregate-policy checks. Preserve

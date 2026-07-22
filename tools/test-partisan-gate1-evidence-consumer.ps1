@@ -317,6 +317,7 @@ function New-TestCandidate {
     $packageRows = [object[]]@($packageContents.Keys | ForEach-Object {
         $bytes = $script:Utf8NoBom.GetBytes([string]$packageContents[$_])
         [pscustomobject][ordered]@{
+            path = 'package/' + [string]$_
             indexPath = [string]$_
             length = [long]$bytes.LongLength
             sha256 = Get-TestSha256Bytes $bytes
@@ -448,7 +449,8 @@ function New-TestSurfaceBundle {
         [string]$RepositoryRoot,
         [string]$EvidenceRoot,
         $Candidate,
-        [string]$HarnessHead)
+        [string]$HarnessHead,
+        [string]$PackagePathPrefix = 'package/')
 
     $candidateValue = New-TestSurfaceCandidate $Candidate
     $candidateBinding = ('b' * 64)
@@ -523,6 +525,14 @@ function New-TestSurfaceBundle {
         })
     $harnessAggregate = Get-TestRowsDigest $harnessFiles
     $tools = New-TestToolRows $RepositoryRoot $script:SurfaceToolPaths
+    $surfacePackageRows = [object[]]@($Candidate.PackageRows | ForEach-Object {
+        [pscustomobject][ordered]@{
+            path = $PackagePathPrefix + [string]$_.indexPath
+            indexPath = [string]$_.indexPath
+            length = [long]$_.length
+            sha256 = [string]$_.sha256
+        }
+    })
 
     $bindings = [ordered]@{
         schemaVersion = 1
@@ -537,7 +547,7 @@ function New-TestSurfaceBundle {
         package = [ordered]@{
             hashAlgorithm = 'sha256-manifest-v1'
             sha256 = [string]$candidateValue.packageSha256
-            files = $Candidate.PackageRows
+            files = $surfacePackageRows
         }
         executables = [ordered]@{
             retail = $Candidate.Server
@@ -1189,7 +1199,9 @@ function New-TestRetentionBundle {
 }
 
 function New-TestFixture {
-    param([string]$Root)
+    param(
+        [string]$Root,
+        [string]$SurfacePackagePathPrefix = 'package/')
     $repository = Join-Path $Root 'repo'
     $external = Join-Path $Root 'external'
     New-Item -ItemType Directory -Path $external -Force | Out-Null
@@ -1197,7 +1209,8 @@ function New-TestFixture {
     $candidate = New-TestCandidate $commits.CandidateHead
     $identity = Get-TestCandidateIdentity $candidate
     $surface = New-TestSurfaceBundle `
-        $repository $external $candidate $commits.HarnessHead
+        $repository $external $candidate $commits.HarnessHead `
+        -PackagePathPrefix $SurfacePackagePathPrefix
     $retention = New-TestRetentionBundle `
         $repository $external $candidate $commits.HarnessHead
     return [pscustomobject][ordered]@{
@@ -1379,6 +1392,13 @@ try {
         [string]$valid.Gate1RuntimeRetention.CertificationClaim -cne 'none' -or
         [bool]$valid.Gate1RuntimeRetention.StandardSaveRestorationCertified) {
         throw 'Valid pair projection promoted certification.'
+    }
+    $badPackagePathFixture = New-TestFixture `
+        (Join-Path $fixtureRoot 'bad-surface-package-path') `
+        -SurfacePackagePathPrefix 'staging/'
+    Assert-TestRejected 'surface package-row path drift' {
+        Invoke-TestConsumer $badPackagePathFixture `
+            $badPackagePathFixture.Evidence
     }
     $absent = Assert-TestPassed 'optional absent pair' {
         Invoke-TestConsumer $fixture ([pscustomobject][ordered]@{})

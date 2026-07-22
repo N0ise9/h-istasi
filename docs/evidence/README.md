@@ -78,6 +78,13 @@ index bytes, strict scalar types, and terminal seal are revalidated by the same
 contract that published them. One member without the other fails
 closed, and an accepted Full Campaign Debug result cannot advance without both.
 
+Surface identity bindings retain the candidate manifest's exact four-field
+package rows: `path`, `indexPath`, `length`, and `sha256`. The consumer first
+requires ordered equality with the trusted active-candidate manifest and the
+canonical `package/` path relationship, then projects the three digest fields.
+Synthetic consumer fixtures must preserve that production shape so producer and
+consumer schemas cannot drift while their separate tests remain green.
+
 The paired standard/diagnostic release-surface audit derives its member plan
 from the candidate commit and probes the loaded package for all 67 forbidden
 and 91 production-observability member surfaces. Inert
