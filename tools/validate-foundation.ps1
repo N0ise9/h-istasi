@@ -37635,6 +37635,25 @@ if ($campaignDebugRenderBubbleZoneRecordIndex -lt 0 -or
 	$campaignDebugRenderBubbleBeginIndex -le $campaignDebugRenderBubbleCombatRefreshIndex) {
 	throw 'Render-bubble mission-target setup must refresh combat-presence samples after zone-case post-cleanup and before the exact pre-admission audit.'
 }
+$campaignDebugRenderBubbleFarUpdateIndex = $campaignDebugRenderBubbleBeginBlock.IndexOf(
+	'bool farChanged = m_PhysicalWar.UpdateZoneActivation(')
+$campaignDebugRenderBubblePostUpdateRefreshIndex = -1
+if ($campaignDebugRenderBubbleFarUpdateIndex -ge 0) {
+	$campaignDebugRenderBubblePostUpdateRefreshIndex = $campaignDebugRenderBubbleBeginBlock.IndexOf(
+		'm_PhysicalWar.RefreshCombatPresenceSamples(m_State);',
+		$campaignDebugRenderBubbleFarUpdateIndex)
+}
+$campaignDebugRenderBubblePreAdmissionAuditIndex = -1
+if ($campaignDebugRenderBubblePostUpdateRefreshIndex -ge 0) {
+	$campaignDebugRenderBubblePreAdmissionAuditIndex = $campaignDebugRenderBubbleBeginBlock.IndexOf(
+		'm_PhysicalWar.AuditCampaignDebugCivilianZoneRuntimeRegistries(',
+		$campaignDebugRenderBubblePostUpdateRefreshIndex)
+}
+if ($campaignDebugRenderBubbleFarUpdateIndex -lt 0 -or
+	$campaignDebugRenderBubblePostUpdateRefreshIndex -le $campaignDebugRenderBubbleFarUpdateIndex -or
+	$campaignDebugRenderBubblePreAdmissionAuditIndex -le $campaignDebugRenderBubblePostUpdateRefreshIndex) {
+	throw 'Render-bubble mission-target pre-admission must refresh combat presence after its own topology-changing zone update and before the strict runtime audit.'
+}
 foreach ($campaignDebugRenderBubbleStagedEntry in @(
 	'AdvanceCampaignDebugRenderBubbleMissionTargetProbe(renderBubbleResult)',
 	'm_iCampaignDebugWaitSeconds = 0;',
@@ -37701,6 +37720,28 @@ if ($campaignDebugRenderBubblePlayerAssertionIndex -lt 0 -or
 	$campaignDebugRenderBubbleBaselineFailureIndex -le $campaignDebugRenderBubbleBaselineAssertionIndex -or
 	-not $campaignDebugRenderBubblePreAdmissionCompositeExact) {
 	throw "Render-bubble mission-target pre-admission failures must publish their exact assertion before returning, with all five baseline predicates composed together"
+}
+$campaignDebugRenderBubbleBaselineFailureReturnIndex = $campaignDebugRenderBubbleBeginBlock.IndexOf(
+	'return context;',
+	$campaignDebugRenderBubbleBaselineFailureIndex)
+foreach ($campaignDebugRenderBubbleFailureLogEntry in @(
+	'Partisan campaign debug | ERROR | render_bubble.mission_target.pre_admission.baseline |',
+	'preStartZoneRuntimeHandles',
+	'context.m_sZoneRuntimeRegistryEvidence',
+	'context.m_sSynchronousZoneCompositionEvidence',
+	'LogLevel.ERROR'
+)) {
+	$campaignDebugRenderBubbleFailureLogIndex = $campaignDebugRenderBubbleBeginBlock.IndexOf(
+		$campaignDebugRenderBubbleFailureLogEntry,
+		$campaignDebugRenderBubbleBaselineFailureIndex)
+	if ($campaignDebugRenderBubbleBaselineFailureReturnIndex -le
+			$campaignDebugRenderBubbleBaselineFailureIndex -or
+		$campaignDebugRenderBubbleFailureLogIndex -le
+			$campaignDebugRenderBubbleBaselineFailureIndex -or
+		$campaignDebugRenderBubbleFailureLogIndex -ge
+			$campaignDebugRenderBubbleBaselineFailureReturnIndex) {
+		throw "Render-bubble mission-target baseline failure must emit full audit evidence before fatal containment: $campaignDebugRenderBubbleFailureLogEntry"
+	}
 }
 $campaignDebugRenderBubbleStartIndex = $campaignDebugRenderBubbleBeginBlock.IndexOf('context.m_bStartAccepted = StartMission_S(')
 $campaignDebugRenderBubblePreCaptureIndex = $campaignDebugRenderBubbleBeginBlock.IndexOf('m_aPreStartMissionInstanceIds.Insert(')

@@ -44016,6 +44016,13 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			m_Preset,
 			noEnemyDirector,
 			m_ZoneCompositions);
+		// Production samples combat presence on both sides of Physical War's
+		// topology-changing update. The outer pre-probe refresh covers the
+		// synchronous post-case drain; this refresh covers the probe's own
+		// UpdateZoneActivation call before the fail-closed global audit reads
+		// the derived registration index.
+		bool farCombatPresenceChanged
+			= m_PhysicalWar.RefreshCombatPresenceSamples(m_State);
 		context.m_fFarDistance = Math.Sqrt(DistanceSq2D(
 			context.m_vFarPosition,
 			zone.m_vPosition));
@@ -44044,20 +44051,22 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				emptyZoneCompositionOwnership,
 				context.m_sSynchronousZoneCompositionEvidence);
 		context.m_Case.m_aEvidence.Insert(string.Format(
-			"far before mission | teleport %1 | changed %2 | distance %3m | event radius %4m | controlled/global outside %5/%6 | pre-runtime empty %7 | pre-composition empty %8 | zone %9",
+			"far before mission | teleport %1 | changed %2 | combat sample changed %3 | distance %4m | event radius %5m | controlled/global outside %6/%7 | pre-runtime empty %8 | pre-composition empty %9",
 			context.m_bFarTeleport,
 			farChanged,
+			farCombatPresenceChanged,
 			Math.Round(context.m_fFarDistance),
 			Math.Round(context.m_fPlayerEventBubbleRadius),
 			context.m_bFarPlayerOutsideEventBubble,
 			context.m_bTargetOutsideAllPlayerEventBubbles,
 			context.m_bPreStartZoneRuntimeEmptyExact,
-			context.m_bPreStartZoneCompositionEmptyExact,
-			BuildCampaignDebugRenderBubbleZoneActual(
+			context.m_bPreStartZoneCompositionEmptyExact)
+			+ " | zone "
+			+ BuildCampaignDebugRenderBubbleZoneActual(
 				zone,
 				CountCampaignDebugZoneActiveGroups(zone.m_sZoneId),
 				CountCampaignDebugZoneSpawnedActiveGroups(zone.m_sZoneId),
-				CountCampaignDebugZonePendingActiveGroups(zone.m_sZoneId))));
+				CountCampaignDebugZonePendingActiveGroups(zone.m_sZoneId)));
 		context.m_Case.m_aEvidence.Insert(
 			"pre-admission runtime registry | "
 				+ context.m_sZoneRuntimeRegistryEvidence);
@@ -44102,6 +44111,24 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 					+ ShortCampaignDebugLine(
 						context.m_sSynchronousZoneCompositionEvidence,
 						180);
+			string baselineFailureEvidence = string.Format(
+				"zone %1 | inactive %2 | controlled/global outside %3/%4 | runtime handles %5 | runtime empty %6 | composition empty %7",
+				context.m_sZoneId,
+				context.m_bFarInactive,
+				context.m_bFarPlayerOutsideEventBubble,
+				context.m_bTargetOutsideAllPlayerEventBubbles,
+				preStartZoneRuntimeHandles,
+				context.m_bPreStartZoneRuntimeEmptyExact,
+				context.m_bPreStartZoneCompositionEmptyExact);
+			baselineFailureEvidence = baselineFailureEvidence
+				+ " | runtime audit "
+				+ context.m_sZoneRuntimeRegistryEvidence
+				+ " | composition audit "
+				+ context.m_sSynchronousZoneCompositionEvidence;
+			Print(
+				"Partisan campaign debug | ERROR | render_bubble.mission_target.pre_admission.baseline | "
+					+ baselineFailureEvidence,
+				LogLevel.ERROR);
 			context.m_bTerminal = true;
 			return context;
 		}

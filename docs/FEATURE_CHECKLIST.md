@@ -131,10 +131,14 @@ the source-native sequence above, remains incomplete, and release remains
   zero runtime residue. Its generic failure does not prove which strict global
   subregistry rejected the baseline.
 
-- [ ] Refresh derived combat-presence state after the mission-target probe's
+- [x] Refresh derived combat-presence state after the mission-target probe's
   own `UpdateZoneActivation()` and before the strict runtime/composition audit,
-  and log the full failure-only audit result before fatal containment. Freeze a
-  new source checkpoint and rerun Gate 1 from Foundation.
+  and log the full failure-only audit result before fatal containment. The
+  outer refresh remains as the production pre-physical sample; the new inner
+  refresh mirrors the production post-physical sample at the actual mutation-
+  to-audit boundary. Foundation enforces both orderings and all full source
+  contracts pass; Workbench/runtime evidence still requires a new frozen
+  checkpoint and a complete Gate 1 rerun.
 
 - [x] Make the source evidence consumer compare each publish worktree input
   through its path-specific Git clean filter. A Windows CRLF checkout can be

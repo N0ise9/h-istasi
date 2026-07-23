@@ -54,6 +54,13 @@ artifact was also withheld. Its evidence remains immutable history and does not
 transfer. Gate 1 must restart from Foundation on a corrected source checkpoint;
 release remains `NO-GO`.
 
+The source correction is implemented but not yet a frozen evidence checkpoint.
+It preserves the outer pre-probe refresh, adds the production-style post-update
+refresh immediately after the probe's own `UpdateZoneActivation()`, and prints
+the complete failure-only runtime/composition audit before terminal return.
+Foundation owns both ordering constraints. Commit/freeze this source, then
+restart Gate 1 from Foundation; no earlier rung transfers.
+
 Campaign Schema 71 and runtime-settings Schema 24 are current. The retired
 local-QA checkpoint used immutable runtime candidate
 `partisan-rc-5b1f2e98f931-20260721T193941Z`, from clean source HEAD

@@ -53,6 +53,17 @@
   Prior checkpoint `5717d05` failed at the same generic boundary; its earlier
   stale-index attribution was an inference, not a published subregistry result.
   Both failed checkpoints remain immutable and do not transfer.
+- For a synchronous debug probe that directly calls a topology-changing
+  Physical War update, mirror both production sample boundaries: refresh once
+  before entering the probe after prior synchronous cleanup, then refresh again
+  immediately after the probe's `UpdateZoneActivation()` and before any strict
+  derived-registry audit. A pre-update refresh cannot validate topology created,
+  removed, or rerouted by the update that follows it.
+- Fatal containment can prevent the structured case artifact from being
+  published. Before a fail-closed pre-admission return, print one failure-only
+  line with the zone, every baseline predicate, selected handle count, and full
+  runtime/composition audit strings. Keep the assertion and audit strict; the
+  log is observability, not repair or acceptance.
 - A completed post-`DONE` source-native capture reproduced exactly two stock
   support-station catalog-manager diagnostics before normal game destruction.
   Treat that family as optional but indivisible: admit exactly zero events or

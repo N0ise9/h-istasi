@@ -54,6 +54,16 @@ It records 1,090 seconds, stable source/resource-database/settings/executable
 identities, zero remaining or unclaimed engine processes, and zero cleanup
 errors. Gate 1 is failed for this checkpoint.
 
+The subsequent source correction keeps the outer pre-probe refresh and adds a
+second refresh immediately after the probe's own `UpdateZoneActivation()` and
+before `AuditCampaignDebugCivilianZoneRuntimeRegistries()`. This mirrors the
+ordinary production frame's pre/post-Physical-War sampling boundary. A failure-
+only error line now prints the zone, all baseline booleans, selected runtime
+handle count, full strict-runtime audit, and full composition audit before the
+terminal return. Foundation enforces both orderings and the log fields. This is
+source correction, not retroactive runtime evidence; it requires a new frozen
+checkpoint and all five Gate 1 rungs.
+
 Prior checkpoint `5717d05af0bb1474b8e51a39ad4cef8a4fa341d6`
 passed Foundation at 985 references, all five Workbench targets at 5,849 files,
 12,022 classes, common CRC `312a01a9`, all five focused suites at exact JUnit
