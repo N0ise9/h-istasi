@@ -25,8 +25,10 @@ cleanup. The tracked Workbench summary is bound by SHA-256
 `51c5afb4661384ac0b9bcb299361ac9c2d465c9a19627537a6473fab993344d2`;
 the generated source resource database is recorded as cache, not source, at
 SHA-256 `0ed0728d15e011f2f73c847ba65d0968e161c308697e4b3f281f2356c3d6e813`
-and 84,368 bytes. The five source-native focused suites are next, followed by
-the force-authority canary and Full Campaign Debug.
+and 84,368 bytes. All five source-native focused suites pass at exact JUnit
+91/0/0/0 with zero final engine processes; their tracked summary is bound by
+SHA-256 `1c1ba4a75e021cc6467a6d9374faccb2eb596cda5b9cb9028e26ccd2fcd531d1`.
+The force-authority canary is next, followed by Full Campaign Debug.
 
 The accepted canary against earlier checkpoint
 `33642bd8a84d8a692f7fe9920510ab97cb890383` remains scoped historical evidence.

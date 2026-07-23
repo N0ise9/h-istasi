@@ -26,8 +26,9 @@ The current frozen checkpoint is
 `5717d05af0bb1474b8e51a39ad4cef8a4fa341d6`. Foundation passes at 985
 references, and Workbench passes PC, XBOX_ONE, XBOX_SERIES, PS4, and PS5 at
 5,849 files, 12,022 classes, common CRC `312a01a9`, zero hard errors, and exact
-cleanup. The five source-native focused suites are next; canary and Full
-Campaign Debug remain pending, and release remains `NO-GO`.
+cleanup. All five source-native focused suites pass at exact JUnit 91/0/0/0
+with zero final engine processes. The force-authority canary is next; Full
+Campaign Debug remains pending, and release remains `NO-GO`.
 
 The source checkpoint uses an ordinal tracked-blob digest over the nine Workshop
 publish scopes. Current Gate 1 runners additionally compare the files actually
