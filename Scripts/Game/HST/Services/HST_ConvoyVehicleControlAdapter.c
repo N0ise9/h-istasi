@@ -756,12 +756,16 @@ class HST_ConvoyVehicleControlAdapter
 		if (!slotOwner)
 			slotOwner = vehicleEntity;
 
-		// Convoy crews are server-owned AI. Apply the forced seat transition where
-		// the character is authoritative so success can be verified in this slice.
+		// Convoy crews are authority-local AI in non-replicated proof worlds and
+		// server-owned AI in replicated sessions. Apply the forced seat transition
+		// where the character is local so success can be verified in this slice.
 		// The owner RPC remains a fallback when the direct local call is unavailable
 		// or rejected, including for any non-local controlled entity.
 		RplComponent crewReplication = RplComponent.Cast(crewEntity.FindComponent(RplComponent));
-		if ((!crewReplication || crewReplication.IsOwner()) && access.GetInVehicle(slotOwner, slot, true, -1, ECloseDoorAfterActions.INVALID, true))
+		bool canSeatLocally = RplSession.Mode() == RplMode.None
+			|| !crewReplication
+			|| crewReplication.IsOwner();
+		if (canSeatLocally && access.GetInVehicle(slotOwner, slot, true, -1, ECloseDoorAfterActions.INVALID, true))
 		{
 			if (access.IsInCompartment() && access.GetVehicle() == vehicleEntity)
 				reason = "server-authoritative compartment move-in completed";

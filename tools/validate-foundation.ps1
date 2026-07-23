@@ -16308,6 +16308,8 @@ foreach ($requiredPhase6SeatingEntry in @(
 		"GetInVehicle(slotOwner, slot, true, -1, ECloseDoorAfterActions.INVALID, true)",
 		"server-authoritative compartment move-in completed",
 		"RplComponent crewReplication",
+		"bool canSeatLocally",
+		"RplSession.Mode() == RplMode.None",
 		"crewReplication.IsOwner()",
 		"MoveInVehicle(vehicleEntity, compartmentType, true, slot)",
 		"owner compartment move-in request accepted",
@@ -16345,7 +16347,10 @@ if ($tryMoveCrewStart -lt 0 -or $isSlotTypeStart -le $tryMoveCrewStart) {
 $tryMoveCrewText = $convoyVehicleControlAdapterText.Substring($tryMoveCrewStart, $isSlotTypeStart - $tryMoveCrewStart)
 $authorityLocalSeatIndex = $tryMoveCrewText.IndexOf("access.GetInVehicle(slotOwner, slot, true, -1, ECloseDoorAfterActions.INVALID, true)")
 $ownerRpcSeatIndex = $tryMoveCrewText.IndexOf("access.MoveInVehicle(vehicleEntity, compartmentType, true, slot)")
-if ($authorityLocalSeatIndex -lt 0 -or $ownerRpcSeatIndex -lt 0 -or $authorityLocalSeatIndex -gt $ownerRpcSeatIndex) {
+$nonReplicatedSeatIndex = $tryMoveCrewText.IndexOf("RplSession.Mode() == RplMode.None")
+if ($nonReplicatedSeatIndex -lt 0 -or
+	$authorityLocalSeatIndex -le $nonReplicatedSeatIndex -or
+	$ownerRpcSeatIndex -le $authorityLocalSeatIndex) {
 	throw "Server-owned convoy AI must attempt authority-local forced seating before the owner-RPC fallback"
 }
 foreach ($requiredPhase6RuntimeEntry in @(
@@ -37708,6 +37713,12 @@ foreach ($campaignDebugRenderBubbleStagedEntry in @(
 	if ($campaignDebugRenderBubbleStagedCorpus.IndexOf($campaignDebugRenderBubbleStagedEntry) -lt 0) {
 		throw "Render-bubble mission-target proof must yield across bounded ordinary campaign seconds: $campaignDebugRenderBubbleStagedEntry"
 	}
+}
+$campaignDebugRenderBubbleTimeoutRequiresMinimumSamples = [regex]::IsMatch(
+	$campaignDebugRenderBubbleSampleBlock,
+	'(?s)context\.m_bTimedOut\s*=\s*!context\.m_bReady\s*&&\s*context\.m_iSampleCount\s*>=\s*CAMPAIGN_DEBUG_MISSION_TARGET_MIN_SAMPLES\s*&&\s*nowSecond\s*>=\s*context\.m_iDeadlineSecond\s*;')
+if (-not $campaignDebugRenderBubbleTimeoutRequiresMinimumSamples) {
+	throw 'Render-bubble mission-target timeout must not preempt its required minimum distinct-frame sample count.'
 }
 foreach ($campaignDebugRenderBubbleOwnershipEntry in @(
 	'm_aPreStartMissionInstanceIds.Insert(',

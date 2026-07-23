@@ -44519,6 +44519,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				= BuildCampaignDebugPrimitiveMissionActual(mission);
 		}
 		context.m_bTimedOut = !context.m_bReady
+			&& context.m_iSampleCount
+				>= CAMPAIGN_DEBUG_MISSION_TARGET_MIN_SAMPLES
 			&& nowSecond >= context.m_iDeadlineSecond;
 		if (context.m_bTimedOut)
 			context.m_sFailureReason

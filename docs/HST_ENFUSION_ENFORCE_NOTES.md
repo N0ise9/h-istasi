@@ -1288,6 +1288,16 @@ boundary above.
   attempt must fall on the existing five-second progress cadence and before
   `max(spawnedAt,lastRestore)+45s`. Only this helper may bypass reseat and
   live-history suppression. Fresh native proof remains required.
+- A non-replicated diagnostic session can still expose `RplComponent` on a
+  stock AI character even though there is no owner RPC receiver. Exact convoy
+  seating must therefore treat `RplMode.None` as authority-local and attempt
+  forced `GetInVehicle()` before the replicated `MoveInVehicle()` fallback.
+  Success remains actual living pilot-slot occupancy, never request acceptance.
+- A native campaign update may advance elapsed campaign seconds by more than
+  one during a single ordinary engine frame. A proof that requires multiple
+  distinct-frame samples must not time out before collecting that minimum;
+  otherwise one catch-up update can consume the entire campaign-time deadline
+  before the next native population callback becomes observable.
 - The complete post-full correction batch was sealed as historical
   `rejected-after-corrected-canary` candidate
   `partisan-rc-e11e7ea88a44-20260719T040154Z`, version
