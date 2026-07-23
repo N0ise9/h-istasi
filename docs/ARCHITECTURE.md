@@ -48,8 +48,13 @@ All five source-native focused suites pass at exact JUnit 91/0/0/0, with 30
 hash-bound artifacts, stable source/toolchain bindings, exact suite-isolated
 cleanup, and zero final engine processes. Their tracked summary SHA-256 is
 `9d7241d198b6ebb2613a1e7ec1b656b460ceb531d02b0a4ebe35ec239a3da455`.
-The canary and Full remain pending; no earlier result transfers and release
-remains `NO-GO`.
+The source-native force-authority canary also passes as scoped noncertifying
+proof: 9 PASS/2 WARN/0 FAIL/0 BLOCKED/0 SKIPPED, 35/35 focused assertions,
+87/87 counted conditions, 18 ordered zero-delta state rows, two approved and
+zero unapproved hard diagnostics, zero final orphans, and zero residual engine
+processes. Its tracked summary SHA-256 is
+`8054a9eddb834c7daa5c3b1b4b3f64089d9977bc4024ac07e36302f8e4990866`.
+Full remains pending; no earlier result transfers and release remains `NO-GO`.
 
 Immediately prior rejected source checkpoint
 `27df761542309616a1d156b2a329007b0cb34d9b` has 436 publish-input rows and
