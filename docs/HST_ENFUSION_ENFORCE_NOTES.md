@@ -27,6 +27,26 @@
   ordered zero-delta rows, the current orphan text, and the exact source
   case/assertion manifests. Keep the historical corrected-canary contract
   available only for immutable historical evidence.
+- In the current Full run, `CompartmentAccessComponent.GetInVehicle()` returned
+  true for all six convoy crew while `IsGettingIn()`, `IsInCompartment()`,
+  target-vehicle match, and slot occupant all remained false; later direct
+  calls rejected. The native boolean does not prove occupancy or a visible
+  pending transition, and this telemetry does not establish a stronger positive
+  meaning. Persist the exact pending crew/vehicle/slot claim
+  across observations, prevent another crew member from claiming the same
+  visibly free pilot slot, and give true-but-unconfirmed calls one
+  bounded interrupt/retry even when `IsGettingIn()` remains false. Driver
+  occupancy must remain the only route-assignment success condition.
+- Forcing a rescue target zone physical does not currently force its mission-
+  owned guard and captives physical. `TickVirtualGuard()` in
+  `HST_RescuePOWOperationService` still delegates to player-proximity
+  materialization, and
+  `ReconcileCaptiveProjectionChoice` keeps held captives virtual unless the guard
+  is physical/materializing or a player is near. A proof that deliberately keeps
+  players outside every event bubble can therefore physicalize ordinary zone
+  garrisons while leaving three exact captive rows and one exact guard row with
+  zero runtime handles. An explicit mission-target materialization reason must
+  join those production policies; zone activation alone is insufficient.
 - Current frozen source checkpoint
   `4c7bf087b491050a9463064a6bd8767f8d44081f` has 436 publish-input rows
   and digest
@@ -57,8 +77,25 @@
   zero unapproved hard diagnostics, zero final orphans, and zero residual
   engine processes. Its tracked summary SHA-256 is
   `813e2a7ab8ad4ceb7ab92470ab2d762cb64d6d58a4c26abb2bd3b0acf518479f`.
-  Full Campaign Debug remains pending; no prior result transfers. Gate 1 is in
-  progress and release remains `NO-GO`.
+  Full Campaign Debug then rejects the checkpoint after 1,091 guarded runtime
+  seconds. Each of the three ammo-convoy crew groups had two living members,
+  but the initial forced-seat calls returned true while occupancy and a visible
+  pending transition both remained false; later calls were rejected, and all
+  route assignments
+  found no seated driver, and the convoy fell back to a static ambush. The
+  movement sample failed driver occupancy and the contact sample failed runtime
+  waypoints. In a later rescue mission-target probe, the target zone's ordinary
+  2- and 3-person garrison groups physicalized. Source/log diagnosis indicates
+  that three exact captive rows remained zero spawned/zero runtime handles and
+  one exact guard row remained zero runtime handles, consistent with rescue
+  projection still being player-proximity-only while the proof held the player
+  outside every event bubble. Exact owned-
+  mission readiness timed out; fatal containment retained ownership, so no
+  normal artifact triplet was published before the deadline. Source/runtime
+  bindings remained stable and cleanup left zero engine processes. The tracked
+  failed summary SHA-256 is
+  `f8287afc548ede8b486216ec281ef5ecd04126e8aea236b3a6f95900f0c96e2d`.
+  Gate 1 is failed and release remains `NO-GO`.
 - Prior rejected source checkpoint
   `8470af6f967a34f180f547ccca35fe2d0bf8a4a8` has 436 publish-input rows
   and digest

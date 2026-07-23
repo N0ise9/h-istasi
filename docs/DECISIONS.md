@@ -5733,3 +5733,63 @@ Consequences:
   force-authority canary, and Full Campaign Debug must rerun in order.
 - Gate 1 remains in progress, release remains `NO-GO`, and Gate 2 must not
   begin.
+
+## CRI-108 - Reject The Corrected Checkpoint On Native Convoy And Rescue Projection
+
+- Status: Accepted rejection; Gate 1 stopped
+- Date: 2026-07-23
+
+Context: Frozen source checkpoint
+`4c7bf087b491050a9463064a6bd8767f8d44081f` passed Foundation, all five
+Workbench targets, all five source-native focused suites at JUnit 91/0/0/0,
+and the scoped force-authority canary at 9/2/0/0/0 cases, 35/35 focused
+assertions, and 87/87 counted conditions. Full Campaign Debug then rejected it
+after 1,091 guarded runtime seconds.
+
+All three exact ammo-convoy crew groups had two living members. Each group first
+received `true` from its forced-seat calls while the immediate state still
+reported no `IsGettingIn()` transition, no compartment occupancy, no target-
+vehicle match, and no slot occupant. Later direct calls rejected. Because the
+recovery path began only when `IsGettingIn()` was visible, the bounded
+interrupt/retry never ran. Retry-local slot bookkeeping also let a second crew
+member claim the same visibly free pilot slot. With no seated living driver,
+route assignment stopped before waypoint creation and the convoy became a
+static ambush.
+
+The later rescue mission-target probe forced the target zone physical and
+ordinary 2- and 3-person zone garrisons spawned correctly. Source/log diagnosis
+indicates that its three exact captive rows remained zero spawned/zero runtime
+handles and its one exact guard row remained zero runtime handles. Production
+rescue projection
+still materialized those mission-owned rows only for player proximity while the
+proof intentionally kept the player outside every event bubble. Exact owned-
+mission readiness therefore timed out. Fatal containment retained ownership and
+deferred normal artifact publication; the wrapper recorded a hash-bound failed
+result and exact zero-process cleanup.
+
+Decision: Reject this checkpoint. Preserve its five source-evidence summaries
+and raw external run as immutable failure evidence. Do not advance Gate 2. The
+next source correction must persist one exact true-but-unconfirmed crew/
+vehicle/pilot-slot claim across observations, suppress competing pilot claims,
+and grant that claimant one bounded interrupt/retry even when
+`IsGettingIn()` remains false. Request acceptance must never substitute for
+confirmed living pilot occupancy.
+
+Give exact rescue guard/captive production projection an explicit active-
+mission-target materialization reason that works while players are outside the
+normal event bubble. Keep the mission-owned set exact, retain atomic ownership
+and cleanup, and do not weaken ordinary proximity policy for unrelated forces.
+The fatal-retention log was truncated before its cleanup sub-evidence, so this
+run does not authorize a narrower cleanup diagnosis.
+
+Consequences:
+
+- Campaign Schema 71 and runtime-settings Schema 24 remain frozen.
+- Correcting either production boundary changes publish inputs and requires a
+  new clean checkpoint plus the complete Foundation, all-target Workbench,
+  focused-five, canary, and Full Gate 1 sequence. No result transfers.
+- The tracked failed Full summary SHA-256 is
+  `f8287afc548ede8b486216ec281ef5ecd04126e8aea236b3a6f95900f0c96e2d`.
+- Release remains `NO-GO`. No repository-owned `.pak` is introduced; eventual
+  distribution remains Workbench publication to Workshop followed by in-game
+  download.

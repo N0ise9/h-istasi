@@ -1,0 +1,328 @@
+{
+    "schemaVersion":  1,
+    "evidenceKind":  "source-gate1-campaign-debug",
+    "source":  {
+                   "sourceGitHead":  "4c7bf087b491050a9463064a6bd8767f8d44081f",
+                   "publishInputPolicy":  "git-ls-tree-sha256-v1",
+                   "publishInputTreeSha256":  "c19b6343809899e488972f4e9109da6a1d65d285fad1b7a958dd2d399baa3a20",
+                   "publishInputRowCount":  436,
+                   "executedPublishInputTreeSha256":  "c19b6343809899e488972f4e9109da6a1d65d285fad1b7a958dd2d399baa3a20",
+                   "executedPublishInputRowCount":  436,
+                   "sourceResourceDatabase":  {
+                                                  "length":  87508,
+                                                  "sha256":  "a4d2cd7b5567a6aa4fd47d2831b4f919ead2bb18e4b8fb8bac9e21eace49db54"
+                                              },
+                   "addonGuid":  "698532771130111D",
+                   "campaignSchema":  71,
+                   "runtimeSettingsSchema":  24,
+                   "embeddedImplementationSha":  "7fdf3988797edeb747f5d6a6951ad0382bd93db3",
+                   "embeddedBuildUtc":  "2026-07-21T19:36:22Z",
+                   "embeddedBuildLabel":  "schema71-settings24-gate1-release-surface"
+               },
+    "harness":  {
+                    "gitHead":  "17a9891559c7cdb6246677e754a0fde5f91a4b01",
+                    "dirty":  false,
+                    "runnerPath":  "tools/run-source-campaign-debug.ps1",
+                    "runnerSha256":  "631d6cf2f97d73875ceb091e984004b8bda2839ce7bc3b63ed8e1e2f469ab901",
+                    "runnerHashPolicy":  "sha256-git-blob-bytes-v1"
+                },
+    "toolchain":  {
+                      "runtimeExecutable":  {
+                                                "before":  {
+                                                               "fileName":  "ArmaReforgerSteamDiag.exe",
+                                                               "identity":  {
+                                                                                "length":  39238712,
+                                                                                "lastWriteUtc":  "2026-06-24T12:31:45.6669213Z",
+                                                                                "sha256":  "062cd0cc7a72c104ffb9bb936014f1cdcad6022eb9c7684e94c2dba01b7fe681"
+                                                                            },
+                                                               "fileVersion":  "1.7.0.54",
+                                                               "productVersion":  "1.7.0.54",
+                                                               "productName":  "Arma Reforger",
+                                                               "companyName":  "Bohemia Interactive Studio",
+                                                               "originalFilename":  "ArmaReforgerSteam",
+                                                               "signatureStatus":  "Valid",
+                                                               "signerThumbprint":  "B4D306183E0204DF0C85CCE62D629D60F04CAB36",
+                                                               "signerSubject":  "CN=BOHEMIA INTERACTIVE a.s., O=BOHEMIA INTERACTIVE a.s., L=Mníšek pod Brdy, C=CZ"
+                                                           },
+                                                "after":  {
+                                                              "fileName":  "ArmaReforgerSteamDiag.exe",
+                                                              "identity":  {
+                                                                               "length":  39238712,
+                                                                               "lastWriteUtc":  "2026-06-24T12:31:45.6669213Z",
+                                                                               "sha256":  "062cd0cc7a72c104ffb9bb936014f1cdcad6022eb9c7684e94c2dba01b7fe681"
+                                                                           },
+                                                              "fileVersion":  "1.7.0.54",
+                                                              "productVersion":  "1.7.0.54",
+                                                              "productName":  "Arma Reforger",
+                                                              "companyName":  "Bohemia Interactive Studio",
+                                                              "originalFilename":  "ArmaReforgerSteam",
+                                                              "signatureStatus":  "Valid",
+                                                              "signerThumbprint":  "B4D306183E0204DF0C85CCE62D629D60F04CAB36",
+                                                              "signerSubject":  "CN=BOHEMIA INTERACTIVE a.s., O=BOHEMIA INTERACTIVE a.s., L=Mníšek pod Brdy, C=CZ"
+                                                          },
+                                                "stable":  true
+                                            },
+                      "sourceResourceDatabase":  {
+                                                     "before":  {
+                                                                    "length":  87508,
+                                                                    "lastWriteUtc":  "2026-07-23T08:03:30.1680021Z",
+                                                                    "sha256":  "a4d2cd7b5567a6aa4fd47d2831b4f919ead2bb18e4b8fb8bac9e21eace49db54"
+                                                                },
+                                                     "after":  {
+                                                                   "length":  87508,
+                                                                   "lastWriteUtc":  "2026-07-23T08:03:30.1680021Z",
+                                                                   "sha256":  "a4d2cd7b5567a6aa4fd47d2831b4f919ead2bb18e4b8fb8bac9e21eace49db54"
+                                                               },
+                                                     "stable":  true
+                                                 },
+                      "classifier":  {
+                                         "path":  "tools/run-guarded-campaign-debug.ps1",
+                                         "gitObject":  "756b6e91e9ed7fc85b9b42fb8c92709b7635aa8d",
+                                         "sha256":  "bab22ed8355bf6202d3c378290590faddd4493c9ff8549764e78f1f87ea4cf38",
+                                         "hashPolicy":  "sha256-git-blob-bytes-v1",
+                                         "importedFunctionCount":  25,
+                                         "selfTestChecks":  57
+                                     },
+                      "project":  {
+                                      "path":  "addon.gproj",
+                                      "gitObject":  "5aeee39620e83c166b39c65a869d418e26d7f746",
+                                      "sha256":  "9bde766602b7a1d6234aa9cc3c897ca7572d1ca1f0b284db4fe838686d63b1d5",
+                                      "hashPolicy":  "sha256-git-blob-bytes-v1"
+                                  }
+                  },
+    "capture":  {
+                    "runId":  "",
+                    "profile":  "full_certification",
+                    "startedUtc":  "2026-07-23T08:34:34.1561791Z",
+                    "completedUtc":  "2026-07-23T08:53:12.5141858Z"
+                },
+    "result":  {
+                   "status":  "failed",
+                   "runtimeSeconds":  1091,
+                   "sourceStable":  true,
+                   "sourceResourceDatabaseStable":  true,
+                   "settings":  {
+                                    "schemaVersion":  24,
+                                    "source":  {
+                                                   "length":  15406,
+                                                   "lastWriteUtc":  "2026-07-13T11:47:51.2636042Z",
+                                                   "sha256":  "fb744c7e85b93797da55e03fb8c2c1f0864e1ae43c2c49dfddd94ba91d24981c"
+                                               },
+                                    "retained":  {
+                                                     "length":  15406,
+                                                     "lastWriteUtc":  "2026-07-13T11:47:51.2636042Z",
+                                                     "sha256":  "fb744c7e85b93797da55e03fb8c2c1f0864e1ae43c2c49dfddd94ba91d24981c"
+                                                 },
+                                    "runtimeCopyBefore":  {
+                                                              "length":  15406,
+                                                              "lastWriteUtc":  "2026-07-13T11:47:51.2636042Z",
+                                                              "sha256":  "fb744c7e85b93797da55e03fb8c2c1f0864e1ae43c2c49dfddd94ba91d24981c"
+                                                          },
+                                    "runtimeCopyAfter":  {
+                                                             "length":  15406,
+                                                             "lastWriteUtc":  "2026-07-13T11:47:51.2636042Z",
+                                                             "sha256":  "fb744c7e85b93797da55e03fb8c2c1f0864e1ae43c2c49dfddd94ba91d24981c"
+                                                         },
+                                    "stable":  true
+                                },
+                   "launch":  {
+                                  "worldResource":  "Worlds/HST_Dev/HST_Dev.ent",
+                                  "arguments":  {
+                                                    "hashAlgorithm":  "sha256-utf8-nul-argument-vector-v1",
+                                                    "tokenCount":  25,
+                                                    "sha256":  "8e708849551db66f21c106bf825208d850fa9f7fa477c501f870254ec4d73b91",
+                                                    "portableTokens":  [
+                                                                           "-addonsDir",
+                                                                           "\u003cruntime-addons\u003e",
+                                                                           "-addonTempDir",
+                                                                           "\u003cevidence-run\u003e/isolation/addon-temp",
+                                                                           "-gproj",
+                                                                           "\u003ccheckout\u003e/addon.gproj",
+                                                                           "-world",
+                                                                           "Worlds/HST_Dev/HST_Dev.ent",
+                                                                           "-window",
+                                                                           "-noFocus",
+                                                                           "-posX",
+                                                                           "20",
+                                                                           "-posY",
+                                                                           "20",
+                                                                           "-screenWidth",
+                                                                           "1280",
+                                                                           "-screenHeight",
+                                                                           "720",
+                                                                           "-forceupdate",
+                                                                           "-rpl-timeout-disable",
+                                                                           "-noThrow",
+                                                                           "-profile",
+                                                                           "\u003cevidence-run\u003e/isolation",
+                                                                           "-hstCampaignDebugProfile",
+                                                                           "full_certification"
+                                                                       ],
+                                                    "nativeCommandLineSha256":  "6bdac8e7e8eaae7e2a9968ca7b3a46473c18874488afcf2f7f7581f75accd640"
+                                                },
+                                  "argumentTokensVerified":  true,
+                                  "armed":  true,
+                                  "started":  true,
+                                  "artifactsStablePolls":  0,
+                                  "artifactSetExact":  false,
+                                  "artifactBytesStableAfterShutdown":  false,
+                                  "liveStableSignatureSha256":  "",
+                                  "finalSignatureSha256":  "",
+                                  "postValidationSignatureSha256":  "",
+                                  "artifactFinalizationProblemSha256":  ""
+                              },
+                   "artifactValidation":  null,
+                   "hardDiagnosticCensus":  null,
+                   "ambientDiagnosticCensus":  {
+                                                   "valid":  false,
+                                                   "completeOrAbsent":  false,
+                                                   "lifecycleExact":  false,
+                                                   "approvedAmbientDiagnosticCount":  69,
+                                                   "expectedCompleteDiagnosticCount":  69,
+                                                   "expectedTeardownResourceCount":  57,
+                                                   "startupGuiCount":  1,
+                                                   "startupPathfindingCount":  11,
+                                                   "mapMaskCount":  0,
+                                                   "intentionalResourceCount":  0,
+                                                   "runtimePathfindingBurstCount":  0,
+                                                   "teardownResourceCount":  57,
+                                                   "unapprovedAmbientDiagnosticCount":  8,
+                                                   "malformedHardDiagnosticCount":  0,
+                                                   "problemCodes":  [
+                                                                        "lifecycle",
+                                                                        "runtime-resources"
+                                                                    ],
+                                                   "unapprovedSignatureSha256":  [
+                                                                                     "ef702b21af0553e17fc2bdb0e3880ebf41e37b3a7b08b450212626a2b07d8182",
+                                                                                     "804ea27cf4991782fa1bb70ea82c49a0335cb16b725cdece9035a0f2a902776f",
+                                                                                     "1e8de8522dd8f7a9b1586d2d440e226ae31f26a9c11985186ec60e7fa28613cb",
+                                                                                     "804ea27cf4991782fa1bb70ea82c49a0335cb16b725cdece9035a0f2a902776f",
+                                                                                     "1e8de8522dd8f7a9b1586d2d440e226ae31f26a9c11985186ec60e7fa28613cb",
+                                                                                     "ef702b21af0553e17fc2bdb0e3880ebf41e37b3a7b08b450212626a2b07d8182",
+                                                                                     "802f5129a5bbb370fb87a387113551d9f031d1f0ed5e5612ffd17f9ef309e087",
+                                                                                     "1e8de8522dd8f7a9b1586d2d440e226ae31f26a9c11985186ec60e7fa28613cb"
+                                                                                 ],
+                                                   "malformedLineSha256":  [
+
+                                                                           ],
+                                                   "consoleLogCount":  1
+                                               },
+                   "acceptance":  {
+                                      "accepted":  false,
+                                      "disposition":  "rejected",
+                                      "correctedCanaryAccepted":  false,
+                                      "proofCommonPassed":  false,
+                                      "acceptedFull":  false,
+                                      "acceptedInternal":  false,
+                                      "diagnosticAxisPassed":  false,
+                                      "captureAxesPassed":  false,
+                                      "redAxes":  [
+                                                      "acceptance-inputs"
+                                                  ]
+                                  },
+                   "mountAttestation":  {
+                                            "valid":  true,
+                                            "consoleLogCount":  1,
+                                            "sourceProjectRelevantRecordCount":  2,
+                                            "expectedGuid":  "698532771130111D",
+                                            "everyProjectRecordExact":  true,
+                                            "generatedArchiveMatchCount":  0,
+                                            "sourceResourceDatabaseRecordCount":  1,
+                                            "everyResourceDatabaseRecordExact":  true,
+                                            "sourceResourceDatabase":  {
+                                                                           "length":  87508,
+                                                                           "lastWriteUtc":  "2026-07-23T08:03:30.1680021Z",
+                                                                           "sha256":  "a4d2cd7b5567a6aa4fd47d2831b4f919ead2bb18e4b8fb8bac9e21eace49db54"
+                                                                       }
+                                        },
+                   "processCensus":  {
+                                         "before":  [
+
+                                                    ],
+                                         "rootProcessId":  50620,
+                                         "rootStartUtc":  "2026-07-23T08:34:37.0475089Z",
+                                         "maximumOwnedProcesses":  1,
+                                         "ownedProcessesRemaining":  0,
+                                         "unclaimedEngineProcessesObserved":  [
+
+                                                                              ],
+                                         "after":  [
+
+                                                   ],
+                                         "cleanupErrors":  [
+
+                                                           ]
+                                     },
+                   "retainedArtifactPaths":  [
+
+                                             ],
+                   "evidenceFilesManifest":  {
+                                                 "path":  "evidence-files.json",
+                                                 "length":  3460,
+                                                 "sha256":  "4fad73b6cd429dcf4187e3adfddb926e32e4c0e3c9a4cab422b040581ffc09dc"
+                                             },
+                   "runtimeErrorSha256":  "dc0288049b7d3b8a4428ad5235d163e5993bfd09d13e1b089c21fc6f68b4b5bf",
+                   "failureReasons":  [
+                                          "runtime-error",
+                                          "artifacts-not-complete",
+                                          "artifact-set-not-exact",
+                                          "artifact-shutdown-drift",
+                                          "artifact-contract",
+                                          "hard-diagnostic-census",
+                                          "ambient-diagnostic-census",
+                                          "acceptance:acceptance-inputs"
+                                      ]
+               },
+    "integrity":  {
+                      "hashAlgorithm":  "sha256-file-set-v1",
+                      "artifactCount":  9,
+                      "artifactSetSha256":  "2b5ec45fd2fe818ef8febc373bb5a802f19191092a5bef2d5bc6049dca2d5cfd",
+                      "files":  [
+                                    {
+                                        "path":  "config/HST_Settings.json",
+                                        "length":  15406,
+                                        "sha256":  "fb744c7e85b93797da55e03fb8c2c1f0864e1ae43c2c49dfddd94ba91d24981c"
+                                    },
+                                    {
+                                        "path":  "identity/launch-binding.json",
+                                        "length":  4595,
+                                        "sha256":  "148115bbefaa4611daeacf2d639eb61fbc0c4e5e7281ec251aeb455bc017e9a3"
+                                    },
+                                    {
+                                        "path":  "identity/publish-input-tree.txt",
+                                        "length":  45471,
+                                        "sha256":  "c19b6343809899e488972f4e9109da6a1d65d285fad1b7a958dd2d399baa3a20"
+                                    },
+                                    {
+                                        "path":  "identity/source-binding.json",
+                                        "length":  4687,
+                                        "sha256":  "739744985f5efec608f3bdf81cb2e043702771fad566ff75ea754a8940c399a5"
+                                    },
+                                    {
+                                        "path":  "isolation/logs/logs_2026-07-23_04-34-37/console.log",
+                                        "length":  550469,
+                                        "sha256":  "ebeb8a8fa2c8fe8ee268d8cc7a14a696ab006367ce2dbde66265b83a696f51c6"
+                                    },
+                                    {
+                                        "path":  "isolation/logs/logs_2026-07-23_04-34-37/crash.log",
+                                        "length":  5334,
+                                        "sha256":  "6d4ffaf10312d34fa7a19996c4fd811aa602a5fd5cff3533fe550d03df6e2ed9"
+                                    },
+                                    {
+                                        "path":  "isolation/logs/logs_2026-07-23_04-34-37/error.log",
+                                        "length":  36320,
+                                        "sha256":  "d56f242d1695ae56bd0b6785cd8bfeba22ecdbe5fac12e1ffc797041b2ecd1af"
+                                    },
+                                    {
+                                        "path":  "isolation/logs/logs_2026-07-23_04-34-37/script.log",
+                                        "length":  505504,
+                                        "sha256":  "b8ab19dd2b5e04306e9ac3217269c9d1ec5277ec5c25a0edaf6dab192bc33d37"
+                                    },
+                                    {
+                                        "path":  "isolation/profile/Partisan/HST_Settings.json",
+                                        "length":  15406,
+                                        "sha256":  "fb744c7e85b93797da55e03fb8c2c1f0864e1ae43c2c49dfddd94ba91d24981c"
+                                    }
+                                ]
+                  }
+}

@@ -39,8 +39,25 @@ proof: 9 PASS/2 WARN/0 FAIL/0 BLOCKED/0 SKIPPED, 35/35 focused assertions,
 zero unapproved hard diagnostics, zero final orphans, and zero residual engine
 processes. Its tracked summary SHA-256 is
 `813e2a7ab8ad4ceb7ab92470ab2d762cb64d6d58a4c26abb2bd3b0acf518479f`.
-Full Campaign Debug remains pending. No earlier result transfers, Gate 1
-remains in progress, and release is `NO-GO`.
+Full Campaign Debug then rejects the checkpoint after 1,091 guarded runtime
+seconds. Each of the three ammo-convoy crew groups had two living members, but
+the initial forced-seat calls returned true while occupancy and a visible
+pending transition both remained false; later calls were rejected, and all
+route assignments found
+no seated driver, and the convoy fell back to a static ambush. The movement
+sample failed driver occupancy and the contact sample failed runtime waypoints.
+In a later rescue mission-target probe, the target zone's ordinary 2- and
+3-person garrison groups physicalized. Source/log diagnosis indicates that
+three exact captive rows remained zero spawned/zero runtime handles and one
+exact guard row remained zero runtime handles, consistent with rescue
+projection still being player-proximity-only while the proof held the player
+outside every event bubble. Exact owned-mission readiness
+timed out; fatal containment retained ownership, so no normal artifact triplet
+was published before the deadline. Source/runtime bindings remained
+stable and cleanup left zero engine processes. The tracked failed summary
+SHA-256 is
+`f8287afc548ede8b486216ec281ef5ecd04126e8aea236b3a6f95900f0c96e2d`.
+No earlier result transfers, Gate 1 is failed, and release is `NO-GO`.
 
 The candidate/package records below remain immutable historical QA. They may be
 used as optional regression evidence, but the retired manual local candidate-pack
@@ -2634,9 +2651,13 @@ Debug and packaged-runtime gates remain open.
   four approved and zero unapproved hard diagnostics, zero final orphans, zero
   residual engine processes, and tracked summary SHA-256
   `813e2a7ab8ad4ceb7ab92470ab2d762cb64d6d58a4c26abb2bd3b0acf518479f`.
-- [ ] Run source-native Full Campaign Debug only after the corrected canary is
-  accepted.
-  Release remains `NO-GO` throughout this incomplete Gate 1 sequence.
+- [ ] Pass source-native Full Campaign Debug after the corrected canary. The
+  attempted run rejected this checkpoint after the ammo convoy failed seated-
+  driver and runtime-waypoint assertions and the later rescue mission target
+  failed simultaneous exact owned-mission readiness. Its tracked failed summary
+  SHA-256 is
+  `f8287afc548ede8b486216ec281ef5ecd04126e8aea236b3a6f95900f0c96e2d`.
+  Gate 1 is failed and release remains `NO-GO`.
 - Retain the historical `partisan-rc-0e632ec4f63e-20260719T004133Z` candidate's
   accepted five-case focused set and scoped canary as package-bound
   `passed-noncertifying` evidence only. Its full profile is that package's

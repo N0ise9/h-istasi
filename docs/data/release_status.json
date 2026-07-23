@@ -1,6 +1,6 @@
 {
   "schemaVersion": 4,
-  "statusAsOfUtc": "2026-07-23T08:27:17Z",
+  "statusAsOfUtc": "2026-07-23T09:12:32Z",
   "releaseStage": "development alpha",
   "releaseDecision": "NO-GO",
   "auditedRevision": "4c7bf087b491050a9463064a6bd8767f8d44081f",
@@ -12,7 +12,7 @@
     "embeddedBuildLabel": "schema71-settings24-gate1-release-surface"
   },
   "gate1Source": {
-    "status": "in-progress",
+    "status": "failed",
     "checkpoint": {
       "sourceGitHead": "4c7bf087b491050a9463064a6bd8767f8d44081f",
       "frozenUtc": "2026-07-23T07:42:12Z",
@@ -49,9 +49,9 @@
         "summarySha256": "813e2a7ab8ad4ceb7ab92470ab2d762cb64d6d58a4c26abb2bd3b0acf518479f"
       },
       "fullCampaignDebug": {
-        "status": "pending",
-        "summaryPath": null,
-        "summarySha256": null
+        "status": "failed",
+        "summaryPath": "docs/evidence/source-gate1/4c7bf087b491050a9463064a6bd8767f8d44081f/fullCampaignDebug.json",
+        "summarySha256": "f8287afc548ede8b486216ec281ef5ecd04126e8aea236b3a6f95900f0c96e2d"
       }
     }
   },
@@ -574,13 +574,13 @@
       "id": "deterministic-service",
       "label": "Deterministic service contracts",
       "status": "passed-noncertifying",
-      "summary": "All five source-native focused suites pass for frozen checkpoint 4c7bf087b491050a9463064a6bd8767f8d44081f at exact JUnit 91/0/0/0, with all 30 retained artifacts hash-bound, stable source/toolchain bindings, exact suite-isolated cleanup, and zero final engine processes. The tracked summary is a791ade0fb12876709d5b675c5231e48a357b7f67cd19fe676b50651cb5e57db. This deterministic-service result is noncertifying; native-world proof remains next."
+      "summary": "All five source-native focused suites pass for frozen checkpoint 4c7bf087b491050a9463064a6bd8767f8d44081f at exact JUnit 91/0/0/0, with all 30 retained artifacts hash-bound, stable source/toolchain bindings, exact suite-isolated cleanup, and zero final engine processes. The tracked summary is a791ade0fb12876709d5b675c5231e48a357b7f67cd19fe676b50651cb5e57db. This deterministic-service result remains noncertifying and does not satisfy native-world proof."
     },
     {
       "id": "native-engine-world",
       "label": "Native engine-world behavior",
-      "status": "partial",
-      "summary": "The source-native force-authority canary passes as scoped noncertifying proof for frozen checkpoint 4c7bf087b491050a9463064a6bd8767f8d44081f at 9 PASS/2 WARN/0 FAIL/0 BLOCKED/0 SKIPPED, 35/35 focused assertions, 87/87 counted conditions, 18 ordered zero-delta state rows, four approved and zero unapproved hard diagnostics, zero final orphans, stable source/runtime bindings, and zero residual engine processes. The tracked summary is 813e2a7ab8ad4ceb7ab92470ab2d762cb64d6d58a4c26abb2bd3b0acf518479f. Full Campaign Debug remains pending."
+      "status": "failed",
+      "summary": "The source-native force-authority canary passes for frozen checkpoint 4c7bf087b491050a9463064a6bd8767f8d44081f, but Full Campaign Debug rejects the checkpoint after 1091 guarded runtime seconds. Each of the three ammo-convoy crew groups had two living members, yet the first forced-seat calls returned true while occupancy and a visible pending transition both remained false; later calls were rejected, every route assignment found no seated driver, and the convoy fell back to a static ambush. The movement sample failed driver occupancy and the contact sample failed runtime waypoints. In the later rescue mission-target probe, the target zone's ordinary 2- and 3-person garrison groups physicalized. Source/log diagnosis indicates that three exact captive rows remained zero spawned/zero runtime handles and one exact guard row remained zero runtime handles, consistent with rescue production projection still being player-proximity-only while the proof held the player outside every event bubble. Exact owned-mission readiness timed out; fatal containment retained ownership, so no normal artifact triplet was published before the deadline. Source, resource-database, settings, executable, and argument bindings remained stable, and cleanup left zero engine processes. The tracked failed Full summary is f8287afc548ede8b486216ec281ef5ecd04126e8aea236b3a6f95900f0c96e2d."
     },
     {
       "id": "packaged-dedicated",
@@ -616,7 +616,7 @@
       "id": "stable-certification",
       "label": "Stable certification",
       "status": "blocked",
-      "summary": "No current matrix row is certified. The complete source-native Gate 1 chain is pending for frozen checkpoint 4c7bf087b491050a9463064a6bd8767f8d44081f before any later Workshop-installed external gate."
+      "summary": "No current matrix row is certified. Full Campaign Debug rejected source checkpoint 4c7bf087b491050a9463064a6bd8767f8d44081f; a corrected source checkpoint must restart the complete source-native Gate 1 chain before any later Workshop-installed external gate."
     }
   ],
   "activeBlockers": [
@@ -628,7 +628,7 @@
     {
       "id": "STATUS-002",
       "category": "TEST",
-      "summary": "Foundation, all five Workbench source-validation targets, all five source-native focused suites, and the scoped source-native force-authority canary pass for checkpoint 4c7bf087b491050a9463064a6bd8767f8d44081f. The canary is 9 PASS/2 WARN/0 FAIL/0 BLOCKED/0 SKIPPED with 35/35 focused assertions, 87/87 counted conditions, 18 ordered zero-delta state rows, four approved and zero unapproved hard diagnostics, zero final orphans, and zero residual engine processes. Run Full Campaign Debug next. No prior-checkpoint evidence transfers."
+      "summary": "Foundation, all five Workbench source-validation targets, all five source-native focused suites, and the scoped force-authority canary pass for source checkpoint 4c7bf087b491050a9463064a6bd8767f8d44081f, but Full Campaign Debug rejects it. Three exact ammo-convoy groups never confirmed a seated living driver or runtime waypoint after true-but-unconfirmed forced-seat calls. The later rescue target zone physicalized ordinary garrisons; source/log diagnosis points to the three exact captive rows and one exact guard row retaining zero runtime handles because mission production projection remained player-proximity-only while the proof held the player outside the event bubble. Fatal containment prevented normal artifact publication; the wrapper recorded a hash-bound failed result and exact zero-process cleanup. Correct both runtime boundaries and restart the entire Gate 1 chain; prior results do not transfer."
     },
     {
       "id": "STATUS-003",
