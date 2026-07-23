@@ -33,9 +33,14 @@ All five source-native focused suites pass at exact JUnit 91/0/0/0, with 30
 hash-bound artifacts, stable source/toolchain bindings, exact suite-isolated
 cleanup, and zero final engine processes. Their tracked summary SHA-256 is
 `a791ade0fb12876709d5b675c5231e48a357b7f67cd19fe676b50651cb5e57db`.
-The force-authority canary and Full Campaign Debug remain pending in that order.
-No earlier result transfers, Gate 1 remains in progress, and release is
-`NO-GO`.
+The source-native force-authority canary also passes as scoped noncertifying
+proof: 9 PASS/2 WARN/0 FAIL/0 BLOCKED/0 SKIPPED, 35/35 focused assertions,
+87/87 counted conditions, 18 ordered zero-delta state rows, four approved and
+zero unapproved hard diagnostics, zero final orphans, and zero residual engine
+processes. Its tracked summary SHA-256 is
+`813e2a7ab8ad4ceb7ab92470ab2d762cb64d6d58a4c26abb2bd3b0acf518479f`.
+Full Campaign Debug remains pending. No earlier result transfers, Gate 1
+remains in progress, and release is `NO-GO`.
 
 The candidate/package records below remain immutable historical QA. They may be
 used as optional regression evidence, but the retired manual local candidate-pack
@@ -2623,8 +2628,12 @@ Debug and packaged-runtime gates remain open.
   exact suite-isolated cleanup, zero final engine processes, and tracked summary
   SHA-256
   `a791ade0fb12876709d5b675c5231e48a357b7f67cd19fe676b50651cb5e57db`.
-- [ ] Run the source-native corrected canary only after the focused aggregate is
-  accepted.
+- [x] Run the source-native corrected canary only after the focused aggregate is
+  accepted. It passed as scoped noncertifying proof at 9/2/0/0/0 cases, 35/35
+  focused assertions, 87/87 counted conditions, 18 ordered zero-delta rows,
+  four approved and zero unapproved hard diagnostics, zero final orphans, zero
+  residual engine processes, and tracked summary SHA-256
+  `813e2a7ab8ad4ceb7ab92470ab2d762cb64d6d58a4c26abb2bd3b0acf518479f`.
 - [ ] Run source-native Full Campaign Debug only after the corrected canary is
   accepted.
   Release remains `NO-GO` throughout this incomplete Gate 1 sequence.

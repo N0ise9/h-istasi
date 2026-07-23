@@ -1,6 +1,6 @@
 {
   "schemaVersion": 4,
-  "statusAsOfUtc": "2026-07-23T08:11:52Z",
+  "statusAsOfUtc": "2026-07-23T08:27:17Z",
   "releaseStage": "development alpha",
   "releaseDecision": "NO-GO",
   "auditedRevision": "4c7bf087b491050a9463064a6bd8767f8d44081f",
@@ -44,9 +44,9 @@
         "summarySha256": "a791ade0fb12876709d5b675c5231e48a357b7f67cd19fe676b50651cb5e57db"
       },
       "forceAuthorityCanary": {
-        "status": "pending",
-        "summaryPath": null,
-        "summarySha256": null
+        "status": "passed-noncertifying",
+        "summaryPath": "docs/evidence/source-gate1/4c7bf087b491050a9463064a6bd8767f8d44081f/forceAuthorityCanary.json",
+        "summarySha256": "813e2a7ab8ad4ceb7ab92470ab2d762cb64d6d58a4c26abb2bd3b0acf518479f"
       },
       "fullCampaignDebug": {
         "status": "pending",
@@ -579,8 +579,8 @@
     {
       "id": "native-engine-world",
       "label": "Native engine-world behavior",
-      "status": "not-run",
-      "summary": "The source-native force-authority canary and Full Campaign Debug are pending for frozen source checkpoint 4c7bf087b491050a9463064a6bd8767f8d44081f after accepted Foundation, all-target Workbench compilation, and the five focused suites. Full may run only after an accepted canary."
+      "status": "partial",
+      "summary": "The source-native force-authority canary passes as scoped noncertifying proof for frozen checkpoint 4c7bf087b491050a9463064a6bd8767f8d44081f at 9 PASS/2 WARN/0 FAIL/0 BLOCKED/0 SKIPPED, 35/35 focused assertions, 87/87 counted conditions, 18 ordered zero-delta state rows, four approved and zero unapproved hard diagnostics, zero final orphans, stable source/runtime bindings, and zero residual engine processes. The tracked summary is 813e2a7ab8ad4ceb7ab92470ab2d762cb64d6d58a4c26abb2bd3b0acf518479f. Full Campaign Debug remains pending."
     },
     {
       "id": "packaged-dedicated",
@@ -628,7 +628,7 @@
     {
       "id": "STATUS-002",
       "category": "TEST",
-      "summary": "Foundation, all five Workbench source-validation targets, and all five source-native focused suites pass for checkpoint 4c7bf087b491050a9463064a6bd8767f8d44081f. The focused aggregate is exact JUnit 91/0/0/0 with 30 hash-bound artifacts, exact suite-isolated cleanup, and zero final engine processes. Run the force-authority canary next, followed by Full Campaign Debug only if the canary is accepted. No prior-checkpoint evidence transfers."
+      "summary": "Foundation, all five Workbench source-validation targets, all five source-native focused suites, and the scoped source-native force-authority canary pass for checkpoint 4c7bf087b491050a9463064a6bd8767f8d44081f. The canary is 9 PASS/2 WARN/0 FAIL/0 BLOCKED/0 SKIPPED with 35/35 focused assertions, 87/87 counted conditions, 18 ordered zero-delta state rows, four approved and zero unapproved hard diagnostics, zero final orphans, and zero residual engine processes. Run Full Campaign Debug next. No prior-checkpoint evidence transfers."
     },
     {
       "id": "STATUS-003",
