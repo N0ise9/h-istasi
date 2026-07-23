@@ -27,11 +27,13 @@
   ordered zero-delta rows, the current orphan text, and the exact source
   case/assertion manifests. Keep the historical corrected-canary contract
   available only for immutable historical evidence.
-- Frozen source checkpoint `33642bd8a84d8a692f7fe9920510ab97cb890383`
-  passes the source-native force-authority canary at 9 PASS/2 WARN/0 FAIL/0
-  BLOCKED/0 SKIPPED, 35/35 focused assertions, 87/87 counted conditions, 18
-  exact zero state deltas, zero final orphans, and zero unapproved diagnostics.
-  This result is noncertifying; source-native Full Campaign Debug remains next.
+- Frozen source checkpoint `5717d05af0bb1474b8e51a39ad4cef8a4fa341d6`
+  is current. Foundation passes at 985 references. All five Workbench targets
+  pass at 5,849 files, 12,022 classes, common CRC `312a01a9`, zero hard errors,
+  exact cleanup, and zero generated-archive census. The five source-native
+  focused suites are next; the force-authority canary and Full Campaign Debug
+  remain pending. Earlier-checkpoint canary and failed-Full facts do not
+  transfer.
 - A completed post-`DONE` source-native capture reproduced exactly two stock
   support-station catalog-manager diagnostics before normal game destruction.
   Treat that family as optional but indivisible: admit exactly zero events or
@@ -78,6 +80,15 @@
   independently reopen and rehash the retained raw inventory. The tracked
   source-evidence consumer deliberately reports `RawArtifactsReopened:false`;
   it validates the canonical manifest and summary bytes, not the external files.
+- Final raw-inventory hashing is synchronous. If external evidence storage is
+  contended and an outer runner ends before `summary.json` is emitted, the run
+  is incomplete even when every target capture is green. Rerun on responsive
+  storage; never reconstruct or promote the missing summary from partial raw
+  output.
+- SHA-bound tracked source-evidence JSON must be forced to UTF-8/LF through
+  `.gitattributes`. Otherwise a Windows `core.autocrlf` checkout can change the
+  worktree bytes and invalidate the recorded summary SHA without changing the
+  JSON values.
 - The source Campaign Debug wrapper isolates its profile, logs, working, temp,
   and addon-temp roots and proves exact process cleanup. It does not claim a
   snapshot of every ordinary external log/profile root; add explicit watched

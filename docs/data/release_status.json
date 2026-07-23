@@ -1,6 +1,6 @@
 {
   "schemaVersion": 4,
-  "statusAsOfUtc": "2026-07-22T22:51:54Z",
+  "statusAsOfUtc": "2026-07-22T23:54:00Z",
   "releaseStage": "development alpha",
   "releaseDecision": "NO-GO",
   "auditedRevision": "5717d05af0bb1474b8e51a39ad4cef8a4fa341d6",
@@ -34,9 +34,9 @@
         "summarySha256": "8eed696f07512550c738dc9d6d1e155700880d3fc1451994215fd9a6ffe37da0"
       },
       "workbenchAllTargets": {
-        "status": "pending",
-        "summaryPath": null,
-        "summarySha256": null
+        "status": "passed",
+        "summaryPath": "docs/evidence/source-gate1/5717d05af0bb1474b8e51a39ad4cef8a4fa341d6/workbenchAllTargets.json",
+        "summarySha256": "51c5afb4661384ac0b9bcb299361ac9c2d465c9a19627537a6473fab993344d2"
       },
       "focusedFiveSuite": {
         "status": "pending",
@@ -567,8 +567,8 @@
     {
       "id": "compile-configuration",
       "label": "Enforce compile and configuration",
-      "status": "not-run",
-      "summary": "Historical all-target Workbench evidence does not transfer to the replacement source checkpoint. Current Workbench validation follows Foundation and compiles source directly for the normal Workshop publishing path."
+      "status": "passed",
+      "summary": "Current all-target Workbench validation passed for frozen source checkpoint 5717d05af0bb1474b8e51a39ad4cef8a4fa341d6 on PC, XBOX_ONE, XBOX_SERIES, PS4, and PS5: 5,849 files, 12,022 classes, common CRC 312a01a9, zero hard errors, and exact cleanup. This is source compilation and validation for the normal Workshop publishing path; no generated archive is a source input."
     },
     {
       "id": "deterministic-service",
@@ -628,7 +628,7 @@
     {
       "id": "STATUS-002",
       "category": "TEST",
-      "summary": "Foundation passes for frozen checkpoint 5717d05af0bb1474b8e51a39ad4cef8a4fa341d6. Run all-target Workbench validation next, then all five source-native focused suites, the force-authority canary, and Full Campaign Debug in order. No generated .pak is part of source or this gate."
+      "summary": "Foundation and all-target Workbench validation pass for frozen checkpoint 5717d05af0bb1474b8e51a39ad4cef8a4fa341d6. Run all five source-native focused suites next, then the force-authority canary and Full Campaign Debug in order. No generated .pak is part of source or this gate."
     },
     {
       "id": "STATUS-003",

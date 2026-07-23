@@ -22,6 +22,14 @@ manual distribution step is part of the release plan. The external candidate
 packer and package-bound evidence sequence retained below are retired as release
 authority; they remain optional historical QA only.
 
+Current execution is frozen at source checkpoint
+`5717d05af0bb1474b8e51a39ad4cef8a4fa341d6`. Foundation and all-target
+Workbench validation pass; the current Workbench result is 5,849 files, 12,022
+classes, and common CRC `312a01a9` across all five targets with zero hard
+errors and exact cleanup. The five source-native focused suites are the next
+Gate 1 rung. Canary and Full Campaign Debug remain pending, so release remains
+`NO-GO`.
+
 Campaign Schema 71 and runtime-settings Schema 24 are current. The retired
 local-QA checkpoint used immutable runtime candidate
 `partisan-rc-5b1f2e98f931-20260721T193941Z`, from clean source HEAD

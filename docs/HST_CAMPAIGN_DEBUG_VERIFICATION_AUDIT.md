@@ -16,15 +16,24 @@ source-native corrected canary and Full Campaign Debug in order. Workbench
 compile/publish is the authoritative Workshop build path, and Workshop/in-game
 download is the authoritative distribution path.
 
-Frozen source checkpoint `33642bd8a84d8a692f7fe9920510ab97cb890383`
-now has an accepted source-native force-authority canary. Run
-`seed1985_t0_p1_u1784755723` completed as `passed-noncertifying` with 9 PASS/2
-WARN/0 FAIL/0 BLOCKED/0 SKIPPED cases, 35/35 focused assertions, 87/87 counted
-conditions, 18 exact zero state deltas, zero final orphans, and zero unapproved
-diagnostics. All four empty process-census collections retained JSON array
-shape, the 53-row teardown resource multiset was exact, and owned-process
-cleanup reached zero. Source-native Full Campaign Debug is the next Gate 1
-step; this canary does not certify the later Workshop-installed gates.
+Frozen source checkpoint `5717d05af0bb1474b8e51a39ad4cef8a4fa341d6`
+is the current Gate 1 authority. Its 436-row publish-input digest is
+`c08d8f5d9326733c00b0a7796fdb8598b74bb8c12fc260f1962c1cbdcb125e8f`.
+Foundation passes at 985 references, and all five Workbench targets pass at
+5,849 files, 12,022 classes, common CRC `312a01a9`, zero hard errors, and exact
+cleanup. The tracked Workbench summary is bound by SHA-256
+`51c5afb4661384ac0b9bcb299361ac9c2d465c9a19627537a6473fab993344d2`;
+the generated source resource database is recorded as cache, not source, at
+SHA-256 `0ed0728d15e011f2f73c847ba65d0968e161c308697e4b3f281f2356c3d6e813`
+and 84,368 bytes. The five source-native focused suites are next, followed by
+the force-authority canary and Full Campaign Debug.
+
+The accepted canary against earlier checkpoint
+`33642bd8a84d8a692f7fe9920510ab97cb890383` remains scoped historical evidence.
+Its later Full attempt failed before an admissible summary and exposed the
+cleanup and convoy defects repaired in the current checkpoint. Neither that
+canary nor any raw fact from the failed Full attempt transfers into the current
+Gate 1 chain.
 
 The rejected source-native force-authority canary against source checkpoint
 `f380eee8d1ce` is forensic evidence, not an accepted Gate 1 rung. Its gameplay
@@ -35,7 +44,7 @@ It exposed two HQ support-station teardown diagnostics and one obsolete
 presence during post-init, removes the obsolete field from both default layers,
 and validates the source-specific 9/2/0 contract without rewriting the retained
 historical 9/1/1 contract. That older capture remains forensic history and does
-not transfer into the accepted current canary above.
+not transfer into the current frozen-checkpoint Gate 1 chain.
 
 The source runtime census now permits only `PASS`/`WARN` case attribution for
 the mission-cleanup pathfinding family and treats `FAIL`, `BLOCKED`, or
