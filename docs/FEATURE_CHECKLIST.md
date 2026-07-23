@@ -48,8 +48,18 @@ proof: 9 PASS/2 WARN/0 FAIL/0 BLOCKED/0 SKIPPED, 35/35 focused assertions,
 zero unapproved hard diagnostics, zero final orphans, and zero residual engine
 processes. Its tracked summary SHA-256 is
 `8054a9eddb834c7daa5c3b1b4b3f64089d9977bc4024ac07e36302f8e4990866`.
-Full Campaign Debug remains pending. No prior evidence transfers and release
-remains `NO-GO`.
+Full Campaign Debug rejected this checkpoint after 1,086 seconds. All three
+exact convoy vehicle/crew pairs published with living agents, but no seated
+driver or runtime waypoint was confirmed. During the later mission-target
+probe, two canonical target-zone garrison groups appeared on the ordinary
+activation frame after the synchronous ownership freeze; the correlated-
+addition boundary rejected them because it admitted only mission-owned
+additions. Fatal containment retained ownership, so no normal artifact set was
+published before the guarded deadline. Source, resource-database, settings,
+and executable identities remained stable, and cleanup left zero engine
+processes. The tracked failed summary SHA-256 is
+`fa90b86d89bb6b513b4165c10ff1f55a6b379bd5da3a20f15b7242ecbd998216`.
+Gate 1 is failed. No prior evidence transfers and release remains `NO-GO`.
 
 The immediately prior rejected source checkpoint is
 `27df761542309616a1d156b2a329007b0cb34d9b`, with 436 publish-input rows

@@ -55,7 +55,27 @@
   zero unapproved hard diagnostics, zero final orphans, and zero residual engine
   processes. Its tracked summary SHA-256 is
   `8054a9eddb834c7daa5c3b1b4b3f64089d9977bc4024ac07e36302f8e4990866`.
-  Full remains pending; no earlier result transfers.
+  Full Campaign Debug rejected this checkpoint after 1,086 seconds. All three
+  exact convoy vehicle/crew pairs published with living agents, but no seated
+  driver or runtime waypoint was confirmed. During the later mission-target
+  probe, two canonical target-zone garrison groups appeared on the ordinary
+  activation frame after the synchronous ownership freeze; the correlated-
+  addition boundary rejected them because it admitted only mission-owned
+  additions. Fatal containment retained ownership, so no normal artifact set
+  was published before the guarded deadline. Source, resource-database,
+  settings, and executable identities remained stable, and cleanup left zero
+  engine processes. The tracked failed summary SHA-256 is
+  `fa90b86d89bb6b513b4165c10ff1f55a6b379bd5da3a20f15b7242ecbd998216`.
+  Gate 1 is failed and no earlier result transfers.
+- Stock `SCR_CompartmentAccessComponent.MoveInVehicle()` returns when its
+  owner-RPC request is accepted, not when a slot occupant is confirmed. A
+  convoy authority path must prove actual pilot-slot occupancy and must not
+  treat a persistent `IsGettingIn()` state as successful seating.
+- A mission-target ownership freeze can precede ordinary-frame creation of
+  canonical zone-activation garrison rows. Any bounded correlated-admission
+  step must validate those rows with the same exact garrison-origin predicate
+  as the synchronous freeze; accepting only mission-owned additions rejects
+  legitimate production topology.
 - Immediately prior rejected source checkpoint
   `27df761542309616a1d156b2a329007b0cb34d9b` has 436 publish-input rows
   and digest
