@@ -27,6 +27,16 @@
   ordered zero-delta rows, the current orphan text, and the exact source
   case/assertion manifests. Keep the historical corrected-canary contract
   available only for immutable historical evidence.
+- Current frozen source checkpoint
+  `1e18f8c189a66dc92c11a8a81bc3b58725e0fff5` has 436 publish-input rows
+  and digest
+  `06d92f34fe9d8da6c33124357eaecf5f6708d23625f83488fee72e01d15483fb`.
+  It preserves the outer pre-probe combat-presence refresh, adds the second
+  refresh immediately after the probe's own topology-changing
+  `UpdateZoneActivation()` and before the strict audit, and emits complete
+  failure-only audit detail before terminal return. Foundation owns both
+  orderings. All qualifying Gate 1 evidence is pending and no earlier result
+  transfers.
 - Frozen source checkpoint `b0b8a6b677092b45f1c7392edcc2d82246d27bbc`
   is rejected Gate 1 evidence at 436 publish-input rows and digest
   `11999e99c9ab417068e9b371c4ae684217299a35ecad6f2f311e9fe4b4c846f1`.

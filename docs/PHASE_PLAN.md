@@ -22,7 +22,16 @@ manual distribution step is part of the release plan. The external candidate
 packer and package-bound evidence sequence retained below are retired as release
 authority; they remain optional historical QA only.
 
-Current execution rejected source checkpoint
+Current execution is frozen at source checkpoint
+`1e18f8c189a66dc92c11a8a81bc3b58725e0fff5`, with 436 publish-input rows
+and digest `06d92f34fe9d8da6c33124357eaecf5f6708d23625f83488fee72e01d15483fb`.
+It preserves the outer pre-probe refresh, adds the production-style post-update
+refresh immediately after the probe's own `UpdateZoneActivation()`, and prints
+the complete failure-only runtime/composition audit before terminal return.
+Foundation owns both ordering constraints. All five Gate 1 evidence slots are
+pending and no earlier rung transfers.
+
+Immediately prior execution rejected source checkpoint
 `b0b8a6b677092b45f1c7392edcc2d82246d27bbc`, with 436 publish-input rows
 and digest `11999e99c9ab417068e9b371c4ae684217299a35ecad6f2f311e9fe4b4c846f1`.
 It refreshed combat-presence state between the topology-changing zone case and
@@ -54,12 +63,9 @@ artifact was also withheld. Its evidence remains immutable history and does not
 transfer. Gate 1 must restart from Foundation on a corrected source checkpoint;
 release remains `NO-GO`.
 
-The source correction is implemented but not yet a frozen evidence checkpoint.
-It preserves the outer pre-probe refresh, adds the production-style post-update
-refresh immediately after the probe's own `UpdateZoneActivation()`, and prints
-the complete failure-only runtime/composition audit before terminal return.
-Foundation owns both ordering constraints. Commit/freeze this source, then
-restart Gate 1 from Foundation; no earlier rung transfers.
+The source correction is frozen as
+`1e18f8c189a66dc92c11a8a81bc3b58725e0fff5`. Restart Gate 1 from Foundation;
+no earlier rung transfers.
 
 Campaign Schema 71 and runtime-settings Schema 24 are current. The retired
 local-QA checkpoint used immutable runtime candidate

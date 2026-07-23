@@ -1,9 +1,9 @@
 {
   "schemaVersion": 4,
-  "statusAsOfUtc": "2026-07-23T01:49:00Z",
+  "statusAsOfUtc": "2026-07-23T02:05:13Z",
   "releaseStage": "development alpha",
   "releaseDecision": "NO-GO",
-  "auditedRevision": "b0b8a6b677092b45f1c7392edcc2d82246d27bbc",
+  "auditedRevision": "1e18f8c189a66dc92c11a8a81bc3b58725e0fff5",
   "baseline": {
     "campaignSchema": 71,
     "runtimeSettingsSchema": 24,
@@ -12,13 +12,13 @@
     "embeddedBuildLabel": "schema71-settings24-gate1-release-surface"
   },
   "gate1Source": {
-    "status": "failed",
+    "status": "in-progress",
     "checkpoint": {
-      "sourceGitHead": "b0b8a6b677092b45f1c7392edcc2d82246d27bbc",
-      "frozenUtc": "2026-07-23T01:03:00Z",
+      "sourceGitHead": "1e18f8c189a66dc92c11a8a81bc3b58725e0fff5",
+      "frozenUtc": "2026-07-23T02:05:13Z",
       "dirty": false,
       "publishInputPolicy": "git-ls-tree-sha256-v1",
-      "publishInputTreeSha256": "11999e99c9ab417068e9b371c4ae684217299a35ecad6f2f311e9fe4b4c846f1",
+      "publishInputTreeSha256": "06d92f34fe9d8da6c33124357eaecf5f6708d23625f83488fee72e01d15483fb",
       "publishInputRowCount": 436,
       "addonGuid": "698532771130111D",
       "campaignSchema": 71,
@@ -29,29 +29,29 @@
     },
     "evidence": {
       "foundation": {
-        "status": "passed",
-        "summaryPath": "docs/evidence/source-gate1/b0b8a6b677092b45f1c7392edcc2d82246d27bbc/foundation.json",
-        "summarySha256": "0a7bf8c986bfe48041df708d46da23bb2d9996637bb2abf74f74df00642f89b3"
+        "status": "pending",
+        "summaryPath": null,
+        "summarySha256": null
       },
       "workbenchAllTargets": {
-        "status": "passed",
-        "summaryPath": "docs/evidence/source-gate1/b0b8a6b677092b45f1c7392edcc2d82246d27bbc/workbenchAllTargets.json",
-        "summarySha256": "b149dd12b9f097eeda598c94ecc43ba5b6e36319a5d249333a5ae2a3b29531db"
+        "status": "pending",
+        "summaryPath": null,
+        "summarySha256": null
       },
       "focusedFiveSuite": {
-        "status": "passed-noncertifying",
-        "summaryPath": "docs/evidence/source-gate1/b0b8a6b677092b45f1c7392edcc2d82246d27bbc/focusedFiveSuite.json",
-        "summarySha256": "cf745d2b0e4af630302a42eca0215514c192fffdc4d76cfe8fcc0c1f4cfbef3c"
+        "status": "pending",
+        "summaryPath": null,
+        "summarySha256": null
       },
       "forceAuthorityCanary": {
-        "status": "passed-noncertifying",
-        "summaryPath": "docs/evidence/source-gate1/b0b8a6b677092b45f1c7392edcc2d82246d27bbc/forceAuthorityCanary.json",
-        "summarySha256": "6810d8a9419d282497b9d2eceece1e4d4ca8eefdbfc0f3ef31c3bd6d7b69c894"
+        "status": "pending",
+        "summaryPath": null,
+        "summarySha256": null
       },
       "fullCampaignDebug": {
-        "status": "failed",
-        "summaryPath": "docs/evidence/source-gate1/b0b8a6b677092b45f1c7392edcc2d82246d27bbc/fullCampaignDebug.json",
-        "summarySha256": "66220d35a4d4dfe50af063e50a9eea986f567d2f0d8ae43e5245053cded37788"
+        "status": "pending",
+        "summaryPath": null,
+        "summarySha256": null
       }
     }
   },
@@ -561,26 +561,26 @@
     {
       "id": "static-source-resource",
       "label": "Static/source/resource contracts",
-      "status": "passed",
-      "summary": "Current Foundation passed at 985 references for replacement source checkpoint b0b8a6b677092b45f1c7392edcc2d82246d27bbc, with exact 436-input source/worktree identity, zero checkout .pak files, and a tracked hash-bound summary."
+      "status": "not-run",
+      "summary": "Replacement source checkpoint 1e18f8c189a66dc92c11a8a81bc3b58725e0fff5 is frozen with exact 436-input source/worktree identity and zero checkout .pak files. Current Foundation evidence is pending; prior-checkpoint Foundation evidence does not transfer."
     },
     {
       "id": "compile-configuration",
       "label": "Enforce compile and configuration",
-      "status": "passed",
-      "summary": "Current all-target Workbench validation passed for replacement source checkpoint b0b8a6b677092b45f1c7392edcc2d82246d27bbc on PC, XBOX_ONE, XBOX_SERIES, PS4, and PS5: 5,849 files, 12,022 classes, common CRC 82044bce, zero hard errors, and exact cleanup. This is source compilation and validation for the normal Workshop publishing path; no generated archive is a source input."
+      "status": "not-run",
+      "summary": "All-target Workbench validation is pending for replacement source checkpoint 1e18f8c189a66dc92c11a8a81bc3b58725e0fff5 after Foundation. Workbench will compile and validate source for the normal Workshop publishing path; no generated archive is a source input."
     },
     {
       "id": "deterministic-service",
       "label": "Deterministic service contracts",
-      "status": "passed-noncertifying",
-      "summary": "All five source-native focused suites passed for checkpoint b0b8a6b677092b45f1c7392edcc2d82246d27bbc: counterattack 14, garrison rebuild 13, enemy planning 17, QRF 6, and campaign profile journal authority 41, for exact JUnit 91/0/0/0 and zero final engine processes. This deterministic-service result is intentionally noncertifying and does not override the later Full Campaign Debug rejection."
+      "status": "not-run",
+      "summary": "The five source-native focused suites are pending for replacement checkpoint 1e18f8c189a66dc92c11a8a81bc3b58725e0fff5 after Foundation and Workbench. Prior-checkpoint deterministic-service evidence does not transfer."
     },
     {
       "id": "native-engine-world",
       "label": "Native engine-world behavior",
-      "status": "failed",
-      "summary": "The source-native force-authority canary passed for checkpoint b0b8a6b677092b45f1c7392edcc2d82246d27bbc, but Full Campaign Debug then failed at render_bubble.mission_target.force_physical: the pre-admission baseline reported retained runtime or composition ownership and entered fatal containment before publishing a complete artifact. The exact failing subregistry is not proven because the detailed in-memory audit evidence was not emitted. The 1,090-second wrapper result is source/RDB/settings/executable stable with zero residual or unclaimed engine processes and zero cleanup errors."
+      "status": "not-run",
+      "summary": "The source-native force-authority canary and Full Campaign Debug are pending for replacement checkpoint 1e18f8c189a66dc92c11a8a81bc3b58725e0fff5 after the earlier Gate 1 rungs. Rejected checkpoint b0b8a6b677092b45f1c7392edcc2d82246d27bbc remains immutable history and does not transfer."
     },
     {
       "id": "packaged-dedicated",
@@ -616,7 +616,7 @@
       "id": "stable-certification",
       "label": "Stable certification",
       "status": "blocked",
-      "summary": "No current matrix row is certified. Source-native Full Campaign Debug rejected checkpoint b0b8a6b677092b45f1c7392edcc2d82246d27bbc; correction and a new complete Gate 1 chain are required before later Workshop-installed external gates."
+      "summary": "No current matrix row is certified. The complete source-native Gate 1 chain is pending for replacement checkpoint 1e18f8c189a66dc92c11a8a81bc3b58725e0fff5 before later Workshop-installed external gates."
     }
   ],
   "activeBlockers": [
@@ -628,7 +628,7 @@
     {
       "id": "STATUS-002",
       "category": "TEST",
-      "summary": "Foundation, all-target Workbench validation, all five source-native focused suites, and the force-authority canary passed for source checkpoint b0b8a6b677092b45f1c7392edcc2d82246d27bbc, but Full Campaign Debug rejected it at the render-bubble mission-target pre-admission baseline. The exact failing subregistry remains unproven because fatal containment withheld the detailed case artifact. Correct the mutation-to-audit ordering, add failure-only audit logging, then start a new source checkpoint and rerun Gate 1. No generated .pak is part of source or this gate."
+      "summary": "Replacement source checkpoint 1e18f8c189a66dc92c11a8a81bc3b58725e0fff5 keeps the pre-probe refresh, adds a second combat-presence refresh after the probe's own topology-changing update and before the strict audit, and emits full failure-only audit detail. Restart Gate 1 from Foundation, then all-target Workbench, the five focused suites, force-authority canary, and Full Campaign Debug in order. No generated .pak is part of source or this gate."
     },
     {
       "id": "STATUS-003",

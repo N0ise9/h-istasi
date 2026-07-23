@@ -16,7 +16,18 @@ source-native corrected canary and Full Campaign Debug in order. Workbench
 compile/publish is the authoritative Workshop build path, and Workshop/in-game
 download is the authoritative distribution path.
 
-Frozen source checkpoint `b0b8a6b677092b45f1c7392edcc2d82246d27bbc`
+Current frozen source checkpoint
+`1e18f8c189a66dc92c11a8a81bc3b58725e0fff5` has 436 publish-input rows
+and digest `06d92f34fe9d8da6c33124357eaecf5f6708d23625f83488fee72e01d15483fb`.
+It keeps the outer pre-probe refresh, adds a second refresh immediately after
+the probe's own `UpdateZoneActivation()` and before the strict global runtime
+audit, and prints all failure-only baseline/runtime/composition detail before a
+terminal return. Foundation enforces both orderings. Foundation, qualifying
+all-target Workbench, the five focused suites, canary, and Full evidence are all
+pending for this checkpoint; no prior rung transfers.
+
+Immediately prior frozen source checkpoint
+`b0b8a6b677092b45f1c7392edcc2d82246d27bbc`
 is rejected Gate 1 evidence. Its 436-row publish-input digest is
 `11999e99c9ab417068e9b371c4ae684217299a35ecad6f2f311e9fe4b4c846f1`.
 After the zone case and its synchronous post-case population drain, it refreshes
@@ -46,8 +57,8 @@ baseline reported retained runtime or composition ownership and entered fatal
 containment before publishing a complete case artifact. The exact failing
 subregistry is not proven: the detailed evidence remained only in memory, while
 the failure log printed the generic case reason. The probe performs another
-`UpdateZoneActivation()` after the outer refresh and before the audit, so the
-current ordering did not mirror production at the actual mutation-to-audit
+`UpdateZoneActivation()` after the outer refresh and before the audit, so that
+ordering did not mirror production at the actual mutation-to-audit
 boundary. The portable failed summary is 24,313 bytes with SHA-256
 `66220d35a4d4dfe50af063e50a9eea986f567d2f0d8ae43e5245053cded37788`.
 It records 1,090 seconds, stable source/resource-database/settings/executable
@@ -61,8 +72,9 @@ ordinary production frame's pre/post-Physical-War sampling boundary. A failure-
 only error line now prints the zone, all baseline booleans, selected runtime
 handle count, full strict-runtime audit, and full composition audit before the
 terminal return. Foundation enforces both orderings and the log fields. This is
-source correction, not retroactive runtime evidence; it requires a new frozen
-checkpoint and all five Gate 1 rungs.
+source correction, not retroactive runtime evidence; it is now frozen as
+`1e18f8c189a66dc92c11a8a81bc3b58725e0fff5` and requires all five Gate 1
+rungs.
 
 Prior checkpoint `5717d05af0bb1474b8e51a39ad4cef8a4fa341d6`
 passed Foundation at 985 references, all five Workbench targets at 5,849 files,

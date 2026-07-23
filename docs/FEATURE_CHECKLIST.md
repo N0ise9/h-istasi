@@ -22,7 +22,18 @@ chronological package hashes and outcomes below remain evidence of those past
 runs; they do not authorize publication or replace the frozen-source Gate 1
 checks.
 
-The rejected frozen checkpoint is
+The current frozen source checkpoint is
+`1e18f8c189a66dc92c11a8a81bc3b58725e0fff5`, with 436 publish-input rows
+and digest `06d92f34fe9d8da6c33124357eaecf5f6708d23625f83488fee72e01d15483fb`.
+It retains the pre-probe combat-presence refresh, adds the missing second
+refresh immediately after the probe's own topology-changing
+`UpdateZoneActivation()` and before its strict audit, and emits full failure-
+only runtime/composition audit detail before terminal return. Foundation owns
+both orderings. All five qualifying evidence slots are pending; the successful
+pre-freeze PC compile was a source sanity check and is not promoted into Gate 1.
+Release remains `NO-GO`.
+
+The immediately prior rejected checkpoint is
 `b0b8a6b677092b45f1c7392edcc2d82246d27bbc`, with 436 publish-input rows
 and digest `11999e99c9ab417068e9b371c4ae684217299a35ecad6f2f311e9fe4b4c846f1`.
 It refreshed combat-presence samples before entering the mission-target probe,
@@ -55,8 +66,7 @@ same generic pre-admission boundary and timed out without a complete artifact.
 The earlier stale-combat-index attribution was a hypothesis, not a proven
 subregistry result, because that run also withheld its detailed case artifact.
 That evidence is immutable history and does not transfer. Gate 1 is failed for
-`b0b8a6b`; a corrected source checkpoint must rerun all five rungs. Release
-remains `NO-GO`.
+`b0b8a6b`; the current corrected source checkpoint must rerun all five rungs.
 
 The source checkpoint uses an ordinal tracked-blob digest over the nine Workshop
 publish scopes. Current Gate 1 runners additionally compare the files actually
@@ -137,8 +147,8 @@ the source-native sequence above, remains incomplete, and release remains
   outer refresh remains as the production pre-physical sample; the new inner
   refresh mirrors the production post-physical sample at the actual mutation-
   to-audit boundary. Foundation enforces both orderings and all full source
-  contracts pass; Workbench/runtime evidence still requires a new frozen
-  checkpoint and a complete Gate 1 rerun.
+  contracts pass. The correction is frozen as `1e18f8c`; qualifying Workbench
+  and runtime evidence is pending in its complete Gate 1 rerun.
 
 - [x] Make the source evidence consumer compare each publish worktree input
   through its path-specific Git clean filter. A Windows CRLF checkout can be
