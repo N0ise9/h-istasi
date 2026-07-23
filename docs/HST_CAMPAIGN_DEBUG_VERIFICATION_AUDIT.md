@@ -17,6 +17,14 @@ compile/publish is the authoritative Workshop build path, and Workshop/in-game
 download is the authoritative distribution path.
 
 Current frozen source checkpoint
+`27df761542309616a1d156b2a329007b0cb34d9b` has 436 publish-input rows
+and digest `cb6957bb0fa6bc06fce7b41ffd28bee3879222fd2bbfbb5ebe6a28c208895ee2`.
+It defers exact-convoy seating and route assignment until atomic outbound
+publication has closed, performs simulated-support runtime cleanup before
+durable-row removal, and reports exact core-registry rejection predicates.
+Every Gate 1 evidence slot is pending; earlier results do not transfer.
+
+Immediately prior frozen source checkpoint
 `1e18f8c189a66dc92c11a8a81bc3b58725e0fff5` has 436 publish-input rows
 and digest `06d92f34fe9d8da6c33124357eaecf5f6708d23625f83488fee72e01d15483fb`.
 It keeps the outer pre-probe refresh, adds a second refresh immediately after
@@ -70,10 +78,11 @@ also records the exact runtime row, group ID, and active/entity/deleted/world/
 duplicate predicates. The Foundation structural body and a pre-freeze PC
 Workbench source compile sanity check pass at 5,849 files, 12,022 classes, CRC
 `439eb620`, zero hard errors, and exact cleanup. This is diagnosis and dirty-
-source sanity evidence only, not a Gate 1 result; a clean committed checkpoint
-must rerun the full ordered chain.
+source sanity evidence only, not a Gate 1 result. The clean correction is now
+frozen at `27df761542309616a1d156b2a329007b0cb34d9b` and must rerun the full
+ordered chain.
 
-Immediately prior frozen source checkpoint
+The next earlier frozen source checkpoint
 `b0b8a6b677092b45f1c7392edcc2d82246d27bbc`
 is rejected Gate 1 evidence. Its 436-row publish-input digest is
 `11999e99c9ab417068e9b371c4ae684217299a35ecad6f2f311e9fe4b4c846f1`.

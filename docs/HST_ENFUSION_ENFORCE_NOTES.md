@@ -28,6 +28,14 @@
   case/assertion manifests. Keep the historical corrected-canary contract
   available only for immutable historical evidence.
 - Current frozen source checkpoint
+  `27df761542309616a1d156b2a329007b0cb34d9b` has 436 publish-input rows
+  and digest
+  `cb6957bb0fa6bc06fce7b41ffd28bee3879222fd2bbfbb5ebe6a28c208895ee2`.
+  It defers exact-convoy seating and route assignment until atomic outbound
+  publication has closed, retires simulated-support runtime ownership before
+  durable state, and reports exact core-registry rejection predicates. All five
+  Gate 1 evidence slots are pending; no earlier result transfers.
+- Immediately prior frozen source checkpoint
   `1e18f8c189a66dc92c11a8a81bc3b58725e0fff5` has 436 publish-input rows
   and digest
   `06d92f34fe9d8da6c33124357eaecf5f6708d23625f83488fee72e01d15483fb`.
@@ -82,8 +90,9 @@
   final frozen-source binding, and a direct PC Workbench source compile can be
   used only as pre-freeze sanity. The current correction reached 5,849 files,
   12,022 classes, CRC `439eb620`, zero hard errors, and exact cleanup. Neither
-  result is Gate 1 evidence; commit and freeze the source before restarting the
-  ordered chain.
+  result is Gate 1 evidence. The source is now frozen at
+  `27df761542309616a1d156b2a329007b0cb34d9b`; restart the ordered chain from
+  Foundation.
 - Frozen source checkpoint `b0b8a6b677092b45f1c7392edcc2d82246d27bbc`
   is rejected Gate 1 evidence at 436 publish-input rows and digest
   `11999e99c9ab417068e9b371c4ae684217299a35ecad6f2f311e9fe4b4c846f1`.

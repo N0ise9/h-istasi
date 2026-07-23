@@ -23,6 +23,14 @@ packer and package-bound evidence sequence retained below are retired as release
 authority; they remain optional historical QA only.
 
 Current execution is frozen at source checkpoint
+`27df761542309616a1d156b2a329007b0cb34d9b`, with 436 publish-input rows
+and digest `cb6957bb0fa6bc06fce7b41ffd28bee3879222fd2bbfbb5ebe6a28c208895ee2`.
+It defers exact-convoy seating and route assignment until after atomic outbound
+publication, cleans simulated-support runtime ownership before durable state,
+and reports exact core-registry rejection predicates. All five Gate 1 evidence
+slots are pending in order and no prior result transfers.
+
+Immediately prior execution was frozen at source checkpoint
 `1e18f8c189a66dc92c11a8a81bc3b58725e0fff5`, with 436 publish-input rows
 and digest `06d92f34fe9d8da6c33124357eaecf5f6708d23625f83488fee72e01d15483fb`.
 It preserves the outer pre-probe refresh, adds the production-style post-update
@@ -69,10 +77,11 @@ removing the durable active-group row. Strict core-registry rejection output
 also identifies the exact row and predicate values. The Foundation structural
 body and a pre-freeze PC Workbench source compile sanity check pass at 5,849
 files, 12,022 classes, CRC `439eb620`, zero hard errors, and exact cleanup.
-Those checks are not Gate 1 evidence. Next, commit and freeze the correction,
-then restart Foundation and every later rung in order; do not begin Gate 2.
+Those checks are not Gate 1 evidence. The correction is now frozen as
+`27df761542309616a1d156b2a329007b0cb34d9b`; restart Foundation and every
+later rung in order, and do not begin Gate 2.
 
-Immediately prior execution rejected source checkpoint
+The next earlier execution rejected source checkpoint
 `b0b8a6b677092b45f1c7392edcc2d82246d27bbc`, with 436 publish-input rows
 and digest `11999e99c9ab417068e9b371c4ae684217299a35ecad6f2f311e9fe4b4c846f1`.
 It refreshed combat-presence state between the topology-changing zone case and
@@ -104,8 +113,8 @@ artifact was also withheld. Its evidence remains immutable history and does not
 transfer. Gate 1 must restart from Foundation on a corrected source checkpoint;
 release remains `NO-GO`.
 
-The source correction is frozen as
-`1e18f8c189a66dc92c11a8a81bc3b58725e0fff5`. Restart Gate 1 from Foundation;
+The current source correction is frozen as
+`27df761542309616a1d156b2a329007b0cb34d9b`. Restart Gate 1 from Foundation;
 no earlier rung transfers.
 
 Campaign Schema 71 and runtime-settings Schema 24 are current. The retired

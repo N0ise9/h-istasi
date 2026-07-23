@@ -23,6 +23,16 @@ runs; they do not authorize publication or replace the frozen-source Gate 1
 checks.
 
 The current frozen source checkpoint is
+`27df761542309616a1d156b2a329007b0cb34d9b`, with 436 publish-input rows
+and digest `cb6957bb0fa6bc06fce7b41ffd28bee3879222fd2bbfbb5ebe6a28c208895ee2`.
+It defers exact-convoy seating and route assignment until atomic outbound
+publication has closed, retires simulated-support runtime ownership before its
+durable row, and reports exact core-registry rejection predicates. Foundation,
+all-target Workbench, the five focused suites, force-authority canary, and Full
+Campaign Debug are pending in that order. No prior evidence transfers and
+release remains `NO-GO`.
+
+The immediately prior rejected source checkpoint is
 `1e18f8c189a66dc92c11a8a81bc3b58725e0fff5`, with 436 publish-input rows
 and digest `06d92f34fe9d8da6c33124357eaecf5f6708d23625f83488fee72e01d15483fb`.
 It retains the pre-probe combat-presence refresh, adds the missing second
@@ -70,9 +80,10 @@ a source sanity check and is not promoted into Gate 1. Release remains `NO-GO`.
   and predicate values. The Foundation structural body and pre-freeze PC
   Workbench source compile sanity check pass at 5,849 files, 12,022 classes,
   CRC `439eb620`, zero hard errors, and exact cleanup. This is pre-freeze
-  validation only; no Gate 1 rung transfers to the corrected checkpoint.
+  validation only; no Gate 1 rung transfers to the now-frozen corrected
+  checkpoint `27df761542309616a1d156b2a329007b0cb34d9b`.
 
-The immediately prior rejected checkpoint is
+The next earlier rejected checkpoint is
 `b0b8a6b677092b45f1c7392edcc2d82246d27bbc`, with 436 publish-input rows
 and digest `11999e99c9ab417068e9b371c4ae684217299a35ecad6f2f311e9fe4b4c846f1`.
 It refreshed combat-presence samples before entering the mission-target probe,
