@@ -31,8 +31,11 @@ strings on failure, and has a Foundation ordering guard. Foundation passes at
 985 references with exact source/worktree identity. Workbench passes PC,
 XBOX_ONE, XBOX_SERIES, PS4, and PS5 at 5,849 files, 12,022 classes, common CRC
 `82044bce`, zero hard errors, and exact cleanup. All five source-native focused
-suites pass at exact JUnit 91/0/0/0 with zero final engine processes. The force-
-authority canary is next; the remaining two current evidence rungs are pending.
+suites pass at exact JUnit 91/0/0/0 with zero final engine processes. The source-
+native force-authority canary also passes at 9/2/0/0/0 cases, 35/35 focused
+assertions, 87/87 counted conditions, 18 ordered zero-delta state rows, and zero
+residual engine processes. Full Campaign Debug is next; it is the sole pending
+current evidence rung.
 
 Prior checkpoint `5717d05af0bb1474b8e51a39ad4cef8a4fa341d6`
 passed its first four Gate 1 rungs, then Full Campaign Debug rejected at the

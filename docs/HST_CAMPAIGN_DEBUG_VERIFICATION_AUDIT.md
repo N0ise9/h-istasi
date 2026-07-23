@@ -34,8 +34,12 @@ the generated source resource database is cache, not source, at SHA-256
 and 84,996 bytes. All five source-native focused suites pass at exact JUnit
 91/0/0/0 with zero final engine processes; their tracked summary is bound by
 SHA-256 `cf745d2b0e4af630302a42eca0215514c192fffdc4d76cfe8fcc0c1f4cfbef3c`.
-The force-authority canary is next; the remaining two current evidence rungs are
-pending.
+The source-native force-authority canary also passes: 9 PASS/2 WARN/0 FAIL/0
+BLOCKED/0 SKIPPED, 35/35 focused assertions, 87/87 counted conditions, 18
+ordered zero-delta state rows, zero final orphans, zero unapproved diagnostics,
+and zero residual engine processes. Its tracked summary is bound by SHA-256
+`6810d8a9419d282497b9d2eceece1e4d4ca8eefdbfc0f3ef31c3bd6d7b69c894`.
+Full Campaign Debug is next; it is the sole pending current evidence rung.
 
 Prior checkpoint `5717d05af0bb1474b8e51a39ad4cef8a4fa341d6`
 passed Foundation at 985 references, all five Workbench targets at 5,849 files,

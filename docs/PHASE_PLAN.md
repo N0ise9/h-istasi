@@ -32,7 +32,10 @@ ordering guard. Foundation passes at 985 references with exact source/worktree
 identity. All five Workbench targets pass at 5,849 files, 12,022 classes,
 common CRC `82044bce`, zero hard errors, and exact cleanup. The five source-
 native focused suites also pass at exact JUnit 91/0/0/0 with zero final engine
-processes. The force-authority canary is next.
+processes. The source-native force-authority canary also passes as scoped
+noncertifying evidence at 9/2/0/0/0 cases, 35/35 focused assertions, 87/87
+counted conditions, 18 ordered zero-delta state rows, and zero residue. Full
+Campaign Debug is next.
 
 Prior checkpoint `5717d05af0bb1474b8e51a39ad4cef8a4fa341d6`
 passed Foundation, all-target Workbench, all five focused suites, and the scoped

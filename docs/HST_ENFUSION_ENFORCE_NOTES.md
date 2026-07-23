@@ -37,7 +37,11 @@
   pass at 5,849 files, 12,022 classes, common CRC `82044bce`, zero hard errors,
   exact cleanup, and zero generated-archive census. All five source-native
   focused suites pass at exact JUnit 91/0/0/0 with zero final engine processes.
-  The force-authority canary is next. Prior checkpoint `5717d05` passed its
+  The source-native force-authority canary also passes at 9/2/0/0/0 cases,
+  35/35 focused assertions, 87/87 counted conditions, 18 ordered zero-delta
+  state rows, zero final orphans, zero unapproved diagnostics, and zero residual
+  engine processes. Full Campaign Debug is next. Prior checkpoint `5717d05`
+  passed its
   first four rungs, then Full rejected at the stale-index boundary and timed out
   without a complete artifact. Its wrapper ended with stable source/resource-
   database identity, zero residual processes, and zero cleanup errors. Those
@@ -915,9 +919,8 @@ Gate 1 or Workshop publishing requirement.
 - After Gate 1 and later release gates are satisfied, publish with Workbench and
   let Workshop/in-game download distribute the generated add-on. Do not copy or
   track generated package output in this repository.
-- The immediate Gate 1 step is the source-native force-authority canary against
-  the Foundation/Workbench/focused-green replacement checkpoint, followed by
-  source-native Full Campaign Debug only after an accepted canary. The
+- The immediate Gate 1 step is source-native Full Campaign Debug against the
+  Foundation/Workbench/focused/canary-green replacement checkpoint. The
   one-clock correction remains useful to the optional
   historical candidate QA harness, but resuming that package chain is not
   required for Gate 1.
