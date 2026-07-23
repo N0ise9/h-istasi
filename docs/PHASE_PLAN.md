@@ -23,19 +23,18 @@ packer and package-bound evidence sequence retained below are retired as release
 authority; they remain optional historical QA only.
 
 Current execution is frozen at source checkpoint
-`5717d05af0bb1474b8e51a39ad4cef8a4fa341d6`. Foundation and all-target
-Workbench validation pass; the current Workbench result is 5,849 files, 12,022
-classes, and common CRC `312a01a9` across all five targets with zero hard
-errors and exact cleanup. All five source-native focused suites pass at exact
-JUnit 91/0/0/0 with zero final engine processes. The source-native force-
-authority canary also passes as scoped noncertifying evidence at 9/2/0/0/0
-cases, 35/35 focused assertions, and 87/87 counted conditions. Full Campaign
-Debug then rejected this checkpoint: a same-frame fixture topology change left
-the global combat-presence index stale before the mission-target render-bubble
-baseline, and fatal containment timed out without a complete artifact. The
-replacement correction now performs the production combat-presence refresh
-between those fixtures and has a Foundation ordering guard. Freeze it as a new
-source checkpoint and restart the gate. Release remains `NO-GO`.
+`b0b8a6b677092b45f1c7392edcc2d82246d27bbc`, with 436 publish-input rows
+and digest `11999e99c9ab417068e9b371c4ae684217299a35ecad6f2f311e9fe4b4c846f1`.
+It performs the production combat-presence refresh between the topology-
+changing zone case and mission-target baseline, preserves the strict global
+audit, publishes registry/composition failure evidence, and has a Foundation
+ordering guard. No current evidence rung has run; Foundation is next.
+
+Prior checkpoint `5717d05af0bb1474b8e51a39ad4cef8a4fa341d6`
+passed Foundation, all-target Workbench, all five focused suites, and the scoped
+force-authority canary, then failed Full Campaign Debug at that stale-index
+boundary and timed out without a complete artifact. Its evidence remains
+immutable history and does not transfer. Release remains `NO-GO`.
 
 Campaign Schema 71 and runtime-settings Schema 24 are current. The retired
 local-QA checkpoint used immutable runtime candidate

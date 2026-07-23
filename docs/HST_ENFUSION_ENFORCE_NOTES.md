@@ -27,24 +27,17 @@
   ordered zero-delta rows, the current orphan text, and the exact source
   case/assertion manifests. Keep the historical corrected-canary contract
   available only for immutable historical evidence.
-- Frozen source checkpoint `5717d05af0bb1474b8e51a39ad4cef8a4fa341d6`
-  is current. Foundation passes at 985 references. All five Workbench targets
-  pass at 5,849 files, 12,022 classes, common CRC `312a01a9`, zero hard errors,
-  exact cleanup, and zero generated-archive census. All five source-native
-  focused suites pass at exact JUnit 91/0/0/0 with zero final engine processes.
-  The source-native force-authority canary also passes at 9/2/0/0/0 cases,
-  35/35 focused assertions, 87/87 counted conditions, 18 ordered zero-delta
-  state rows, zero final orphans, zero unapproved diagnostics, and zero residual
-  engine processes. Full Campaign Debug then rejected the checkpoint because a
-  same-frame fixture topology change left the global combat-presence index stale
-  before the mission-target render-bubble baseline. Fatal containment timed out
-  at 1,087 seconds without a complete artifact; the wrapper still ended with
-  stable source/resource-database identity, zero residual processes, and zero
-  cleanup errors. Repair the refresh ordering and restart Gate 1 from a
-  replacement source checkpoint. The replacement correction now mirrors the
-  production combat-presence refresh before the next baseline, preserves the
-  strict global audit, and publishes registry/composition details on failure;
-  Foundation owns its exact ordering. Earlier-checkpoint facts do not transfer.
+- Frozen source checkpoint `b0b8a6b677092b45f1c7392edcc2d82246d27bbc`
+  is current at 436 publish-input rows and digest
+  `11999e99c9ab417068e9b371c4ae684217299a35ecad6f2f311e9fe4b4c846f1`.
+  It mirrors the production combat-presence refresh before the mission-target
+  baseline, preserves the strict global audit, publishes registry/composition
+  details on failure, and has a Foundation ordering guard. All current evidence
+  rungs are pending; Foundation is next. Prior checkpoint `5717d05` passed its
+  first four rungs, then Full rejected at the stale-index boundary and timed out
+  without a complete artifact. Its wrapper ended with stable source/resource-
+  database identity, zero residual processes, and zero cleanup errors. Those
+  earlier-checkpoint facts remain immutable and do not transfer.
 - A completed post-`DONE` source-native capture reproduced exactly two stock
   support-station catalog-manager diagnostics before normal game destruction.
   Treat that family as optional but indivisible: admit exactly zero events or
@@ -918,9 +911,9 @@ Gate 1 or Workshop publishing requirement.
 - After Gate 1 and later release gates are satisfied, publish with Workbench and
   let Workshop/in-game download distribute the generated add-on. Do not copy or
   track generated package output in this repository.
-- The immediate Gate 1 step is to freeze the implemented same-frame combat-
-  presence refresh correction as a replacement source checkpoint and restart
-  Gate 1 from Foundation. The one-clock correction remains useful to the optional
+- The immediate Gate 1 step is Foundation against the frozen replacement
+  checkpoint, followed by the remaining source-native rungs in order. The
+  one-clock correction remains useful to the optional
   historical candidate QA harness, but resuming that package chain is not
   required for Gate 1.
 - For diagnostic-game automation, `-profile` names the disposable parent root;

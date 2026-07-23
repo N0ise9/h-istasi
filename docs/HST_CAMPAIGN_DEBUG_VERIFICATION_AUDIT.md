@@ -16,46 +16,30 @@ source-native corrected canary and Full Campaign Debug in order. Workbench
 compile/publish is the authoritative Workshop build path, and Workshop/in-game
 download is the authoritative distribution path.
 
-Frozen source checkpoint `5717d05af0bb1474b8e51a39ad4cef8a4fa341d6`
+Frozen source checkpoint `b0b8a6b677092b45f1c7392edcc2d82246d27bbc`
 is the current Gate 1 authority. Its 436-row publish-input digest is
-`c08d8f5d9326733c00b0a7796fdb8598b74bb8c12fc260f1962c1cbdcb125e8f`.
-Foundation passes at 985 references, and all five Workbench targets pass at
-5,849 files, 12,022 classes, common CRC `312a01a9`, zero hard errors, and exact
-cleanup. The tracked Workbench summary is bound by SHA-256
-`51c5afb4661384ac0b9bcb299361ac9c2d465c9a19627537a6473fab993344d2`;
-the generated source resource database is recorded as cache, not source, at
-SHA-256 `0ed0728d15e011f2f73c847ba65d0968e161c308697e4b3f281f2356c3d6e813`
-and 84,368 bytes. All five source-native focused suites pass at exact JUnit
-91/0/0/0 with zero final engine processes; their tracked summary is bound by
-SHA-256 `1c1ba4a75e021cc6467a6d9374faccb2eb596cda5b9cb9028e26ccd2fcd531d1`.
-The source-native force-authority canary also passes as scoped noncertifying
-evidence: 9 PASS/2 WARN/0 FAIL/0 BLOCKED/0 SKIPPED, 35/35 focused assertions,
-87/87 counted conditions, 18 ordered zero-delta state rows, zero final orphans,
-zero unapproved diagnostics, and zero residual engine processes. Its tracked
-summary is bound by SHA-256
-`7d2a42fabf9f7fc2c2c727d88b340a81e5980fc3598a00aca04bc358462ff785`.
-Full Campaign Debug then rejected the checkpoint. The selected lighthouse
-target folded its pending group, returned both queued infantry, removed both
-composition rows, and deactivated cleanly. In the same coordinator invocation,
-post-case pending-population work changed unrelated HQ runtime topology without
-the production combat-presence refresh that normally follows physical-war
-projection. The next mission-target baseline's global runtime audit therefore
-detected a stale combat-presence index, published a failed assertion, and
-entered fatal containment. The wrapper timed out at 1,087 seconds without a
-complete debug artifact but preserved source/resource-database identity and
-ended with zero residual processes or cleanup errors. The exact failed summary
-is bound by SHA-256
-`5665ea80af094df1e61f18d5c7d3d82790754a219411e4c896e8226a06c9b2ce`.
-This checkpoint is rejected; repair the refresh ordering and restart Gate 1
-from Foundation on a replacement source commit.
-
-The replacement source correction now mirrors production ordering: after the
-zone case and its synchronous post-case population drain, it refreshes global
-combat-presence samples before beginning the mission-target baseline. The
-baseline retains the strict global registry/composition audit and now publishes
+`11999e99c9ab417068e9b371c4ae684217299a35ecad6f2f311e9fe4b4c846f1`.
+After the zone case and its synchronous post-case population drain, it refreshes
+global combat-presence samples before beginning the mission-target baseline.
+The baseline retains the strict global registry/composition audit and publishes
 both detailed evidence strings on failure. Foundation enforces the exact
-record-case -> refresh -> begin-probe order. This is implemented source, not
-runtime proof; a new checkpoint must restart Gate 1 from Foundation.
+record-case -> refresh -> begin-probe order. All current evidence rungs are
+pending; Foundation is next.
+
+Prior checkpoint `5717d05af0bb1474b8e51a39ad4cef8a4fa341d6`
+passed Foundation at 985 references, all five Workbench targets at 5,849 files,
+12,022 classes, common CRC `312a01a9`, all five focused suites at exact JUnit
+91/0/0/0, and the scoped force-authority canary at 9/2/0/0/0 cases, 35/35
+focused assertions, and 87/87 counted conditions. Full Campaign Debug then
+rejected it. The selected lighthouse target folded and cleaned, but unrelated
+same-frame post-case population changed global topology before a combat-
+presence refresh. The next baseline detected the stale index and entered fatal
+containment. The wrapper timed out at 1,087 seconds without a complete artifact,
+preserved source/resource-database identity, and ended with zero residual
+processes or cleanup errors. Its exact failed summary is bound by SHA-256
+`5665ea80af094df1e61f18d5c7d3d82790754a219411e4c896e8226a06c9b2ce`.
+All evidence under that checkpoint remains immutable history and does not
+transfer to the replacement.
 
 The accepted canary against earlier checkpoint
 `33642bd8a84d8a692f7fe9920510ab97cb890383` remains scoped historical evidence.

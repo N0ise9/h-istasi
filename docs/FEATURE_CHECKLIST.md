@@ -23,20 +23,17 @@ runs; they do not authorize publication or replace the frozen-source Gate 1
 checks.
 
 The current frozen checkpoint is
-`5717d05af0bb1474b8e51a39ad4cef8a4fa341d6`. Foundation passes at 985
-references, and Workbench passes PC, XBOX_ONE, XBOX_SERIES, PS4, and PS5 at
-5,849 files, 12,022 classes, common CRC `312a01a9`, zero hard errors, and exact
-cleanup. All five source-native focused suites pass at exact JUnit 91/0/0/0
-with zero final engine processes. The source-native force-authority canary also
-passes as scoped noncertifying evidence at 9/2/0/0/0 cases, 35/35 focused
-assertions, 87/87 counted conditions, 18 ordered zero-delta state rows, and
-zero residual engine processes. Full Campaign Debug then rejected this
-checkpoint: the mission-target render-bubble baseline detected a stale global
-combat-presence index after same-frame fixture topology changes, entered fatal
-containment, and timed out without a complete artifact. The replacement
-correction now refreshes combat-presence samples before the next baseline and
-has a Foundation ordering guard; runtime proof must start again from the new
-checkpoint. Release remains `NO-GO`.
+`b0b8a6b677092b45f1c7392edcc2d82246d27bbc`, with 436 publish-input rows
+and digest `11999e99c9ab417068e9b371c4ae684217299a35ecad6f2f311e9fe4b4c846f1`.
+It refreshes combat-presence samples before the mission-target baseline,
+preserves the strict global registry/composition audit, publishes both evidence
+strings on failure, and has a Foundation ordering guard. Foundation is next;
+all five current evidence rungs are pending.
+
+Prior checkpoint `5717d05af0bb1474b8e51a39ad4cef8a4fa341d6`
+passed its first four Gate 1 rungs, then Full Campaign Debug rejected at the
+stale-index boundary and timed out without a complete artifact. That evidence
+is immutable history and does not transfer. Release remains `NO-GO`.
 
 The source checkpoint uses an ordinal tracked-blob digest over the nine Workshop
 publish scopes. Current Gate 1 runners additionally compare the files actually
