@@ -5,7 +5,7 @@
 > requirements are generated in
 > [`ANTISTASI_CE311_PARITY_MATRIX.md`](ANTISTASI_CE311_PARITY_MATRIX.md).
 
-## Current Build And Publication Boundary
+## Current Compilation And Publication Boundary
 
 The repository contains authored source and source-native verification assets;
 generated `.pak` files, including `data.pak`, are not source artifacts and must
@@ -29,6 +29,24 @@ Workbench, focused, canary, or Full evidence from an earlier checkpoint remains
 historical and cannot transfer forward, even when the earlier rung was green.
 
 Current frozen source checkpoint
+`4c7bf087b491050a9463064a6bd8767f8d44081f` has 436 publish-input rows and
+digest `c19b6343809899e488972f4e9109da6a1d65d285fad1b7a958dd2d399baa3a20`.
+It makes controlled non-proxy AI authority-local for direct forced convoy
+seating, bounds a stale boarding transition to one interrupt and one recovery
+attempt, and withholds turret/cargo orders until a living pilot is confirmed.
+The mission-target proof now admits the exact first ordinary-frame mission/
+garrison and composition delta as one atomic, one-shot ownership transaction;
+later samples and cleanup retain strict pointer/origin audits. The dirty-tree
+Foundation run passed the 985-reference structural body and all runner self-
+tests, then rejected the old frozen-source binding exactly as intended. A
+pre-freeze PC Workbench sanity compile passed at 5,849 files, 12,022 classes,
+CRC `0b872024`, zero hard errors, and exact cleanup. That compile is sanity
+only. Foundation, all-target Workbench, the five focused suites, the force-
+authority canary, and Full Campaign Debug are all pending for this checkpoint;
+no evidence transfers from an earlier source. Gate 1 is in progress, release
+remains `NO-GO`, and Gate 2 must not begin.
+
+Prior rejected source checkpoint
 `8470af6f967a34f180f547ccca35fe2d0bf8a4a8` has 436 publish-input rows and
 digest `b868828a8202b0d8f583f4945c2d864d6113b360e100eac2d8d57f8f30a525d9`.
 It retains post-publication exact-convoy seating and runtime-first support

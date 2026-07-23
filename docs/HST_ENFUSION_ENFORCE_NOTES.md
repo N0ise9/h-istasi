@@ -28,6 +28,22 @@
   case/assertion manifests. Keep the historical corrected-canary contract
   available only for immutable historical evidence.
 - Current frozen source checkpoint
+  `4c7bf087b491050a9463064a6bd8767f8d44081f` has 436 publish-input rows
+  and digest
+  `c19b6343809899e488972f4e9109da6a1d65d285fad1b7a958dd2d399baa3a20`.
+  Controlled non-proxy AI is authority-local for direct forced convoy seating;
+  stale `IsGettingIn()` receives one interrupt and one later recovery attempt;
+  and auxiliary seating waits for confirmed pilot occupancy. Mission-target
+  proof now admits the exact first ordinary-frame mission/garrison and
+  composition delta as one atomic, one-shot transaction, including the same
+  still-open admission in cleanup preflight. The dirty-tree Foundation run
+  passed the 985-reference structural body and all runner self-tests, then
+  rejected the old frozen-source binding as intended. A pre-freeze PC Workbench
+  sanity compile passed at 5,849 files, 12,022 classes, CRC `0b872024`, zero
+  hard errors, and exact cleanup. This is compile sanity only. All five formal
+  Gate 1 evidence slots are pending; no prior result transfers. Gate 1 is in
+  progress and release remains `NO-GO`.
+- Prior rejected source checkpoint
   `8470af6f967a34f180f547ccca35fe2d0bf8a4a8` has 436 publish-input rows
   and digest
   `b868828a8202b0d8f583f4945c2d864d6113b360e100eac2d8d57f8f30a525d9`.
@@ -237,15 +253,15 @@
   and post-destruction lifecycle boundary. Missing, extra, or duplicated rows
   still fail closed.
 - Never add a `.pak` file to source. It is neither an authored repository input
-  nor a Gate 1 artifact; Workbench/Workshop publication owns any generated
-  archive outside the source tree.
+  nor a Gate 1 artifact. Workbench compiles and publishes the authored project
+  to Workshop, and the game/server downloads the published revision.
 - Use one clean committed source checkpoint for Gate 1. Bind its identity, pass
   Foundation and all-target Workbench validation, run the individually named
   source-native focused suites and aggregate, then run the source-native
   corrected canary and Full Campaign Debug in order.
-- Workbench compile/publish is the authoritative Workshop build path. Workshop
-  and in-game download are the authoritative distribution path; do not maintain a
-  parallel manual package-distribution workflow.
+- Workbench compilation and publication are the authoritative path to Workshop.
+  Workshop and in-game download are the authoritative distribution path; do
+  not maintain a parallel manual package-distribution workflow.
 - Treat every manually staged local candidate/package procedure below as
   retained optional historical QA. Its evidence remains immutable, but it is not
   a current Gate 1 prerequisite. Default Foundation validation excludes the

@@ -5681,3 +5681,55 @@ Consequences:
 - Historical candidate evidence remains byte-exact history. Current
   Gate 1 remains source-native, and no `.pak` becomes source or a repository-
   managed deliverable.
+
+## CRI-107 - Recover Convoy Seating And Bound First-Activation Ownership
+
+- Status: Accepted source correction; replacement Gate 1 chain pending
+- Date: 2026-07-23
+
+Context: Source checkpoint
+`8470af6f967a34f180f547ccca35fe2d0bf8a4a8` passed Foundation, all-target
+Workbench compilation, all five focused suites, and the source-native
+force-authority canary, but Full Campaign Debug rejected it. All three convoy
+vehicle/crew pairs published living agents without confirming a seated driver
+or waypoint. Later, the first ordinary mission-target activation created
+canonical target-zone garrison and composition rows after the synchronous
+ownership freeze. The proof admitted only mission-owned groups, rejected that
+valid correlated delta, retained fatal ownership, and prevented normal artifact
+publication.
+
+Decision: Treat controlled replicated AI as authority-local for direct forced
+convoy seating only when its AI controller is local and its replication
+component is not a proxy; nonreplicated controlled sessions remain local. A
+stale boarding transition receives exactly one queue interrupt and one later
+forced retry. Recovery state is process-local and pruned, and turret/cargo
+seating waits for a confirmed living pilot. An accepted owner RPC is transport,
+not proof of occupancy.
+
+Give mission-target proof one bounded first-activation admission transaction.
+It accepts only exact mission-owned or exact target-garrison-origin group rows
+and exact append-only composition rows. Stage both halves, commit them together,
+and roll back partial admission on failure. Close the window after its first
+observation; later runtime and cleanup audits stay strict. Cleanup preflight may
+consume the same still-open transaction before production zone deactivation so
+a valid ordinary first frame cannot deadlock cleanup.
+
+Replace active external-proof advisories with the real release boundary: after
+Gate 1 acceptance, publish through Workbench and test the exact Workshop
+revision downloaded by the game/server. No repository workflow builds, copies,
+fingerprints, commits, or distributes `data.pak`.
+
+Consequences:
+
+- Campaign Schema 71 and runtime-settings Schema 24 do not change.
+- Frozen source checkpoint
+  `4c7bf087b491050a9463064a6bd8767f8d44081f` binds 436 publish inputs at
+  SHA-256 `c19b6343809899e488972f4e9109da6a1d65d285fad1b7a958dd2d399baa3a20`.
+  Its pre-freeze PC Workbench sanity compile passed at 5,849 files, 12,022
+  classes, CRC `0b872024`, zero hard errors, and exact cleanup; this is not
+  formal Gate 1 evidence.
+- The rejected `8470af6` evidence remains immutable history and transfers
+  nothing. Foundation, all-target Workbench, the five focused suites, the
+  force-authority canary, and Full Campaign Debug must rerun in order.
+- Gate 1 remains in progress, release remains `NO-GO`, and Gate 2 must not
+  begin.

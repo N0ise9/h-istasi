@@ -10,7 +10,7 @@ Schema 24 are the current persisted contracts.
 
 > [!WARNING]
 > Automated source, Workbench, focused engine, and scoped fresh-process checks
-> do not yet close the broad packaged-server, full-campaign restart,
+> do not yet close the broad Workshop-installed server, full-campaign restart,
 > multiplayer, or soak gates. Until those gates pass, use disposable or
 > backed-up profile data for alpha testing.
 
@@ -59,11 +59,11 @@ need broader runtime and multiplayer validation. See the
   base game only
 
 Server and clients must use the same published addon version. A newer source
-checkout does not update an already published or cached server package.
+checkout does not update an already published or cached Workshop revision.
 
 ## Install and Run
 
-### Workshop or Packaged Server
+### Workshop Installation
 
 1. Install or subscribe to the current Partisan: Everon release.
 2. Enable the addon on the server and every connecting client.
@@ -72,10 +72,11 @@ checkout does not update an already published or cached server package.
 5. On first launch, review the generated settings before beginning a long
    campaign.
 
-For a dedicated server, publish or package the current Workbench project before
-testing it, then confirm that the server and clients report the same build
-identity. Save/restart proof should use the exact package that produced the
-save.
+For a dedicated server, publish the current project from Workbench to Workshop,
+install that Workshop revision through the normal game/server flow, and confirm
+that the server and clients report the same embedded source identity.
+Save/restart proof should use the exact published revision that produced the save. No generated
+`data.pak` belongs in this source checkout or in a repository release workflow.
 
 ### Workbench
 
@@ -214,17 +215,18 @@ publisher. These protections reduce cross-case contamination; they do not turn
 an incomplete run into certification.
 
 The one-button suite is a diagnostic harness, not automatic runtime
-certification. World entities, player state, service caches, package identity,
-and real process restarts sit outside the cloned campaign-state boundary. Use a
-separately managed disposable profile for restart, package, multiplayer, and
-soak testing, and verify those behaviors in real packaged runs.
+certification. World entities, player state, service caches, published revision
+identity, and real process restarts sit outside the cloned campaign-state
+boundary. Use a separately managed disposable profile for restart,
+Workshop-installed server, multiplayer, and soak testing, and verify those
+behaviors in real installed runs.
 
 Detailed evidence and outstanding gates live in the
 [Campaign Debug verification audit](docs/HST_CAMPAIGN_DEBUG_VERIFICATION_AUDIT.md).
 
 ## Development and Validation
 
-Run the repository foundation gate before Workbench or package testing:
+Run the repository foundation gate before Workbench testing:
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File tools/validate-foundation.ps1
@@ -238,28 +240,20 @@ The validation ladder is intentionally cumulative:
 3. Focused command-line engine autotests registered with the Game runtime
 4. Focused and Full Campaign Debug execution in `HST_Dev`
 5. Real profile save, process restart, reload, and reprojection
-6. Packaged dedicated-server/client, multiplayer, reconnect, JIP, and soak proof
+6. Workshop-installed dedicated-server/client, multiplayer, reconnect, JIP,
+   and soak proof
 
 Separately registered focused engine autotests provide deterministic checks for
 selected campaign-authority subsystems. They are distinct from the guarded
 `HST_Dev` focused profile summarized below and do not prove that coordinator,
-Full Campaign Debug, world integration, persistence, restart, packaging, or
-network behavior. Exact test identities and run evidence belong in the Campaign
-Debug verification audit rather than this project overview.
+Full Campaign Debug, world integration, persistence, restart, Workshop-installed
+server/client behavior, or network behavior. Exact test identities and run
+evidence belong in the Campaign Debug verification audit rather than this
+project overview.
 
-The current implementation stamp is
-`32727238d74b29905c68e5a80bb5897dfdc783c0`, UTC
-`2026-07-18T16:34:38Z`, label
-`schema71-settings24-focused-force-authority`. Foundation validation passes 874
-references. Stamped Workbench validation loads 5,846 files and 11,899 classes
-at CRC `cad640f3` with zero hard errors and exact-zero owned cleanup.
-
-The latest focused engine checkpoint passes all 35 targeted state-only
-assertions for combat presence, ownership transitions, and town influence, with
-87/87 counted conditions, an 18/0 state diff, stable artifacts, zero errors or
-crashes, and exact-zero owned cleanup. This does not constitute Full Campaign Debug or live/
-native, persistence/restart, packaged server/client, multiplayer/network/JIP,
-performance, or soak certification.
+The generated [current status](docs/CURRENT_STATUS.md) owns the active source
+checkpoint, exact validation counts, and proof-ladder decision. Do not copy an
+older checkpoint's compile or focused result forward after source changes.
 
 Separate guarded evidence also covers selected journal recovery, controlled
 shutdown, mixed-native restoration, and exact garrison-rebuild cuts. See the
@@ -267,9 +261,10 @@ shutdown, mixed-native restoration, and exact garrison-rebuild cuts. See the
 for exact identities, results, and remaining gates.
 
 Do not promote a narrower validation rung to broader runtime proof. When testing
-a packaged build, capture the build identity, server/client logs, debug
-artifacts, and save/restart evidence together. Close Workbench instances after
-validation so stale processes do not retain resources or confuse later logs.
+a Workshop-installed revision, capture the published revision, embedded source
+identity, server/client logs, debug artifacts, and save/restart evidence
+together. Close Workbench instances after validation so stale processes do not
+retain resources or confuse later logs.
 Accept a guarded run only after its owned processes, disposable profiles,
 generated logs, guard roots, and temporary artifacts have all returned to zero.
 

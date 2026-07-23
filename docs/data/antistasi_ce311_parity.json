@@ -27,7 +27,7 @@
     },
     {
       "id": "mp-jip-proven",
-      "meaning": "Packaged server, clients, reconnect, and late join converge."
+      "meaning": "Workshop-installed server and clients converge across reconnect and late join."
     },
     {
       "id": "soak-proven",
@@ -35,7 +35,7 @@
     },
     {
       "id": "certified",
-      "meaning": "Every required lower proof rung passes on one unchanged package."
+      "meaning": "Every required lower proof rung passes on one unchanged published Workshop revision."
     }
   ],
   "dispositions": [
@@ -552,7 +552,7 @@
       "reforgerAdaptation": "Reforger widgets, input contexts, Game Master markers, RPCs, and client-native map markers implement the presentation layer.",
       "partisanStateOwner": "Server read models, marker records, projection epochs/revisions, tasks, notifications, and command receipts",
       "partisanServiceOwner": "HST_CommandUIService, HST_ClientProjectionService, HST_MapMarkerService, and HST_ClientMarkerProjectionService",
-      "physicalBehavior": "Rendered layouts, pointer/keyboard input, authored markers, and native client markers are exercised in ordinary packaged clients.",
+      "physicalBehavior": "Rendered layouts, pointer/keyboard input, authored markers, and native client markers are exercised in ordinary Workshop-installed clients.",
       "virtualBehavior": "The server read model remains authoritative regardless of whether a client UI is open.",
       "transactionPolicy": "UI retries and duplicate activations cannot reapply a command; presentation text never decides command success.",
       "persistenceMigration": "Projection epochs and durable read-model sources restore; clients resnapshot rather than persisting stale local truth.",
@@ -567,19 +567,19 @@
       "priority": "P0",
       "upstreamChangeHistory": "Partisan-specific release engineering control; no upstream gameplay parity claim.",
       "upstreamEvidence": ["https://github.com/official-antistasi-community/A3-Antistasi/tree/6e4226d3863ca8673535386c2fff8b6e08a806c4"],
-      "observableContract": "Development fixtures remain selectable and retained for engineering, while the release package exposes only safe production observability and authorized administration.",
+      "observableContract": "Development fixtures remain selectable and retained for engineering, while the published Workshop revision exposes only safe production observability and authorized administration.",
       "formulaContract": "Release allow/deny symbol lists, command permissions, profile isolation, timeouts, cleanup, and evidence retention are machine-validated.",
-      "reforgerAdaptation": "Use separate project/package boundaries or compile guards supported by the Reforger toolchain.",
+      "reforgerAdaptation": "Use source/project boundaries or compile guards supported by the Reforger toolchain.",
       "partisanStateOwner": "No production gameplay state owner; diagnostic state is disposable and explicitly scoped.",
-      "partisanServiceOwner": "Development addon/test runners and release-package audit",
+      "partisanServiceOwner": "Development addon/test runners and release-surface audit",
       "physicalBehavior": "Diagnostics may create native fixtures only inside owned disposable scopes with exact cleanup.",
       "virtualBehavior": "Synthetic state never becomes ordinary campaign authority.",
       "transactionPolicy": "Destructive or mutating diagnostics require trusted admin scope and cannot ship as ordinary player actions.",
       "persistenceMigration": "Development artifacts are not accepted as public campaign state unless a production migration explicitly owns them.",
       "clientProjection": "No development-only action or fixture is visible in the release client.",
       "disposition": "development-only",
-      "proofIds": ["foundation.release_package_audit", "external.release_pak_forbidden_symbols"],
-      "blockingMilestone": "Gate 1 immutable package and PR 3 development/release separation"
+      "proofIds": ["foundation.release_source_surface_audit", "external.workshop_runtime_forbidden_symbols"],
+      "blockingMilestone": "Gate 1 frozen source checkpoint and PR 3 development/release separation"
     }
   ],
   "missionCategoryRows": {
@@ -627,11 +627,11 @@
     },
     "dynamic_stop_tower_rebuild": {
       "disposition": "partial",
-      "gap": "A focused same-epoch radio rebuild cut exists; ordinary packaged admission, full consequences, restart, and MP/JIP remain open."
+      "gap": "A focused same-epoch radio rebuild cut exists; ordinary Workshop-installed runtime admission, full consequences, restart, and MP/JIP remain open."
     },
     "dynamic_gun_shop": {
       "disposition": "partial",
-      "gap": "A bounded shop/inventory path exists, but CE 3.11.1 formula crosswalk and packaged persistence/client proof remain open."
+      "gap": "A bounded shop/inventory path exists, but CE 3.11.1 formula crosswalk and Workshop-installed persistence/client proof remain open."
     }
   },
   "commandActionIds": [

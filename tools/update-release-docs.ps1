@@ -12302,6 +12302,7 @@ if ($runtimeUseDisposition -cin @(
 	Add-Line $statusBuilder "- Historical local-package QA: snapshot $mdTick$candidateId${mdTick}, its manifest/seal, release-surface/runtime-retention pair, and rejected focused batches remain immutable forensic evidence. They are not active Gate 1 or Workshop release authority and are not required to match current source-workflow tool bytes."
 }
 else {
+	throw 'Active package-bound release generation is retired. Use the frozen source checkpoint and normal Workbench-to-Workshop publication path.'
 if ($null -eq $activeGate1EvidencePairValidation -or
 	-not $activeGate1EvidencePairValidation.Present) {
 	Add-Line $statusBuilder "- $currentEvidencePrefix paired release-surface/runtime-retention evidence: **not run** for candidate $mdTick$candidateId${mdTick}; both halves must be published and consumed together against the unchanged package before either result may attach."
@@ -12613,7 +12614,7 @@ foreach ($contextAction in ($parity.contextualActionClasses | Sort-Object class)
 Add-Line $parityBuilder
 Add-Line $parityBuilder "## Coverage rule"
 Add-Line $parityBuilder
-Add-Line $parityBuilder "Generation fails if the runtime/config mission sets differ, a mission category lacks a contract, the command-ID source set differs from the explicit manifest, a concrete contextual action class differs from its manifest, an action lacks a mapping, or a row uses unknown vocabulary. Coverage is therefore reproducible, while certification remains package- and evidence-dependent."
+Add-Line $parityBuilder "Generation fails if the runtime/config mission sets differ, a mission category lacks a contract, the command-ID source set differs from the explicit manifest, a concrete contextual action class differs from its manifest, an action lacks a mapping, or a row uses unknown vocabulary. Coverage is therefore reproducible, while certification remains dependent on one unchanged published Workshop revision and its evidence."
 
 Publish-GeneratedFile $currentStatusPath $statusBuilder.ToString() $Check.IsPresent
 Publish-GeneratedFile $parityMatrixPath $parityBuilder.ToString() $Check.IsPresent

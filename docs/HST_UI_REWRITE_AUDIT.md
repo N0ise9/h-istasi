@@ -39,7 +39,7 @@ Current state:
   Checkpoint label `schema60-exact-search-destroy` has source/Workbench evidence
   only at implementation `fdf78493dd15915afe8d53f61a8ad1efd65b5635`, UTC
   `2026-07-11T23:24:55Z`, and Workbench CRC `7aa80fc9`; rendered pointer/modal
-  ordering and action replay still need the next packaged check. No Schema-60 UI
+  ordering and action replay still need the next Workshop-installed check. No Schema-60 UI
   behavior has been runtime-proven.
 - Schema 61 adds no new screen or layout. It gives campaign map markers one
   authoritative logical client registry that stays current while the map is
@@ -68,7 +68,7 @@ Current state:
   `27672e67ce4285810f313130293df1ac917c9bdf`, UTC `2026-07-12T01:02:39Z`, label
   `schema61-authoritative-marker-projection`, Foundation 655, and Workbench CRC
   `df41a779` at 5,782 files/11,631 classes. Normal hidden WorldEditor remained
-  responsive 10/10 over 20 seconds; this is not rendered or packaged UI proof.
+  responsive 10/10 over 20 seconds; this is not rendered or Workshop-installed UI proof.
 
 ## File Audit
 
@@ -168,7 +168,7 @@ Current state:
   at least one visible root, and zero update-time null-root exceptions.
 - Campaign marker state now has Schema-61 source implementation for snapshot
   watermark, ordered revision/tombstone deltas, acknowledgement/gap detection,
-  reconnect resync, and a widget-independent client registry. Packaged host/two-
+  reconnect resync, and a widget-independent client registry. Workshop-installed host/two-
   client/late-join equality, map-close/reopen behavior, and native rendered
   marker cleanup remain open under the One Campaign View milestone. Menu/tasks/
   notifications and dynamic player markers are outside this marker-only slice.

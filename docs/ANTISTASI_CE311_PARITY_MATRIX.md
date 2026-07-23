@@ -19,9 +19,9 @@ This matrix is a behavioral specification, not a claim that matching names or so
 | `state-proven` | A deterministic service or state fixture passes. |
 | `native-proven` | Ordinary engine entities and callbacks pass. |
 | `restart-proven` | A new process restores the exact scenario. |
-| `mp-jip-proven` | Packaged server, clients, reconnect, and late join converge. |
+| `mp-jip-proven` | Workshop-installed server and clients converge across reconnect and late join. |
 | `soak-proven` | Behavior and performance remain bounded over the declared duration and load. |
-| `certified` | Every required lower proof rung passes on one unchanged package. |
+| `certified` | Every required lower proof rung passes on one unchanged published Workshop revision. |
 
 ## Contract summary
 
@@ -29,7 +29,7 @@ This matrix is a behavioral specification, not a claim that matching names or so
 | --- | --- | --- | --- | --- |
 | `arsenal-garage-logistics` | Arsenal, unlocks, loot, loadouts, garage, vehicle ammo, fuel, repair, salvage, and cargo | `P0` | `partial` | Gate 8 resistance progression |
 | `civilians-undercover` | Civilians, traffic, theft, casualties, undercover, wanted state, police, and roadblocks | `P0` | `partial` | Gate 5 strategic truth and living Everon |
-| `development-diagnostics` | Development proofs, Campaign Debug, destructive admin diagnostics, and release-surface separation | `P0` | `development-only` | Gate 1 immutable package and PR 3 development/release separation |
+| `development-diagnostics` | Development proofs, Campaign Debug, destructive admin diagnostics, and release-surface separation | `P0` | `development-only` | Gate 1 frozen source checkpoint and PR 3 development/release separation |
 | `enemy-strategy` | War level, aggression, attack/support resources, planning, QRFs, counterattacks, and reinforcements | `P0` | `partial` | Gate 6 autonomous enemy campaign |
 | `facilities-income` | Resources, factories, seaports, airfields, radio sites, banks, and roadblocks | `P0` | `partial` | Gate 7 mission parity and Gate 8 progression |
 | `hq-command-economy` | HQ, Petros, commander, membership, rank, points, personal and faction money | `P0` | `partial` | Gate 8 resistance progression |
@@ -95,18 +95,18 @@ This matrix is a behavioral specification, not a claim that matching names or so
 - **Priority / disposition:** `P0` / `development-only`
 - **Upstream change history:** Partisan-specific release engineering control; no upstream gameplay parity claim.
 - **Upstream evidence:** [evidence 1](https://github.com/official-antistasi-community/A3-Antistasi/tree/6e4226d3863ca8673535386c2fff8b6e08a806c4)
-- **Observable contract:** Development fixtures remain selectable and retained for engineering, while the release package exposes only safe production observability and authorized administration.
+- **Observable contract:** Development fixtures remain selectable and retained for engineering, while the published Workshop revision exposes only safe production observability and authorized administration.
 - **Formula/pacing contract:** Release allow/deny symbol lists, command permissions, profile isolation, timeouts, cleanup, and evidence retention are machine-validated.
-- **Reforger adaptation:** Use separate project/package boundaries or compile guards supported by the Reforger toolchain.
+- **Reforger adaptation:** Use source/project boundaries or compile guards supported by the Reforger toolchain.
 - **Partisan state owner:** No production gameplay state owner; diagnostic state is disposable and explicitly scoped.
-- **Partisan service owner:** Development addon/test runners and release-package audit
+- **Partisan service owner:** Development addon/test runners and release-surface audit
 - **Physical behavior:** Diagnostics may create native fixtures only inside owned disposable scopes with exact cleanup.
 - **Virtual behavior:** Synthetic state never becomes ordinary campaign authority.
 - **Transaction policy:** Destructive or mutating diagnostics require trusted admin scope and cannot ship as ordinary player actions.
 - **Persistence/migration:** Development artifacts are not accepted as public campaign state unless a production migration explicitly owns them.
 - **Client projection:** No development-only action or fixture is visible in the release client.
-- **Proof IDs:** `foundation.release_package_audit`, `external.release_pak_forbidden_symbols`
-- **Blocking milestone:** Gate 1 immutable package and PR 3 development/release separation
+- **Proof IDs:** `foundation.release_source_surface_audit`, `external.workshop_runtime_forbidden_symbols`
+- **Blocking milestone:** Gate 1 frozen source checkpoint and PR 3 development/release separation
 
 ### enemy-strategy - War level, aggression, attack/support resources, planning, QRFs, counterattacks, and reinforcements
 
@@ -460,7 +460,7 @@ This matrix is a behavioral specification, not a claim that matching names or so
 - **Reforger adaptation:** Reforger widgets, input contexts, Game Master markers, RPCs, and client-native map markers implement the presentation layer.
 - **Partisan state owner:** Server read models, marker records, projection epochs/revisions, tasks, notifications, and command receipts
 - **Partisan service owner:** HST_CommandUIService, HST_ClientProjectionService, HST_MapMarkerService, and HST_ClientMarkerProjectionService
-- **Physical behavior:** Rendered layouts, pointer/keyboard input, authored markers, and native client markers are exercised in ordinary packaged clients.
+- **Physical behavior:** Rendered layouts, pointer/keyboard input, authored markers, and native client markers are exercised in ordinary Workshop-installed clients.
 - **Virtual behavior:** The server read model remains authoritative regardless of whether a client UI is open.
 - **Transaction policy:** UI retries and duplicate activations cannot reapply a command; presentation text never decides command success.
 - **Persistence/migration:** Projection epochs and durable read-model sources restore; clients resnapshot rather than persisting stale local truth.
@@ -516,9 +516,9 @@ All 39 configured mission IDs are mapped below. A row means the mission is inven
 | `destroy_seaport_asset` | Sabotage Seaport Asset | `DESTROY / destroy_asset` | `mission-destroy` | $700; $700 FIA funds, 25 capture progress | `partial` | Mission-specific CE 3.11.1 semantics, formulas, native behavior, restart, MP/JIP, and soak proof remain open. |
 | `dynamic_city_flip_battle` | City Flip Battle | `DYNAMIC / dynamic_city_battle` | `mission-dynamic` | $500; $500 FIA funds, 50 capture progress | `partial` | Mission-specific CE 3.11.1 semantics, formulas, native behavior, restart, MP/JIP, and soak proof remain open. |
 | `dynamic_defend_petros` | Defend Petros | `DYNAMIC / dynamic_defend_petros` | `mission-dynamic` | no direct money/HR; $0 FIA funds | `partial` | Mission-specific CE 3.11.1 semantics, formulas, native behavior, restart, MP/JIP, and soak proof remain open. |
-| `dynamic_gun_shop` | Gun Shop | `DYNAMIC / gun_shop` | `mission-dynamic` | no direct money/HR; Purchased items are delivered to HQ after the shop closes. | `partial` | A bounded shop/inventory path exists, but CE 3.11.1 formula crosswalk and packaged persistence/client proof remain open. |
+| `dynamic_gun_shop` | Gun Shop | `DYNAMIC / gun_shop` | `mission-dynamic` | no direct money/HR; Purchased items are delivered to HQ after the shop closes. | `partial` | A bounded shop/inventory path exists, but CE 3.11.1 formula crosswalk and Workshop-installed persistence/client proof remain open. |
 | `dynamic_minor_city_task` | Minor City Task | `DYNAMIC / dynamic_minor_task` | `mission-dynamic` | $250; $250 FIA funds | `partial` | Mission-specific CE 3.11.1 semantics, formulas, native behavior, restart, MP/JIP, and soak proof remain open. |
-| `dynamic_stop_tower_rebuild` | Stop Tower Rebuild | `DYNAMIC / dynamic_tower_rebuild` | `mission-dynamic` | $350; $350 FIA funds | `partial` | A focused same-epoch radio rebuild cut exists; ordinary packaged admission, full consequences, restart, and MP/JIP remain open. |
+| `dynamic_stop_tower_rebuild` | Stop Tower Rebuild | `DYNAMIC / dynamic_tower_rebuild` | `mission-dynamic` | $350; $350 FIA funds | `partial` | A focused same-epoch radio rebuild cut exists; ordinary Workshop-installed runtime admission, full consequences, restart, and MP/JIP remain open. |
 | `logistics_airfield_intel` | Steal Airfield Intel | `LOGISTICS / logistics_extract` | `mission-logistics` | $700, 1 HR; $700 FIA funds, 1 HR | `legacy` | Mission-specific CE 3.11.1 semantics, formulas, native behavior, restart, MP/JIP, and soak proof remain open. |
 | `logistics_ammo_truck` | Recover Ammo Truck | `LOGISTICS / logistics_extract` | `mission-logistics` | $600, 1 HR; $600 FIA funds, 1 HR | `legacy` | Mission-specific CE 3.11.1 semantics, formulas, native behavior, restart, MP/JIP, and soak proof remain open. |
 | `logistics_bank` | Rob Bank | `LOGISTICS / logistics_extract` | `mission-logistics` | $550, 1 HR; $550 FIA funds, 1 HR | `legacy` | Mission-specific CE 3.11.1 semantics, formulas, native behavior, restart, MP/JIP, and soak proof remain open. |
@@ -740,4 +740,4 @@ This is the exact checked source/manifest set of command IDs handled by the comm
 
 ## Coverage rule
 
-Generation fails if the runtime/config mission sets differ, a mission category lacks a contract, the command-ID source set differs from the explicit manifest, a concrete contextual action class differs from its manifest, an action lacks a mapping, or a row uses unknown vocabulary. Coverage is therefore reproducible, while certification remains package- and evidence-dependent.
+Generation fails if the runtime/config mission sets differ, a mission category lacks a contract, the command-ID source set differs from the explicit manifest, a concrete contextual action class differs from its manifest, an action lacks a mapping, or a row uses unknown vocabulary. Coverage is therefore reproducible, while certification remains dependent on one unchanged published Workshop revision and its evidence.

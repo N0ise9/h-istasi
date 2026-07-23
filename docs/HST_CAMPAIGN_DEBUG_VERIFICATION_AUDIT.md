@@ -13,10 +13,28 @@ No `.pak` file belongs in source. Gate 1 is evaluated from one clean committed
 source checkpoint: bind identity, pass Foundation and Workbench validation, run
 the individually named source-native focused suites and aggregate, then run the
 source-native corrected canary and Full Campaign Debug in order. Workbench
-compile/publish is the authoritative Workshop build path, and Workshop/in-game
-download is the authoritative distribution path.
+compilation and publication are the authoritative path to Workshop; Workshop
+and in-game download are the authoritative distribution path.
 
 Current frozen source checkpoint
+`4c7bf087b491050a9463064a6bd8767f8d44081f` has 436 publish-input rows and
+digest `c19b6343809899e488972f4e9109da6a1d65d285fad1b7a958dd2d399baa3a20`.
+It makes controlled non-proxy AI authority-local for direct forced convoy
+seating, bounds stale `IsGettingIn()` to one interrupt and one later recovery
+attempt, and does not issue auxiliary-seat orders before confirmed pilot
+occupancy. It also admits the exact first ordinary-frame mission/garrison and
+composition delta as one atomic one-shot ownership transaction, with the same
+bounded admission available to cleanup preflight before production zone
+deactivation. The dirty-tree Foundation run passed the 985-reference
+structural body and every runner self-test, then rejected the old source binding
+as expected. A pre-freeze PC Workbench sanity compile passed at 5,849 files,
+12,022 classes, CRC `0b872024`, zero hard errors, and exact cleanup. This is
+compile sanity only, not runtime evidence. Foundation, all-target Workbench,
+the five focused suites, the force-authority canary, and Full Campaign Debug
+are pending for this checkpoint and must run in order. Gate 1 is in progress;
+earlier evidence does not transfer and release remains `NO-GO`.
+
+Prior rejected source checkpoint
 `8470af6f967a34f180f547ccca35fe2d0bf8a4a8` has 436 publish-input rows and
 digest `b868828a8202b0d8f583f4945c2d864d6113b360e100eac2d8d57f8f30a525d9`.
 It retains post-publication exact-convoy seating and runtime-first support

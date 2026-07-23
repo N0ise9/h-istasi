@@ -16,6 +16,16 @@ source-native focused suites and aggregate, the source-native corrected canary,
 and source-native Full Campaign Debug after an accepted canary. It does not
 require a manually assembled or staged local package.
 
+Current frozen checkpoint
+`4c7bf087b491050a9463064a6bd8767f8d44081f` binds 436 publish inputs at
+SHA-256 `c19b6343809899e488972f4e9109da6a1d65d285fad1b7a958dd2d399baa3a20`.
+A pre-freeze PC Workbench sanity compile passed at 5,849 files, 12,022 classes,
+CRC `0b872024`, zero hard errors, and exact cleanup. That is compile sanity,
+not formal Gate 1 evidence. Foundation, all-target Workbench, the five focused
+suites, the force-authority canary, and Full Campaign Debug are pending in that
+order. No earlier result transfers, Gate 1 remains in progress, and release is
+`NO-GO`.
+
 The candidate/package records below remain immutable historical QA. They may be
 used as optional regression evidence, but the retired manual local candidate-pack
 workflow is neither the current Gate 1 authority nor a distribution path.
@@ -79,8 +89,9 @@ negative. The rejected leaf is never retroactively promoted.
 The current Gate 1 order is one clean committed source checkpoint, Foundation
 and all-target Workbench validation, all five source-native focused suites and
 their 91-case aggregate, the source-native corrected canary, and source-native
-Full Campaign Debug only after an accepted canary. Workbench compile/publish and
-Workshop/in-game download remain the authoritative delivery path. Both earlier
+Full Campaign Debug only after an accepted canary. Workbench compilation,
+publication to Workshop, and Workshop/in-game download remain the authoritative
+delivery path. Both earlier
 pairs remain immutable passed history, and both rejected focused leaves remain
 immutable rejected history.
 
@@ -2405,12 +2416,14 @@ Debug and packaged-runtime gates remain open.
   repeat-admission rejection, linked restore/migration/quarantine cleanup,
   influence, and ownership handoff through projection-only seams;
   the source-native runtime boundary remains open.
-- The non-cascade convoy artifact populated all three crew groups 2/2 but
+- The prior non-cascade convoy artifact populated all three crew groups 2/2 but
   confirmed zero seated drivers through the full grace window. Current source
-  registers each usable vehicle before seating, tries authority-local forced
-  entry before the owner-RPC fallback, and probes retained registration
-  directly. Current schema-52 source validation passes as described
-  above, while 3/3 driver and movement proof remains open.
+  makes controlled non-proxy AI authority-local for direct forced seating,
+  registers each usable vehicle before seating, interrupts a stale boarding
+  transition once, and allows one later forced recovery attempt. Turret/cargo
+  orders wait for a confirmed living pilot, and owner-RPC acceptance is not
+  counted as occupancy. The current source passes PC compile sanity, while 3/3
+  driver and movement proof remains pending in the formal Gate 1 runtime chain.
 - Every real persistence capture now reconciles mapped physical exact-convoy,
   exact-patrol, exact-mission-guard, and exact player-support members first.
   Physical exact support must prove one reciprocal request/operation/batch/group
@@ -2584,8 +2597,10 @@ Debug and packaged-runtime gates remain open.
   `evidenceStartUtc`; retain exact consumer prefix/chronology checks and both
   near-boundary positive and mismatch-negative coverage. Do not retrofit or
   transfer any leaf from the rejected batch.
-- [ ] Commit one clean source checkpoint and pass Foundation plus all-target
-  Workbench validation. No `.pak` is a source artifact or Gate 1 input.
+- [x] Freeze clean source checkpoint
+  `4c7bf087b491050a9463064a6bd8767f8d44081f` at its exact 436-input digest.
+  No `.pak` is a source artifact or Gate 1 input.
+- [ ] Pass Foundation plus all-target Workbench compilation for that checkpoint.
 - [ ] Run all five source-native focused suites and publish their aggregate with
   exactly 91 individually named cases and JUnit 91/0/0/0 from that unchanged
   checkpoint. Rerun all five suites after the one-clock correction.
@@ -2605,7 +2620,7 @@ Debug and packaged-runtime gates remain open.
   callback, exact destruction/rebuild receipts, generated-equipment explosive
   evidence, unchanged epoch, exact rewards, second-attempt rejection, explicit
   world/prefix cleanup, and the final state diff all pass. Next prove one
-  authored binding, restart/streaming reapplication, package behavior, and
+  authored binding, restart/streaming reapplication, Workshop-installed behavior, and
   multiplayer without duplicate transmitters.
 - Use the final stamped durable field-vehicle checkpoint as the newest focused
   persistence boundary. Use the final stamped controlled campaign and native
