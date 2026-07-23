@@ -23,6 +23,20 @@ runs; they do not authorize publication or replace the frozen-source Gate 1
 checks.
 
 The current frozen source checkpoint is
+`8470af6f967a34f180f547ccca35fe2d0bf8a4a8`, with 436 publish-input rows
+and digest `b868828a8202b0d8f583f4945c2d864d6113b360e100eac2d8d57f8f30a525d9`.
+It retains post-publication exact-convoy seating and runtime-first support
+cleanup, treats non-replicated AI as authority-local for forced seating before
+the replicated owner-RPC fallback, and prevents mission-target timeout from
+preempting its required distinct-frame samples. The Foundation structural body
+passed all 985 checks and the pre-freeze PC Workbench sanity compile passed at
+5,849 files, 12,022 classes, CRC `b280f273`, zero hard errors, and exact cleanup.
+Those are pre-freeze sanity checks, not Gate 1 evidence. Foundation, all-target
+Workbench, the five focused suites, force-authority canary, and Full Campaign
+Debug are pending in that order. No prior evidence transfers and release
+remains `NO-GO`.
+
+The immediately prior rejected source checkpoint is
 `27df761542309616a1d156b2a329007b0cb34d9b`, with 436 publish-input rows
 and digest `cb6957bb0fa6bc06fce7b41ffd28bee3879222fd2bbfbb5ebe6a28c208895ee2`.
 It defers exact-convoy seating and route assignment until atomic outbound
@@ -95,7 +109,8 @@ Gate 1 is failed for this checkpoint; correct the runtime/convoy lifecycle and
 begin a new complete source chain. The successful pre-freeze PC compile remains
 a source sanity check and is not promoted into Gate 1. Release remains `NO-GO`.
 
-- [x] Correct the two source-proven Full Campaign Debug failure mechanisms.
+- [x] Correct the two source-proven `1e18f8c` Full Campaign Debug failure
+  mechanisms.
   Exact convoy seating and route assignment now wait until the atomic outbound
   publication transaction has closed, leaving the ordinary later Physical War
   update to perform the first post-publication attempt. Simulated-support probe
@@ -104,8 +119,15 @@ a source sanity check and is not promoted into Gate 1. Release remains `NO-GO`.
   and predicate values. The Foundation structural body and pre-freeze PC
   Workbench source compile sanity check pass at 5,849 files, 12,022 classes,
   CRC `439eb620`, zero hard errors, and exact cleanup. This is pre-freeze
-  validation only; no Gate 1 rung transfers to the now-frozen corrected
-  checkpoint `27df761542309616a1d156b2a329007b0cb34d9b`.
+  validation only. Checkpoint `27df761542309616a1d156b2a329007b0cb34d9b`
+  froze those corrections, but its later Full result rejected the checkpoint.
+- [x] Correct the two remaining `27df761` Full mechanisms. In
+  `RplMode.None`, forced seating now runs locally even when the AI character has
+  an `RplComponent`; the owner RPC remains the replicated non-local fallback.
+  Mission-target timeout now waits for the required minimum distinct-frame
+  sample count, so one campaign-time catch-up cannot preempt the proof window.
+  These changes are frozen at `8470af6f967a34f180f547ccca35fe2d0bf8a4a8`;
+  native proof is pending and no prior rung transfers.
 
 The next earlier rejected checkpoint is
 `b0b8a6b677092b45f1c7392edcc2d82246d27bbc`, with 436 publish-input rows

@@ -29,6 +29,19 @@ Workbench, focused, canary, or Full evidence from an earlier checkpoint remains
 historical and cannot transfer forward, even when the earlier rung was green.
 
 Current frozen source checkpoint
+`8470af6f967a34f180f547ccca35fe2d0bf8a4a8` has 436 publish-input rows and
+digest `b868828a8202b0d8f583f4945c2d864d6113b360e100eac2d8d57f8f30a525d9`.
+It retains post-publication exact-convoy seating and runtime-first support
+cleanup, treats non-replicated AI as authority-local for the forced-seat call
+before the replicated owner-RPC fallback, and prevents the mission-target
+timeout from preempting its required distinct-frame samples. The Foundation
+structural body passed all 985 checks and the pre-freeze PC Workbench sanity
+compile passed at 5,849 files, 12,022 classes, CRC `b280f273`, zero hard errors,
+and exact cleanup. Those are pre-freeze sanity checks, not Gate 1 evidence. All
+five Gate 1 evidence slots are pending in order; no earlier result transfers
+and release remains `NO-GO`.
+
+Immediately prior rejected source checkpoint
 `27df761542309616a1d156b2a329007b0cb34d9b` has 436 publish-input rows and
 digest `cb6957bb0fa6bc06fce7b41ffd28bee3879222fd2bbfbb5ebe6a28c208895ee2`.
 It defers exact-convoy seating and route assignment until after atomic outbound
@@ -102,20 +115,19 @@ Failure analysis identified two independent, exercised lifecycle defects.
 Exact outbound convoy materialization deliberately clears `ACTIVE`, `VISIBLE`,
 and `TRACEABLE` while its all-root publication transaction is open, but the
 spawn path was issuing compartment-entry requests inside that unpublished
-window. Those requests could remain `IsGettingIn()`, causing each bounded retry
-to skip the crew until the seating grace expired. Initial seating and route
-assignment are now deferred while the transaction is open; the ordinary later
-Physical War update owns the first post-publication seating attempt after an
-engine frame has advanced. Separately, simulated-support physicalization used
+window. Deferring those requests until the transaction closed corrected that
+ordering, but the `27df761` Full run proved it did not correct the remaining
+non-replicated seat path. Stock `MoveInVehicle()` sends an owner RPC, while a
+diagnostic `RplMode.None` character can still expose `RplComponent`; the former
+predicate therefore skipped local forced seating without an owner receiver.
+Separately, simulated-support physicalization used
 shared cleanup that removed its durable active-group row without first retiring
 the Physical War runtime handles. The shared helper now performs runtime-first
 cleanup, then removes the durable row. Core-registry rejection evidence also
 names the exact row, group ID, and active/entity/deleted/world/duplicate
-predicates. The Foundation structural body and a pre-freeze PC Workbench source
-compile sanity check pass at 5,849 files, 12,022 classes, CRC `439eb620`, zero
-hard errors, and exact cleanup. Those checks were pre-freeze sanity only. The
-correction is now frozen at `27df761542309616a1d156b2a329007b0cb34d9b` and
-still requires every remaining rung in order.
+predicates. This correction was frozen at
+`27df761542309616a1d156b2a329007b0cb34d9b` and rejected by Full; its evidence
+remains immutable history and does not transfer.
 
 The following opening checkpoint records the then-active local-QA candidate; it
 is historical evidence, not current publication authority. Its sealed

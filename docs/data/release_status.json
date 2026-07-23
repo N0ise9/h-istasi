@@ -1,9 +1,9 @@
 {
   "schemaVersion": 4,
-  "statusAsOfUtc": "2026-07-23T05:03:48Z",
+  "statusAsOfUtc": "2026-07-23T05:18:15Z",
   "releaseStage": "development alpha",
   "releaseDecision": "NO-GO",
-  "auditedRevision": "27df761542309616a1d156b2a329007b0cb34d9b",
+  "auditedRevision": "8470af6f967a34f180f547ccca35fe2d0bf8a4a8",
   "baseline": {
     "campaignSchema": 71,
     "runtimeSettingsSchema": 24,
@@ -12,13 +12,13 @@
     "embeddedBuildLabel": "schema71-settings24-gate1-release-surface"
   },
   "gate1Source": {
-    "status": "failed",
+    "status": "in-progress",
     "checkpoint": {
-      "sourceGitHead": "27df761542309616a1d156b2a329007b0cb34d9b",
-      "frozenUtc": "2026-07-23T04:03:36Z",
+      "sourceGitHead": "8470af6f967a34f180f547ccca35fe2d0bf8a4a8",
+      "frozenUtc": "2026-07-23T05:18:15Z",
       "dirty": false,
       "publishInputPolicy": "git-ls-tree-sha256-v1",
-      "publishInputTreeSha256": "cb6957bb0fa6bc06fce7b41ffd28bee3879222fd2bbfbb5ebe6a28c208895ee2",
+      "publishInputTreeSha256": "b868828a8202b0d8f583f4945c2d864d6113b360e100eac2d8d57f8f30a525d9",
       "publishInputRowCount": 436,
       "addonGuid": "698532771130111D",
       "campaignSchema": 71,
@@ -29,29 +29,29 @@
     },
     "evidence": {
       "foundation": {
-        "status": "passed",
-        "summaryPath": "docs/evidence/source-gate1/27df761542309616a1d156b2a329007b0cb34d9b/foundation.json",
-        "summarySha256": "bda41f587fa91b5210eef203758f7d5f9b34ee6e2990ef8d0e5662c1c9da4604"
+        "status": "pending",
+        "summaryPath": null,
+        "summarySha256": null
       },
       "workbenchAllTargets": {
-        "status": "passed",
-        "summaryPath": "docs/evidence/source-gate1/27df761542309616a1d156b2a329007b0cb34d9b/workbenchAllTargets.json",
-        "summarySha256": "4d3473b520e8cc2345bf6fdc80f57ca4b8b2d4cd5f4f46b5ae9dca74d57e477e"
+        "status": "pending",
+        "summaryPath": null,
+        "summarySha256": null
       },
       "focusedFiveSuite": {
-        "status": "passed-noncertifying",
-        "summaryPath": "docs/evidence/source-gate1/27df761542309616a1d156b2a329007b0cb34d9b/focusedFiveSuite.json",
-        "summarySha256": "6aa0adde77cbbd066c00f620b13b4277dcf4bfc77dbb50d39fe4aa11b26c9f38"
+        "status": "pending",
+        "summaryPath": null,
+        "summarySha256": null
       },
       "forceAuthorityCanary": {
-        "status": "passed-noncertifying",
-        "summaryPath": "docs/evidence/source-gate1/27df761542309616a1d156b2a329007b0cb34d9b/forceAuthorityCanary.json",
-        "summarySha256": "d5df96ebbc2e69cf7b758640903fd5df8ee21de89f663d32caf6008d2e7fe552"
+        "status": "pending",
+        "summaryPath": null,
+        "summarySha256": null
       },
       "fullCampaignDebug": {
-        "status": "failed",
-        "summaryPath": "docs/evidence/source-gate1/27df761542309616a1d156b2a329007b0cb34d9b/fullCampaignDebug.json",
-        "summarySha256": "7356b74e9b8f3da7f438b9a5819e3b8a68be86e2029675e1929dcdf6fa4e6559"
+        "status": "pending",
+        "summaryPath": null,
+        "summarySha256": null
       }
     }
   },
@@ -561,26 +561,26 @@
     {
       "id": "static-source-resource",
       "label": "Static/source/resource contracts",
-      "status": "passed",
-      "summary": "Current Foundation passed at 985 references for replacement source checkpoint 27df761542309616a1d156b2a329007b0cb34d9b, with exact 436-input source/worktree identity, zero checkout .pak files, and tracked hash-bound summary bda41f587fa91b5210eef203758f7d5f9b34ee6e2990ef8d0e5662c1c9da4604."
+      "status": "not-run",
+      "summary": "Replacement source checkpoint 8470af6f967a34f180f547ccca35fe2d0bf8a4a8 is frozen with exact 436-input source/worktree identity and zero checkout .pak files. Current Foundation evidence is pending; prior-checkpoint Foundation evidence does not transfer."
     },
     {
       "id": "compile-configuration",
       "label": "Enforce compile and configuration",
-      "status": "passed",
-      "summary": "All five required Workbench source-validation targets pass for replacement checkpoint 27df761542309616a1d156b2a329007b0cb34d9b at 5849 files, 12022 classes, common CRC 439eb620, zero hard errors, exact cleanup/spill zeros, and zero .pak census. The tracked hash-bound summary is 4d3473b520e8cc2345bf6fdc80f57ca4b8b2d4cd5f4f46b5ae9dca74d57e477e. This validates source compilation for the normal Workshop publishing path; it does not create a repository package."
+      "status": "not-run",
+      "summary": "All-target Workbench source validation is pending for replacement checkpoint 8470af6f967a34f180f547ccca35fe2d0bf8a4a8 after Foundation. Workbench will compile and validate source for normal Workshop publication; no generated archive is a source input."
     },
     {
       "id": "deterministic-service",
       "label": "Deterministic service contracts",
-      "status": "passed-noncertifying",
-      "summary": "All five source-native focused suites pass for replacement checkpoint 27df761542309616a1d156b2a329007b0cb34d9b at exact JUnit 91/0/0/0, with all 30 retained artifacts hash-bound, stable source/toolchain bindings, exact suite-isolated cleanup, and zero final engine processes. The tracked summary is 6aa0adde77cbbd066c00f620b13b4277dcf4bfc77dbb50d39fe4aa11b26c9f38. This deterministic-service result is noncertifying; native-world proof remains next."
+      "status": "not-run",
+      "summary": "The five source-native focused suites are pending for replacement checkpoint 8470af6f967a34f180f547ccca35fe2d0bf8a4a8 after Foundation and Workbench. Prior-checkpoint deterministic-service evidence does not transfer."
     },
     {
       "id": "native-engine-world",
       "label": "Native engine-world behavior",
-      "status": "failed",
-      "summary": "The source-native force-authority canary passes for checkpoint 27df761542309616a1d156b2a329007b0cb34d9b, but Full Campaign Debug rejects the checkpoint. All three exact convoy crew and vehicle roots published with living agents, yet no seated driver or runtime waypoint was confirmed. A later mission-target render-bubble sample also failed and retained cleanup ownership, preventing normal artifact publication until the guarded deadline. Source, resource database, settings, and executable identities remained stable; runtime cleanup left zero processes. The tracked failed Full summary is 7356b74e9b8f3da7f438b9a5819e3b8a68be86e2029675e1929dcdf6fa4e6559."
+      "status": "not-run",
+      "summary": "The source-native force-authority canary and Full Campaign Debug are pending for replacement checkpoint 8470af6f967a34f180f547ccca35fe2d0bf8a4a8 after the earlier Gate 1 rungs. Rejected checkpoint 27df761542309616a1d156b2a329007b0cb34d9b remains immutable history and does not transfer."
     },
     {
       "id": "packaged-dedicated",
@@ -616,7 +616,7 @@
       "id": "stable-certification",
       "label": "Stable certification",
       "status": "blocked",
-      "summary": "No current matrix row is certified. Full Campaign Debug rejected source checkpoint 27df761542309616a1d156b2a329007b0cb34d9b; a corrected source checkpoint must restart the complete source-native Gate 1 chain before later Workshop-installed external gates."
+      "summary": "No current matrix row is certified. The complete source-native Gate 1 chain is pending for replacement checkpoint 8470af6f967a34f180f547ccca35fe2d0bf8a4a8 before later Workshop-installed external gates."
     }
   ],
   "activeBlockers": [
@@ -628,7 +628,7 @@
     {
       "id": "STATUS-002",
       "category": "TEST",
-      "summary": "Foundation, all five Workbench source-validation targets, all five source-native focused suites, and the force-authority canary pass for source checkpoint 27df761542309616a1d156b2a329007b0cb34d9b, but Full Campaign Debug rejects it. Post-publication convoy seat requests never confirmed a driver, runtime waypoints remained absent, and a later mission-target render-bubble sample failed before normal artifact publication. The previously observed support-cleanup orphan did not recur at the strict pre-admission audit boundary, but the fatal later cleanup prevents a complete certification claim. A corrected source checkpoint must restart the entire Gate 1 chain; prior results do not transfer."
+      "summary": "Replacement source checkpoint 8470af6f967a34f180f547ccca35fe2d0bf8a4a8 keeps exact-convoy seating after atomic outbound publication, treats non-replicated AI as authority-local for forced seating before the owner-RPC fallback, and prevents the mission-target timeout from preempting its required distinct-frame samples. Restart Gate 1 from Foundation, then all-target Workbench, the five focused suites, force-authority canary, and Full Campaign Debug in order. Prior evidence does not transfer."
     },
     {
       "id": "STATUS-003",

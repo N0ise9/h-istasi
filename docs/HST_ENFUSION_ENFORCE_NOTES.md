@@ -28,6 +28,18 @@
   case/assertion manifests. Keep the historical corrected-canary contract
   available only for immutable historical evidence.
 - Current frozen source checkpoint
+  `8470af6f967a34f180f547ccca35fe2d0bf8a4a8` has 436 publish-input rows
+  and digest
+  `b868828a8202b0d8f583f4945c2d864d6113b360e100eac2d8d57f8f30a525d9`.
+  It retains post-publication exact-convoy seating and runtime-first support
+  cleanup, treats non-replicated AI as authority-local for forced seating
+  before the replicated owner-RPC fallback, and requires the mission-target
+  minimum distinct-frame sample count before timeout. The Foundation
+  structural body passed all 985 checks and the pre-freeze PC Workbench sanity
+  compile passed at 5,849 files, 12,022 classes, CRC `b280f273`, zero hard
+  errors, and exact cleanup. Those checks are pre-freeze sanity only. All five
+  Gate 1 evidence slots are pending; no earlier result transfers.
+- Immediately prior rejected source checkpoint
   `27df761542309616a1d156b2a329007b0cb34d9b` has 436 publish-input rows
   and digest
   `cb6957bb0fa6bc06fce7b41ffd28bee3879222fd2bbfbb5ebe6a28c208895ee2`.
@@ -116,9 +128,9 @@
 - A dirty-source Foundation run may pass its structural body but must fail the
   final frozen-source binding, and a direct PC Workbench source compile can be
   used only as pre-freeze sanity. The current correction reached 5,849 files,
-  12,022 classes, CRC `439eb620`, zero hard errors, and exact cleanup. Neither
+  12,022 classes, CRC `b280f273`, zero hard errors, and exact cleanup. Neither
   result is Gate 1 evidence. The source is now frozen at
-  `27df761542309616a1d156b2a329007b0cb34d9b`; restart the ordered chain from
+  `8470af6f967a34f180f547ccca35fe2d0bf8a4a8`; restart the ordered chain from
   Foundation.
 - Frozen source checkpoint `b0b8a6b677092b45f1c7392edcc2d82246d27bbc`
   is rejected Gate 1 evidence at 436 publish-input rows and digest

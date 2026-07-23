@@ -23,6 +23,18 @@ packer and package-bound evidence sequence retained below are retired as release
 authority; they remain optional historical QA only.
 
 Current execution is frozen at source checkpoint
+`8470af6f967a34f180f547ccca35fe2d0bf8a4a8`, with 436 publish-input rows
+and digest `b868828a8202b0d8f583f4945c2d864d6113b360e100eac2d8d57f8f30a525d9`.
+It retains post-publication exact-convoy seating and runtime-first support
+cleanup, makes non-replicated AI eligible for authority-local forced seating
+before the replicated owner-RPC fallback, and requires the mission-target
+minimum distinct-frame sample count before timeout. The Foundation structural
+body passed all 985 checks and the pre-freeze PC Workbench sanity compile passed
+at 5,849 files, 12,022 classes, CRC `b280f273`, zero hard errors, and exact
+cleanup. Those checks are pre-freeze sanity only. All five Gate 1 evidence slots
+are pending in order and no prior result transfers. Do not begin Gate 2.
+
+Immediately prior execution rejected source checkpoint
 `27df761542309616a1d156b2a329007b0cb34d9b`, with 436 publish-input rows
 and digest `cb6957bb0fa6bc06fce7b41ffd28bee3879222fd2bbfbb5ebe6a28c208895ee2`.
 It defers exact-convoy seating and route assignment until after atomic outbound
@@ -93,8 +105,8 @@ errors were zero. The portable failed summary SHA-256 is
 Gate 1 is failed for this checkpoint; correct the runtime/convoy lifecycle and
 begin a new complete source chain.
 
-The narrow correction addresses the two exercised failures without weakening
-the gate. Exact-outbound convoy seating and route assignment now wait for the
+The earlier narrow correction addressed the two `1e18f8c` failures without
+weakening the gate. Exact-outbound convoy seating and route assignment wait for the
 publication transaction to close, so the ordinary later Physical War update
 makes the first compartment-entry attempt after an engine frame. Shared
 simulated-support cleanup now retires its Physical War runtime handles before
@@ -102,9 +114,9 @@ removing the durable active-group row. Strict core-registry rejection output
 also identifies the exact row and predicate values. The Foundation structural
 body and a pre-freeze PC Workbench source compile sanity check pass at 5,849
 files, 12,022 classes, CRC `439eb620`, zero hard errors, and exact cleanup.
-Those checks are not Gate 1 evidence. The correction is now frozen as
-`27df761542309616a1d156b2a329007b0cb34d9b`; restart Foundation and every
-later rung in order, and do not begin Gate 2.
+Those checks were not Gate 1 evidence. Checkpoint
+`27df761542309616a1d156b2a329007b0cb34d9b` froze the correction and was later
+rejected by Full; its evidence does not transfer.
 
 The next earlier execution rejected source checkpoint
 `b0b8a6b677092b45f1c7392edcc2d82246d27bbc`, with 436 publish-input rows
@@ -139,7 +151,7 @@ transfer. Gate 1 must restart from Foundation on a corrected source checkpoint;
 release remains `NO-GO`.
 
 The current source correction is frozen as
-`27df761542309616a1d156b2a329007b0cb34d9b`. Restart Gate 1 from Foundation;
+`8470af6f967a34f180f547ccca35fe2d0bf8a4a8`. Restart Gate 1 from Foundation;
 no earlier rung transfers.
 
 Campaign Schema 71 and runtime-settings Schema 24 are current. The retired

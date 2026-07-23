@@ -17,6 +17,18 @@ compile/publish is the authoritative Workshop build path, and Workshop/in-game
 download is the authoritative distribution path.
 
 Current frozen source checkpoint
+`8470af6f967a34f180f547ccca35fe2d0bf8a4a8` has 436 publish-input rows and
+digest `b868828a8202b0d8f583f4945c2d864d6113b360e100eac2d8d57f8f30a525d9`.
+It retains post-publication exact-convoy seating and runtime-first support
+cleanup, makes non-replicated AI eligible for authority-local forced seating
+before the replicated owner-RPC fallback, and requires the mission-target
+minimum distinct-frame sample count before timeout. The Foundation structural
+body passed all 985 checks and the pre-freeze PC Workbench sanity compile passed
+at 5,849 files, 12,022 classes, CRC `b280f273`, zero hard errors, and exact
+cleanup. These checks are pre-freeze sanity only. Every Gate 1 evidence slot is
+pending; earlier results do not transfer.
+
+Immediately prior rejected source checkpoint
 `27df761542309616a1d156b2a329007b0cb34d9b` has 436 publish-input rows
 and digest `cb6957bb0fa6bc06fce7b41ffd28bee3879222fd2bbfbb5ebe6a28c208895ee2`.
 It defers exact-convoy seating and route assignment until atomic outbound
@@ -93,19 +105,19 @@ The retained log and the exact frozen source prove two separate causes. All
 three convoy roots, vehicles, and two-member living crews existed, while the
 open exact-outbound transaction had intentionally removed their published
 `ACTIVE`, `VISIBLE`, and `TRACEABLE` flags. Compartment-entry requests issued
-inside that window could remain `IsGettingIn()`, and every bounded retry then
-skipped the crew until timeout. Seating and route assignment are now deferred
-until an ordinary later Physical War update after publication and an engine
-frame. Independently, the simulated-support case physicalized a runtime group
+inside that window were deferred until an ordinary later Physical War update
+after publication and an engine frame. The `27df761` Full run proved that
+ordering correction was insufficient: in `RplMode.None`, an AI character can
+still have `RplComponent`, while stock `MoveInVehicle()` sends an owner RPC.
+The old locality predicate could therefore skip forced local seating without an
+owner receiver. Independently, the simulated-support case physicalized a runtime group
 and then invoked shared cleanup that deleted only its durable active-group row,
 leaving the runtime registry orphan which the later strict audit rejected. The
 shared helper now performs Physical War runtime cleanup first. Rejection output
 also records the exact runtime row, group ID, and active/entity/deleted/world/
-duplicate predicates. The Foundation structural body and a pre-freeze PC
-Workbench source compile sanity check pass at 5,849 files, 12,022 classes, CRC
-`439eb620`, zero hard errors, and exact cleanup. This is diagnosis and dirty-
-source sanity evidence only, not a Gate 1 result. The clean correction is now
-frozen at `27df761542309616a1d156b2a329007b0cb34d9b` and must rerun the full
+duplicate predicates. Checkpoint `27df761542309616a1d156b2a329007b0cb34d9b`
+is rejected immutable history. The locality and minimum-sample timeout fixes
+are frozen at `8470af6f967a34f180f547ccca35fe2d0bf8a4a8` and must rerun the full
 ordered chain.
 
 The next earlier frozen source checkpoint
