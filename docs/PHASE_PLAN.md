@@ -39,10 +39,13 @@ files, 12,022 classes, common CRC `0b872024`, zero hard errors, exact cleanup/
 spill zeros, zero `.pak` census, and one stable source resource database. Its
 tracked summary SHA-256 is
 `8efbc127861abdf98af4b49d2a5443f08d757a237999c18b03f04b328ba24282`.
-Run the five focused suites next, then the force-authority canary and Full
-Campaign Debug. Those three formal evidence slots remain pending; no prior
-result transfers. Gate 1 is in progress, release remains `NO-GO`, and Gate 2
-must not begin.
+All five source-native focused suites pass at exact JUnit 91/0/0/0, with 30
+hash-bound artifacts, stable source/toolchain bindings, exact suite-isolated
+cleanup, and zero final engine processes. Their tracked summary SHA-256 is
+`a791ade0fb12876709d5b675c5231e48a357b7f67cd19fe676b50651cb5e57db`.
+Run the force-authority canary next, then Full Campaign Debug only if the canary
+is accepted. Those two evidence slots remain pending; no prior result transfers.
+Gate 1 is in progress, release remains `NO-GO`, and Gate 2 must not begin.
 
 Immediately prior execution rejected source checkpoint
 `8470af6f967a34f180f547ccca35fe2d0bf8a4a8`, with 436 publish-input rows

@@ -1,6 +1,6 @@
 {
   "schemaVersion": 4,
-  "statusAsOfUtc": "2026-07-23T08:04:41Z",
+  "statusAsOfUtc": "2026-07-23T08:11:52Z",
   "releaseStage": "development alpha",
   "releaseDecision": "NO-GO",
   "auditedRevision": "4c7bf087b491050a9463064a6bd8767f8d44081f",
@@ -39,9 +39,9 @@
         "summarySha256": "8efbc127861abdf98af4b49d2a5443f08d757a237999c18b03f04b328ba24282"
       },
       "focusedFiveSuite": {
-        "status": "pending",
-        "summaryPath": null,
-        "summarySha256": null
+        "status": "passed-noncertifying",
+        "summaryPath": "docs/evidence/source-gate1/4c7bf087b491050a9463064a6bd8767f8d44081f/focusedFiveSuite.json",
+        "summarySha256": "a791ade0fb12876709d5b675c5231e48a357b7f67cd19fe676b50651cb5e57db"
       },
       "forceAuthorityCanary": {
         "status": "pending",
@@ -573,14 +573,14 @@
     {
       "id": "deterministic-service",
       "label": "Deterministic service contracts",
-      "status": "not-run",
-      "summary": "The five source-native focused suites are pending for frozen source checkpoint 4c7bf087b491050a9463064a6bd8767f8d44081f after accepted Foundation and all-target Workbench compilation. No earlier focused result transfers."
+      "status": "passed-noncertifying",
+      "summary": "All five source-native focused suites pass for frozen checkpoint 4c7bf087b491050a9463064a6bd8767f8d44081f at exact JUnit 91/0/0/0, with all 30 retained artifacts hash-bound, stable source/toolchain bindings, exact suite-isolated cleanup, and zero final engine processes. The tracked summary is a791ade0fb12876709d5b675c5231e48a357b7f67cd19fe676b50651cb5e57db. This deterministic-service result is noncertifying; native-world proof remains next."
     },
     {
       "id": "native-engine-world",
       "label": "Native engine-world behavior",
       "status": "not-run",
-      "summary": "The source-native force-authority canary and Full Campaign Debug are pending for frozen source checkpoint 4c7bf087b491050a9463064a6bd8767f8d44081f. They may run only after the lower Gate 1 rungs pass."
+      "summary": "The source-native force-authority canary and Full Campaign Debug are pending for frozen source checkpoint 4c7bf087b491050a9463064a6bd8767f8d44081f after accepted Foundation, all-target Workbench compilation, and the five focused suites. Full may run only after an accepted canary."
     },
     {
       "id": "packaged-dedicated",
@@ -628,7 +628,7 @@
     {
       "id": "STATUS-002",
       "category": "TEST",
-      "summary": "Foundation and all five Workbench source-validation targets pass for checkpoint 4c7bf087b491050a9463064a6bd8767f8d44081f. Workbench compiled 5849 files and 12022 classes at common CRC 0b872024 with zero hard errors, exact cleanup/spill zeros, zero checkout .pak files, and a stable source resource database. Run the five focused suites next, followed by force-authority canary and Full Campaign Debug. No prior-checkpoint evidence transfers."
+      "summary": "Foundation, all five Workbench source-validation targets, and all five source-native focused suites pass for checkpoint 4c7bf087b491050a9463064a6bd8767f8d44081f. The focused aggregate is exact JUnit 91/0/0/0 with 30 hash-bound artifacts, exact suite-isolated cleanup, and zero final engine processes. Run the force-authority canary next, followed by Full Campaign Debug only if the canary is accepted. No prior-checkpoint evidence transfers."
     },
     {
       "id": "STATUS-003",

@@ -29,9 +29,13 @@ All five formal Workbench source-validation targets also pass at 5,849 files,
 zeros, zero `.pak` census, and one stable source resource database. Its tracked
 summary SHA-256 is
 `8efbc127861abdf98af4b49d2a5443f08d757a237999c18b03f04b328ba24282`.
-The five focused suites, force-authority canary, and Full Campaign Debug remain
-pending in that order. No earlier result transfers, Gate 1 remains in progress,
-and release is `NO-GO`.
+All five source-native focused suites pass at exact JUnit 91/0/0/0, with 30
+hash-bound artifacts, stable source/toolchain bindings, exact suite-isolated
+cleanup, and zero final engine processes. Their tracked summary SHA-256 is
+`a791ade0fb12876709d5b675c5231e48a357b7f67cd19fe676b50651cb5e57db`.
+The force-authority canary and Full Campaign Debug remain pending in that order.
+No earlier result transfers, Gate 1 remains in progress, and release is
+`NO-GO`.
 
 The candidate/package records below remain immutable historical QA. They may be
 used as optional regression evidence, but the retired manual local candidate-pack
@@ -2614,9 +2618,11 @@ Debug and packaged-runtime gates remain open.
   common CRC `0b872024`, zero hard errors, exact cleanup/spill zeros, zero `.pak`
   census, and tracked summary SHA-256
   `8efbc127861abdf98af4b49d2a5443f08d757a237999c18b03f04b328ba24282`.
-- [ ] Run all five source-native focused suites and publish their aggregate with
-  exactly 91 individually named cases and JUnit 91/0/0/0 from that unchanged
-  checkpoint. Rerun all five suites after the one-clock correction.
+- [x] Run all five source-native focused suites and publish their aggregate with
+  exactly 91 individually named cases, JUnit 91/0/0/0, 30 hash-bound artifacts,
+  exact suite-isolated cleanup, zero final engine processes, and tracked summary
+  SHA-256
+  `a791ade0fb12876709d5b675c5231e48a357b7f67cd19fe676b50651cb5e57db`.
 - [ ] Run the source-native corrected canary only after the focused aggregate is
   accepted.
 - [ ] Run source-native Full Campaign Debug only after the corrected canary is
