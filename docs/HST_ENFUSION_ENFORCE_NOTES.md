@@ -37,8 +37,12 @@
   minimum distinct-frame sample count before timeout. The Foundation
   structural body passed all 985 checks and the pre-freeze PC Workbench sanity
   compile passed at 5,849 files, 12,022 classes, CRC `b280f273`, zero hard
-  errors, and exact cleanup. Those checks are pre-freeze sanity only. All five
-  Gate 1 evidence slots are pending; no earlier result transfers.
+  errors, and exact cleanup. The compile is pre-freeze sanity only. Foundation
+  now passes at 985 references with exact source/worktree identity and tracked
+  summary SHA-256
+  `2903ca78881a3ef0e04bb80d855135cb587054f39475cdc22c29cc85111722f3`.
+  Workbench and the three later runtime rungs remain pending; no earlier result
+  transfers.
 - Immediately prior rejected source checkpoint
   `27df761542309616a1d156b2a329007b0cb34d9b` has 436 publish-input rows
   and digest

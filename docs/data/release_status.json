@@ -1,6 +1,6 @@
 {
   "schemaVersion": 4,
-  "statusAsOfUtc": "2026-07-23T05:18:15Z",
+  "statusAsOfUtc": "2026-07-23T05:25:00Z",
   "releaseStage": "development alpha",
   "releaseDecision": "NO-GO",
   "auditedRevision": "8470af6f967a34f180f547ccca35fe2d0bf8a4a8",
@@ -29,9 +29,9 @@
     },
     "evidence": {
       "foundation": {
-        "status": "pending",
-        "summaryPath": null,
-        "summarySha256": null
+        "status": "passed",
+        "summaryPath": "docs/evidence/source-gate1/8470af6f967a34f180f547ccca35fe2d0bf8a4a8/foundation.json",
+        "summarySha256": "2903ca78881a3ef0e04bb80d855135cb587054f39475cdc22c29cc85111722f3"
       },
       "workbenchAllTargets": {
         "status": "pending",
@@ -561,8 +561,8 @@
     {
       "id": "static-source-resource",
       "label": "Static/source/resource contracts",
-      "status": "not-run",
-      "summary": "Replacement source checkpoint 8470af6f967a34f180f547ccca35fe2d0bf8a4a8 is frozen with exact 436-input source/worktree identity and zero checkout .pak files. Current Foundation evidence is pending; prior-checkpoint Foundation evidence does not transfer."
+      "status": "passed",
+      "summary": "Current Foundation passed at 985 references for replacement source checkpoint 8470af6f967a34f180f547ccca35fe2d0bf8a4a8, with exact 436-input source/worktree identity, zero checkout .pak files, and tracked hash-bound summary 2903ca78881a3ef0e04bb80d855135cb587054f39475cdc22c29cc85111722f3."
     },
     {
       "id": "compile-configuration",
@@ -628,7 +628,7 @@
     {
       "id": "STATUS-002",
       "category": "TEST",
-      "summary": "Replacement source checkpoint 8470af6f967a34f180f547ccca35fe2d0bf8a4a8 keeps exact-convoy seating after atomic outbound publication, treats non-replicated AI as authority-local for forced seating before the owner-RPC fallback, and prevents the mission-target timeout from preempting its required distinct-frame samples. Restart Gate 1 from Foundation, then all-target Workbench, the five focused suites, force-authority canary, and Full Campaign Debug in order. Prior evidence does not transfer."
+      "summary": "Foundation passed at 985 references for replacement source checkpoint 8470af6f967a34f180f547ccca35fe2d0bf8a4a8 with exact source/worktree identity and zero checkout .pak files. Run all-target Workbench next, followed by the five focused suites, force-authority canary, and Full Campaign Debug in order. No prior-checkpoint evidence transfers."
     },
     {
       "id": "STATUS-003",

@@ -31,10 +31,12 @@ the replicated owner-RPC fallback, and prevents mission-target timeout from
 preempting its required distinct-frame samples. The Foundation structural body
 passed all 985 checks and the pre-freeze PC Workbench sanity compile passed at
 5,849 files, 12,022 classes, CRC `b280f273`, zero hard errors, and exact cleanup.
-Those are pre-freeze sanity checks, not Gate 1 evidence. Foundation, all-target
-Workbench, the five focused suites, force-authority canary, and Full Campaign
-Debug are pending in that order. No prior evidence transfers and release
-remains `NO-GO`.
+The compile remains pre-freeze sanity only. Foundation now passes at 985
+references with exact source/worktree identity and tracked summary SHA-256
+`2903ca78881a3ef0e04bb80d855135cb587054f39475cdc22c29cc85111722f3`.
+All-target Workbench, the five focused suites, force-authority canary, and Full
+Campaign Debug remain pending in that order. No prior evidence transfers and
+release remains `NO-GO`.
 
 The immediately prior rejected source checkpoint is
 `27df761542309616a1d156b2a329007b0cb34d9b`, with 436 publish-input rows
