@@ -22,26 +22,37 @@ manual distribution step is part of the release plan. The external candidate
 packer and package-bound evidence sequence retained below are retired as release
 authority; they remain optional historical QA only.
 
-Current execution is frozen at source checkpoint
+Current execution rejected source checkpoint
 `b0b8a6b677092b45f1c7392edcc2d82246d27bbc`, with 436 publish-input rows
 and digest `11999e99c9ab417068e9b371c4ae684217299a35ecad6f2f311e9fe4b4c846f1`.
-It performs the production combat-presence refresh between the topology-
-changing zone case and mission-target baseline, preserves the strict global
-audit, publishes registry/composition failure evidence, and has a Foundation
-ordering guard. Foundation passes at 985 references with exact source/worktree
+It refreshed combat-presence state between the topology-changing zone case and
+entry into the mission-target probe, preserved the strict global audit, stored
+registry/composition failure evidence, and had a Foundation ordering guard.
+Foundation passes at 985 references with exact source/worktree
 identity. All five Workbench targets pass at 5,849 files, 12,022 classes,
 common CRC `82044bce`, zero hard errors, and exact cleanup. The five source-
 native focused suites also pass at exact JUnit 91/0/0/0 with zero final engine
 processes. The source-native force-authority canary also passes as scoped
 noncertifying evidence at 9/2/0/0/0 cases, 35/35 focused assertions, 87/87
 counted conditions, 18 ordered zero-delta state rows, and zero residue. Full
-Campaign Debug is next.
+Campaign Debug then failed at the mission-target pre-admission baseline and
+entered fatal containment without publishing a complete case artifact. Its
+portable failed summary is bound by SHA-256
+`66220d35a4d4dfe50af063e50a9eea986f567d2f0d8ae43e5245053cded37788`;
+the wrapper retained stable identities and zero process/cleanup residue. The
+exact strict-audit subregistry remains unproven because its detailed in-memory
+evidence was not emitted. The probe performs a second topology-changing
+`UpdateZoneActivation()` after the outer refresh, so the next source checkpoint
+must refresh after that call and log failure-only audit detail before returning.
 
 Prior checkpoint `5717d05af0bb1474b8e51a39ad4cef8a4fa341d6`
 passed Foundation, all-target Workbench, all five focused suites, and the scoped
-force-authority canary, then failed Full Campaign Debug at that stale-index
-boundary and timed out without a complete artifact. Its evidence remains
-immutable history and does not transfer. Release remains `NO-GO`.
+force-authority canary, then failed Full Campaign Debug at the same generic
+pre-admission boundary and timed out without a complete artifact. Its previous
+stale-index attribution was an unproven hypothesis because the detailed case
+artifact was also withheld. Its evidence remains immutable history and does not
+transfer. Gate 1 must restart from Foundation on a corrected source checkpoint;
+release remains `NO-GO`.
 
 Campaign Schema 71 and runtime-settings Schema 24 are current. The retired
 local-QA checkpoint used immutable runtime candidate

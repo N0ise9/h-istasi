@@ -28,11 +28,11 @@
   case/assertion manifests. Keep the historical corrected-canary contract
   available only for immutable historical evidence.
 - Frozen source checkpoint `b0b8a6b677092b45f1c7392edcc2d82246d27bbc`
-  is current at 436 publish-input rows and digest
+  is rejected Gate 1 evidence at 436 publish-input rows and digest
   `11999e99c9ab417068e9b371c4ae684217299a35ecad6f2f311e9fe4b4c846f1`.
-  It mirrors the production combat-presence refresh before the mission-target
-  baseline, preserves the strict global audit, publishes registry/composition
-  details on failure, and has a Foundation ordering guard. Foundation passes at
+  It added a combat-presence refresh before entering the mission-target probe,
+  preserved the strict global audit, stored registry/composition details on
+  failure, and had a Foundation ordering guard. Foundation passes at
   985 references with exact source/worktree identity. All five Workbench targets
   pass at 5,849 files, 12,022 classes, common CRC `82044bce`, zero hard errors,
   exact cleanup, and zero generated-archive census. All five source-native
@@ -40,12 +40,19 @@
   The source-native force-authority canary also passes at 9/2/0/0/0 cases,
   35/35 focused assertions, 87/87 counted conditions, 18 ordered zero-delta
   state rows, zero final orphans, zero unapproved diagnostics, and zero residual
-  engine processes. Full Campaign Debug is next. Prior checkpoint `5717d05`
-  passed its
-  first four rungs, then Full rejected at the stale-index boundary and timed out
-  without a complete artifact. Its wrapper ended with stable source/resource-
-  database identity, zero residual processes, and zero cleanup errors. Those
-  earlier-checkpoint facts remain immutable and do not transfer.
+  engine processes. Full Campaign Debug then failed at the mission-target
+  pre-admission baseline and entered fatal containment. The exact strict-audit
+  subregistry is unproven because the detailed in-memory evidence was neither
+  logged nor published. The probe calls `UpdateZoneActivation()` after the
+  outer refresh and before the audit; refresh derived combat-presence state at
+  that actual mutation-to-audit boundary. Emit the full failure-only runtime and
+  composition audit before returning so fatal containment cannot hide it. The
+  1,090-second wrapper result is stable and left zero process or cleanup residue;
+  its SHA-256 is
+  `66220d35a4d4dfe50af063e50a9eea986f567d2f0d8ae43e5245053cded37788`.
+  Prior checkpoint `5717d05` failed at the same generic boundary; its earlier
+  stale-index attribution was an inference, not a published subregistry result.
+  Both failed checkpoints remain immutable and do not transfer.
 - A completed post-`DONE` source-native capture reproduced exactly two stock
   support-station catalog-manager diagnostics before normal game destruction.
   Treat that family as optional but indivisible: admit exactly zero events or

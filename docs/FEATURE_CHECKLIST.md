@@ -22,25 +22,41 @@ chronological package hashes and outcomes below remain evidence of those past
 runs; they do not authorize publication or replace the frozen-source Gate 1
 checks.
 
-The current frozen checkpoint is
+The rejected frozen checkpoint is
 `b0b8a6b677092b45f1c7392edcc2d82246d27bbc`, with 436 publish-input rows
 and digest `11999e99c9ab417068e9b371c4ae684217299a35ecad6f2f311e9fe4b4c846f1`.
-It refreshes combat-presence samples before the mission-target baseline,
-preserves the strict global registry/composition audit, publishes both evidence
-strings on failure, and has a Foundation ordering guard. Foundation passes at
+It refreshed combat-presence samples before entering the mission-target probe,
+preserved the strict global registry/composition audit, stored both evidence
+strings on failure, and had a Foundation ordering guard. Foundation passed at
 985 references with exact source/worktree identity. Workbench passes PC,
 XBOX_ONE, XBOX_SERIES, PS4, and PS5 at 5,849 files, 12,022 classes, common CRC
 `82044bce`, zero hard errors, and exact cleanup. All five source-native focused
 suites pass at exact JUnit 91/0/0/0 with zero final engine processes. The source-
 native force-authority canary also passes at 9/2/0/0/0 cases, 35/35 focused
 assertions, 87/87 counted conditions, 18 ordered zero-delta state rows, and zero
-residual engine processes. Full Campaign Debug is next; it is the sole pending
-current evidence rung.
+residual engine processes. Full Campaign Debug then rejected at
+`render_bubble.mission_target.force_physical`: the exact target group and
+composition cleaned, but the pre-admission baseline still reported retained
+runtime or composition ownership and entered fatal containment. The detailed
+in-memory subregistry evidence was not logged or published, so the exact failing
+subregistry remains unproven. The probe performs another topology-changing
+`UpdateZoneActivation()` after the added refresh and before its strict audit;
+the replacement must place the production-style refresh at that mutation-to-
+audit boundary and emit failure-only audit detail. The exact 24,313-byte failed
+summary is bound by SHA-256
+`66220d35a4d4dfe50af063e50a9eea986f567d2f0d8ae43e5245053cded37788`.
+The wrapper ended after 1,090 seconds with stable source/resource database,
+settings, and executable identities, zero residual or unclaimed engine
+processes, and zero cleanup errors.
 
 Prior checkpoint `5717d05af0bb1474b8e51a39ad4cef8a4fa341d6`
 passed its first four Gate 1 rungs, then Full Campaign Debug rejected at the
-stale-index boundary and timed out without a complete artifact. That evidence
-is immutable history and does not transfer. Release remains `NO-GO`.
+same generic pre-admission boundary and timed out without a complete artifact.
+The earlier stale-combat-index attribution was a hypothesis, not a proven
+subregistry result, because that run also withheld its detailed case artifact.
+That evidence is immutable history and does not transfer. Gate 1 is failed for
+`b0b8a6b`; a corrected source checkpoint must rerun all five rungs. Release
+remains `NO-GO`.
 
 The source checkpoint uses an ordinal tracked-blob digest over the nine Workshop
 publish scopes. Current Gate 1 runners additionally compare the files actually
@@ -108,6 +124,17 @@ the source-native sequence above, remains incomplete, and release remains
   remaining valid across a legitimate native-root replacement. The render-
   bubble mission-target probe now publishes explicit player-session and exact
   empty-baseline assertions before either pre-admission return.
+
+- [x] Retain the rejected `b0b8a6b` Full attempt as exact portable evidence.
+  It reproduced the mission-target pre-admission failure after the first four
+  Gate 1 rungs passed, preserved every source/tool/settings identity, and left
+  zero runtime residue. Its generic failure does not prove which strict global
+  subregistry rejected the baseline.
+
+- [ ] Refresh derived combat-presence state after the mission-target probe's
+  own `UpdateZoneActivation()` and before the strict runtime/composition audit,
+  and log the full failure-only audit result before fatal containment. Freeze a
+  new source checkpoint and rerun Gate 1 from Foundation.
 
 - [x] Make the source evidence consumer compare each publish worktree input
   through its path-specific Git clean filter. A Windows CRLF checkout can be

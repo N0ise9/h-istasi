@@ -17,12 +17,12 @@ compile/publish is the authoritative Workshop build path, and Workshop/in-game
 download is the authoritative distribution path.
 
 Frozen source checkpoint `b0b8a6b677092b45f1c7392edcc2d82246d27bbc`
-is the current Gate 1 authority. Its 436-row publish-input digest is
+is rejected Gate 1 evidence. Its 436-row publish-input digest is
 `11999e99c9ab417068e9b371c4ae684217299a35ecad6f2f311e9fe4b4c846f1`.
 After the zone case and its synchronous post-case population drain, it refreshes
-global combat-presence samples before beginning the mission-target baseline.
-The baseline retains the strict global registry/composition audit and publishes
-both detailed evidence strings on failure. Foundation enforces the exact
+global combat-presence samples before beginning the mission-target probe. The
+baseline retains the strict global registry/composition audit and stores both
+detailed evidence strings on failure. Foundation enforces the exact
 record-case -> refresh -> begin-probe order. Foundation passes at 985 references
 with exact source/worktree identity; its tracked summary is bound by SHA-256
 `0a7bf8c986bfe48041df708d46da23bb2d9996637bb2abf74f74df00642f89b3`.
@@ -39,22 +39,36 @@ BLOCKED/0 SKIPPED, 35/35 focused assertions, 87/87 counted conditions, 18
 ordered zero-delta state rows, zero final orphans, zero unapproved diagnostics,
 and zero residual engine processes. Its tracked summary is bound by SHA-256
 `6810d8a9419d282497b9d2eceece1e4d4ca8eefdbfc0f3ef31c3bd6d7b69c894`.
-Full Campaign Debug is next; it is the sole pending current evidence rung.
+Full Campaign Debug then failed at
+`render_bubble.mission_target.force_physical`. The selected lighthouse group
+was folded and its composition rows were cleaned, but the pre-admission
+baseline reported retained runtime or composition ownership and entered fatal
+containment before publishing a complete case artifact. The exact failing
+subregistry is not proven: the detailed evidence remained only in memory, while
+the failure log printed the generic case reason. The probe performs another
+`UpdateZoneActivation()` after the outer refresh and before the audit, so the
+current ordering did not mirror production at the actual mutation-to-audit
+boundary. The portable failed summary is 24,313 bytes with SHA-256
+`66220d35a4d4dfe50af063e50a9eea986f567d2f0d8ae43e5245053cded37788`.
+It records 1,090 seconds, stable source/resource-database/settings/executable
+identities, zero remaining or unclaimed engine processes, and zero cleanup
+errors. Gate 1 is failed for this checkpoint.
 
 Prior checkpoint `5717d05af0bb1474b8e51a39ad4cef8a4fa341d6`
 passed Foundation at 985 references, all five Workbench targets at 5,849 files,
 12,022 classes, common CRC `312a01a9`, all five focused suites at exact JUnit
 91/0/0/0, and the scoped force-authority canary at 9/2/0/0/0 cases, 35/35
 focused assertions, and 87/87 counted conditions. Full Campaign Debug then
-rejected it. The selected lighthouse target folded and cleaned, but unrelated
-same-frame post-case population changed global topology before a combat-
-presence refresh. The next baseline detected the stale index and entered fatal
-containment. The wrapper timed out at 1,087 seconds without a complete artifact,
+rejected it at the same generic pre-admission boundary. The selected lighthouse
+target folded and cleaned, but the retained log did not publish the detailed
+strict-audit result. The previous stale combat-presence explanation was an
+inference rather than a proven subregistry diagnosis. The wrapper timed out at
+1,087 seconds without a complete artifact,
 preserved source/resource-database identity, and ended with zero residual
 processes or cleanup errors. Its exact failed summary is bound by SHA-256
 `5665ea80af094df1e61f18d5c7d3d82790754a219411e4c896e8226a06c9b2ce`.
 All evidence under that checkpoint remains immutable history and does not
-transfer to the replacement.
+transfer to a replacement.
 
 The accepted canary against earlier checkpoint
 `33642bd8a84d8a692f7fe9920510ab97cb890383` remains scoped historical evidence.
