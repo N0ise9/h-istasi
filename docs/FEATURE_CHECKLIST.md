@@ -35,8 +35,12 @@ All five Workbench source-validation targets also pass at 5,849 files, 12,022
 classes, common CRC `439eb620`, zero hard errors, exact cleanup/spill zeros,
 and zero `.pak` census. Its tracked summary SHA-256 is
 `4d3473b520e8cc2345bf6fdc80f57ca4b8b2d4cd5f4f46b5ae9dca74d57e477e`.
-The five focused suites, force-authority canary, and Full Campaign Debug remain
-pending in that order. No prior evidence transfers and release remains `NO-GO`.
+All five source-native focused suites pass at exact JUnit 91/0/0/0, with 30
+hash-bound artifacts, stable source/toolchain bindings, exact suite-isolated
+cleanup, and zero final engine processes. Their tracked summary SHA-256 is
+`6aa0adde77cbbd066c00f620b13b4277dcf4bfc77dbb50d39fe4aa11b26c9f38`.
+The force-authority canary and Full Campaign Debug remain pending in that order.
+No prior evidence transfers and release remains `NO-GO`.
 
 The immediately prior rejected source checkpoint is
 `1e18f8c189a66dc92c11a8a81bc3b58725e0fff5`, with 436 publish-input rows
