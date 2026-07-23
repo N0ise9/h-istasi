@@ -46,7 +46,19 @@ The source-native force-authority canary passes as scoped noncertifying proof:
 zero unapproved diagnostics, and zero residual engine processes. Its tracked
 summary SHA-256 is
 `c72d1b3b5fd18583708c4b615260ff6d918688b7bca24455cd5f58390cf28a4f`.
-Source-native Full Campaign Debug is next.
+Source-native Full Campaign Debug then rejected the checkpoint after 1,085
+seconds. Two earlier convoy assertions reported a missing seated living driver
+and missing runtime waypoints. The later
+`render_bubble.mission_target.force_physical` pre-admission audit proved zero
+selected runtime handles and exact-empty selected-town composition, but rejected
+the global core runtime registry because a runtime group row had an orphan,
+duplicate, or dead pointer. Fatal containment deferred complete artifact
+publication. Source, resource database, settings, and executable identities
+remained stable; no owned or unclaimed engine process remained and cleanup
+errors were zero. The portable failed summary SHA-256 is
+`84cbc45a4637f056717b4b048421941945868ea05460dbc2771af8aa5a75f41c`.
+Gate 1 is failed for this checkpoint; correct the runtime/convoy lifecycle and
+begin a new complete source chain.
 
 Immediately prior execution rejected source checkpoint
 `b0b8a6b677092b45f1c7392edcc2d82246d27bbc`, with 436 publish-input rows
@@ -2077,7 +2089,7 @@ publishing a build does not waive them.
 | Enemy Commander | Sealed resource, planning, and Schema-69 counterattack authority remains intact. Schema 70 makes newly admitted garrison rebuilds exact while leaving historical rebuilds on contract `0`; delivery-pending and physical-live-fold cuts now pass fresh-process recovery/replay | Preserve the validated ambient cadence isolation and explicit production-tick ownership; then prove natural route/combat behavior, other force families, multiplayer/JIP, and soak. |
 | Mission Parity | All 39 configured IDs map to MVP primitives; convoy, all assassination guards, newly started `rescue_pows`, and exact radio lifecycle use narrow contracts. R16 proves the disposable isolated radio pair end to end. Current source adds structural active demolition-witness admission and a quiet pre-action assertion | Fresh Workbench validation passes. R23 proves all six generic `primitive.destroy.no_ambient_witness_score` assertions and all seven destroy-family start/runtime/primitive cases. Next package-prove authored radio binding/restart/streaming and runtime-prove callback-plus-scan deduplication, convoy, all three assassination guards, and Schema-58 rescue. Keep refugees, historical POWs, and other mission families legacy until their own explicit cutovers. |
 | Resistance Progression | Arsenal, garage, training, undercover, HQ/Petros, and end-state foundations exist | Complete exact logistics/loadouts/static defenses and tune the full progression loop. |
-| Campaign Certification | Current frozen source checkpoint `1e18f8c189a66dc92c11a8a81bc3b58725e0fff5` passes Foundation, all five Workbench source-validation targets, all five source-native focused suites at exact JUnit 91/0/0/0, and the scoped source-native force-authority canary at 9/2/0/0/0 cases, 35/35 focused assertions, 87/87 counted conditions, and exact zero-delta restoration, with exact tracked summaries and zero `.pak` census. Former candidate `partisan-rc-5b1f2e98f931-20260721T193941Z`, its package hashes, Foundation/Workbench results, and CRI-103 pair are retained as optional historical local-candidate QA. They are not Gate 1 or publication authority, and no generated `.pak` is a source deliverable. | Run source-native Full Campaign Debug against the same checkpoint. Publish afterward only through Workbench to the Workshop; the game downloads the addon. Historical package-bound results do not satisfy this checkpoint. Release remains `NO-GO`. Fuel/damage/attachments/trunk parity, abrupt-termination recovery beyond the last completed checkpoint, broader active-world records, Workshop/live clients, network/JIP/reconnect/soak, arbitrary migration, multi-writer/off-device recovery, markers, and performance remain open. |
+| Campaign Certification | Rejected source checkpoint `1e18f8c189a66dc92c11a8a81bc3b58725e0fff5` passed Foundation, all five Workbench source-validation targets, all five source-native focused suites at exact JUnit 91/0/0/0, and the scoped source-native force-authority canary at 9/2/0/0/0 cases, 35/35 focused assertions, 87/87 counted conditions, and exact zero-delta restoration, with exact tracked summaries and zero `.pak` census. Full Campaign Debug then failed after convoy driver/waypoint assertions when its later mission-target pre-admission audit found a global core runtime group row with an orphan, duplicate, or dead pointer; the selected town itself had zero runtime handles and exact-empty composition. Former candidate `partisan-rc-5b1f2e98f931-20260721T193941Z`, its package hashes, Foundation/Workbench results, and CRI-103 pair remain optional historical local-candidate QA. They are not Gate 1 or publication authority, and no generated `.pak` is a source deliverable. | Correct the convoy/runtime teardown authority, freeze a new clean source checkpoint, and rerun the complete source-native Gate 1 chain. Publish afterward only through Workbench to the Workshop; the game downloads the addon. Historical package-bound results do not satisfy a new checkpoint. Release remains `NO-GO`. Fuel/damage/attachments/trunk parity, abrupt-termination recovery beyond the last completed checkpoint, broader active-world records, Workshop/live clients, network/JIP/reconnect/soak, arbitrary migration, multi-writer/off-device recovery, markers, and performance remain open. |
 
 CRI-1 and the first CRI-2 vertical slices remain intentionally narrow. Troop
 training is the first production ledger consumer; exact visible garrison

@@ -46,9 +46,20 @@ The source-native force-authority canary passes as scoped noncertifying proof:
 zero unapproved diagnostics, and zero residual engine processes. Its tracked
 summary SHA-256 is
 `c72d1b3b5fd18583708c4b615260ff6d918688b7bca24455cd5f58390cf28a4f`.
-Source-native Full Campaign Debug is next. The successful pre-freeze PC compile
-remains a source sanity check and is not promoted into Gate 1. Release remains
-`NO-GO`.
+Source-native Full Campaign Debug then rejected the checkpoint after 1,085
+seconds. Two earlier convoy assertions reported a missing seated living driver
+and missing runtime waypoints. The later
+`render_bubble.mission_target.force_physical` pre-admission audit proved zero
+selected runtime handles and exact-empty selected-town composition, but rejected
+the global core runtime registry because a runtime group row had an orphan,
+duplicate, or dead pointer. Fatal containment deferred complete artifact
+publication. Source, resource database, settings, and executable identities
+remained stable; no owned or unclaimed engine process remained and cleanup
+errors were zero. The portable failed summary SHA-256 is
+`84cbc45a4637f056717b4b048421941945868ea05460dbc2771af8aa5a75f41c`.
+Gate 1 is failed for this checkpoint; correct the runtime/convoy lifecycle and
+begin a new complete source chain. The successful pre-freeze PC compile remains
+a source sanity check and is not promoted into Gate 1. Release remains `NO-GO`.
 
 The immediately prior rejected checkpoint is
 `b0b8a6b677092b45f1c7392edcc2d82246d27bbc`, with 436 publish-input rows
