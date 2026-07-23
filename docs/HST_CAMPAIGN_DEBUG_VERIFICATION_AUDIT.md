@@ -22,7 +22,11 @@ and digest `cb6957bb0fa6bc06fce7b41ffd28bee3879222fd2bbfbb5ebe6a28c208895ee2`.
 It defers exact-convoy seating and route assignment until atomic outbound
 publication has closed, performs simulated-support runtime cleanup before
 durable-row removal, and reports exact core-registry rejection predicates.
-Every Gate 1 evidence slot is pending; earlier results do not transfer.
+Foundation passes at 985 references with exact source/worktree identity and
+tracked summary SHA-256
+`bda41f587fa91b5210eef203758f7d5f9b34ee6e2990ef8d0e5662c1c9da4604`.
+Workbench and the three later runtime rungs remain pending; earlier results do
+not transfer.
 
 Immediately prior frozen source checkpoint
 `1e18f8c189a66dc92c11a8a81bc3b58725e0fff5` has 436 publish-input rows

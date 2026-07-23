@@ -33,8 +33,12 @@
   `cb6957bb0fa6bc06fce7b41ffd28bee3879222fd2bbfbb5ebe6a28c208895ee2`.
   It defers exact-convoy seating and route assignment until atomic outbound
   publication has closed, retires simulated-support runtime ownership before
-  durable state, and reports exact core-registry rejection predicates. All five
-  Gate 1 evidence slots are pending; no earlier result transfers.
+  durable state, and reports exact core-registry rejection predicates.
+  Foundation passes at 985 references with exact source/worktree identity and
+  tracked summary SHA-256
+  `bda41f587fa91b5210eef203758f7d5f9b34ee6e2990ef8d0e5662c1c9da4604`.
+  Workbench and the three later runtime rungs remain pending; no earlier result
+  transfers.
 - Immediately prior frozen source checkpoint
   `1e18f8c189a66dc92c11a8a81bc3b58725e0fff5` has 436 publish-input rows
   and digest

@@ -27,8 +27,11 @@ Current execution is frozen at source checkpoint
 and digest `cb6957bb0fa6bc06fce7b41ffd28bee3879222fd2bbfbb5ebe6a28c208895ee2`.
 It defers exact-convoy seating and route assignment until after atomic outbound
 publication, cleans simulated-support runtime ownership before durable state,
-and reports exact core-registry rejection predicates. All five Gate 1 evidence
-slots are pending in order and no prior result transfers.
+and reports exact core-registry rejection predicates. Foundation passes at 985
+references with exact source/worktree identity and tracked summary SHA-256
+`bda41f587fa91b5210eef203758f7d5f9b34ee6e2990ef8d0e5662c1c9da4604`.
+Workbench and the three later runtime rungs remain pending in order; no prior
+result transfers.
 
 Immediately prior execution was frozen at source checkpoint
 `1e18f8c189a66dc92c11a8a81bc3b58725e0fff5`, with 436 publish-input rows

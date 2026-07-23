@@ -28,8 +28,11 @@ and digest `cb6957bb0fa6bc06fce7b41ffd28bee3879222fd2bbfbb5ebe6a28c208895ee2`.
 It defers exact-convoy seating and route assignment until atomic outbound
 publication has closed, retires simulated-support runtime ownership before its
 durable row, and reports exact core-registry rejection predicates. Foundation,
-all-target Workbench, the five focused suites, force-authority canary, and Full
-Campaign Debug are pending in that order. No prior evidence transfers and
+now passes at 985 references with exact source/worktree identity and tracked
+summary SHA-256
+`bda41f587fa91b5210eef203758f7d5f9b34ee6e2990ef8d0e5662c1c9da4604`.
+All-target Workbench, the five focused suites, force-authority canary, and Full
+Campaign Debug remain pending in that order. No prior evidence transfers and
 release remains `NO-GO`.
 
 The immediately prior rejected source checkpoint is

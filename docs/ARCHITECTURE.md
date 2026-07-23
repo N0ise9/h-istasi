@@ -34,8 +34,11 @@ digest `cb6957bb0fa6bc06fce7b41ffd28bee3879222fd2bbfbb5ebe6a28c208895ee2`.
 It defers exact-convoy seating and route assignment until after atomic outbound
 publication, cleans the simulated-support runtime owner before its durable row,
 and reports exact core-registry rejection predicates. All five Gate 1 evidence
-slots are pending for this checkpoint; no earlier result transfers and release
-remains `NO-GO`.
+slots began pending for this checkpoint. Foundation now passes at 985
+references with exact source/worktree identity and tracked summary SHA-256
+`bda41f587fa91b5210eef203758f7d5f9b34ee6e2990ef8d0e5662c1c9da4604`.
+Workbench and the three later runtime rungs remain pending; no earlier result
+transfers and release remains `NO-GO`.
 
 Immediately prior frozen source checkpoint
 `1e18f8c189a66dc92c11a8a81bc3b58725e0fff5` has 436 publish-input rows and
@@ -90,7 +93,7 @@ predicates. The Foundation structural body and a pre-freeze PC Workbench source
 compile sanity check pass at 5,849 files, 12,022 classes, CRC `439eb620`, zero
 hard errors, and exact cleanup. Those checks were pre-freeze sanity only. The
 correction is now frozen at `27df761542309616a1d156b2a329007b0cb34d9b` and
-still requires the complete five-rung chain.
+still requires every remaining rung in order.
 
 The following opening checkpoint records the then-active local-QA candidate; it
 is historical evidence, not current publication authority. Its sealed
